@@ -18,12 +18,16 @@
 #include <stdio.h>
 #include <hdf5.h>		// default HDF5 library
 #include <stdlib.h>
+#include <string.h>
 
 
 #define RADIANCE "HDFEOS/SWATHS/MOP01/Data Fields/MOPITTRadiances"
 #define LATITUDE "HDFEOS/SWATHS/MOP01/Geolocation Fields/Latitude"
 #define LONGITUDE "HDFEOS/SWATHS/MOP01/Geolocation Fields/Longitude"
 #define TIME "HDFEOS/SWATHS/MOP01/Geolocation Fields/Time"
+#define RADIANCE_UNIT "Watts meter-2 Sr-1"
+#define LAT_LON_UNIT "degree"
+#define TIME_UNIT "seconds since 12 AM 1-1-13 UTC"
 
 /*
 	NOTE: argv[1] = INPUT_FILE
@@ -36,13 +40,14 @@
  
 float getElement5D( float *array, hsize_t dimSize[5], int *position );	// note, this function is used for testing. It's temporary
 
-herr_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
-							char * inDatasetPath, char* outDatasetPath);
+hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
+							char * inDatasetPath, char* outDatasetPath, int returnDatasetID);
 herr_t openFile(hid_t *file, char* inputFileName, unsigned flags );
 herr_t createOutputFile( hid_t *outputFile, char* outputFileName);
 herr_t MOPITTrootGroup( hid_t const *outputFile, hid_t *MOPITTroot);
 herr_t MOPITTradianceGroup( hid_t const *MOPITTroot, hid_t *radianceGroup );
 herr_t MOPITTgeolocationGroup ( hid_t const *MOPITTroot, hid_t *geolocationGroup );
+hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID );
 
 
 /* TODO:		
@@ -68,6 +73,18 @@ int main( int argc, char* argv[] )
 	hid_t MOPITTroot;
 	hid_t radianceGroup;
 	hid_t geolocationGroup;
+	hid_t radianceDataset;
+	hid_t latitudeDataset;
+	hid_t longitudeDataset;
+	hid_t timeDataset;
+	hid_t attrID;		// attribute ID
+	hid_t stringType;
+	
+	herr_t status;
+	
+	int tempInt;
+	float tempFloat;
+	
 	
 	/* remove output file if it already exists. Note that no conditional statements are used. If file does not exist,
 	 * this function will throw an error but we do not care.
@@ -91,26 +108,162 @@ int main( int argc, char* argv[] )
 	if ( MOPITTgeolocationGroup ( &MOPITTroot, &geolocationGroup ) ) return EXIT_FAILURE;
 	
 	// insert the radiance dataset
-	if ( MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "Radiance" ) ) return EXIT_FAILURE;
+	radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "Radiance", 1 );
+	if ( radianceDataset == EXIT_FAILURE ) return EXIT_FAILURE;
 	
 	// insert the longitude dataset
-	if ( MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude"  ) ) return EXIT_FAILURE;
+	longitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude", 1 );
+	if ( longitudeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
 	
 	// insert the latitude dataset
-	if ( MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude" ) ) return EXIT_FAILURE;
+	latitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude", 1 );
+	if ( latitudeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
 	
 	// insert the time dataset
-	if ( MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time"  ) ) return EXIT_FAILURE;
+	timeDataset = MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time", 1);
+	if ( timeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
+	
+	/***************************************************************
+	 * Add the appropriate attributes to the groups we just created*
+	 ***************************************************************/
+	 
+						/* !!! FOR RADIANCE FIELD !!! */
+	
+	/* TrackCount.  */
+	
+	attrID = attributeCreate( radianceGroup, "TrackCount", H5T_NATIVE_UINT );
+	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
+	
+	tempInt = 6350;
+	status = H5Awrite( attrID, H5T_NATIVE_UINT, &tempInt );
+	
+	status = H5Aclose( attrID );
+	if ( status < 0 ) 
+	{
+		fprintf( stderr, "[%s]: H5Aclose -- Unable to close TrackCount attribute. Exiting program.\n", __func__);
+		return EXIT_FAILURE;
+	}
+	
+	/* missing_invalid */
+	attrID = attributeCreate( radianceGroup, "missing_invalid", H5T_NATIVE_FLOAT );
+	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
+	
+	tempFloat = -8888.0;
+	status = H5Awrite( attrID, H5T_NATIVE_UINT, &tempFloat );
+	
+	status = H5Aclose( attrID );
+	if ( status < 0 ) 
+	{
+		fprintf( stderr, "[%s]: H5Aclose -- Unable to close missing_invalid attribute. Exiting program.\n", __func__);
+		return EXIT_FAILURE;
+	}
+	
+	/* missing_nodata */
+	attrID = attributeCreate( radianceGroup, "missing_nodata", H5T_NATIVE_FLOAT );
+	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
+	
+	tempFloat = -9999.0;
+	status = H5Awrite( attrID, H5T_NATIVE_UINT, &tempFloat );
+	
+	status = H5Aclose( attrID );
+	if ( status < 0 ) 
+	{
+		fprintf( stderr, "[%s]: H5Aclose -- Unable to close missing_nodata attribute. Exiting program.\n", __func__);
+		return EXIT_FAILURE;
+	}
+	
+	/* radiance_unit */
+	// to store a string in HDF5, we need to create our own special datatype from a character type.
+	// Our "base type" is H5T_C_S1, a single byte null terminated string
+	stringType = H5Tcopy(H5T_C_S1);
+	H5Tset_size( stringType, strlen(RADIANCE_UNIT));
+	
+	
+	attrID = attributeCreate( radianceGroup, "radiance_unit", stringType );
+	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
+	
+	status = H5Awrite( attrID, stringType, RADIANCE_UNIT );
+	
+	status = H5Aclose( attrID );
+	if ( status < 0 ) 
+	{
+		fprintf( stderr, "[%s]: H5Aclose -- Unable to close radiance_unit attribute. Exiting program.\n", __func__);
+		return EXIT_FAILURE;
+	}
+	H5Tclose(stringType);
+	
+								/* ### END OF RADIANCE FIELD ATTRIBUTE CREATION ### */
+								
+								/* !!! FOR GEOLOCATION FIELD !!! */
+	/* Latitude_unit */
+	// to store a string in HDF5, we need to create our own special datatype from a character type.
+	// Our "base type" is H5T_C_S1, a single byte null terminated string
+	stringType = H5Tcopy(H5T_C_S1);
+	H5Tset_size( stringType, strlen(LAT_LON_UNIT) );
+	
+	
+	attrID = attributeCreate( geolocationGroup, "Latitude_unit", stringType );
+	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
+	
+	status = H5Awrite( attrID, stringType, LAT_LON_UNIT );
+	
+	status = H5Aclose( attrID );
+	if ( status < 0 ) 
+	{
+		fprintf( stderr, "[%s]: H5Aclose -- Unable to close Latitude_unit attribute. Exiting program.\n", __func__);
+		return EXIT_FAILURE;
+	}
+	
+	/* Longitude_unit */
+	
+	attrID = attributeCreate( geolocationGroup, "Longitude_unit", stringType );
+	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
+	
+	status = H5Awrite( attrID, stringType, LAT_LON_UNIT );
+	
+	status = H5Aclose( attrID );
+	if ( status < 0 ) 
+	{
+		fprintf( stderr, "[%s]: H5Aclose -- Unable to close Longitude_unit attribute. Exiting program.\n", __func__);
+		return EXIT_FAILURE;
+	}
+	
+	H5Tclose(stringType);
+	
+	/* Time_unit */
+	stringType = H5Tcopy(H5T_C_S1);
+	H5Tset_size( stringType, strlen(TIME_UNIT) );
+	
+	
+	attrID = attributeCreate( geolocationGroup, "Time_unit", stringType );
+	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
+	
+	status = H5Awrite( attrID, stringType, TIME_UNIT );
+	
+	status = H5Aclose( attrID );
+	if ( status < 0 ) 
+	{
+		fprintf( stderr, "[%s]: H5Aclose -- Unable to close Time_unit attribute. Exiting program.\n", __func__);
+		return EXIT_FAILURE;
+	}
+	
+					/* ### END OF GEOLOCATION FIELD ATTRIBUTE CREATION ### */
 	
 	/*
 	 * Free all associated memory
 	 */
 	 
+	H5Dclose(radianceDataset);
+	H5Dclose(latitudeDataset);
+	H5Dclose(longitudeDataset);
+	H5Dclose(timeDataset);
 	H5Fclose(file);
 	H5Fclose(outputFile);
 	H5Gclose(MOPITTroot);
 	H5Gclose(radianceGroup);
 	H5Gclose(geolocationGroup);
+	H5Tclose(stringType);
+	
 	
 	
 	
@@ -168,21 +321,40 @@ float getElement5D( float *array, hsize_t dimSize[5], int position[5] )
 		
 		NOTE that if you are using a group ID for anything, the dataset paths must refer to a path that EXISTS
 		
+		The caller MUST be sure to free the dataset identifier using H5Dclose() if returnDatasetID is set to non-zero (aka true)
+		or else a memory leak will occur.
+		
+		*********************************************	
+		*Motivation for the returnDatasetID argument*
+		*********************************************
+		If the caller will not perform any operations on the dataset, they do not have to worry about freeing the memory
+		associated with the identifier. The function will handle that. If the caller does want to operate on the dataset,
+		the program will not free the ID but rather return it to the caller.
+		
 	ARGUMENTS:
 		1. input file ID pointer. Identifier already exists.
 		2. output file ID pointer. Identifier already exists.
 		3. input dataset absolute path string
 		4. Output dataset name
 		5. dataset group ID. Group identifier already exists. This is the group that the data will be read into
+		6. returnDatasetID: Set to 0 if caller does not want to return the dataset identifier.
+							Set to non-zero if the caller DOES want the dataset identifier. If set to non-zero,
+							caller must be sure to free the identifier using H5Dclose() when finished.
 	EFFECTS:
 		Creates a new HDF5 file and writes the radiance dataset into it.
 		Opens an HDF file pointer but does not close it.
 	RETURN:
-		void
+		
+		!TWO CASES!
+		
+		Case returnDatasetID == 0:
+			Returns EXIT_FAILURE if error occurs anywhere. Else, returns EXIT_SUCCESS
+		Case returnDatasetID != 0:
+			Returns EXIT_FAILURE if error occurs anywhere. Else, returns the dataset identifier
 */	
 
-herr_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
-							char * inDatasetPath, char* outDatasetPath)
+hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
+						   char * inDatasetPath, char* outDatasetPath, int returnDatasetID )
 {
 	
 	hid_t dataset;								// dataset ID
@@ -306,14 +478,24 @@ herr_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 	
 	
 	/* Free all remaining memory */
-	H5Dclose(dataset);
+	
 	H5Sclose(memspace);
 	free(data_out);
 	free(datasetDims);
 	free(datasetMaxSize);
 	free(datasetChunkSize);
 	
-	return EXIT_SUCCESS;
+	/*
+	 * Check to see if caller wants the dataset ID returned. If not, go ahead and close the ID.
+	 */
+	 
+	if ( returnDatasetID == 0 )
+	{	
+		H5Dclose(dataset);
+		return EXIT_SUCCESS;
+	}
+	
+	return dataset;
 
 }
 
@@ -387,6 +569,7 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
 	I want to eventually take the following group creation functions and combine them into one.
 	It's unnecessary to have three separate functions. All that is needed in addition to what
 	is written is that the function accept a dataset name string as an argument.
+*/
 
 /*
 	DESCRIPTION:
@@ -407,7 +590,7 @@ herr_t MOPITTrootGroup( hid_t const *outputFile, hid_t *MOPITTroot)
 	*MOPITTroot = H5Gcreate( *outputFile, "MOPITT", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
 	if ( *MOPITTrootGroup < 0 )
 	{
-		fprintf( stderr, "\n%s: H5Gcreate -- Could not create MOPITT root group. Exiting program.\n\n", __func__ );
+		fprintf( stderr, "\n[%s]: H5Gcreate -- Could not create MOPITT root group. Exiting program.\n\n", __func__ );
 		return EXIT_FAILURE;
 	}
 	
@@ -424,7 +607,7 @@ herr_t MOPITTradianceGroup( hid_t const *MOPITTroot, hid_t *radianceGroup )
 	
 	if ( *radianceGroup < 0 )
 	{
-		fprintf( stderr, "\n%s: H5Gcreate -- Could not create MOPITT radiance group. Exiting program.\n\n", __func__ );
+		fprintf( stderr, "\n[%s]: H5Gcreate -- Could not create MOPITT radiance group. Exiting program.\n\n", __func__ );
 		return EXIT_FAILURE;
 	}
 	
@@ -437,9 +620,50 @@ herr_t MOPITTgeolocationGroup ( hid_t const *MOPITTroot, hid_t *geolocationGroup
 	
 	if ( *geolocationGroup < 0 )
 	{
-		fprintf( stderr, "\n%s: H5Gcreate -- Could not create MOPITT geolocation group. Exiting program.\n\n", __func__ );
+		fprintf( stderr, "\n[%s]: H5Gcreate -- Could not create MOPITT geolocation group. Exiting program.\n\n", __func__ );
 		return EXIT_FAILURE;
 	}
 	
 	return EXIT_SUCCESS;
+}
+
+/*
+	DESCRIPTION:
+		This function creates one single attribute for the object specified by objectID.
+		It is the duty of the caller to free the attribute identifier using H5Aclose().
+	ARGUMENTS:
+		1. ObjectID: identifier for object to create attribute for
+		2. attrName: string for the attribute
+		3. datatypeID: datatype identifier. Google: "HDF5 Predefined Datatypes"
+	EFFECTS:
+		Creates uninitialized attribute at object specified by objectID
+	RETURN:
+		Returns the attribute identifier upon success.
+		Returns EXIT_FAILURE upon failure.
+*/
+
+hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID )
+{
+	hid_t attrID;
+	hid_t attrDataspace;
+	
+	hsize_t dims;
+	
+	// create dataspace for the attribute
+	dims = 1;
+	attrDataspace = H5Screate_simple( 1, &dims, NULL );
+	
+	// create attribute
+	attrID = H5Acreate( objectID, attrName, datatypeID, attrDataspace, H5P_DEFAULT, H5P_DEFAULT );
+	if ( attrID < 0 )
+	{
+		fprintf( stderr, "\n[%s]: H5Acreate -- Could not create attribute \"%s\". Exiting program.\n\n", __func__, attrName );
+		return EXIT_FAILURE;
+	}
+	
+	// close dataspace
+	if ( H5Sclose(attrDataspace) < 0 )
+		fprintf( stderr, "\n[%s]: H5Sclose -- Noncritical error. Could not close attribute dataset for \"%s\". Memory leak possible.\n\n", __func__, attrName );
+	
+	return attrID;
 }

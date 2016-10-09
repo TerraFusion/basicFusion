@@ -2,7 +2,7 @@ CC = h5cc
 CFLAGS = -g -Wall
 INCLUDE = /usr/local/hdf5/include/
 
-TARGET = MOPITT_HDF
+TARGET = TERRA_repackage
 
 all: $(TARGET)
 
