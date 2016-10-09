@@ -54,6 +54,9 @@ hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID );
 		I'm considering combining the three group functions into one becaue they are all so similar. 
 		It will only take a bit of tinkering to get it to work. The way I have it now is bloated and
 		unneccessary. 
+		
+		Create an attributeWrite function. Currently, main is taking care of all the writing but we can
+		make a function to make the code less cluttered.
 	
 */
 
