@@ -17,12 +17,7 @@
 
 
 /* TODO:		
-		I'm considering combining the three group functions into one becaue they are all so similar. 
-		It will only take a bit of tinkering to get it to work. The way I have it now is bloated and
-		unneccessary. 
 		
-		Create an attributeWrite function. Currently, main is taking care of all the writing but we can
-		make a function to make the code less cluttered.
 	
 */
 
@@ -48,25 +43,49 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-		
-float getElement5D( float *array, hsize_t dimSize[5], int position[5] )
+#include <hdf5.h>
+#include <hdf.h>
+#include <mfhdf.h>
+#define DIM_MAX 2
+
+hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID, 
+					 int rank, hsize_t* datasetDims, char* datasetName, void* data_out) 
 {
-	if ( position[0] < 0 || position[0] >= dimSize[0] ||
-		 position[1] < 0 || position[1] >= dimSize[1] ||
-		 position[2] < 0 || position[2] >= dimSize[2] ||
-		 position[3] < 0 || position[3] >= dimSize[3] ||
-		 position[4] < 0 || position[4] >= dimSize[3] )
+	hid_t memspace;
+	hid_t dataset;
+	herr_t status;
+	
+	memspace = H5Screate_simple( rank, datasetDims, NULL );
+	dataset = H5Dcreate( *datasetGroup_ID, datasetName, H5T_NATIVE_FLOAT, memspace, 
+						 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+						 
+	status = H5Dwrite( dataset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5S_ALL, data_out );
+	if ( status < 0 )
 	{
-		fprintf( stderr, "\ngetElement5D: Error! Invalid position. Check that dimSize and position arguments are correct.\n");
-		exit (-1);
+		fprintf( stderr, "\n[%s]: H5DWrite: Unable to write to dataset \"%s\". Exiting program.\n\n", __func__, datasetName );
+		H5Dclose(dataset);
+		H5Sclose(memspace);
+		free(data_out);
+		exit (EXIT_FAILURE);
 	}
 	
-	return array[ (position[0] * dimSize[1] * dimSize[2] * dimSize[3] * dimSize[4]) + 
-				  (position[1] * dimSize[2] * dimSize[3] * dimSize[4]) +
-				  (position[2] * dimSize[3] * dimSize[4]) +
-				  (position[3] * dimSize[4]) +
-				   position[4] ];
-
+	/* Free all remaining memory */
+	
+	H5Sclose(memspace);
+	
+	/*
+	 * Check to see if caller wants the dataset ID returned. If not, go ahead and close the ID.
+	 */
+	 
+	if ( returnDatasetID == 0 )
+	{	
+		H5Dclose(dataset);
+		return EXIT_SUCCESS;
+	}
+	
+	return dataset;
+	
+	
 }
 
 /*
@@ -348,18 +367,17 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
 		EXIT_SUCCESS on success (equivalent to 0 in most systems)
 */
 
-herr_t createGroup( hid_t const *outputFile, hid_t *newGroup, char* newGroupName)
+herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroupName)
 {
-	*newGroup = H5Gcreate( *outputFile, newGroupName, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+	*newGroup = H5Gcreate( *referenceGroup, newGroupName, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
 	if ( *newGroup < 0 )
 	{
-		fprintf( stderr, "\n[%s]: H5Gcreate -- Could not create '%s' group. Exiting program.\n\n", __func__ , newGroupName);
+		fprintf( stderr, "\n[%s]: H5Gcreate -- Could not create '%s' root group. Exiting program.\n\n", __func__ , newGroupName);
 		return EXIT_FAILURE;
 	}
 	
 	return EXIT_SUCCESS;
 }
-
 
 /*
 	DESCRIPTION:
@@ -401,3 +419,54 @@ hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID )
 	
 	return attrID;
 }
+
+int32 CERESreadData( int32 fileID, char* fileName, char* datasetName, void* data )
+{
+	int32 sds_id, sds_index;
+	int32 rank;
+	int32 ntype;					// number type for the data stored in the data set
+	int32 num_attrs;				// number of attributes
+	int32 dimsizes[DIM_MAX];
+	intn status;
+	int32 start[DIM_MAX] = {0};
+	int32 stride[DIM_MAX] = {0};
+	
+	/* get the index of the dataset from the dataset's name */
+	sds_index = SDnametoindex( fileID, datasetName );
+	if( sds_index < 0 )
+	{
+		printf("SDnametoindex\n");
+	}
+	
+	sds_id = SDselect( fileID, sds_index );
+	if ( sds_id < 0 )
+	{
+		printf("SDselect\n");
+	}
+	
+	/* get info about dataset (rank, dim size, number type, num attributes ) */
+	status = SDgetinfo( sds_id, NULL, &rank, dimsizes, &ntype, &num_attrs);
+	if ( status < 0 )
+	{
+		printf("SDgetinfo\n");
+		return -1;
+	}
+	
+	start[0] = 0;
+	start[1] = 0;
+	
+	for ( int i = 0; i < rank; i++ )
+		stride[i] = 1;
+	
+	status = SDreaddata( sds_id, start, stride, dimsizes, data );
+	if ( status < 0 )
+	{
+		printf("SDreaddata\n");
+		return -1;
+	}
+	
+	SDendaccess(sds_id);
+	
+	return 0;
+}
+
