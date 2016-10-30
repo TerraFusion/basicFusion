@@ -27,7 +27,7 @@ float getElement5D( float *array, hsize_t dimSize[5], int *position );	// note, 
 
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, 
 					 int returnDatasetID, int rank, hsize_t* datasetDims, 
-					 char* datasetName, void* data_out);
+					 hid_t dataType, char* datasetName, void* data_out);
 					 
 hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
 							char * inDatasetPath, char* outDatasetPath, int returnDatasetID);

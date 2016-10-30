@@ -49,17 +49,17 @@
 #define DIM_MAX 2
 
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID, 
-					 int rank, hsize_t* datasetDims, char* datasetName, void* data_out) 
+					 int rank, hsize_t* datasetDims, hid_t dataType, char* datasetName, void* data_out) 
 {
 	hid_t memspace;
 	hid_t dataset;
 	herr_t status;
 	
 	memspace = H5Screate_simple( rank, datasetDims, NULL );
-	dataset = H5Dcreate( *datasetGroup_ID, datasetName, H5T_NATIVE_FLOAT, memspace, 
+	dataset = H5Dcreate( *datasetGroup_ID, datasetName, dataType, memspace, 
 						 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
 						 
-	status = H5Dwrite( dataset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5S_ALL, data_out );
+	status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, data_out );
 	if ( status < 0 )
 	{
 		fprintf( stderr, "\n[%s]: H5DWrite: Unable to write to dataset \"%s\". Exiting program.\n\n", __func__, datasetName );
@@ -154,7 +154,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 	int rank;
 	
 	/*
-	 * open radiance dataset and do error checking
+	 * open dataset and do error checking
 	 */
 	 
 	dataset = H5Dopen( *inputFileID, inDatasetPath, H5F_ACC_RDONLY );

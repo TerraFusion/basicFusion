@@ -6,13 +6,21 @@
 		1: [MOPITT input HDF file]
 		2: [CERES input HDF file]
 		3: [output HDF file]
+		4: [time start]
+		5: [time end]
 */
 
 int main( int argc, char* argv[] )
 {
-	if ( argc != 4 )
+	if ( argc != 6 )
 	{
-		fprintf( stderr, "Usage: %s [MOPITT input HDF file] [CERES input HDF file] [output HDF file]\n", argv[0] );
+		fprintf( stderr, "Usage: %s [MOPITT input HDF file] [CERES input HDF file] [output HDF file] [time start] [time end]\nTime arguments are given in minutes where 0 is the beginning of the record.\nIf entire granule is desired, give \"0 0\" for the two time arguments.\n", argv[0] );
+		return EXIT_FAILURE;
+	}
+	
+	if ( argv[4] < 0 || argv[5] < 0 || argv[4] > argv[5] )
+	{
+		fprintf( stderr, "Error! Invalid time interval. Exiting program.\n" );
 		return EXIT_FAILURE;
 	}
 	

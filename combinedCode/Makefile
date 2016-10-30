@@ -28,3 +28,6 @@ CERESmain.o: CERESmain.c
 
 clean:
 	rm $(TARGET) *.o
+	
+run:
+	./$(TARGET) MOP01-20160217-L1V3.50.0.he5 CER_BDS_Terra-FM1_Edition3_300307.20160531 out2.h5 0 0
