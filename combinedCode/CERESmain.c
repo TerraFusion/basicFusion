@@ -152,7 +152,7 @@ int CERESmain( int argc, char* argv[] )
 	//insert time dataset
 	datasetDims[0] = 13091;
 	datasetDims[1] = 2;
-	printf("%lf\n", timeDatasetBuffer[0] );
+	
 	timeDatasetID = insertDataset( &outputFile, &CERESgeolocationID, 1, 2, datasetDims,
 		H5T_NATIVE_DOUBLE, "Julian Date and Time", timeDatasetBuffer );
 	if (  timeDatasetID < 0 )

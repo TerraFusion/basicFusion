@@ -30,7 +30,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID,
 					 hid_t dataType, char* datasetName, void* data_out);
 					 
 hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
-							char * inDatasetPath, char* outDatasetPath, int returnDatasetID);
+							char * inDatasetPath, char* outDatasetPath, hid_t dataType, int returnDatasetID);
 herr_t openFile(hid_t *file, char* inputFileName, unsigned flags );
 herr_t createOutputFile( hid_t *outputFile, char* outputFileName);
 herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroupName);

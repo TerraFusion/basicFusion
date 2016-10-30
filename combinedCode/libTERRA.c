@@ -136,7 +136,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
 */	
 
 hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
-						   char * inDatasetPath, char* outDatasetPath, int returnDatasetID )
+						   char * inDatasetPath, char* outDatasetPath, hid_t dataType, int returnDatasetID )
 {
 	
 	hid_t dataset;								// dataset ID
@@ -149,7 +149,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 	
 	herr_t status_n, status;
 	
-	float * data_out;
+	double * data_out;
 	
 	int rank;
 	
@@ -211,7 +211,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 	 * Create a data_out buffer using the dimensions of the dataset specified by MOPITTdims
 	 */
 	
-	data_out = malloc( sizeof(float ) * datasetDims[0] * datasetDims[1] * datasetDims[2] *  datasetDims[3] * datasetDims[4]);
+	data_out = malloc( sizeof(double ) * datasetDims[0] * datasetDims[1] * datasetDims[2] *  datasetDims[3] * datasetDims[4]);
 	
 	/*
 	 * Now read dataset into data_out buffer
@@ -219,7 +219,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 	 * H5S_ALL specifies that we are reading the entire dataset instead of just a portion
 	 */
 
-	status = H5Dread( dataset, H5T_NATIVE_FLOAT, dataspace, H5S_ALL, H5P_DEFAULT, data_out );
+	status = H5Dread( dataset, dataType, dataspace, H5S_ALL, H5P_DEFAULT, data_out );
 	if ( status < 0 )
 	{
 		fprintf( stderr, "\n[%s]: H5Dread: Unable to read from dataset \"%s\". Exiting program.\n\n", __func__, inDatasetPath );
@@ -242,12 +242,12 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 	
 	memspace = H5Screate_simple( rank, datasetDims, NULL );
 	
-	dataset = H5Dcreate( *datasetGroup_ID, outDatasetPath, H5T_NATIVE_FLOAT, memspace, 
+	dataset = H5Dcreate( *datasetGroup_ID, outDatasetPath, dataType, memspace, 
 						 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
 						 
 	/* Now that dataset has been created, read into this data set our data_out array */
 	
-	status = H5Dwrite( dataset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5S_ALL, data_out );
+	status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, data_out );
 	if ( status < 0 )
 	{
 		fprintf( stderr, "\n[%s]: H5DWrite: Unable to write to dataset \"%s\". Exiting program.\n\n", __func__, outDatasetPath );

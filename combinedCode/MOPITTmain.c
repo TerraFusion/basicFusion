@@ -59,19 +59,19 @@ int MOPITTmain( int argc, char* argv[] )
 	if ( createGroup ( &MOPITTroot, &geolocationGroup, "Geolocation" ) ) return EXIT_FAILURE;
 	
 	// insert the radiance dataset
-	radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "Radiance", 1 );
+	radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "Radiance", H5T_NATIVE_FLOAT, 1 );
 	if ( radianceDataset == EXIT_FAILURE ) return EXIT_FAILURE;
 	
 	// insert the longitude dataset
-	longitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude", 1 );
+	longitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude", H5T_NATIVE_FLOAT, 1 );
 	if ( longitudeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
 	
 	// insert the latitude dataset
-	latitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude", 1 );
+	latitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude", H5T_NATIVE_FLOAT, 1 );
 	if ( latitudeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
 	
 	// insert the time dataset
-	timeDataset = MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time", 1);
+	timeDataset = MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time", H5T_NATIVE_DOUBLE, 1);
 	if ( timeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
 	
 	/***************************************************************
