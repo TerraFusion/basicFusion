@@ -1,7 +1,7 @@
 # basicFusion
-# Terra Data Fusion Project - University of Illinois
-# Author: Landon Clipp
-# Email: clipp2@illinois.edu
+ Terra Data Fusion Project - University of Illinois
+Author: Landon Clipp
+Email: clipp2@illinois.edu
 
 This file outlines the structure of the combined TERRA Fusion code, how to compile it on a local machine, and how to add
 additional code to the program. This file may not be up to date during development.
@@ -18,6 +18,7 @@ The code is written in C using the following HDF libraries:
 ***********************
 ***PROGRAM STRUCTURE***
 ***********************
+
 This program will contain 5 basic segments. Each segment will handle reading the datasets from one single instrument and
 writing the data into the output HDF5 file. Currently, the MOPITT portion of the code handles creating the new HDF5 output
 file and a program-wide global variable has been declared "hid_t outputFile" that contains the file identifier required by
@@ -43,6 +44,7 @@ A sample Makefile has been provided. Do NOT edit this Makefile on the Github rep
 and edit it for your own machine, but do not reupload the edited version.
 
 ---LOCAL MACHINE---
+
 In order to compile this program, there are either one of two ways you can do so. First, you can either compile it using
 the native gcc compiler using the appropriate include paths for your HDF libraries, or you can install the gcc wrappers
 for HDF called h4cc (for HDF4) and h5cc (for HDF5). The latter is recommended because the Makefile assumes you've done 
@@ -56,6 +58,7 @@ libraries respectively. For some reason, the HDF5 (or HDF4) libraries might want
 errors about JPEG libraries, try updating or installing those.
 
 ---BLUE WATERS---
+
 Available soon
 
 *****************
