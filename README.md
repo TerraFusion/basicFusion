@@ -7,11 +7,11 @@ This file outlines the structure of the combined TERRA Fusion code, how to compi
 additional code to the program. This file may not be up to date during development.
 
 The code is written in C using the following HDF libraries:
-1. hdf.h -- For the HDF4 functions
-2. hdf5.h -- For the HDF5 functions
+1. hdf.h -- For the HDF4 functions  
+2. hdf5.h -- For the HDF5 functions  
 3. mfhdf.h -- For the HDF4 scientific dataset (SD) interface. Also acts as a wrapper for the hdf.h library (includes hdf by
-  default).
-4. h4toh5.h -- Provides functionality for converting HDF4 objects to HDF5
+  default).  
+4. h4toh5.h -- Provides functionality for converting HDF4 objects to HDF5  
 5? hdfeos.h -- for the HDF EOS interface. As of now, this is not used, but will be in the future. HDFEOS can only be used on 
   certain instruments. Will not work for all instruments.
 
