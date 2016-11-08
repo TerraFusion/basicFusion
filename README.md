@@ -1,12 +1,12 @@
 # basicFusion
- Terra Data Fusion Project - University of Illinois
-Author: Landon Clipp
-Email: clipp2@illinois.edu
+Terra Data Fusion Project - University of Illinois  
+Author: Landon Clipp  
+Email: clipp2@illinois.edu  
 
 This file outlines the structure of the combined TERRA Fusion code, how to compile it on a local machine, and how to add
 additional code to the program. This file may not be up to date during development.
 
-The code is written in C using the following HDF libraries:
+The code is written in C using the following HDF libraries:  
 1. hdf.h -- For the HDF4 functions  
 2. hdf5.h -- For the HDF5 functions  
 3. mfhdf.h -- For the HDF4 scientific dataset (SD) interface. Also acts as a wrapper for the hdf.h library (includes hdf by
