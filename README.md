@@ -67,3 +67,22 @@ Available soon
 
 I have yet to decide how I want to handle multiple collaborators on this project. We will discuss this more in the technical
 meeting.
+
+*****************
+***FLOW CHARTS***
+*****************
+
+High level API flow chart
+
+MOPITT-----------------------------------------
+                                              |
+MISR-------------->-                          |
+                   |                          |
+MODIS-----------h4toh5.h-->hdf5 objects---->hdf5.h-----> output file
+                   ^
+CERES----------->---
+                   ^
+ASTER----------->---
+                                                   
+                                                  
+                                                  
