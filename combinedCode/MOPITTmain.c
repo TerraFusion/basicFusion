@@ -2,6 +2,14 @@
 #include <stdio.h>
 #include <hdf5.h>
 
+#define RADIANCE "HDFEOS/SWATHS/MOP01/Data Fields/MOPITTRadiances"
+#define LATITUDE "HDFEOS/SWATHS/MOP01/Geolocation Fields/Latitude"
+#define LONGITUDE "HDFEOS/SWATHS/MOP01/Geolocation Fields/Longitude"
+#define TIME "HDFEOS/SWATHS/MOP01/Geolocation Fields/Time"
+#define RADIANCE_UNIT "Watts meter-2 Sr-1"
+#define LAT_LON_UNIT "degree"
+#define TIME_UNIT "seconds since 12 AM 1-1-13 UTC"
+
 /*
 	NOTE: argv[1] = INPUT_FILE
 		  argv[2] = OUTPUT_FILE

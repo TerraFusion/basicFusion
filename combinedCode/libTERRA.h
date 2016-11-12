@@ -7,13 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define RADIANCE "HDFEOS/SWATHS/MOP01/Data Fields/MOPITTRadiances"
-#define LATITUDE "HDFEOS/SWATHS/MOP01/Geolocation Fields/Latitude"
-#define LONGITUDE "HDFEOS/SWATHS/MOP01/Geolocation Fields/Longitude"
-#define TIME "HDFEOS/SWATHS/MOP01/Geolocation Fields/Time"
-#define RADIANCE_UNIT "Watts meter-2 Sr-1"
-#define LAT_LON_UNIT "degree"
-#define TIME_UNIT "seconds since 12 AM 1-1-13 UTC"
+#define DIM_MAX 10
 
 /*********************
  *FUNCTION PROTOTYPES*
@@ -22,6 +16,7 @@ extern hid_t outputFile;
 
 int MOPITTmain( int argc, char* argv[] );
 int CERESmain( int argc, char* argv[] );
+int MODISmain( int argc, char* argv[] );
  
 float getElement5D( float *array, hsize_t dimSize[5], int *position );	// note, this function is used for testing. It's temporary
 
@@ -34,9 +29,12 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 herr_t openFile(hid_t *file, char* inputFileName, unsigned flags );
 herr_t createOutputFile( hid_t *outputFile, char* outputFileName);
 herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroupName);
-
+/* general type attribute creation */
 hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID );
+/* creates and writes a string attribute */
+hid_t attrCreateString( hid_t objectID, char* name, char* value );
 
-int32 CERESreadData( int32 fileID, char* fileName, char* datasetName, void* data );
+int32 H4readData( int32 fileID, char* fileName, char* datasetName, void** data,
+				  int32 *rank, int32* dimsizes, int32 dataType );
 
 #endif

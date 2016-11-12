@@ -46,7 +46,7 @@
 #include <hdf5.h>
 #include <hdf.h>
 #include <mfhdf.h>
-#define DIM_MAX 2
+#define DIM_MAX 10
 
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID, 
 					 int rank, hsize_t* datasetDims, hid_t dataType, char* datasetName, void* data_out) 
@@ -62,11 +62,11 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
 	status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, data_out );
 	if ( status < 0 )
 	{
-		fprintf( stderr, "\n[%s]: H5DWrite: Unable to write to dataset \"%s\". Exiting program.\n\n", __func__, datasetName );
+		fprintf( stderr, "\n[%s:%d]: H5DWrite: Unable to write to dataset \"%s\". Exiting program.\n", __FILE__, __LINE__ , datasetName );
 		H5Dclose(dataset);
 		H5Sclose(memspace);
 		free(data_out);
-		exit (EXIT_FAILURE);
+		return (-1);
 	}
 	
 	/* Free all remaining memory */
@@ -420,13 +420,11 @@ hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID )
 	return attrID;
 }
 
-int32 CERESreadData( int32 fileID, char* fileName, char* datasetName, void* data )
+int32 H4readData( int32 fileID, char* fileName, char* datasetName, void** data, int32 *rank, int32* dimsizes, int32 dataType )
 {
 	int32 sds_id, sds_index;
-	int32 rank;
 	int32 ntype;					// number type for the data stored in the data set
 	int32 num_attrs;				// number of attributes
-	int32 dimsizes[DIM_MAX];
 	intn status;
 	int32 start[DIM_MAX] = {0};
 	int32 stride[DIM_MAX] = {0};
@@ -444,29 +442,106 @@ int32 CERESreadData( int32 fileID, char* fileName, char* datasetName, void* data
 		printf("SDselect\n");
 	}
 	
+	/* Initialize dimsizes elements to 1 */
+	for ( int i = 0; i < DIM_MAX; i++ )
+	{
+		dimsizes[i] = 1;
+	}
+	
 	/* get info about dataset (rank, dim size, number type, num attributes ) */
-	status = SDgetinfo( sds_id, NULL, &rank, dimsizes, &ntype, &num_attrs);
+	status = SDgetinfo( sds_id, NULL, rank, dimsizes, &ntype, &num_attrs);
 	if ( status < 0 )
 	{
 		printf("SDgetinfo\n");
 		return -1;
 	}
 	
-	start[0] = 0;
-	start[1] = 0;
 	
-	for ( int i = 0; i < rank; i++ )
+	/* Allocate space for the data buffer.
+	 * I'm doing some pretty nasty pointer casting trickery here. First, I'm casting
+	 * the void** data to a double pointer of the appropriate data type, then I'm 
+	 * dereferencing that double pointer so that the pointer in the calling
+	 * function then contains the return value of malloc. Confused? So am I. It works.
+	 * It was either this or make a separate function for each individual data type. So,
+	 * having a void double pointer was the best choice.
+	 */
+	if ( dataType == DFNT_FLOAT32 )
+	{
+		*((float**)data) = calloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]*dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9], sizeof( float ) );
+	}
+	else if ( dataType == DFNT_FLOAT64 )
+	{
+		*((double**)data) = calloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
+				   *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
+				   , sizeof( double ) );
+	}
+	else if ( dataType == DFNT_UINT16 )
+	{
+		*((unsigned short int**)data) = calloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
+				   *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
+				   , sizeof( unsigned short int ) );
+	}
+	else
+	{
+		fprintf( stderr, "[%s]: Invalid data type.\n", __func__ );
+		SDendaccess(sds_id);
+		return EXIT_FAILURE;
+	}
+	
+	for ( int i = 0; i < *rank; i++ )
 		stride[i] = 1;
 	
-	status = SDreaddata( sds_id, start, stride, dimsizes, data );
+	status = SDreaddata( sds_id, start, stride, dimsizes, *data );		
+	
 	if ( status < 0 )
 	{
-		printf("SDreaddata\n");
+		fprintf( stderr, "[%s]: SDreaddata: Failed to read data.\n", __func__);
+		SDendaccess(sds_id);
 		return -1;
 	}
+	
 	
 	SDendaccess(sds_id);
 	
 	return 0;
 }
+
+hid_t attrCreateString( hid_t objectID, char* name, char* value )
+{
+	/* To store a string in HDF5, we need to create our own special datatype from a
+	 * character type. Our "base type" is H5T_C_S1, a single byte null terminated 
+	 * string.
+	 */
+	hid_t stringType;
+	hid_t attrID;
+	herr_t status;
+						
+	stringType = H5Tcopy(H5T_C_S1);
+	H5Tset_size( stringType, strlen(value));
+	
+	
+	attrID = attributeCreate( objectID, name, stringType );
+	if ( attrID == EXIT_FAILURE ) 
+	{
+		fprintf( stderr, "[%s]: H5Aclose -- Unable to create %s attribute. Exiting program.\n", __func__, name);
+		return EXIT_FAILURE;
+	}
+	
+	status = H5Awrite( attrID, stringType, value );
+	if ( status < 0 )
+	{
+		fprintf( stderr, "[%s]: H5Awrite -- Unable to write %s attribute. Exiting program.\n", __func__, name);
+		return EXIT_FAILURE;
+	}
+	status = H5Aclose( attrID );
+	if ( status < 0 ) 
+	{
+		fprintf( stderr, "[%s]: H5Aclose -- Unable to close %s attribute. Exiting program.\n", __func__, name);
+		return EXIT_FAILURE;
+	}
+	H5Tclose(stringType);
+	
+	return attrID;
+}
+
 

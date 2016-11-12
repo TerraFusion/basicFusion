@@ -20,26 +20,45 @@ int CERESmain( int argc, char* argv[] )
 	
 	intn status;
 	
-	double* timeDatasetBuffer = malloc( 2 * 13091 * sizeof(double));
-	float* SWFilteredBuffer = malloc( 660 * 13091 * sizeof(float) );
-	float* WNFilteredBuffer = malloc( 660 * 13091 * sizeof(float) );
-	float* TOTFilteredBuffer = malloc( 660 * 13091 * sizeof(float) );
-	float* ColatitudeBuffer = malloc( 660 * 13091 * sizeof(float) );
-	float* LongitudeBuffer = malloc( 660 * 13091 * sizeof(float) );
+	/* time data variables */
+	double* timeDatasetBuffer;
+	int32 timeDataRank;
+	int32 timeDataDimSizes[DIM_MAX];
+	hid_t timeDatasetID;
 	
+	/* SWFiltered data variables */
+	float* SWFilteredBuffer;
+	int32 SWFilteredDataRank;
+	int32 SWFilteredDataDimSizes[DIM_MAX];
+	hid_t SWFilteredDatasetID;
+	
+	/* WNFiltered data variables */
+	float* WNFilteredBuffer;
+	int32 WNFilteredDataRank;
+	int32 WNFilteredDataDimSizes[DIM_MAX];
+	hid_t WNFilteredDatasetID;
+	
+	/* TOTFiltered data variables */
+	float* TOTFilteredBuffer;
+	int32 TOTFilteredDataRank;
+	int32 TOTFilteredDataDimSizes[DIM_MAX];
+	hid_t TOTFilteredDatasetID;
+	
+	/* colatitude data variables */
+	float* ColatitudeBuffer;
+	int32 colatitudeDataRank;
+	int32 colatitudeDataDimSizes[DIM_MAX];
+	hid_t colatitudeDatasetID;
+	
+	/* longitude data variables */
+	float* LongitudeBuffer;
+	int32 longitudeDataRank;
+	int32 longitudeDataDimSizes[DIM_MAX];
+	hid_t longitudeDatasetID;
 	
 	hid_t CERESrootID;
 	hid_t CERESdataFieldsID;
 	hid_t CERESgeolocationID;
-	hid_t SWFilteredDatasetID;
-	hid_t WNFilteredDatasetID;
-	hid_t TOTFilteredDatasetID;
-	hid_t timeDatasetID;
-	hid_t colatitudeDatasetID;
-	hid_t longitudeDatasetID;
-	hid_t attrID;
-	hid_t dataspaceID;
-	hid_t status5;
 	
 	hsize_t datasetDims[2];
 	
@@ -52,47 +71,51 @@ int CERESmain( int argc, char* argv[] )
 	fileID = SDstart( argv[1], DFACC_READ );
 	
 	/* read time data */
-	status = CERESreadData( fileID, argv[1], "Julian Date and Time", timeDatasetBuffer );
+	status = H4readData( fileID, argv[1], "Julian Date and Time", 
+		(void**)&timeDatasetBuffer, &timeDataRank, timeDataDimSizes, DFNT_FLOAT64 );
 	if ( status < 0 )
 	{
-		printf("CERESreadData Time\n");
+		fprintf( stderr, "[%s]: Failed to read Julian Date and Time data.\n", __func__);
 	}
 	
-	
-	
 	/* read CERES SW Filtered Radiances Upwards */
-	status = CERESreadData( fileID, argv[1], "CERES SW Filtered Radiances Upwards", SWFilteredBuffer );
+	status = H4readData( fileID, argv[1], "CERES SW Filtered Radiances Upwards",
+		(void**)&SWFilteredBuffer, &SWFilteredDataRank, SWFilteredDataDimSizes, DFNT_FLOAT32 );
 	if ( status < 0 )
 	{
-		printf("CERESreadData CERES SW Filtered Radiances Upwards\n");
+		fprintf( stderr, "[%s]: Failed to read CERES SW Filtered Radiances Upwards data.\n", __func__ );
 	}
 	
 	/* read CERES WN FIltered Radiances Upwards */
-	status = CERESreadData( fileID, argv[1], "CERES WN Filtered Radiances Upwards", WNFilteredBuffer );
+	status = H4readData( fileID, argv[1], "CERES WN Filtered Radiances Upwards",
+		(void**)&WNFilteredBuffer, &WNFilteredDataRank, WNFilteredDataDimSizes, DFNT_FLOAT32 );
 	if ( status < 0 )
 	{
-		printf("CERESreadData CERES WN Filtered Radiances Upwards\n");
+		fprintf( stderr, "[%s]: Failed to read CERES WN Filtered Radiances Upwards data.\n", __func__ );
 	}
 	
 	/* read CERES TOT FIltered Radiances Upwards */
-	status = CERESreadData( fileID, argv[1], "CERES TOT Filtered Radiances Upwards", TOTFilteredBuffer );
+	status = H4readData( fileID, argv[1], "CERES TOT Filtered Radiances Upwards",
+		(void**)&TOTFilteredBuffer, &TOTFilteredDataRank, TOTFilteredDataDimSizes, DFNT_FLOAT32 );
 	if ( status < 0 )
 	{
-		printf("CERESreadData CERES TOT Filtered Radiances Upwards\n");
+		fprintf( stderr, "[%s]: Failed to read CERES TOT Filtered Radiances Upwards data.\n", __func__ );
 	}
 	
 	/* read Colatitude of CERES FOV at TOA */
-	status = CERESreadData( fileID, argv[1], "Colatitude of CERES FOV at TOA", ColatitudeBuffer );
+	status = H4readData( fileID, argv[1], "Colatitude of CERES FOV at TOA",
+		(void**)&ColatitudeBuffer, &colatitudeDataRank, colatitudeDataDimSizes, DFNT_FLOAT32 );
 	if ( status < 0 )
 	{
-		printf("CERESreadData Colatitude of CERES FOV at TOA\n");
+		fprintf( stderr, "[%s]: Failed to read Colatitude of CERES FOV at TOA data.\n", __func__);
 	}
 	
 	/* read Longitude of CERES FOV at TOA */
-	status = CERESreadData( fileID, argv[1], "Longitude of CERES FOV at TOA", LongitudeBuffer );
+	status = H4readData( fileID, argv[1], "Longitude of CERES FOV at TOA",
+		(void**)&LongitudeBuffer, &longitudeDataRank, longitudeDataDimSizes, DFNT_FLOAT32 );
 	if ( status < 0 )
 	{
-		printf("CERESreadData Longitude of CERES FOV at TOA\n");
+		fprintf( stderr, "[%s]: Failed to read Longitude of CERES FOV at TOA data.\n", __func__ );
 	}
 	
 	/* outputfile already exists (created by MOPITT). Create the group directories */
@@ -221,60 +244,22 @@ int CERESmain( int argc, char* argv[] )
 	
 }
 
-hid_t CERESattrCreateString( hid_t objectID, char* name, char* value )
-{
-	/* To store a string in HDF5, we need to create our own special datatype from a
-	 * character type. Our "base type" is H5T_C_S1, a single byte null terminated 
-	 * string.
-	 */
-	hid_t stringType;
-	hid_t attrID;
-	herr_t status;
-						
-	stringType = H5Tcopy(H5T_C_S1);
-	H5Tset_size( stringType, strlen(value));
-	
-	
-	attrID = attributeCreate( objectID, name, stringType );
-	if ( attrID == EXIT_FAILURE ) 
-	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to create %s attribute. Exiting program.\n", __func__, name);
-		return EXIT_FAILURE;
-	}
-	
-	status = H5Awrite( attrID, stringType, value );
-	if ( status < 0 )
-	{
-		fprintf( stderr, "[%s]: H5Awrite -- Unable to write %s attribute. Exiting program.\n", __func__, name);
-		return EXIT_FAILURE;
-	}
-	status = H5Aclose( attrID );
-	if ( status < 0 ) 
-	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to close %s attribute. Exiting program.\n", __func__, name);
-		return EXIT_FAILURE;
-	}
-	H5Tclose(stringType);
-	
-	return attrID;
-}
-
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax )
 {
-	hsize_t attrDims[2];
+	
 	hsize_t dimSize;
 	hid_t attrID;
 	hid_t dataspaceID;
 	float floatBuff2[2];
 
 	/********************* long_name*****************************/
-	attrID = CERESattrCreateString( objectID, "long_name", long_nameVal );
+	attrID = attrCreateString( objectID, "long_name", long_nameVal );
 	/********************* units ********************************/
-	attrID = CERESattrCreateString( objectID, "units", unitsVal );			
+	attrID = attrCreateString( objectID, "units", unitsVal );			
 	/********************* format *******************************/
-	attrID = CERESattrCreateString( objectID, "format", "32-BitFloat" );
+	attrID = attrCreateString( objectID, "format", "32-BitFloat" );
 	/********************* coordsys *****************************/
-	attrID = CERESattrCreateString( objectID, "coordsys", "not used" );
+	attrID = attrCreateString( objectID, "coordsys", "not used" );
     /********************* valid_range **************************/
 	dimSize = 2;
 	dataspaceID = H5Screate_simple( 1, &dimSize, NULL );
