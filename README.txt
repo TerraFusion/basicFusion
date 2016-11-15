@@ -29,7 +29,7 @@ convention of MOPITTmain(), CERESmain(), etc ) where all of the appropriate func
 go. Any and all helper functions should be declared in the "libTERRA.h" and defined in the "libTERRA.c" files. This allows
 code reusability so that a function is available to any segment of the code if need be.
 
-Every instrument's main function should receive the normal main arguments, int argc and char* argv\[\] (aka char\*\* argv). The
+Every instrument's main function should receive the normal main arguments, int argc and char* argv[] (aka char** argv). The
 main function should also have a prototype in the libTERRA.h file. Then, a master main function (main.c) will pass in the 
 appropriate arguments to the instrument's main functions.
 
