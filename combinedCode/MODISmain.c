@@ -144,29 +144,8 @@ int MODISmain( int argc, char* argv[] )
 				 __LINE__ );
 		exit (EXIT_FAILURE);
 	}
-	#if 0
-	/* read Latitude data */
-	status = H4readData( _1KMFileID, argv[1], 
-		"Latitude", (void**)&latitudeDataBuffer,
-		&latitudeDataRank, latitudeDataDimSizes, DFNT_FLOAT32 );
 	
-	if ( status < 0 )
-	{
-		fprintf( stderr, "[%s]: Unable to read Latitude data.\n", __func__ );
-		exit (EXIT_FAILURE);
-	}
 	
-	/* read longitude data */
-	status = H4readData( _1KMFileID, argv[1], 
-		"Longitude", (void**)&longitudeDataBuffer,
-		&longitudeDataRank, longitudeDataDimSizes, DFNT_FLOAT32 );
-	
-	if ( status < 0 )
-	{
-		fprintf( stderr, "[%s]: Unable to read Longitude data.\n", __func__ );
-		exit (EXIT_FAILURE);
-	}
-	#endif
 	/********************************************************************************
 	 *                                GROUP CREATION                                *
 	 ********************************************************************************/
@@ -346,35 +325,7 @@ int MODISmain( int argc, char* argv[] )
 	longitudeDatasetID = MODISInsertData( MODISgeolocationGroupID,
 					  "Longitude",
 					  DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID, argv[1] );
-	/*				  
-	for ( int i = 0; i < DIM_MAX; i++ )
-		temp[i] = (hsize_t) latitudeDataDimSizes[i];
-		
-	latitudeDatasetID = insertDataset( &outputFile, &MODISgeolocationGroupID, 1,
-					latitudeDataRank, temp, H5T_NATIVE_FLOAT,
-					"Latitude", latitudeDataBuffer );
-		
-	if ( latitudeDatasetID < 0 )
-	{
-		fprintf(stderr, "[%s]: Error writing latitude dataset.\n", __func__ );
-		exit (EXIT_FAILURE);
-	}
 	
-	//insert longitude data
-	
-	for ( int i = 0; i < DIM_MAX; i++ )
-		temp[i] = (hsize_t) longitudeDataDimSizes[i];
-		
-	longitudeDatasetID = insertDataset( &outputFile, &MODISgeolocationGroupID, 1,
-					longitudeDataRank, temp, H5T_NATIVE_FLOAT,
-					"Longitude", longitudeDataBuffer );
-		
-	if ( longitudeDatasetID < 0 )
-	{
-		fprintf(stderr, "[%s]: Error writing longitude dataset.\n", __func__ );
-		exit (EXIT_FAILURE);
-	}
-	*/
 	/*********************
 	 * INSERT ATTRIBUTES *
 	 *********************/
