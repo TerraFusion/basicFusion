@@ -1,0 +1,21 @@
+# This file provides the paths to the input files for the program.
+# File paths must be provided in a specific sequence.
+# Program reads all non-commented lines (excluding newlines).
+
+# MOPITT file:
+./InputFiles/MOPITT/MOP01-20070703-L1V3.50.0.he5
+
+# CERES file:
+./InputFiles/CERES/CER_BDS_Terra-FM1_Edition3_300307.20160531
+
+# MODIS file:
+# MODIS input requires 4 different files.
+# 1. The 1km product
+# 2. The 500m product
+# 3. The 250m product
+# 4. The MOD03 product which contains the geolocation information
+
+./InputFiles/MODIS/MOD021KM.A2007184.1610.006.2014231113627.hdf
+./InputFiles/MODIS/MOD02HKM.A2007184.1650.006.2014230150332.hdf
+./InputFiles/MODIS/MOD02QKM.A2007184.1655.006.2014230073249.hdf
+./InputFiles/MODIS/MOD03.A2007184.1610.006.2012239144154.hdf

@@ -283,5 +283,3 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
 	
 	return EXIT_SUCCESS;
 }
-
-

@@ -59,10 +59,10 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
 	dataset = H5Dcreate( *datasetGroup_ID, datasetName, dataType, memspace, 
 						 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
 						 
-	status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, data_out );
+	status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, (VOIDP)data_out );
 	if ( status < 0 )
 	{
-		fprintf( stderr, "\n[%s:%d]: H5DWrite: Unable to write to dataset \"%s\". Exiting program.\n", __FILE__, __LINE__ , datasetName );
+		fprintf( stderr, "\n[%s:%s:%d]: H5DWrite: Unable to write to dataset \"%s\". Exiting program.\n", __FILE__,__func__ ,__LINE__ , datasetName );
 		H5Dclose(dataset);
 		H5Sclose(memspace);
 		free(data_out);
@@ -82,6 +82,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
 		H5Dclose(dataset);
 		return EXIT_SUCCESS;
 	}
+	
 	
 	return dataset;
 	
@@ -309,10 +310,9 @@ herr_t openFile( hid_t *file, char* inputFileName, unsigned flags  )
 	 
 	*file = H5Fopen( inputFileName, flags, H5P_DEFAULT );
 	
-	
 	if ( *file < 0 )
 	{
-		fprintf( stderr, "\n[%s]: H5Fopen -- Could not open HDF5 file. Exiting program.\n\n", __func__ );
+		fprintf( stderr, "\n[%s:%s:%d]: H5Fopen -- Could not open HDF5 file. Exiting program.\n\n", __FILE__, __func__, __LINE__ );
 		return EXIT_FAILURE;
 	}
 	
@@ -481,9 +481,15 @@ int32 H4readData( int32 fileID, char* fileName, char* datasetName, void** data, 
 				   *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
 				   , sizeof( unsigned short int ) );
 	}
+	else if ( dataType == DFNT_UINT8 )
+	{
+		*((uint8_t**)data) = calloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
+				   *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
+				   , sizeof( uint8_t ) );
+	}
 	else
 	{
-		fprintf( stderr, "[%s]: Invalid data type.\n", __func__ );
+		fprintf( stderr, "[%s:%s:%d]: Invalid data type.\n", __FILE__, __func__, __LINE__ );
 		SDendaccess(sds_id);
 		return EXIT_FAILURE;
 	}
