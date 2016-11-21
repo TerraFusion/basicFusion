@@ -1,76 +1,143 @@
 #include <stdio.h>
-#include "HDFread.h"
+#include <stdlib.h>
+#include <mfhdf.h>
+#include <hdf.h>
+#include <hdf5.h>
+#define XMAX 2
+#define YMAX 720
+#define DIM_MAX 10
+
+int32 CERESreadData( int32 fileID, char* fileName, char* datasetName, void* data );
 
 int main( int argc, char* argv[] )
 {
-	if ( argc != 2 )
+	/*************
+	 * VARIABLES *
+	 *************/
+	int32 fileID;
+	
+	intn status;
+	
+	double* timeDataset = malloc( 2 * 13091 * sizeof(double));
+	float* SWFiltered = malloc( 660 * 13091 * sizeof(float) );
+	float* WNFiltered = malloc( 660 * 13091 * sizeof(float) );
+	float* TOTFiltered = malloc( 660 * 13091 * sizeof(float) );
+	float* Colatitude = malloc( 660 * 13091 * sizeof(float) );
+	float* Longitude = malloc( 660 * 13091 * sizeof(float) );
+	
+	/*****************
+	 * END VARIABLES *
+	 *****************/
+	
+	/* open the input file */
+	fileID = SDstart( argv[1], DFACC_READ );
+	
+	/* read time data */
+	status = CERESreadData( fileID, argv[1], "Julian Date and Time", timeDataset );
+	if ( status < 0 )
 	{
-		fprintf( stderr, "Usage: %s HDFfilename\n", argv[0] );
-		return EXIT_FAILURE;
+		printf("CERESreadData Time\n");
 	}
 	
-	printf("\nName of HDF file to be read: \n< %s\n", argv[1] );
-	
-	if (!Hishdf(argv[1]))
+	/* read CERES SW Filtered Radiances Upwards */
+	status = CERESreadData( fileID, argv[1], "CERES SW Filtered Radiances Upwards", SWFiltered );
+	if ( status < 0 )
 	{
-		fprintf( stderr, "ERROR - specified file is not an HDF file.\n");
-		return EXIT_FAILURE;
+		printf("CERESreadData CERES SW Filtered Radiances Upwards\n");
+	}
+	
+	/* read CERES WN FIltered Radiances Upwards */
+	status = CERESreadData( fileID, argv[1], "CERES WN Filtered Radiances Upwards", WNFiltered );
+	if ( status < 0 )
+	{
+		printf("CERESreadData CERES WN Filtered Radiances Upwards\n");
+	}
+	
+	/* read CERES TOT FIltered Radiances Upwards */
+	status = CERESreadData( fileID, argv[1], "CERES TOT Filtered Radiances Upwards", TOTFiltered );
+	if ( status < 0 )
+	{
+		printf("CERESreadData CERES TOT Filtered Radiances Upwards\n");
+	}
+	
+	/* read Colatitude of CERES FOV at TOA */
+	status = CERESreadData( fileID, argv[1], "Colatitude of CERES FOV at TOA", Colatitude );
+	if ( status < 0 )
+	{
+		printf("CERESreadData Colatitude of CERES FOV at TOA\n");
+	}
+	
+	/* read Longitude of CERES FOV at TOA */
+	status = CERESreadData( fileID, argv[1], "Longitude of CERES FOV at TOA", Longitude );
+	if ( status < 0 )
+	{
+		printf("CERESreadData Longitude of CERES FOV at TOA\n");
 	}
 	
 	
 	
-	int32 num_fields;
-	int32 vfield_status;
-	int32 vdata_status;
-	int32 vfield_types[MAX_VDATA_FIELDS];
-	int32 vfield_order[MAX_VDATA_FIELDS] = {0};
-	int32 vfield_index[MAX_VDATA_FIELDS];
-	int32 k;
-	int32 rd_num_fields;
-	int32 rd_num_recs;
+	/* release associated identifiers */
+	SDend(fileID);
 	
-	void *vdata_data[MAX_VDATA_FIELDS];
+	/* release allocated memory (malloc) */
+	free(timeDataset);
+	free(SWFiltered);
+	free(WNFiltered);
+	free(TOTFiltered);
+	free(Colatitude);
+	free(Longitude);
 	
-	char *vdata_name;
-	char *vfield_name;
-	char *HDF_File = argv[1];
+	return 0;
 	
-	float64 sat_vel[10][3];
-	
-	num_fields = 18;
-	vdata_name = "Satellite-Celestial Data";
-	vfield_name = "Satellite Velocity at record start";
-	vfield_status = get_vfield_types( HDF_File, vdata_name, num_fields, vfield_types,
-									  vfield_order);
-									  
-	if ( vfield_status != 0 )
-     {
-        printf ("\nError in getting Vdata field types or orders\n");
-        exit(1);
-     }
-     
-	vdata_data[0]=sat_vel;
-	rd_num_fields = 1;
-	rd_num_recs = 7;
-	vdata_status = read_vdata(HDF_File, vdata_name, rd_num_fields,
-				   rd_num_recs, vfield_name, vfield_types, vfield_order,
-				   vfield_index, vdata_data);
+}
 
-	if ( vdata_status != 0 )
-     {
-        printf ("\nError in reading Vdata: \"%s\" ", vdata_name);
-        return EXIT_FAILURE;
-     }
-     
-	fprintf (stdout,"\nVdata name: \"%s\" \n", vdata_name);
-	fprintf (stdout,"\n Vdata field name: \"%s\" \n\n", vfield_name);
-	for (k=0; k<7; k++)
-    {
-        printf ("k=%i\nsat_vel = %f   %f   %f\n",
-                 k, sat_vel[k][0], sat_vel[k][1], sat_vel[k][2]);
-    }
-    
-    printf("%d\n", vfield_order[99] );
-    
-    return 0;
+int32 CERESreadData( int32 fileID, char* fileName, char* datasetName, void* data )
+{
+	int32 sds_id, sds_index;
+	int32 rank;
+	int32 ntype;					// number type for the data stored in the data set
+	int32 num_attrs;				// number of attributes
+	int32 dimsizes[DIM_MAX];
+	intn status;
+	int32 start[DIM_MAX] = {0};
+	int32 stride[DIM_MAX] = {0};
+	int j;
+	
+	/* get the index of the dataset from the dataset's name */
+	sds_index = SDnametoindex( fileID, datasetName );
+	if( sds_index < 0 )
+	{
+		printf("SDnametoindex\n");
+	}
+	
+	sds_id = SDselect( fileID, sds_index );
+	if ( sds_id < 0 )
+	{
+		printf("SDselect\n");
+	}
+	
+	/* get info about dataset (rank, dim size, number type, num attributes ) */
+	status = SDgetinfo( sds_id, NULL, &rank, dimsizes, &ntype, &num_attrs);
+	if ( status < 0 )
+	{
+		printf("SDgetinfo\n");
+		return -1;
+	}
+	
+	start[0] = 0;
+	start[1] = 0;
+	
+	for ( int i = 0; i < rank; i++ )
+		stride[i] = 1;
+	
+	status = SDreaddata( sds_id, start, stride, dimsizes, data );
+	if ( status < 0 )
+	{
+		printf("SDreaddata\n");
+		return -1;
+	}
+	
+	SDendaccess(sds_id);
+	
+	return 0;
 }

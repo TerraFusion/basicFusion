@@ -1,3 +1,4 @@
+
 /*
 	DESCRIPTION:
 	
@@ -15,41 +16,6 @@
 */
 
 
-#include <stdio.h>
-#include <hdf5.h>		// default HDF5 library
-#include <stdlib.h>
-#include <string.h>
-
-
-#define RADIANCE "HDFEOS/SWATHS/MOP01/Data Fields/MOPITTRadiances"
-#define LATITUDE "HDFEOS/SWATHS/MOP01/Geolocation Fields/Latitude"
-#define LONGITUDE "HDFEOS/SWATHS/MOP01/Geolocation Fields/Longitude"
-#define TIME "HDFEOS/SWATHS/MOP01/Geolocation Fields/Time"
-#define RADIANCE_UNIT "Watts meter-2 Sr-1"
-#define LAT_LON_UNIT "degree"
-#define TIME_UNIT "seconds since 12 AM 1-1-13 UTC"
-
-/*
-	NOTE: argv[1] = INPUT_FILE
-		  argv[2] = OUTPUT_FILE
-*/
-
-/*********************
- *FUNCTION PROTOTYPES*
- *********************/
- 
-float getElement5D( float *array, hsize_t dimSize[5], int *position );	// note, this function is used for testing. It's temporary
-
-hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
-							char * inDatasetPath, char* outDatasetPath, int returnDatasetID);
-herr_t openFile(hid_t *file, char* inputFileName, unsigned flags );
-herr_t createOutputFile( hid_t *outputFile, char* outputFileName);
-herr_t MOPITTrootGroup( hid_t const *outputFile, hid_t *MOPITTroot);
-herr_t MOPITTradianceGroup( hid_t const *MOPITTroot, hid_t *radianceGroup );
-herr_t MOPITTgeolocationGroup ( hid_t const *MOPITTroot, hid_t *geolocationGroup );
-hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID );
-
-
 /* TODO:		
 		I'm considering combining the three group functions into one becaue they are all so similar. 
 		It will only take a bit of tinkering to get it to work. The way I have it now is bloated and
@@ -61,218 +27,7 @@ hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID );
 */
 
 
-int main( int argc, char* argv[] )
-{
-	if ( argc != 3 )
-	{
-		
-		fprintf( stderr, "\nError! Program expects format: %s [input HDF5 file] [output HDF5 file]\n\n", argv[0] );
-		return EXIT_FAILURE;
-	
-	}
-	
-	hid_t file;
-	hid_t outputFile;
-	hid_t MOPITTroot;
-	hid_t radianceGroup;
-	hid_t geolocationGroup;
-	hid_t radianceDataset;
-	hid_t latitudeDataset;
-	hid_t longitudeDataset;
-	hid_t timeDataset;
-	hid_t attrID;		// attribute ID
-	hid_t stringType;
-	
-	herr_t status;
-	
-	int tempInt;
-	float tempFloat;
-	
-	
-	/* remove output file if it already exists. Note that no conditional statements are used. If file does not exist,
-	 * this function will throw an error but we do not care.
-	 */
-	 
-	remove( argv[2] );
-	
-	// open the input file
-	if ( openFile( &file, argv[1], H5F_ACC_RDONLY ) ) return EXIT_FAILURE;
-	
-	// create the output file or open it if it exists
-	if ( createOutputFile( &outputFile, argv[2] )) return EXIT_FAILURE;
-	
-	// create the root group
-	if ( MOPITTrootGroup( &outputFile, &MOPITTroot ) ) return EXIT_FAILURE;
-	
-	// create the radiance group
-	if ( MOPITTradianceGroup ( &MOPITTroot, &radianceGroup ) ) return EXIT_FAILURE;
-	
-	// create the geolocation group
-	if ( MOPITTgeolocationGroup ( &MOPITTroot, &geolocationGroup ) ) return EXIT_FAILURE;
-	
-	// insert the radiance dataset
-	radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "Radiance", 1 );
-	if ( radianceDataset == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	// insert the longitude dataset
-	longitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude", 1 );
-	if ( longitudeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	// insert the latitude dataset
-	latitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude", 1 );
-	if ( latitudeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	// insert the time dataset
-	timeDataset = MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time", 1);
-	if ( timeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	/***************************************************************
-	 * Add the appropriate attributes to the groups we just created*
-	 ***************************************************************/
-	 
-						/* !!! FOR RADIANCE FIELD !!! */
-	
-	/* TrackCount.  */
-	
-	attrID = attributeCreate( radianceGroup, "TrackCount", H5T_NATIVE_UINT );
-	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	tempInt = 6350;
-	status = H5Awrite( attrID, H5T_NATIVE_UINT, &tempInt );
-	
-	status = H5Aclose( attrID );
-	if ( status < 0 ) 
-	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to close TrackCount attribute. Exiting program.\n", __func__);
-		return EXIT_FAILURE;
-	}
-	
-	/* missing_invalid */
-	attrID = attributeCreate( radianceGroup, "missing_invalid", H5T_NATIVE_FLOAT );
-	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	tempFloat = -8888.0;
-	status = H5Awrite( attrID, H5T_NATIVE_UINT, &tempFloat );
-	
-	status = H5Aclose( attrID );
-	if ( status < 0 ) 
-	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to close missing_invalid attribute. Exiting program.\n", __func__);
-		return EXIT_FAILURE;
-	}
-	
-	/* missing_nodata */
-	attrID = attributeCreate( radianceGroup, "missing_nodata", H5T_NATIVE_FLOAT );
-	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	tempFloat = -9999.0;
-	status = H5Awrite( attrID, H5T_NATIVE_UINT, &tempFloat );
-	
-	status = H5Aclose( attrID );
-	if ( status < 0 ) 
-	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to close missing_nodata attribute. Exiting program.\n", __func__);
-		return EXIT_FAILURE;
-	}
-	
-	/* radiance_unit */
-	// to store a string in HDF5, we need to create our own special datatype from a character type.
-	// Our "base type" is H5T_C_S1, a single byte null terminated string
-	stringType = H5Tcopy(H5T_C_S1);
-	H5Tset_size( stringType, strlen(RADIANCE_UNIT));
-	
-	
-	attrID = attributeCreate( radianceGroup, "radiance_unit", stringType );
-	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	status = H5Awrite( attrID, stringType, RADIANCE_UNIT );
-	
-	status = H5Aclose( attrID );
-	if ( status < 0 ) 
-	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to close radiance_unit attribute. Exiting program.\n", __func__);
-		return EXIT_FAILURE;
-	}
-	H5Tclose(stringType);
-	
-								/* ### END OF RADIANCE FIELD ATTRIBUTE CREATION ### */
-								
-								/* !!! FOR GEOLOCATION FIELD !!! */
-	/* Latitude_unit */
-	// to store a string in HDF5, we need to create our own special datatype from a character type.
-	// Our "base type" is H5T_C_S1, a single byte null terminated string
-	stringType = H5Tcopy(H5T_C_S1);
-	H5Tset_size( stringType, strlen(LAT_LON_UNIT) );
-	
-	
-	attrID = attributeCreate( geolocationGroup, "Latitude_unit", stringType );
-	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	status = H5Awrite( attrID, stringType, LAT_LON_UNIT );
-	
-	status = H5Aclose( attrID );
-	if ( status < 0 ) 
-	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to close Latitude_unit attribute. Exiting program.\n", __func__);
-		return EXIT_FAILURE;
-	}
-	
-	/* Longitude_unit */
-	
-	attrID = attributeCreate( geolocationGroup, "Longitude_unit", stringType );
-	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	status = H5Awrite( attrID, stringType, LAT_LON_UNIT );
-	
-	status = H5Aclose( attrID );
-	if ( status < 0 ) 
-	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to close Longitude_unit attribute. Exiting program.\n", __func__);
-		return EXIT_FAILURE;
-	}
-	
-	H5Tclose(stringType);
-	
-	/* Time_unit */
-	stringType = H5Tcopy(H5T_C_S1);
-	H5Tset_size( stringType, strlen(TIME_UNIT) );
-	
-	
-	attrID = attributeCreate( geolocationGroup, "Time_unit", stringType );
-	if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
-	
-	status = H5Awrite( attrID, stringType, TIME_UNIT );
-	
-	status = H5Aclose( attrID );
-	if ( status < 0 ) 
-	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to close Time_unit attribute. Exiting program.\n", __func__);
-		return EXIT_FAILURE;
-	}
-	
-					/* ### END OF GEOLOCATION FIELD ATTRIBUTE CREATION ### */
-	
-	/*
-	 * Free all associated memory
-	 */
-	 
-	H5Dclose(radianceDataset);
-	H5Dclose(latitudeDataset);
-	H5Dclose(longitudeDataset);
-	H5Dclose(timeDataset);
-	H5Fclose(file);
-	H5Fclose(outputFile);
-	H5Gclose(MOPITTroot);
-	H5Gclose(radianceGroup);
-	H5Gclose(geolocationGroup);
-	H5Tclose(stringType);
-	
-	
-	
-	
-	return 0;
 
-}
 
 /*
 	DESCRIPTION:
@@ -288,6 +43,11 @@ int main( int argc, char* argv[] )
 		
 	array[dim0][dim1][dim2][dim3][dim4]
 */
+
+#include "libTERRA.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 		
 float getElement5D( float *array, hsize_t dimSize[5], int position[5] )
 {
@@ -588,47 +348,18 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
 		EXIT_SUCCESS on success (equivalent to 0 in most systems)
 */
 
-herr_t MOPITTrootGroup( hid_t const *outputFile, hid_t *MOPITTroot)
+herr_t createGroup( hid_t const *outputFile, hid_t *newGroup, char* newGroupName)
 {
-	*MOPITTroot = H5Gcreate( *outputFile, "MOPITT", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
-	if ( *MOPITTrootGroup < 0 )
+	*newGroup = H5Gcreate( *outputFile, newGroupName, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+	if ( *newGroup < 0 )
 	{
-		fprintf( stderr, "\n[%s]: H5Gcreate -- Could not create MOPITT root group. Exiting program.\n\n", __func__ );
+		fprintf( stderr, "\n[%s]: H5Gcreate -- Could not create '%s' group. Exiting program.\n\n", __func__ , newGroupName);
 		return EXIT_FAILURE;
 	}
 	
 	return EXIT_SUCCESS;
 }
 
-/* This function is nearly identical to the previous one, except it creates the radiance group inside the MOPITT
-   group.
-*/
-
-herr_t MOPITTradianceGroup( hid_t const *MOPITTroot, hid_t *radianceGroup )
-{
-	*radianceGroup = H5Gcreate( *MOPITTroot, "Radiance", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
-	
-	if ( *radianceGroup < 0 )
-	{
-		fprintf( stderr, "\n[%s]: H5Gcreate -- Could not create MOPITT radiance group. Exiting program.\n\n", __func__ );
-		return EXIT_FAILURE;
-	}
-	
-	return EXIT_SUCCESS;
-}
-
-herr_t MOPITTgeolocationGroup ( hid_t const *MOPITTroot, hid_t *geolocationGroup )
-{
-	*geolocationGroup = H5Gcreate( *MOPITTroot, "Geolocation", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
-	
-	if ( *geolocationGroup < 0 )
-	{
-		fprintf( stderr, "\n[%s]: H5Gcreate -- Could not create MOPITT geolocation group. Exiting program.\n\n", __func__ );
-		return EXIT_FAILURE;
-	}
-	
-	return EXIT_SUCCESS;
-}
 
 /*
 	DESCRIPTION:
