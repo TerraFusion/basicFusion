@@ -1,6 +1,8 @@
 # This file provides the paths to the input files for the program.
 # File paths must be provided in a specific sequence.
 # Program reads all non-commented lines (excluding newlines).
+# Make sure there are no unnecessary space characters, this will 
+# crash the program.
 
 # MOPITT file:
 ./InputFiles/MOPITT/MOP01-20070703-L1V3.50.0.he5
@@ -19,3 +21,8 @@
 ./InputFiles/MODIS/MOD02HKM.A2007184.1650.006.2014230150332.hdf
 ./InputFiles/MODIS/MOD02QKM.A2007184.1655.006.2014230073249.hdf
 ./InputFiles/MODIS/MOD03.A2007184.1610.006.2012239144154.hdf
+
+# ASTER File:
+./InputFiles/ASTER/AST_L1T_00307032007164549_20150520034236_114188.hdf
+#./InputFiles/ASTER/AST_L1T_00307032007171938_20150520034321_2519.hdf
+

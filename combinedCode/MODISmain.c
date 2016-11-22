@@ -3,31 +3,27 @@
 #include <mfhdf.h>	// hdf4 SD interface (includes hdf.h by default)
 #include <hdf5.h>	// hdf5
 #include "libTERRA.h"
-#define XMAX 2
-#define YMAX 720
+#ifndef DIM_MAX
 #define DIM_MAX 10
+#endif
 
 /*
 	[0] = main program name
-	[1] = 1km file
-	[2] = 500m file
-	[3] = 250m file
-	[4] = MOD03 file
-	[5] = output file (already exists);
+	[1] = 1km filename
+	[2] = 500m filename
+	[3] = 250m filename
+	[4] = MOD03 filename
+	[5] = output filename (already exists);
 */
 
 //herr_t MODIS_1KM_RefSBAttr( hid_t objectID );
-hid_t MODISInsertData( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
-					   hid_t outputDataType, int32 inputFile, char* inputFileName );
 
-int MODISmain( int argc, char* argv[] )
+
+int MODISmain( char* argv[] )
 {
 	/*************
 	 * VARIABLES *
 	 *************/
-	
-	
-	intn status;
 	
 	hid_t MODISrootGroupID;
 	hid_t MODISdataFieldsGroupID;
@@ -118,7 +114,7 @@ int MODISmain( int argc, char* argv[] )
 	{
 		fprintf( stderr, "[%s:%s:%d]: Unable to open 1KM file.\n", __FILE__, __func__,
 				 __LINE__ );
-		exit (EXIT_FAILURE);
+		return (EXIT_FAILURE);
 	}
 	
 	_500mFileID = SDstart( argv[2], DFACC_READ );
@@ -126,7 +122,7 @@ int MODISmain( int argc, char* argv[] )
 	{
 		fprintf( stderr, "[%s:%s:%d]: Unable to open 500m file.\n", __FILE__, __func__,
 				 __LINE__ );
-		exit (EXIT_FAILURE);
+		return (EXIT_FAILURE);
 	}
 	
 	_250mFileID = SDstart( argv[3], DFACC_READ );
@@ -134,7 +130,7 @@ int MODISmain( int argc, char* argv[] )
 	{
 		fprintf( stderr, "[%s:%s:%d]: Unable to open 500m file.\n", __FILE__, __func__,
 				 __LINE__ );
-		exit (EXIT_FAILURE);
+		return (EXIT_FAILURE);
 	}
 	
 	MOD03FileID = SDstart( argv[4], DFACC_READ );
@@ -142,7 +138,7 @@ int MODISmain( int argc, char* argv[] )
 	{
 		fprintf( stderr, "[%s:%s:%d]: Unable to open MOD03 file.\n", __FILE__, __func__,
 				 __LINE__ );
-		exit (EXIT_FAILURE);
+		return (EXIT_FAILURE);
 	}
 	
 	
@@ -211,7 +207,7 @@ int MODISmain( int argc, char* argv[] )
 	 			  
 	/*_______________EV_1KM_RefSB data_______________*/
 	
-	_1KMDatasetID = MODISInsertData( MODIS1KMGroupID, "EV_1KM_RefSB", DFNT_UINT16, 
+	_1KMDatasetID = readThenWrite( MODIS1KMGroupID, "EV_1KM_RefSB", DFNT_UINT16, 
 					H5T_NATIVE_USHORT, _1KMFileID, argv[1] );
 					
 					
@@ -223,39 +219,39 @@ int MODISmain( int argc, char* argv[] )
 		Note that little endian might be the incorrect one, big endian might need to be
 		used.
 	*/
-	_1KMUncertID = MODISInsertData( MODIS1KMGroupID, "EV_1KM_RefSB_Uncert_Indexes",
+	_1KMUncertID = readThenWrite( MODIS1KMGroupID, "EV_1KM_RefSB_Uncert_Indexes",
 					DFNT_UINT8, H5T_STD_U8LE, _1KMFileID, argv[1] );
 					
 	/*___________EV_1KM_Emissive___________*/
 	
-	_1KMEmissive = MODISInsertData( MODIS1KMGroupID, "EV_1KM_Emissive",
+	_1KMEmissive = readThenWrite( MODIS1KMGroupID, "EV_1KM_Emissive",
 					DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID, argv[1] );
 					
 	/*___________EV_1KM_Emissive_Uncert_Indexes*___________*/
 	
-	_1KMEmissiveUncert = MODISInsertData( MODIS1KMGroupID,
+	_1KMEmissiveUncert = readThenWrite( MODIS1KMGroupID,
 						  "EV_1KM_Emissive_Uncert_Indexes",
 						  DFNT_UINT8, H5T_STD_U8LE, _1KMFileID, argv[1] );
 						  
 	/*__________EV_250_Aggr1km_RefSB_______________*/
 	
-	_250Aggr1km = MODISInsertData( MODIS1KMGroupID, "EV_250_Aggr1km_RefSB",
+	_250Aggr1km = readThenWrite( MODIS1KMGroupID, "EV_250_Aggr1km_RefSB",
 					DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID, argv[1] );
 					
 	/*__________EV_250_Aggr1km_RefSB_Uncert_Indexes_____________*/
 	
-	_250Aggr1kmUncert = MODISInsertData( MODIS1KMGroupID, 
+	_250Aggr1kmUncert = readThenWrite( MODIS1KMGroupID, 
 						"EV_250_Aggr1km_RefSB_Uncert_Indexes",
 						DFNT_UINT8, H5T_STD_U8LE, _1KMFileID, argv[1] );				
 	
 	/*__________EV_500_Aggr1km_RefSB____________*/
 	
-	_500Aggr1km = MODISInsertData( MODIS1KMGroupID, "EV_500_Aggr1km_RefSB",
+	_500Aggr1km = readThenWrite( MODIS1KMGroupID, "EV_500_Aggr1km_RefSB",
 				  DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID, argv[1] );
 				  
 	/*__________EV_500_Aggr1km_RefSB_Uncert_Indexes____________*/
 	
-	_500Aggr1kmUncert = MODISInsertData( MODIS1KMGroupID, 
+	_500Aggr1kmUncert = readThenWrite( MODIS1KMGroupID, 
 						"EV_500_Aggr1km_RefSB_Uncert_Indexes",
 						DFNT_UINT8, H5T_STD_U8LE, _1KMFileID, argv[1] );
 						
@@ -271,24 +267,24 @@ int MODISmain( int argc, char* argv[] )
 	 			  
 	/*_____________EV_250_Aggr500_RefSB____________*/
 	
-	_250Aggr500 = MODISInsertData( MODIS500mGroupID, 
+	_250Aggr500 = readThenWrite( MODIS500mGroupID, 
 						"EV_250_Aggr500_RefSB",
 						DFNT_UINT16, H5T_NATIVE_USHORT, _500mFileID, argv[1] );
 						
 	/*_____________EV_250_Aggr500_RefSB_Uncert_Indexes____________*/
 	
-	_250Aggr500Uncert = MODISInsertData( MODIS500mGroupID, 
+	_250Aggr500Uncert = readThenWrite( MODIS500mGroupID, 
 						"EV_250_Aggr500_RefSB_Uncert_Indexes",
 						DFNT_UINT8, H5T_STD_U8LE, _500mFileID, argv[1] );
 						
 	/*____________EV_500_RefSB_____________*/
 	
-	_500RefSB = MODISInsertData( MODIS500mGroupID, "EV_500_RefSB", DFNT_UINT16,
+	_500RefSB = readThenWrite( MODIS500mGroupID, "EV_500_RefSB", DFNT_UINT16,
 				H5T_NATIVE_USHORT, _500mFileID, argv[1] );
 				
 	/*____________EV_500_RefSB_Uncert_Indexes_____________*/
 	
-	_500RefSBUncert = MODISInsertData( MODIS500mGroupID, "EV_500_RefSB_Uncert_Indexes",
+	_500RefSBUncert = readThenWrite( MODIS500mGroupID, "EV_500_RefSB_Uncert_Indexes",
 					  DFNT_UINT8, H5T_STD_U8LE, _500mFileID, argv[1] );
 					  
 	
@@ -300,12 +296,12 @@ int MODISmain( int argc, char* argv[] )
 	 			  
 	/*____________EV_250_RefSB_____________*/
 	
-	_250RefSB = MODISInsertData( MODIS250mGroupID, "EV_250_RefSB", DFNT_UINT16,
+	_250RefSB = readThenWrite( MODIS250mGroupID, "EV_250_RefSB", DFNT_UINT16,
 				H5T_NATIVE_USHORT, _250mFileID, argv[1] );
 				
 	/*____________EV_250_RefSB_Uncert_Indexes_____________*/
 	
-	_250RefSBUncert = MODISInsertData( MODIS250mGroupID, "EV_250_RefSB_Uncert_Indexes",
+	_250RefSBUncert = readThenWrite( MODIS250mGroupID, "EV_250_RefSB_Uncert_Indexes",
 					  DFNT_UINT8, H5T_STD_U8LE, _250mFileID, argv[1] ); 			  
 	
 	
@@ -317,12 +313,12 @@ int MODISmain( int argc, char* argv[] )
 						
 	/*_______________latitude data_______________*/
 	
-	latitudeDatasetID = MODISInsertData( MODISgeolocationGroupID,
+	latitudeDatasetID = readThenWrite( MODISgeolocationGroupID,
 					  "Latitude",
 					  DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID, argv[1] );
 	
 	/*_______________longitude data______________*/
-	longitudeDatasetID = MODISInsertData( MODISgeolocationGroupID,
+	longitudeDatasetID = readThenWrite( MODISgeolocationGroupID,
 					  "Longitude",
 					  DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID, argv[1] );
 	
@@ -388,49 +384,5 @@ herr_t MODIS_1KM_RefSBAttr( hid_t objectID )
 	return EXIT_SUCCESS;
 }
 #endif
-hid_t MODISInsertData( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
-					   hid_t outputDataType, int32 inputFileID, char* inputFileName  )
-{
-	int32 dataRank;
-	int32 dataDimSizes[DIM_MAX];
-	unsigned int* dataBuffer;
-	hid_t datasetID;
-	
-	herr_t status;
-	
-	status = H4readData( inputFileID, inputFileName, datasetName,
-		(void**)&dataBuffer, &dataRank, dataDimSizes, inputDataType );
-	
-	if ( status < 0 )
-	{
-		fprintf( stderr, "[%s]: Unable to read %s data.\n", __func__, datasetName );
-		exit (EXIT_FAILURE);
-	}
-	
-	/* END READ DATA. BEGIN INSERTION OF DATA */ 
-	 
-	/* Because we are converting from HDF4 to HDF5, there are a few type mismatches
-	 * that need to be resolved. Thus, we need to take the DimSizes array, which is
-	 * of type int32 (an HDF4 type) and put it into an array of type hsize_t.
-	 * A simple casting might work, but that is dangerous considering hsize_t and int32
-	 * are not simply two different names for the same type. They are two different types.
-	 */
-	hsize_t temp[DIM_MAX];
-	for ( int i = 0; i < DIM_MAX; i++ )
-		temp[i] = (hsize_t) dataDimSizes[i];
-		
-	datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
-		 temp, outputDataType, datasetName, dataBuffer );
-		
-	if ( datasetID < 0 )
-	{
-		fprintf(stderr, "[%s]: Error writing %s dataset.\n", __func__, datasetName );
-		exit (EXIT_FAILURE);
-	}
-	
-	
-	free(dataBuffer);
-	
-	return datasetID;
-}
+
 

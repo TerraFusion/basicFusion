@@ -11,7 +11,7 @@
 hid_t CERESattrCreateString( hid_t objectID, char* name, char* value );
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax );
 
-int CERESmain( int argc, char* argv[] )
+int CERESmain( char* argv[] )
 {
 	/*************
 	 * VARIABLES *

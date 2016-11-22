@@ -17,15 +17,8 @@
 
 hid_t outputFile;
 
-int MOPITTmain( int argc, char* argv[] )
+int MOPITTmain( char* argv[] )
 {
-	if ( argc != 3 )
-	{
-		
-		fprintf( stderr, "Usage: %s [input HDF5 file] [output HDF5 file]\n\n", argv[0] );
-		return EXIT_FAILURE;
-	
-	}
 	
 	hid_t file;
 	

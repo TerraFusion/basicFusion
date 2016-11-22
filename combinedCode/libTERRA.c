@@ -467,29 +467,29 @@ int32 H4readData( int32 fileID, char* fileName, char* datasetName, void** data, 
 	 */
 	if ( dataType == DFNT_FLOAT32 )
 	{
-		*((float**)data) = calloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]*dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9], sizeof( float ) );
+		*((float**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]*dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] * sizeof( float ) );
 	}
 	else if ( dataType == DFNT_FLOAT64 )
 	{
-		*((double**)data) = calloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
+		*((double**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
 				   *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
-				   , sizeof( double ) );
+				   * sizeof( double ) );
 	}
 	else if ( dataType == DFNT_UINT16 )
 	{
-		*((unsigned short int**)data) = calloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
+		*((unsigned short int**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
 				   *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
-				   , sizeof( unsigned short int ) );
+				   * sizeof( unsigned short int ) );
 	}
 	else if ( dataType == DFNT_UINT8 )
 	{
-		*((uint8_t**)data) = calloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
+		*((uint8_t**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
 				   *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
-				   , sizeof( uint8_t ) );
+				   * sizeof( uint8_t ) );
 	}
 	else
 	{
-		fprintf( stderr, "[%s:%s:%d]: Invalid data type.\n", __FILE__, __func__, __LINE__ );
+		fprintf( stderr, "[%s:%s:%d]: Invalid data type.\nIt may be the case that your datatype has not been accounted for in the %s function.\nIf that is the case, simply add your datatype to the function in the else-if tree.\n", __FILE__, __func__, __LINE__, __func__ );
 		SDendaccess(sds_id);
 		return EXIT_FAILURE;
 	}
@@ -503,7 +503,7 @@ int32 H4readData( int32 fileID, char* fileName, char* datasetName, void** data, 
 	{
 		fprintf( stderr, "[%s]: SDreaddata: Failed to read data.\n", __func__);
 		SDendaccess(sds_id);
-		return -1;
+		return EXIT_FAILURE;
 	}
 	
 	
@@ -548,6 +548,89 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
 	H5Tclose(stringType);
 	
 	return attrID;
+}
+
+/*
+	DESCRIPTION:
+		This function is an abstraction of reading a dataset from an HDF4 file
+		and then writing it to the output HDF5 file. This function calls H4readData
+		which is itself an abstraction for reading input data into a data buffer, and
+		then writes that buffer to the output file using the insertDataset function.
+		Once all writing is done, it frees allocated memory and returns the HDF5 dataset
+		identifier that was created in the output file.
+		
+	ARGUMENTS:
+		1. outputGroupID  -- The HDF5 group/directory identifier for where the data is to
+							 be written. Can either be an actual group ID or can be the
+							 file ID (in the latter case, data will be written to the root
+							 directory).
+		2. datasetName    -- A string containing the name of the dataset in the input HDF4
+							 file. The output dataset will have the same name.
+		3. inputDataType  -- An HDF4 datatype identifier. Must match the data type of the
+							 input dataset. Please reference Section 3 of the HDF4
+							 Reference Manual for a list of HDF types.
+		4. outputDataType -- An HDF5 datatype identifier. Must be of the same general type
+							 of the input data type. Please reference the HDF5 API
+							 specification under "Predefined Datatypes" for a list of HDF5
+							 datatypes.
+		5. inputFileID	  -- The HDF4 input file identifier
+		6. inputFileName  -- A string containing the name of the input file.
+	
+	EFFECTS:
+		Reads the input file dataset and then writes to the HDF5 output file. Returns
+		a dataset identifier for the new dataset created in the output file. It is the
+		responsibility of the caller to close the dataset ID when finished using
+		H5Dclose().
+	
+	RETURN:
+		Returns the dataset identifier if successful. Else returns EXIT_FAILURE upon
+		any errors.
+*/
+
+hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
+					   hid_t outputDataType, int32 inputFileID, char* inputFileName  )
+{
+	int32 dataRank;
+	int32 dataDimSizes[DIM_MAX];
+	unsigned int* dataBuffer;
+	hid_t datasetID;
+	
+	herr_t status;
+	
+	status = H4readData( inputFileID, inputFileName, datasetName,
+		(void**)&dataBuffer, &dataRank, dataDimSizes, inputDataType );
+	
+	if ( status < 0 )
+	{
+		fprintf( stderr, "[%s:%s:%d]: Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+		return (EXIT_FAILURE);
+	}
+	
+	/* END READ DATA. BEGIN INSERTION OF DATA */ 
+	 
+	/* Because we are converting from HDF4 to HDF5, there are a few type mismatches
+	 * that need to be resolved. Thus, we need to take the DimSizes array, which is
+	 * of type int32 (an HDF4 type) and put it into an array of type hsize_t.
+	 * A simple casting might work, but that is dangerous considering hsize_t and int32
+	 * are not simply two different names for the same type. They are two different types.
+	 */
+	hsize_t temp[DIM_MAX];
+	for ( int i = 0; i < DIM_MAX; i++ )
+		temp[i] = (hsize_t) dataDimSizes[i];
+		
+	datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+		 temp, outputDataType, datasetName, dataBuffer );
+		
+	if ( datasetID < 0 )
+	{
+		fprintf(stderr, "[%s:%s:%d]: Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+		return (EXIT_FAILURE);
+	}
+	
+	
+	free(dataBuffer);
+	
+	return datasetID;
 }
 
 

@@ -1,11 +1,7 @@
 #ifndef H_TERRA_FUNCS
 #define H_TERRA_FUNCS
-
-#include <stdio.h>
-#include <hdf5.h>		// default HDF5 library
-#include <hdf.h>
-#include <stdlib.h>
-#include <string.h>
+#include <mfhdf.h>
+#include <hdf5.h>
 
 #define DIM_MAX 10
 
@@ -14,9 +10,10 @@
  *********************/
 extern hid_t outputFile;
 
-int MOPITTmain( int argc, char* argv[] );
-int CERESmain( int argc, char* argv[] );
-int MODISmain( int argc, char* argv[] );
+int MOPITTmain( char* argv[] );
+int CERESmain( char* argv[] );
+int MODISmain( char* argv[] );
+int ASTERmain( char* argv[] );
  
 float getElement5D( float *array, hsize_t dimSize[5], int *position );	// note, this function is used for testing. It's temporary
 
@@ -36,5 +33,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value );
 
 int32 H4readData( int32 fileID, char* fileName, char* datasetName, void** data,
 				  int32 *rank, int32* dimsizes, int32 dataType );
+hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
+					   hid_t outputDataType, int32 inputFile, char* inputFileName );	  
 
 #endif
