@@ -1,5 +1,7 @@
 #include "libTERRA.h"
 #include <stdio.h>
+#include <string.h>
+#include <assert.h>
 #define STR_LEN 500
 #define IN_FILE "inputFiles.txt"
 
@@ -17,6 +19,7 @@ int main( int argc, char* argv[] )
 		return EXIT_FAILURE;
 	}
 	
+	/* open the input file list */
 	FILE* const inputFile = fopen( IN_FILE, "r" );
 	char string[STR_LEN];
 	
@@ -30,28 +33,45 @@ int main( int argc, char* argv[] )
 	char* MOPITTargs[3];
 	char* CERESargs[3];
 	char* MODISargs[5];
+	char* ASTERargs[3];
+	
+	/* Main will assert that the lines found in the inputFiles.txt file match
+	 * the expected input files. This will be done using string.h's strstr() function.
+	 * This will halt the execution of the program if the line recieved by getNextLine
+	 * does not match the expected input. In other words, only input files meant for
+	 * MOPITT, CERES, ASERT etc will pass this error check.
+	 */
+	char MOPITTcheck[] = "MOP01";
+	char CEREScheck[] = "CER_BDS_Terra";
+	char MODIScheck1[] = "MOD021KM";
+	char MODIScheck2[] = "MOD02HKM";
+	char MODIScheck3[] = "MOD02QKM";
+	char MODIScheck4[] = "MOD03";
+	char ASTERcheck[] = "AST_L1T_";
 	
 	/**********
 	 * MOPITT *
 	 **********/
 	/* get the MOPITT input file paths from our inputFiles.txt */
 	getNextLine( string, inputFile);
+	/* assert will fail if unexpected input is present */
+	assert( strstr( string, MOPITTcheck ) != NULL );
 	
 	MOPITTargs[0] = argv[0];
-	
-	
 	/* allocate space for the argument */
 	MOPITTargs[1] = malloc( strlen(string) );
 	/* copy the data over */
 	strncpy( MOPITTargs[1], string, strlen(string) );
 	MOPITTargs[2] = argv[1];
 	
+	
+	
 	/*********
 	 * CERES *
 	 *********/
 	/* get the CERES input files */
 	getNextLine( string, inputFile);
-	
+	assert( strstr( string, CEREScheck ) != NULL );
 	
 	CERESargs[0] = argv[0];
 	/* allocate memory for the argument */
@@ -65,6 +85,7 @@ int main( int argc, char* argv[] )
 	 MODISargs[0] = argv[0];
 	/* get the MODIS 1KM file */
 	getNextLine( string, inputFile);
+	assert( strstr( string, MODIScheck1 ) != NULL );
 
 	/* allocate memory for the argument */
 	MODISargs[1] = malloc ( strlen(string ) );
@@ -72,41 +93,69 @@ int main( int argc, char* argv[] )
 	
 	/* get the MODIS 500m file */
 	getNextLine( string, inputFile );
+	assert( strstr( string, MODIScheck2 ) != NULL );
+	
 	/* allocate memory */
 	MODISargs[2] = malloc( strlen(string) );
 	strncpy( MODISargs[2], string, strlen(string));
 	
 	/* get the MODIS 250m file */
 	getNextLine( string, inputFile );
+	assert( strstr( string, MODIScheck3 ) != NULL );
+	
 	MODISargs[3] = malloc( strlen(string) );
 	strncpy( MODISargs[3], string, strlen(string) );
 	
 	/* get the MODIS MOD03 file */
 	getNextLine( string, inputFile );
+	assert( strstr( string, MODIScheck4 ) != NULL );
+	
 	MODISargs[4] = malloc( strlen( string ) );
 	strncpy( MODISargs[4], string, strlen(string) );
 	
 	
 	MODISargs[5] = argv[1];
 	
+	/*********
+	 * ASTER *
+	 *********/
 	
-	if ( MOPITTmain( 3, MOPITTargs ) == EXIT_FAILURE )
+	/* get the ASTER input files */
+	getNextLine( string, inputFile );
+	assert( strstr( string, ASTERcheck ) != NULL );
+	
+	ASTERargs[0] = argv[0];
+	/* allocate memory for the argument */
+	ASTERargs[1] = malloc( strlen(string ));
+	strncpy( ASTERargs[1], string, strlen(string) );
+	ASTERargs[2] = argv[1];
+	
+	
+	if ( MOPITTmain( MOPITTargs ) == EXIT_FAILURE )
 	{
 		fprintf( stderr, "Error: MOPITT section failed.\n" );
 		return -1;
 	}
 	
-	if ( CERESmain( 3, CERESargs) == EXIT_FAILURE )
+	if ( CERESmain( CERESargs) == EXIT_FAILURE )
 	{
 		fprintf( stderr, "Error: CERES section failed.\n" );
 		return -1;
 	}
 	
-	if ( MODISmain( 5, MODISargs) == EXIT_FAILURE )
+	if ( MODISmain( MODISargs) == EXIT_FAILURE )
 	{
 		fprintf( stderr, "Error: MODIS section failed.\n" );
 		return -1;
 	}
+	
+	if ( ASTERmain( ASTERargs) == EXIT_FAILURE )
+	{
+		fprintf( stderr, "Error: ASTER section failed.\n" );
+		return -1;
+	}
+	
+	
 	
 	/* free all memory */
 	fclose( inputFile );
@@ -116,6 +165,7 @@ int main( int argc, char* argv[] )
 	free( MODISargs[2] );
 	free( MODISargs[3] );
 	free( MODISargs[4] );
+	free( ASTERargs[1] );
 	
 	H5Fclose(outputFile);
 	
@@ -124,7 +174,7 @@ int main( int argc, char* argv[] )
 
 void getNextLine ( char* string, FILE* const inputFile )
 {
-	//printf("%p\n", inputFile );
+	
 	do
 	{
 		/* if the end of the file has been reached, return */
