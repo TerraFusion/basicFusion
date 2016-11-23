@@ -1,11 +1,6 @@
 
 /*
-	DESCRIPTION:
 	
-	This program takes an input MOPITT HDF file as argv[1] and writes out the radiance, longitude,
-	latitude, and time datasets into a new file at argv[2]. This program will eventually become a 
-	MOPITT library. Suggestions on how to improve this program, or even more elegant solutions to 
-	it, will be greatly appreciated.
 	
 	AUTHOR:
 		Landon Clipp
@@ -13,30 +8,10 @@
 	EMAIL:
 		clipp2@illinois.edu
 		
-*/
-
-
-/* TODO:		
+	NOTE:
+		I recommend you set your text editor to represent tabs as 4 columns. It'll make
+		everything look a lot neater, trust me.
 		
-	
-*/
-
-
-
-
-/*
-	DESCRIPTION:
-		This function returns the value specified by the dimensions given to it in the array
-	ARGUMENTS:
-		1. float array
-		2. Size of each dimension (given by a 5 element 1D array. Elements 0-4 specify size of dimensions 0-4).
-		3. Requested position in the array (given by a 5 element 1D array. Elements 0-4 specify which position in each dimension)
-	EFFECTS:
-		None. Does not write anything.
-	RETURN:
-		Value stored at specified dimension
-		
-	array[dim0][dim1][dim2][dim3][dim4]
 */
 
 #include "libTERRA.h"
@@ -47,6 +22,53 @@
 #include <hdf.h>
 #include <mfhdf.h>
 #define DIM_MAX 10
+
+/*
+						insertDataset
+	DESCRIPTION:
+		This function takes the data given in the array data_out and writes it to the
+		output HDF5 group given by datasetGroup_ID. The argument returnDatasetID is
+		treated as a boolean, where 0 means do not return the output dataset ID (close
+		the identifier) and non-zero means return the output dataset ID (do not close the
+		identifier).
+	
+	ARGUMENTS:
+		1. outputFileID    -- A pointer to the file identifier of the output file.
+		2. datasetGroup_ID -- A pointer to the group in the output file where the data is
+							  to be written to.
+		3. returnDatasetID -- An integer (boolean). 0 means do not return the identifier
+							  for the newly created dataset in the output file. In such
+							  a case, the function will close the identifier. Non-zero
+							  means return the identifier (and do not close it). In such
+							  a case, it will be the responsibility of the caller to close
+							  the identifier when finished.
+		4. rank			   -- The rank (number of dimensions) of the array being written
+		5. datasetDims     -- A single dimension array of size rank describing the size
+							  of each dimension in the data_out array.
+		6. dataType		   -- An HDF5 datatype describing the type of data contained in
+							  data_out. Please refer to the HDF5 API specification under
+							  the link "Predefined Datatypes."
+		7. datasetName	   -- A character string describing what the output dataset is to
+							  be named.
+		8. data_out		   -- A single dimensional array containing information of the
+							  data to be written. This is passed as a void pointer because
+							  the type of data contained in the array may vary between
+							  function calls. The appropriate casting is applied in this
+							  function.
+	
+	EFFECTS:
+		The data_out array will be written under the group provided by datasetGroup_ID.
+		If returnDatasetID is non-zero, an identifier to the newly created dataset will
+		be returned.
+		
+	RETURN:
+		Case 1 -- returnDatasetID == 0:
+			Returns EXIT_FAILURE upon an error.
+			Returns EXIT_SUCCESS upon successful completion.
+		Case 2 -- returnDatasetID != 0:
+			Returns EXIT_FAILURE upon an error.
+			Returns the identifier to the newly created dataset upon success.
+*/
 
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID, 
 					 int rank, hsize_t* datasetDims, hid_t dataType, char* datasetName, void* data_out) 
@@ -66,7 +88,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
 		H5Dclose(dataset);
 		H5Sclose(memspace);
 		free(data_out);
-		return (-1);
+		return (EXIT_FAILURE);
 	}
 	
 	/* Free all remaining memory */
@@ -90,8 +112,10 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
 }
 
 /*
+					MOPITTinsertDataset
 	DESCRIPTION:
-		This function reads the radiance dataset from the input File ID, and writes the dataset into a new, already opened file.
+		This function reads the radiance dataset from the input File ID, and writes the
+		dataset into a new, already opened file.
 		This function assumes that 
 		1. The input file ID has already been prepared
 		2. The output file ID has already been prepared
@@ -283,10 +307,12 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 }
 
 /*
+				openFile
 	DESCRIPTION:
-		This function take a pointer to a file identifier and opens the file specified by the inputFileName.
-		The main purpose of this is to update the value of the file identifier so that access to the file
-		can proceed. This function allows for READ ONLY and R/W access.
+		This function take a pointer to a file identifier and opens the file specified by
+		the inputFileName. The main purpose of this is to update the value of the file
+		identifier so that access to the file can proceed. This function allows for READ
+		ONLY and R/W access.
 	ARGUMENTS:
 		1. pointer to file identifier
 		2. input file name string
@@ -296,8 +322,9 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 			H5F_ACC_RDONLY
 				For read only.
 	EFFECTS:
-		Opens the specified file and update the file identifier with the necessary information to access the 
-		file.
+		Opens the specified file and updates the file identifier (provided in the
+		first argument) with the necessary information to access the file.
+		
 	RETURN:
 		Returns EXIT_FAILURE upon failure to open file. Otherwise, returns EXIT_SUCCESS
 */
@@ -321,6 +348,7 @@ herr_t openFile( hid_t *file, char* inputFileName, unsigned flags  )
 }
 
 /*
+				createOutputFile
 	DESCRIPTION:
 		This function creates an ouptut HDF5 file. If the file with outputFileName already exists, errors will be thrown.
 	ARGUMENTS:
@@ -345,21 +373,19 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
 	return EXIT_SUCCESS;
 }
 
-/*
-	FIXME
-	
-	I want to eventually take the following group creation functions and combine them into one.
-	It's unnecessary to have three separate functions. All that is needed in addition to what
-	is written is that the function accept a dataset name string as an argument.
-*/
 
 /*
+						createGroup
 	DESCRIPTION:
-		This function creates the root group (aka directory) for the MOPITT datasets in our HDF5 file. It updates the group
-		identifier given to it in the arguments.
+		This function creates a new group in the output HDF5 file. The new group will be
+		created as a child of referenceGroup. referenceGroup can either be a file ID, in
+		which case the new group will be created in the root directory, or a group ID, in
+		which case the new group will be created as a child of referenceGroup.
 	ARGUMENTS:
-		1. A pointer to the file identifier
-		2. A pointer to the group identifier (to be modified)
+		1. A pointer to the parent group ID
+		2. A pointer to the new group ID. This is a pointer so that the value of the
+		   caller's newGroup variable will be updated to contain the ID of the new group.
+		3. The name of the new group.
 	EFFECTS:
 		Creates a new directory in the HDF file, updates the group pointer.
 	RETURN:
@@ -380,15 +406,17 @@ herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroup
 }
 
 /*
+						attributeCreate
 	DESCRIPTION:
 		This function creates one single attribute for the object specified by objectID.
 		It is the duty of the caller to free the attribute identifier using H5Aclose().
 	ARGUMENTS:
-		1. ObjectID: identifier for object to create attribute for
+		1. ObjectID: identifier for object to create the attribute for
 		2. attrName: string for the attribute
-		3. datatypeID: datatype identifier. Google: "HDF5 Predefined Datatypes"
+		3. datatypeID: datatype identifier. This describes what type of information the
+		   attribute will hold. Google: "HDF5 Predefined Datatypes"
 	EFFECTS:
-		Creates uninitialized attribute at object specified by objectID
+		Creates uninitialized attribute at the object specified by objectID
 	RETURN:
 		Returns the attribute identifier upon success.
 		Returns EXIT_FAILURE upon failure.
@@ -420,7 +448,34 @@ hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID )
 	return attrID;
 }
 
-int32 H4readData( int32 fileID, char* fileName, char* datasetName, void** data, int32 *rank, int32* dimsizes, int32 dataType )
+/*
+							H4readData
+	DESCRIPTION:
+		This function reads the HDF4 dataset into a buffer array. The dataset desired
+		can simply be given by its name and the fileID containing the dataset.
+		
+	ARGUMENTS:
+		1. fileID      -- The HDF4 file identifier where the dataset is contained.
+		2. datasetName -- The name of the desired dataset.
+		3. data        -- A pointer to an array where the data will be written to. This
+					      is given as a void double pointer because the type of array
+					      being passed to this function is not known at compile time.
+					      the data buffer given by the caller (a single pointer/array)
+					      will be updated to point to the information read (hence, a
+					      double pointer). This data will be stored on the heap.
+		4. rank		   -- A pointer to a variable. The caller will pass in a pointer
+						  to its local rank variable. The caller's rank variable will be
+						  updated with the rank (number of dimensions) of the dataset
+						  read.
+		5. dimsizes	   -- The caller will pass in an array (stored on the stack) which
+						  will be updated to contain the sizes of each dimension in the
+						  dataset that was read. This array MUST be of size DIM_MAX.
+		6. dataType	   -- An HDF4 datatype describing the type of data in the desired
+						  dataset. Please refer to Sectino 3 of the HDF4 Reference Manual,
+						  "HDF Constant Definition List."
+*/
+
+int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *rank, int32* dimsizes, int32 dataType )
 {
 	int32 sds_id, sds_index;
 	int32 ntype;					// number type for the data stored in the data set
@@ -512,6 +567,31 @@ int32 H4readData( int32 fileID, char* fileName, char* datasetName, void** data, 
 	return 0;
 }
 
+/*
+					attrCreateString
+	DESCRIPTION:
+		Similar to the function attributeCreate, this function creates an attribute for
+		the object given by objectID. However, this function is specifically for
+		string attributes. The difference between this function and attributeCreate is
+		that this function only creates string attributes and it also initializes
+		the attribute with a string given by the argument value. Creating a string is
+		a little more complicated than creating a number type, so a separate function
+		was warranted.
+	
+	ARGUMENTS:
+		1. objectID -- The object to create an attribute for.
+		2. name     -- The name of the attribute
+		3. value    -- The string that the attribute will contain
+		
+	EFFECTS:
+		A new string attribute will be created for the object objectID.
+	
+	RETURN;
+		Returns EXIT_FAILURE upon an error.
+		Else, returns the attribute identifier. It is the duty of the caller to close
+		the identifier using H5Aclose().
+*/
+
 hid_t attrCreateString( hid_t objectID, char* name, char* value )
 {
 	/* To store a string in HDF5, we need to create our own special datatype from a
@@ -551,6 +631,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
 }
 
 /*
+					readThenWrite
 	DESCRIPTION:
 		This function is an abstraction of reading a dataset from an HDF4 file
 		and then writing it to the output HDF5 file. This function calls H4readData
