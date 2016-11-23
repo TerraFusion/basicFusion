@@ -1,17 +1,16 @@
 
 /*
-	DESCRIPTION:
 	
-	This program takes an input MOPITT HDF file as argv[1] and writes out the radiance, longitude,
-	latitude, and time datasets into a new file at argv[2]. This program will eventually become a 
-	MOPITT library. Suggestions on how to improve this program, or even more elegant solutions to 
-	it, will be greatly appreciated.
 	
 	AUTHOR:
 		Landon Clipp
 		
 	EMAIL:
 		clipp2@illinois.edu
+		
+	NOTE:
+		I recommend you set your text editor to represent tabs as 4 columns. It'll make
+		everything look a lot neater, trust me.
 		
 */
 
@@ -25,7 +24,7 @@
 #define DIM_MAX 10
 
 /*
-										insertDataset
+						insertDataset
 	DESCRIPTION:
 		This function takes the data given in the array data_out and writes it to the
 		output HDF5 group given by datasetGroup_ID. The argument returnDatasetID is
@@ -113,7 +112,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
 }
 
 /*
-									MOPITTinsertDataset
+					MOPITTinsertDataset
 	DESCRIPTION:
 		This function reads the radiance dataset from the input File ID, and writes the
 		dataset into a new, already opened file.
@@ -308,6 +307,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 }
 
 /*
+				openFile
 	DESCRIPTION:
 		This function take a pointer to a file identifier and opens the file specified by
 		the inputFileName. The main purpose of this is to update the value of the file
@@ -348,6 +348,7 @@ herr_t openFile( hid_t *file, char* inputFileName, unsigned flags  )
 }
 
 /*
+				createOutputFile
 	DESCRIPTION:
 		This function creates an ouptut HDF5 file. If the file with outputFileName already exists, errors will be thrown.
 	ARGUMENTS:
@@ -374,7 +375,7 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
 
 
 /*
-										createGroup
+						createGroup
 	DESCRIPTION:
 		This function creates a new group in the output HDF5 file. The new group will be
 		created as a child of referenceGroup. referenceGroup can either be a file ID, in
@@ -405,7 +406,7 @@ herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroup
 }
 
 /*
-										attributeCreate
+						attributeCreate
 	DESCRIPTION:
 		This function creates one single attribute for the object specified by objectID.
 		It is the duty of the caller to free the attribute identifier using H5Aclose().
@@ -448,7 +449,7 @@ hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID )
 }
 
 /*
-											H4readData
+							H4readData
 	DESCRIPTION:
 		This function reads the HDF4 dataset into a buffer array. The dataset desired
 		can simply be given by its name and the fileID containing the dataset.
@@ -567,7 +568,7 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *rank, int
 }
 
 /*
-										attrCreateString
+					attrCreateString
 	DESCRIPTION:
 		Similar to the function attributeCreate, this function creates an attribute for
 		the object given by objectID. However, this function is specifically for
@@ -630,7 +631,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
 }
 
 /*
-									readThenWrite
+					readThenWrite
 	DESCRIPTION:
 		This function is an abstraction of reading a dataset from an HDF4 file
 		and then writing it to the output HDF5 file. This function calls H4readData
