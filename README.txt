@@ -11,9 +11,6 @@ The code is written in C using the following HDF libraries:
 2. hdf5.h -- For the HDF5 functions  
 3. mfhdf.h -- For the HDF4 scientific dataset (SD) interface. Also acts as a wrapper for the hdf.h library (includes hdf by
   default).  
-4. h4toh5.h -- Provides functionality for converting HDF4 objects to HDF5  
-5? hdfeos.h -- for the HDF EOS interface. As of now, this is not used, but will be in the future. HDFEOS can only be used on 
-  certain instruments. Will not work for all instruments.
 
 ***********************
 ***PROGRAM STRUCTURE***
@@ -74,15 +71,38 @@ meeting.
 
 High level API flow chart
 
-MOPITT-----------------------------------------
-                                              |
-MISR-------------->-                          |
-                   |                          |
-MODIS-----------h4toh5.h-->hdf5 objects---->hdf5.h-----> output file
+MOPITT--------------------------------------------------
+                                                       |
+MISR-------------->-                                   |
+                   |                                   |
+MODIS-----------hdf.h--->hdf5.h-->convrt to hdf5----->hdf5.h-----> output file
                    ^
 CERES----------->---
                    ^
-ASTER----------->---
-                                                   
-                                                  
-                                                  
+ASTER----------->---                 
+
+PROGRAM STRUCTURE:
+Note: Directionality indicates dependency. For instance, main.c is dependent on fileList.txt and outputFileName.
+      MOPITTmain.c would be dependent on main.c, MOPITTfiles and libTERRA.c etc.
+
+                                         --------->------MOPITTmain.c------->------|             
+                                         |             ^^^MOPITTfiles^^^           | 
+                                         |             ^^^libTERRA.c ^^^           |
+                                         |-------->-------CERESmain.c------->------|   
+                                         |             ^^^CERESfiles^^^            |   
+                                         |             ^^^libTERRA.c^^^            |  
+      fileList.txt-->main.c-------->-----|-------->-------MODISmain.c------->------|---->outputFile
+    outputFileName----^                  |             ^^^MODISfiles^^^            |  
+                                         |             ^^^libTERRA.c^^^            |   
+                                         |-------->-------ASTERmain.c------->------|   
+                                         |             ^^^ASTERfiles^^^            |   
+                                         |             ^^^libTERRA.c^^^            |
+                                         |-------->-------MISRmain.c-------->------|
+                                                       ^^^MISRfiles^^^
+                                                      ^^^libTERRA.c^^^
+                                    
+                                    libTERRA.c
+                                     ^     ^
+                                     |     |
+                                     |     |
+                                  hdf5.h  hdf.h
