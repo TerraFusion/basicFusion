@@ -11,7 +11,7 @@
 hid_t CERESattrCreateString( hid_t objectID, char* name, char* value );
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax );
 
-int CERESmain( char* argv[] )
+int CERES( char* argv[] )
 {
 	/*************
 	 * VARIABLES *
@@ -71,7 +71,7 @@ int CERESmain( char* argv[] )
 	fileID = SDstart( argv[1], DFACC_READ );
 	
 	/* read time data */
-	status = H4readData( fileID, argv[1], "Julian Date and Time", 
+	status = H4readData( fileID, "Julian Date and Time", 
 		(void**)&timeDatasetBuffer, &timeDataRank, timeDataDimSizes, DFNT_FLOAT64 );
 	if ( status < 0 )
 	{
@@ -79,7 +79,7 @@ int CERESmain( char* argv[] )
 	}
 	
 	/* read CERES SW Filtered Radiances Upwards */
-	status = H4readData( fileID, argv[1], "CERES SW Filtered Radiances Upwards",
+	status = H4readData( fileID,  "CERES SW Filtered Radiances Upwards",
 		(void**)&SWFilteredBuffer, &SWFilteredDataRank, SWFilteredDataDimSizes, DFNT_FLOAT32 );
 	if ( status < 0 )
 	{
@@ -87,7 +87,7 @@ int CERESmain( char* argv[] )
 	}
 	
 	/* read CERES WN FIltered Radiances Upwards */
-	status = H4readData( fileID, argv[1], "CERES WN Filtered Radiances Upwards",
+	status = H4readData( fileID,  "CERES WN Filtered Radiances Upwards",
 		(void**)&WNFilteredBuffer, &WNFilteredDataRank, WNFilteredDataDimSizes, DFNT_FLOAT32 );
 	if ( status < 0 )
 	{
@@ -95,7 +95,7 @@ int CERESmain( char* argv[] )
 	}
 	
 	/* read CERES TOT FIltered Radiances Upwards */
-	status = H4readData( fileID, argv[1], "CERES TOT Filtered Radiances Upwards",
+	status = H4readData( fileID, "CERES TOT Filtered Radiances Upwards",
 		(void**)&TOTFilteredBuffer, &TOTFilteredDataRank, TOTFilteredDataDimSizes, DFNT_FLOAT32 );
 	if ( status < 0 )
 	{
@@ -103,7 +103,7 @@ int CERESmain( char* argv[] )
 	}
 	
 	/* read Colatitude of CERES FOV at TOA */
-	status = H4readData( fileID, argv[1], "Colatitude of CERES FOV at TOA",
+	status = H4readData( fileID, "Colatitude of CERES FOV at TOA",
 		(void**)&ColatitudeBuffer, &colatitudeDataRank, colatitudeDataDimSizes, DFNT_FLOAT32 );
 	if ( status < 0 )
 	{
@@ -111,7 +111,7 @@ int CERESmain( char* argv[] )
 	}
 	
 	/* read Longitude of CERES FOV at TOA */
-	status = H4readData( fileID, argv[1], "Longitude of CERES FOV at TOA",
+	status = H4readData( fileID, "Longitude of CERES FOV at TOA",
 		(void**)&LongitudeBuffer, &longitudeDataRank, longitudeDataDimSizes, DFNT_FLOAT32 );
 	if ( status < 0 )
 	{

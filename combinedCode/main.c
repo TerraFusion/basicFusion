@@ -5,10 +5,6 @@
 #define STR_LEN 500
 #define IN_FILE "inputFiles.txt"
 
-/*
-	
-*/
-
 void getNextLine ( char* string, FILE* const inputFile );
 
 int main( int argc, char* argv[] )
@@ -34,6 +30,7 @@ int main( int argc, char* argv[] )
 	char* CERESargs[3];
 	char* MODISargs[5];
 	char* ASTERargs[3];
+	char* MISRargs[11];
 	
 	/* Main will assert that the lines found in the inputFiles.txt file match
 	 * the expected input files. This will be done using string.h's strstr() function.
@@ -48,6 +45,8 @@ int main( int argc, char* argv[] )
 	char MODIScheck3[] = "MOD02QKM";
 	char MODIScheck4[] = "MOD03";
 	char ASTERcheck[] = "AST_L1T_";
+	char MISRcheck1[] = "MISR_AM1_GRP";
+	char MISRcheck2[] = "MISR_AM1_AGP";
 	
 	/**********
 	 * MOPITT *
@@ -130,33 +129,37 @@ int main( int argc, char* argv[] )
 	strncpy( ASTERargs[1], string, strlen(string) );
 	ASTERargs[2] = argv[1];
 	
+	/********
+	 * MISR *
+	 ********/
+	MISRargs[0] = argv[0];
 	
-	if ( MOPITTmain( MOPITTargs ) == EXIT_FAILURE )
+	for ( int i = 1; i < 10; i++ )
 	{
-		fprintf( stderr, "Error: MOPITT section failed.\n" );
-		return -1;
+		/* get the next MISR input file */
+		getNextLine( string, inputFile );
+		assert( strstr( string, MISRcheck1 ) != NULL );
+		MISRargs[i] = malloc ( strlen( string ) );
+		MISRargs[i] = string;
 	}
 	
-	if ( CERESmain( CERESargs) == EXIT_FAILURE )
-	{
-		fprintf( stderr, "Error: CERES section failed.\n" );
-		return -1;
-	}
-	
-	if ( MODISmain( MODISargs) == EXIT_FAILURE )
-	{
-		fprintf( stderr, "Error: MODIS section failed.\n" );
-		return -1;
-	}
-	
-	if ( ASTERmain( ASTERargs) == EXIT_FAILURE )
-	{
-		fprintf( stderr, "Error: ASTER section failed.\n" );
-		return -1;
-	}
+	getNextLine( string, inputFile );
+	assert( strstr( string, MISRcheck2 ) != NULL );
+	MISRargs[10] = malloc ( strlen( string ) );
+	MISRargs[10] = string;
 	
 	
-	
+	printf("0\%\n");
+	assert ( MOPITT( MOPITTargs ) != EXIT_FAILURE );
+	printf("20\%\n");
+	assert ( CERES( CERESargs) != EXIT_FAILURE );
+	printf("40\%\n");
+	assert ( MODIS( MODISargs) != EXIT_FAILURE );
+	printf("60\%\n");
+	assert ( ASTER( ASTERargs) != EXIT_FAILURE );
+	printf("80\%\n");
+	assert ( MISR( MISRargs) != EXIT_FAILURE );
+	printf("100\%\n");
 	/* free all memory */
 	fclose( inputFile );
 	free( MOPITTargs[1] );
@@ -166,6 +169,7 @@ int main( int argc, char* argv[] )
 	free( MODISargs[3] );
 	free( MODISargs[4] );
 	free( ASTERargs[1] );
+	for ( int i = 1; i < 11; i++ ) free( MISRargs[i] );
 	
 	H5Fclose(outputFile);
 	
@@ -189,13 +193,11 @@ void getNextLine ( char* string, FILE* const inputFile )
 		}
 		
 		
-	} while ( string[0] == '#' || string[0] == '\n' );
+	} while ( string[0] == '#' || string[0] == '\n' || string[0] == ' ' );
 	
-	/* remove the newline character from the buffer if it exists */
+	/* remove the trailing newline or space character from the buffer if it exists */
 	size_t len = strlen( string )-1;
-	if ( string[len] == '\n' )
+	if ( string[len] == '\n' || string[len] == ' ')
 		string[len] = '\0';
 	
 }
-
-

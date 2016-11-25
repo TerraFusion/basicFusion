@@ -19,7 +19,7 @@
 //herr_t MODIS_1KM_RefSBAttr( hid_t objectID );
 
 
-int MODISmain( char* argv[] )
+int MODIS( char* argv[] )
 {
 	/*************
 	 * VARIABLES *
@@ -208,7 +208,7 @@ int MODISmain( char* argv[] )
 	/*_______________EV_1KM_RefSB data_______________*/
 	
 	_1KMDatasetID = readThenWrite( MODIS1KMGroupID, "EV_1KM_RefSB", DFNT_UINT16, 
-					H5T_NATIVE_USHORT, _1KMFileID, argv[1] );
+					H5T_NATIVE_USHORT, _1KMFileID);
 					
 					
 	/*______________EV_1KM_RefSB_Uncert_Indexes______________*/
@@ -220,40 +220,40 @@ int MODISmain( char* argv[] )
 		used.
 	*/
 	_1KMUncertID = readThenWrite( MODIS1KMGroupID, "EV_1KM_RefSB_Uncert_Indexes",
-					DFNT_UINT8, H5T_STD_U8LE, _1KMFileID, argv[1] );
+					DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
 					
 	/*___________EV_1KM_Emissive___________*/
 	
 	_1KMEmissive = readThenWrite( MODIS1KMGroupID, "EV_1KM_Emissive",
-					DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID, argv[1] );
+					DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
 					
 	/*___________EV_1KM_Emissive_Uncert_Indexes*___________*/
 	
 	_1KMEmissiveUncert = readThenWrite( MODIS1KMGroupID,
 						  "EV_1KM_Emissive_Uncert_Indexes",
-						  DFNT_UINT8, H5T_STD_U8LE, _1KMFileID, argv[1] );
+						  DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);
 						  
 	/*__________EV_250_Aggr1km_RefSB_______________*/
 	
 	_250Aggr1km = readThenWrite( MODIS1KMGroupID, "EV_250_Aggr1km_RefSB",
-					DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID, argv[1] );
+					DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
 					
 	/*__________EV_250_Aggr1km_RefSB_Uncert_Indexes_____________*/
 	
 	_250Aggr1kmUncert = readThenWrite( MODIS1KMGroupID, 
 						"EV_250_Aggr1km_RefSB_Uncert_Indexes",
-						DFNT_UINT8, H5T_STD_U8LE, _1KMFileID, argv[1] );				
+						DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);				
 	
 	/*__________EV_500_Aggr1km_RefSB____________*/
 	
 	_500Aggr1km = readThenWrite( MODIS1KMGroupID, "EV_500_Aggr1km_RefSB",
-				  DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID, argv[1] );
+				  DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID );
 				  
 	/*__________EV_500_Aggr1km_RefSB_Uncert_Indexes____________*/
 	
 	_500Aggr1kmUncert = readThenWrite( MODIS1KMGroupID, 
 						"EV_500_Aggr1km_RefSB_Uncert_Indexes",
-						DFNT_UINT8, H5T_STD_U8LE, _1KMFileID, argv[1] );
+						DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
 						
 						
 						
@@ -269,23 +269,23 @@ int MODISmain( char* argv[] )
 	
 	_250Aggr500 = readThenWrite( MODIS500mGroupID, 
 						"EV_250_Aggr500_RefSB",
-						DFNT_UINT16, H5T_NATIVE_USHORT, _500mFileID, argv[1] );
+						DFNT_UINT16, H5T_NATIVE_USHORT, _500mFileID );
 						
 	/*_____________EV_250_Aggr500_RefSB_Uncert_Indexes____________*/
 	
 	_250Aggr500Uncert = readThenWrite( MODIS500mGroupID, 
 						"EV_250_Aggr500_RefSB_Uncert_Indexes",
-						DFNT_UINT8, H5T_STD_U8LE, _500mFileID, argv[1] );
+						DFNT_UINT8, H5T_STD_U8LE, _500mFileID );
 						
 	/*____________EV_500_RefSB_____________*/
 	
 	_500RefSB = readThenWrite( MODIS500mGroupID, "EV_500_RefSB", DFNT_UINT16,
-				H5T_NATIVE_USHORT, _500mFileID, argv[1] );
+				H5T_NATIVE_USHORT, _500mFileID );
 				
 	/*____________EV_500_RefSB_Uncert_Indexes_____________*/
 	
 	_500RefSBUncert = readThenWrite( MODIS500mGroupID, "EV_500_RefSB_Uncert_Indexes",
-					  DFNT_UINT8, H5T_STD_U8LE, _500mFileID, argv[1] );
+					  DFNT_UINT8, H5T_STD_U8LE, _500mFileID );
 					  
 	
 	
@@ -297,12 +297,12 @@ int MODISmain( char* argv[] )
 	/*____________EV_250_RefSB_____________*/
 	
 	_250RefSB = readThenWrite( MODIS250mGroupID, "EV_250_RefSB", DFNT_UINT16,
-				H5T_NATIVE_USHORT, _250mFileID, argv[1] );
+				H5T_NATIVE_USHORT, _250mFileID );
 				
 	/*____________EV_250_RefSB_Uncert_Indexes_____________*/
 	
 	_250RefSBUncert = readThenWrite( MODIS250mGroupID, "EV_250_RefSB_Uncert_Indexes",
-					  DFNT_UINT8, H5T_STD_U8LE, _250mFileID, argv[1] ); 			  
+					  DFNT_UINT8, H5T_STD_U8LE, _250mFileID); 			  
 	
 	
 	
@@ -315,12 +315,12 @@ int MODISmain( char* argv[] )
 	
 	latitudeDatasetID = readThenWrite( MODISgeolocationGroupID,
 					  "Latitude",
-					  DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID, argv[1] );
+					  DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
 	
 	/*_______________longitude data______________*/
 	longitudeDatasetID = readThenWrite( MODISgeolocationGroupID,
 					  "Longitude",
-					  DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID, argv[1] );
+					  DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
 	
 	/*********************
 	 * INSERT ATTRIBUTES *

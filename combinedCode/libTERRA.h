@@ -1,5 +1,5 @@
-#ifndef H_TERRA_FUNCS
-#define H_TERRA_FUNCS
+#ifndef H_TERRA
+#define H_TERRA
 #include <mfhdf.h>
 #include <hdf5.h>
 
@@ -10,10 +10,11 @@
  *********************/
 extern hid_t outputFile;
 
-int MOPITTmain( char* argv[] );
-int CERESmain( char* argv[] );
-int MODISmain( char* argv[] );
-int ASTERmain( char* argv[] );
+int MOPITT( char* argv[] );
+int CERES( char* argv[] );
+int MODIS( char* argv[] );
+int ASTER( char* argv[] );
+int MISR( char* argv[] );
  
 float getElement5D( float *array, hsize_t dimSize[5], int *position );	// note, this function is used for testing. It's temporary
 
@@ -31,9 +32,9 @@ hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID );
 /* creates and writes a string attribute */
 hid_t attrCreateString( hid_t objectID, char* name, char* value );
 
-int32 H4readData( int32 fileID, char* fileName, char* datasetName, void** data,
+int32 H4readData( int32 fileID, char* datasetName, void** data,
 				  int32 *rank, int32* dimsizes, int32 dataType );
 hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
-					   hid_t outputDataType, int32 inputFile, char* inputFileName );	  
+					   hid_t outputDataType, int32 inputFile);	  
 
 #endif

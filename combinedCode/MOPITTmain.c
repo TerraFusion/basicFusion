@@ -17,7 +17,7 @@
 
 hid_t outputFile;
 
-int MOPITTmain( char* argv[] )
+int MOPITT( char* argv[] )
 {
 	
 	hid_t file;

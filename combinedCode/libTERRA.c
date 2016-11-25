@@ -24,6 +24,12 @@
 #define DIM_MAX 10
 
 /*
+	TODO
+		I recommend replacing all error checks with the assert() function. It will
+		make the code look much neater and makes debugging simpler.
+*/
+
+/*
 						insertDataset
 	DESCRIPTION:
 		This function takes the data given in the array data_out and writes it to the
@@ -307,7 +313,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 }
 
 /*
-				openFile
+				openFile (HDF5)
 	DESCRIPTION:
 		This function take a pointer to a file identifier and opens the file specified by
 		the inputFileName. The main purpose of this is to update the value of the file
@@ -389,8 +395,8 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
 	EFFECTS:
 		Creates a new directory in the HDF file, updates the group pointer.
 	RETURN:
-		EXIT_FAILURE on failure (equivalent to non-zero number in most environments)
-		EXIT_SUCCESS on success (equivalent to 0 in most systems)
+		EXIT_FAILURE on failure
+		EXIT_SUCCESS on success
 */
 
 herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroupName)
@@ -655,7 +661,6 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
 							 specification under "Predefined Datatypes" for a list of HDF5
 							 datatypes.
 		5. inputFileID	  -- The HDF4 input file identifier
-		6. inputFileName  -- A string containing the name of the input file.
 	
 	EFFECTS:
 		Reads the input file dataset and then writes to the HDF5 output file. Returns
@@ -669,7 +674,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
 */
 
 hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
-					   hid_t outputDataType, int32 inputFileID, char* inputFileName  )
+					   hid_t outputDataType, int32 inputFileID )
 {
 	int32 dataRank;
 	int32 dataDimSizes[DIM_MAX];
@@ -678,7 +683,7 @@ hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType
 	
 	herr_t status;
 	
-	status = H4readData( inputFileID, inputFileName, datasetName,
+	status = H4readData( inputFileID, datasetName,
 		(void**)&dataBuffer, &dataRank, dataDimSizes, inputDataType );
 	
 	if ( status < 0 )
