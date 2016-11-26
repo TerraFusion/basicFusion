@@ -404,6 +404,7 @@ herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroup
 	if ( *newGroup < 0 )
 	{
 		fprintf( stderr, "\n[%s]: H5Gcreate -- Could not create '%s' root group. Exiting program.\n\n", __func__ , newGroupName);
+		*newGroup = EXIT_FAILURE;
 		return EXIT_FAILURE;
 	}
 	

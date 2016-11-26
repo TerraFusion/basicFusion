@@ -161,8 +161,8 @@ int main( int argc, char* argv[] )
 	assert ( ASTER( ASTERargs) != EXIT_FAILURE );
 	printf("ASTER done.\nTransferring MISR...");
 	#endif
-	assert ( MISR( MISRargs) != EXIT_FAILURE );
-	printf("MISR done.\n");
+	//assert ( MISR( MISRargs) != EXIT_FAILURE );
+	//printf("MISR done.\n");
 	/* free all memory */
 	fclose( inputFile );
 	free( MOPITTargs[1] );
@@ -172,7 +172,7 @@ int main( int argc, char* argv[] )
 	free( MODISargs[3] );
 	free( MODISargs[4] );
 	free( ASTERargs[1] );
-	for ( int i = 1; i < 11; i++ ) free( MISRargs[i] );
+	//for ( int i = 1; i < 10; i++ ) free( MISRargs[i] );
 	
 	H5Fclose(outputFile);
 	

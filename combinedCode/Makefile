@@ -6,7 +6,7 @@ LINKFLAGS= -g
 INCLUDE2=/usr/local/
 LIB1=/usr/local/
 LIB2=/usr/local/
-DEPS=main.o libTERRA.o MOPITTmain.o CERESmain.o MODISmain.o ASTERmain.o MISRmain.o
+DEPS=main.o libTERRA.o MOPITTmain.o CERESmain.o MODISmain.o ASTERmain.o #MISRmain.o
 TARGET=TERRA_repackage
 
 all: $(TARGET)
