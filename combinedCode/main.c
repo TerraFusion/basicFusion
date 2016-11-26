@@ -141,6 +141,7 @@ int main( int argc, char* argv[] )
 		assert( strstr( string, MISRcheck1 ) != NULL );
 		MISRargs[i] = malloc ( strlen( string ) );
 		MISRargs[i] = string;
+		printf("\n%s\n", MISRargs[i] );
 	}
 	
 	getNextLine( string, inputFile );
@@ -149,17 +150,19 @@ int main( int argc, char* argv[] )
 	MISRargs[10] = string;
 	
 	
-	printf("0\%\n");
+	printf("Transferring MOPITT...");
 	assert ( MOPITT( MOPITTargs ) != EXIT_FAILURE );
-	printf("20\%\n");
+	#if 1
+	printf("MOPITT done.\nTransferring CERES...");
 	assert ( CERES( CERESargs) != EXIT_FAILURE );
-	printf("40\%\n");
+	printf("CERES done.\nTransferring MODIS...");
 	assert ( MODIS( MODISargs) != EXIT_FAILURE );
-	printf("60\%\n");
+	printf("MODIS done.\nTransferring ASTER...");
 	assert ( ASTER( ASTERargs) != EXIT_FAILURE );
-	printf("80\%\n");
+	printf("ASTER done.\nTransferring MISR...");
+	#endif
 	assert ( MISR( MISRargs) != EXIT_FAILURE );
-	printf("100\%\n");
+	printf("MISR done.\n");
 	/* free all memory */
 	fclose( inputFile );
 	free( MOPITTargs[1] );

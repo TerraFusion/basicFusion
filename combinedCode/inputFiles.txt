@@ -34,7 +34,6 @@
 # MISR must be provided in a specific sequence.
 # List all data files FIRST (AA, AF, AN, BA etc) and then list the geolocation
 # file, denoted by "MISR_AM1_AGP".
-
 ./InputFiles/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf
 ./InputFiles/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AF_F03_0024.hdf
 ./InputFiles/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AN_F03_0024.hdf
@@ -45,4 +44,3 @@
 ./InputFiles/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DA_F03_0024.hdf
 ./InputFiles/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DF_F03_0024.hdf
 ./InputFiles/MISR/MISR_AM1_AGP_P022_F01_24.hdf
-

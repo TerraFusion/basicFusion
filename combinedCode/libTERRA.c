@@ -84,6 +84,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
 	herr_t status;
 	
 	memspace = H5Screate_simple( rank, datasetDims, NULL );
+	//printf("\n%d\n", rank);
 	dataset = H5Dcreate( *datasetGroup_ID, datasetName, dataType, memspace, 
 						 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
 						 
@@ -91,9 +92,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
 	if ( status < 0 )
 	{
 		fprintf( stderr, "\n[%s:%s:%d]: H5DWrite: Unable to write to dataset \"%s\". Exiting program.\n", __FILE__,__func__ ,__LINE__ , datasetName );
-		H5Dclose(dataset);
-		H5Sclose(memspace);
-		free(data_out);
+		
 		return (EXIT_FAILURE);
 	}
 	
@@ -495,12 +494,14 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *rank, int
 	if( sds_index < 0 )
 	{
 		printf("SDnametoindex\n");
+		return EXIT_FAILURE;
 	}
 	
 	sds_id = SDselect( fileID, sds_index );
 	if ( sds_id < 0 )
 	{
 		printf("SDselect\n");
+		return EXIT_FAILURE;
 	}
 	
 	/* Initialize dimsizes elements to 1 */
@@ -514,7 +515,7 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *rank, int
 	if ( status < 0 )
 	{
 		printf("SDgetinfo\n");
-		return -1;
+		return EXIT_FAILURE;
 	}
 	
 	
@@ -707,7 +708,7 @@ hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType
 	datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
 		 temp, outputDataType, datasetName, dataBuffer );
 		
-	if ( datasetID < 0 )
+	if ( datasetID == EXIT_FAILURE )
 	{
 		fprintf(stderr, "[%s:%s:%d]: Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
 		return (EXIT_FAILURE);
