@@ -33,9 +33,9 @@ appropriate arguments to the instrument's main functions.
 Remember, the MOPITT segment must be run before any other segment because it is responsible for creating the output file
 and initializing the outputFile variable for the use of other segments.
 
-***************
-***COMPILING***
-***************
+*********************
+* COMPILING/RUNNING *
+*********************
 
 A sample Makefile has been provided. Do NOT edit this Makefile on the Github repository. You can download it to your machine
 and edit it for your own machine, but do not reupload the edited version.
@@ -71,6 +71,10 @@ Step 2: Run.
      batchscript.pbs will be executed to run the program "TERRArepackage".
   2. Check the status of the job by executing the command "qstat | grep [your BW username]". A flag of "Q" means the job
      is enqueued. A flag of "C" means the job has completed.
+     
+     
+                    INTERACTIVE
+Coming soon...
      
 NOTE:
   Currently there is no error output from the program when running a batch script. I am working on fixing this
