@@ -56,7 +56,25 @@ errors about JPEG libraries, try updating or installing those.
 
 ---BLUE WATERS---
 
-Available soon
+Steps to compile and run on Blue Waters:
+Directory: /projects/sciteam/jq0/TerraFusion/basicFusion/combinedCode
+    
+                    BATCH SCRIPT
+Step 1: Compile.
+  1. Manually enter the module lines in the file "combinedCode/loadModules". Currently, this file is set up as a batch
+     script but it does not work for some reason. So, please just enter the lines manually.
+  2. Perform a "make clean" in the combinedCode directory.
+  3. "make" the program.
+Step 2: Run.
+  1. Run the script "./jobSubmit". This executes the qsub command to place the batchscript.pbs script into the Blue Waters
+     queue. qsub is a queueing command to request access to a compute node. Once the compute node has been granted,
+     batchscript.pbs will be executed to run the program "TERRArepackage".
+  2. Check the status of the job by executing the command "qstat | grep [your BW username]". A flag of "Q" means the job
+     is enqueued. A flag of "C" means the job has completed.
+     
+NOTE:
+  Currently there is no error output from the program when running a batch script. I am working on fixing this
+  so that the useful diagnostic information the program provides can be accessible.
 
 *****************
 ***ADDING CODE***
