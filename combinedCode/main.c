@@ -140,14 +140,13 @@ int main( int argc, char* argv[] )
 		getNextLine( string, inputFile );
 		assert( strstr( string, MISRcheck1 ) != NULL );
 		MISRargs[i] = malloc ( strlen( string ) );
-		MISRargs[i] = string;
-		printf("\n%s\n", MISRargs[i] );
+		strncpy( MISRargs[i], string, strlen(string) );
 	}
 	
 	getNextLine( string, inputFile );
 	assert( strstr( string, MISRcheck2 ) != NULL );
 	MISRargs[10] = malloc ( strlen( string ) );
-	MISRargs[10] = string;
+	strncpy( MISRargs[10], string, strlen(string) );
 	
 	
 	printf("Transferring MOPITT...");
