@@ -1,4 +1,6 @@
-#all variables suffixed with 1 denote HDF4, 2 HDF5
+# All variables suffixed with 1 denote HDF4, 2 HDF5
+# This makefile is currently set up to be run on the 
+# Blue Waters computer.
 CC=cc
 CC1=/projects/sciteam/jq0/TerraFusion/basicFusion/libraries/bin/h4cc
 CFLAGS=-c -g -O0 -Wall -std=c11
