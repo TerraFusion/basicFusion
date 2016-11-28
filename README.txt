@@ -61,8 +61,7 @@ Directory: /projects/sciteam/jq0/TerraFusion/basicFusion/combinedCode
     
                     BATCH SCRIPT
 Step 1: Compile.
-  1. Manually enter the module lines in the file "combinedCode/loadModules". Currently, this file is set up as a batch
-     script but it does not work for some reason. So, please just enter the lines manually.
+  1. Manually enter the module lines in the file "combinedCode/loadModules" into your temrinal. Currently, this file is set up as a batch script but it does not work for some reason. So just enter the lines manually. Copy/pasting the lines works as well.
   2. Perform a "make clean" in the combinedCode directory.
   3. "make" the program.
 Step 2: Run.
@@ -127,4 +126,4 @@ Note: Directionality indicates dependency. For instance, main.c is dependent on 
                                      ^     ^
                                      |     |
                                      |     |
-                                  hdf5.h  hdf.h
+                                  hdf5.h  mfhdf.h
