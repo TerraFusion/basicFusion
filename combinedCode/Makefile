@@ -15,28 +15,28 @@ TARGET=TERRArepackage
 all: $(TARGET)
 
 $(TARGET): $(DEPS)
-	$(CC) $(LINKFLAGS) $(DEPS) -L$(LIB1) -I$(INCLUDE1) -lmfhdf -ldf -lz -ljpeg -o $(TARGET)
+	$(CC) $(LINKFLAGS) $(DEPS) -lmfhdf -ldf -lz -ljpeg -o $(TARGET)
 	
 main.o: main.c
-	$(CC) $(CFLAGS) -L$(LIB1) -I$(INCLUDE1)  main.c
+	$(CC) $(CFLAGS)  main.c
 	
 libTERRA.o: libTERRA.c
-	$(CC) $(CFLAGS) -I$(INCLUDE1) libTERRA.c
+	$(CC) $(CFLAGS) libTERRA.c
 	
 MOPITTmain.o: MOPITTmain.c
-	$(CC) $(CFLAGS) -I$(INCLUDE1) MOPITTmain.c
+	$(CC) $(CFLAGS) MOPITTmain.c
 	
 CERESmain.o: CERESmain.c
-	$(CC) $(CFLAGS) -I$(INCLUDE1) CERESmain.c
+	$(CC) $(CFLAGS)  CERESmain.c
 	
 MODISmain.o: MODISmain.c
-	$(CC) $(CFLAGS) -I$(INCLUDE1) MODISmain.c
+	$(CC) $(CFLAGS)  MODISmain.c
 	
 ASTERmain.o: ASTERmain.c
-	$(CC) $(CFLAGS) -I$(INCLUDE1) ASTERmain.c
+	$(CC) $(CFLAGS)  ASTERmain.c
 	
 MISRmain.o: MISRmain.c
-	$(CC) $(CFLAGS) -I$(INCLUDE1) MISRmain.c
+	$(CC) $(CFLAGS) MISRmain.c
 
 clean:
 	rm $(TARGET) *.o
