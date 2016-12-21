@@ -11,7 +11,7 @@
 hid_t CERESattrCreateString( hid_t objectID, char* name, char* value );
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax );
 
-int CERES( char* argv[] )
+int CERES( char* argv[],int index )
 {
 	/*************
 	 * VARIABLES *
@@ -57,6 +57,7 @@ int CERES( char* argv[] )
 	hid_t longitudeDatasetID;
 	
 	hid_t CERESrootID;
+        hid_t CERESgranuleID;
 	hid_t CERESdataFieldsID;
 	hid_t CERESgeolocationID;
 	
@@ -69,6 +70,13 @@ int CERES( char* argv[] )
 	
 	/* open the input file */
 	fileID = SDstart( argv[1], DFACC_READ );
+         if ( fileID < 0 )
+        {
+                fprintf( stderr, "[%s:%s:%d]: Unable to open CERES file.\n", __FILE__, __func__,
+                                 __LINE__ );
+                return (EXIT_FAILURE);
+        }
+
 	
 	/* read time data */
 	status = H4readData( fileID, "Julian Date and Time", 
@@ -124,15 +132,44 @@ int CERES( char* argv[] )
 	{
 		printf("CERES create root group failure.\n");
 	}
+
 	
+        if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",argv[1])<0) {
+            printf("Cannot add the time stamp\n");
+            return EXIT_FAILURE;
+        }
+
+        if(index == 1) {
+	if ( createGroup( &CERESrootID, &CERESgranuleID, "FM1" ) )
+	{
+		printf("CERES create granule group failure.\n");
+                return EXIT_FAILURE;
+	}
+        }
+        else if(index == 2) {
+	if ( createGroup( &CERESrootID, &CERESgranuleID, "FM2" ) )
+	{
+		printf("CERES create granule group failure.\n");
+                return EXIT_FAILURE;
+	}
+        }
+        
+        else {
+                printf("The CERES granule index should be either 1 or 2.\n");
+                return EXIT_FAILURE;
+
+
+        }
+
+
 	// create the data fields group
-	if ( createGroup ( &CERESrootID, &CERESdataFieldsID, "Data Fields" ) )
+	if ( createGroup ( &CERESgranuleID, &CERESdataFieldsID, "Data Fields" ) )
 	{
 		printf("CERES create data fields group failure.\n");
 	}
 	
 	// create geolocation fields
-	if ( createGroup( &CERESrootID, &CERESgeolocationID, "Geolocation" ) )
+	if ( createGroup( &CERESgranuleID, &CERESgeolocationID, "Geolocation" ) )
 	{
 		fprintf( stderr, "Failed to create CERES geolocation group.\n");
 	}

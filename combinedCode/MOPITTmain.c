@@ -53,6 +53,7 @@ int MOPITT( char* argv[] )
 	// create the root group
 	if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) ) return EXIT_FAILURE;
 	
+        if(H5LTset_attribute_string(MOPITTroot,"/MOPITT","GranuleTime",argv[1])<0) return EXIT_FAILURE;
 	// create the radiance group
 	if ( createGroup ( &MOPITTroot, &radianceGroup, "Data Fields" ) ) return EXIT_FAILURE;
 	
