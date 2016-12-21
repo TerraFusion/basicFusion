@@ -376,7 +376,7 @@ void getNextLine ( char* string, FILE* const inputFile )
 		if ( feof(inputFile) != 0 )
 			return;
 			
-		if ( fgets( string, 500, inputFile ) == NULL )
+		if ( fgets( string, STR_LEN, inputFile ) == NULL )
 		{
 			fprintf( stderr, "[%s:%s]: Unable to get next line. Exiting program.\n", __FILE__, __func__ );
 			

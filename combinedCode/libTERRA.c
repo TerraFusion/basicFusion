@@ -25,11 +25,6 @@
 #include <assert.h>
 #define DIM_MAX 10
 
-/*
-	TODO
-		I recommend replacing all error checks with the assert() function. It will
-		make the code look much neater and makes debugging simpler.
-*/
 
 /*
 						insertDataset
@@ -583,17 +578,34 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname) {
 						  to its local rank variable. The caller's rank variable will be
 						  updated with the rank (number of dimensions) of the dataset
 						  read.
-		5. dimsizes	   -- The caller will pass in an array (stored on the stack) which
+						  PASS NULL IF CALLER DOESN'T WANT
+
+		5. dimsizes	   -- The caller will pass in an array which
 						  will be updated to contain the sizes of each dimension in the
-						  dataset that was read. This array MUST be of size DIM_MAX.
+						  dataset that was read.
+ 
+						  This array MUST be of size DIM_MAX.
+						  PASS NULL IF CALLER DOESN'T WANT
+
 		6. dataType	   -- An HDF4 datatype describing the type of data in the desired
 						  dataset. Please refer to Sectino 3 of the HDF4 Reference Manual,
 						  "HDF Constant Definition List."
+
+	EFFECTS:
+		Memory is allocated on the heap for the data that was read. The void** data variable is updated
+		(by a single dereference) to point to this memory. The rank and dimsizes variables are also updated
+		to contain the corresponding rank and dimension size of the read data.
+	
+	RETURN:
+		Returns EXIT_FAILURE on failure.
+		Else, returns EXIT_SUCCESS.
 */
 
-int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *rank, int32* dimsizes, int32 dataType )
+int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *retRank, int32* retDimsizes, int32 dataType )
 {
 	int32 sds_id, sds_index;
+	int32 rank;
+	int32 dimsizes[DIM_MAX];
 	int32 ntype;					// number type for the data stored in the data set
 	int32 num_attrs;				// number of attributes
 	intn status;
@@ -604,14 +616,14 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *rank, int
 	sds_index = SDnametoindex( fileID, datasetName );
 	if( sds_index < 0 )
 	{
-		printf("SDnametoindex\n");
+		fprintf( stderr, "[%s:%s:%d]: SDnametoindex: Failed to get index of dataset.\n", __FILE__, __func__, __LINE__);
 		return EXIT_FAILURE;
 	}
 	
 	sds_id = SDselect( fileID, sds_index );
 	if ( sds_id < 0 )
 	{
-		printf("SDselect\n");
+		fprintf( stderr, "[%s:%s:%d]: SDselect: Failed to select dataset.\n", __FILE__, __func__, __LINE__);
 		return EXIT_FAILURE;
 	}
 	
@@ -622,10 +634,10 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *rank, int
 	}
 	
 	/* get info about dataset (rank, dim size, number type, num attributes ) */
-	status = SDgetinfo( sds_id, NULL, rank, dimsizes, &ntype, &num_attrs);
+	status = SDgetinfo( sds_id, NULL, &rank, dimsizes, &ntype, &num_attrs);
 	if ( status < 0 )
 	{
-		printf("SDgetinfo\n");
+		fprintf( stderr, "[%s:%s:%d]: SDgetinfo: Failed to get info from dataset.\n", __FILE__, __func__, __LINE__);
 		return EXIT_FAILURE;
 	}
 	
@@ -667,22 +679,26 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *rank, int
 		return EXIT_FAILURE;
 	}
 	
-	for ( int i = 0; i < *rank; i++ )
+	for ( int i = 0; i < rank; i++ )
 		stride[i] = 1;
 	
 	status = SDreaddata( sds_id, start, stride, dimsizes, *data );		
 	
 	if ( status < 0 )
 	{
-		fprintf( stderr, "[%s]: SDreaddata: Failed to read data.\n", __func__);
+		fprintf( stderr, "[%s:%s:%d] SDreaddata: Failed to read data.\n", __FILE__, __func__, __LINE__);
 		SDendaccess(sds_id);
 		return EXIT_FAILURE;
 	}
 	
 	
 	SDendaccess(sds_id);
+
+	if ( retRank != NULL ) *retRank = rank;
+	if ( retDimsizes != NULL )
+		for ( int i = 0; i < DIM_MAX; i++ ) retDimsizes[i] = dimsizes[i];
 	
-	return 0;
+	return EXIT_SUCCESS;
 }
 
 /*
@@ -704,7 +720,7 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *rank, int
 	EFFECTS:
 		A new string attribute will be created for the object objectID.
 	
-	RETURN;
+	RETURN:
 		Returns EXIT_FAILURE upon an error.
 		Else, returns the attribute identifier. It is the duty of the caller to close
 		the identifier using H5Aclose().
@@ -727,20 +743,20 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
 	attrID = attributeCreate( objectID, name, stringType );
 	if ( attrID == EXIT_FAILURE ) 
 	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to create %s attribute. Exiting program.\n", __func__, name);
+		fprintf( stderr, "[%s:%s:%d] H5Aclose: Unable to create %s attribute. Exiting program.\n", __FILE__, __func__,__LINE__, name);
 		return EXIT_FAILURE;
 	}
 	
 	status = H5Awrite( attrID, stringType, value );
 	if ( status < 0 )
 	{
-		fprintf( stderr, "[%s]: H5Awrite -- Unable to write %s attribute. Exiting program.\n", __func__, name);
+		fprintf( stderr, "[%s:%s:%d] H5Awrite: Unable to write %s attribute. Exiting program.\n", __FILE__, __func__,__LINE__, name);
 		return EXIT_FAILURE;
 	}
 	status = H5Aclose( attrID );
 	if ( status < 0 ) 
 	{
-		fprintf( stderr, "[%s]: H5Aclose -- Unable to close %s attribute. Exiting program.\n", __func__, name);
+		fprintf( stderr, "[%s:%s:%d] H5Aclose: Unable to close %s attribute. Exiting program.\n", __FILE__, __func__,__LINE__, name);
 		return EXIT_FAILURE;
 	}
 	H5Tclose(stringType);
@@ -800,7 +816,7 @@ hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType
 	
 	if ( status < 0 )
 	{
-		fprintf( stderr, "[%s:%s:%d]: Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+		fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
 		return (EXIT_FAILURE);
 	}
 	
@@ -821,7 +837,7 @@ hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType
 		
 	if ( datasetID == EXIT_FAILURE )
 	{
-		fprintf(stderr, "[%s:%s:%d]: Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+		fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
 		return (EXIT_FAILURE);
 	}
 	
@@ -840,13 +856,13 @@ char *correct_name(const char* oldname){
 
 
   if(oldname == NULL) {
-    fprintf(stderr, "[%s:%s:%d]: The name cannot be NULL. \n", __FILE__, __func__,__LINE__ );
+    fprintf(stderr, "[%s:%s:%d] The name cannot be NULL. \n", __FILE__, __func__,__LINE__ );
     return NULL;
   }
 
   newname = malloc(strlen(oldname)+1);
   if(newname == NULL) {
-    fprintf(stderr, "[%s:%s:%d]: No enough memory to allocate the newname. \n", __FILE__, __func__,__LINE__ );
+    fprintf(stderr, "[%s:%s:%d] No enough memory to allocate the newname. \n", __FILE__, __func__,__LINE__ );
     return NULL;
   }
 
@@ -877,7 +893,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
 	intn status = -1;
 
         if(unc < 0) {
-		fprintf( stderr, "[%s:%s:%d]: There is no valid Unit Conversion Coefficient for this dataset  %s.\n", __FILE__, __func__,__LINE__,  datasetName );
+		fprintf( stderr, "[%s:%s:%d] There is no valid Unit Conversion Coefficient for this dataset  %s.\n", __FILE__, __func__,__LINE__,  datasetName );
 		return (EXIT_FAILURE);
 
         }
@@ -891,14 +907,14 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
                 (void**)&tir_dataBuffer, &dataRank, dataDimSizes, inputDataType );
         }
         else {
-	   fprintf( stderr, "[%s:%s:%d]: Unsupported datatype. Datatype must be either DFNT_UINT16 or DFNT_UINT8.\n", __FILE__, __func__,__LINE__ );
+	   fprintf( stderr, "[%s:%s:%d] Unsupported datatype. Datatype must be either DFNT_UINT16 or DFNT_UINT8.\n", __FILE__, __func__,__LINE__ );
 	   return (EXIT_FAILURE);
         }
 
 	
 	if ( status < 0 )
 	{
-		fprintf( stderr, "[%s:%s:%d]: Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+		fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
 		return (EXIT_FAILURE);
 	}
 	
@@ -965,7 +981,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
 		
 	if ( datasetID == EXIT_FAILURE )
 	{
-		fprintf(stderr, "[%s:%s:%d]: Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+		fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
 		return (EXIT_FAILURE);
 	}
 	
@@ -992,7 +1008,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 i
 	intn status;
 	
         if(scale_factor < 0) {
-		fprintf( stderr, "[%s:%s:%d]:  The scale_factoro of %s is less than 0.\n", __FILE__, __func__,__LINE__,  datasetName );
+		fprintf( stderr, "[%s:%s:%d] The scale_factor of %s is less than 0.\n", __FILE__, __func__,__LINE__,  datasetName );
 		return (EXIT_FAILURE);
 
         }
@@ -1000,7 +1016,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 i
 		(void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType );
 	if ( status < 0 )
 	{
-		fprintf( stderr, "[%s:%s:%d]: Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+		fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
 		return (EXIT_FAILURE);
 	}
 
@@ -1120,7 +1136,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 i
 		
 	        if ( la_pos_dsetid == EXIT_FAILURE )
 	        {
-		fprintf(stderr, "[%s:%s:%d]: Error writing %s dataset.\n", __FILE__, __func__,__LINE__, newdatasetName );
+		fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, newdatasetName );
 		return (EXIT_FAILURE);
 	        }
                 if(la_pos_dset_name) 
@@ -1156,7 +1172,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 i
 		
 	if ( datasetID == EXIT_FAILURE )
 	{
-		fprintf(stderr, "[%s:%s:%d]: Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+		fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
 		return (EXIT_FAILURE);
 	}
 	
@@ -1229,7 +1245,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 		(void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType );
 	if ( status < 0 )
 	{
-		fprintf( stderr, "[%s:%s:%d]: Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+		fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
 		return (EXIT_FAILURE);
 	}
 
@@ -1256,7 +1272,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 	    sds_index = SDnametoindex( inputFileID, datasetName );
 	    if( sds_index < 0 )
 	    {
-		printf("SDnametoindex\n");
+		fprintf( stderr, "[%s:%s:%d]: SDnametoindex: Failed to get index of dataset.\n", __FILE__, __func__, __LINE__);
 		return EXIT_FAILURE;
 	    }
 	
@@ -1456,7 +1472,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
 	    sds_index = SDnametoindex( inputFileID, datasetName );
 	    if( sds_index < 0 )
 	    {
-		printf("SDnametoindex\n");
+		fprintf( stderr, "[%s:%s:%d]: SDnametoindex: Failed to get index of dataset.\n", __FILE__, __func__, __LINE__);
 		return EXIT_FAILURE;
 	    }
 	

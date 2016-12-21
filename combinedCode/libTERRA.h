@@ -19,9 +19,6 @@ int MODIS( char* argv[],int modis_count,int unpack );
 int ASTER( char* argv[],int aster_count,int unpack );
 //int ASTER( char* argv[]);
 int MISR( char* argv[],int unpack );
- 
-
-float getElement5D( float *array, hsize_t dimSize[5], int *position );	// note, this function is used for testing. It's temporary
 
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, 
 					 int returnDatasetID, int rank, hsize_t* datasetDims, 
@@ -46,12 +43,12 @@ hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType
 
 char *correct_name(const char* oldname);
 
-/* Aster functions */
+/* ASTER functions */
 
 hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
                                            hid_t outputDataType, int32 inputFile, float unc);
 
-/* MUSR funcions */
+/* MISR funcions */
 hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
                                            hid_t outputDataType, int32 inputFile, float scale_factor);
 
