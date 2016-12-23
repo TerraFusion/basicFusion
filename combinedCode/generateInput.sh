@@ -211,6 +211,7 @@ rm temp.txt
 		# CHECK CHRONOLOGICAL ORDER #
 		#############################
 prevDate=""
+prevRes=""
 instrumentSection=""
 
 while read -r line; do
@@ -237,7 +238,9 @@ while read -r line; do
 	# 	If only one file is present for that instrment, no checking will need
 	# 	to be done. This code accounts for that.
 
-					# MOPITT #
+                       ##########
+                       # MOPITT #
+                       ##########
 
 	if [ "$instrumentSection" == "MOP" ]; then
 		
@@ -259,38 +262,118 @@ while read -r line; do
 		if [[ "$curDate"<"$prevDate" || "$curDate"=="$prevDate" ]]; then
 			printf "\e[4m\e[93mWarning\e[0m: " >&2
 			printf "MOPITT files found to be out of order.\n" >&2
-			printf "\t\"$curfilename\" (Date: $curDate)\n\tcame after\n\t\"$prevfilename\" (Date: $prevDate)\n\tDates should be strictly increasing downward.\n" >&2
+			printf "\t\"$prevfilename\" (Date: $prevDate)\n\tcame before\n\t\"$curfilename\" (Date: $curDate)\n\tDates should be strictly increasing downward.\n" >&2
 		fi
 
 		prevDate="$curDate"
 		prevfilename="$curfilename"
 
-					# CERES #
+                      #########
+                      # CERES #
+                      #########
 
-	elif [ "$instrumentSection" == "CER" ]; then
-		# line now contains a valid file path. Check to see if prevDate has been set.
+    elif [ "$instrumentSection" == "CER" ]; then
+        # line now contains a valid file path. Check to see if prevDate has been set.
         # If it has not, set it to the value of line and continue to the next line
         if [ -z "$prevDate" ]; then
             # get the date information from line
             #set prevDate to the date contained in filename
-			prevfilename=$(echo ${line##*/})
+		    prevfilename=$(echo ${line##*/})
             prevDate=$(echo ${prevfilename##*.})
             # continue while loop
             continue
         fi
 
 	# we now have the previous date and the current line. Now we need to find the
-        # current date from the variable "curfilename" and compare that with the previous date
-        curDate=${curfilename:6:8}
-        if [ "$curDate" < "$prevDate" -o "$curDate" == "$prevDate" ]; then
-            printf "Warning: CERES files found to be out of order.\n" >&2
-            printf "\t$curfilename came after $prevfilename! Dates should be strictly increasing downward.\n" >&2
+    # current date from the variable "curfilename" and compare that with the previous date
+    curDate=${curfilename##*.}
+    if [[ "$curDate" < "$prevDate" || "$curDate" == "$prevDate" ]]; then
+        printf "\e[4m\e[93mWarning\e[0m: " >&2
+        printf "CERES files found to be out of order.\n" >&2
+        printf "\t\"$prevfilename\" (Date: $prevDate)\n\tcame before\n\t\"$curfilename\" (Date: $curDate)\n\tDates should be strictly increasing downward.\n" >&2
+    fi
+
+    prevDate="$curDate"
+	prevfilename="$curfilename"
+
+                      #########
+                      # MODIS #
+                      #########
+    # MODIS will have two checks. The first is to check for chronological consistency.
+    # The second is to check that the files follow in either the order of:
+    # MOD021KM
+    # MOD03
+    # or
+    # MOD021KM
+    # MOD02HKM
+    # MOD02QKM
+    # MOD03
+
+    # TODO: Check for date consistency
+
+    elif [ "$instrumentSection" == "MOD" ]; then
+        # note: "res" refers to "MOD021KM", "MOD02HKM", "MOD02QKM", or "MOD03"
+        if [ -z "$prevDate" ]; then
+            prevfilename=$(echo ${line##*/})
+            # extract the date
+            tmp=${prevfilename#*.A}
+            prevDate=$(echo ${tmp%%.*})
+            prevRes=$(echo ${prevfilename%%.*})
+            continue
         fi
 
-        prevDate="$curDate"
-		prevfilename="$curfilename"
+        # CHECK FOR RESOLUTION CONSISTENCY
 
-	fi
+        tmp=${curfilename#*.A}
+        curDate=$(echo ${tmp%%.*})
+        curRes=$(echo ${curfilename%%.*})
+
+        if [[ "$prevRes" == "MOD021KM" ]]; then
+            if [[ "$curRes" != "MOD03" && "$curRes" != "MOD02HKM" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MODIS resolutions are out of order.\n" >&2
+                printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n"
+                printf "\tExpected to see MOD03 or MOD02HKM after MOD021KM.\n"
+                printf "Exiting script.\n"
+                exit 1
+            fi
+        elif [[ "$prevRes" == "MOD02HKM" ]]; then
+            if [[ "$curRes" != "MOD02QKM" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MODIS resolutions are out of order.\n" >&2
+                printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n"
+                printf "\tExpected to see MOD02QKM after MOD02HKM.\n"
+                printf "Exiting script.\n"
+                exit 1
+            fi
+        elif [[ "$prevRes" == "MOD02QKM" ]]; then
+            if [[ "$curRes" != "MOD03" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MODIS resolutions are out of order.\n" >&2
+                printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n"
+                printf "\tExpected to see MOD03 after MOD02QKM.\n"
+                printf "Exiting script.\n"
+                exit 1
+            fi
+        elif [[ "$prevRes" == "MOD03" ]]; then
+            if [[ "$curRes" != "MOD021KM" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MODIS resolutions are out of order.\n" >&2
+                printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n"
+                printf "\tExpected to see MOD021KM after MOD03.\n"
+                printf "Exiting script.\n"
+                exit 1
+            fi
+        else
+            printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+            printf "Unknown error at line $LINENO. Exiting script.\n"
+            exit 1
+        fi
+        prevDate="$curDate"
+        prevRes="$curRes"
+        prevfilename="$curfilename"
+    fi
+        
 
 done <"$CURDIR"/"test.txt"
 
