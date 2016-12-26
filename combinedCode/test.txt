@@ -94,4 +94,4 @@
 /projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_CF_F03_0024.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DA_F03_0024.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DF_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_AGP_P022_F01_24.hdf
+/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_AGP_P023_F01_24.hdf
