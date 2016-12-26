@@ -100,7 +100,7 @@ printf "# MOPITT\n" >> "$CURDIR/$OUTFILE"
 cd "$INPATH"/MOPITT
 # grep -v removes any "xml" files
 # put results of ls into a temporary text file
-ls | grep "MOP" | grep "he5" >> temp.txt
+ls | grep "MOP" | grep -v "xml" >> temp.txt
 # iterate over this file, prepending the path of the file into our
 # OUTFILE
 while read -r line; do
@@ -204,18 +204,232 @@ while read -r line; do
 done <temp.txt
 rm temp.txt
 
+##################################################
+#           PREPROCESSING ERROR CHECKS           #
+##################################################
+		#############################
+		# CHECK CHRONOLOGICAL ORDER #
+		#############################
+prevDate=""
+prevRes=""
+prevGroupDate=""
+curGroupDate=""
+instrumentSection=""
+
+while read -r line; do
+	
+	# continue if we have a non-valid line (comment or otherwise)
+	if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." ]]; then
+		continue
+	fi
+
+	# check to see if we have entered into a new instrument section.
+	# Note that internally we represent the current instrument we're reading
+	# by the first 3 characters of the respective filename. For instance, MOPITT
+	# would be "MOP", MODIS would be "MOD", MISR would be "MIS" etc.
+	# Remember, these are coming from the FILENAMES themselves.
+	curfilename=$(echo ${line##*/})
+	
+	if [ "$instrumentSection" != "${curfilename:0:3}" ]; then
+		instrumentSection=${curfilename:0:3}
+		# unset prevDate because we are starting a new section.
+		unset prevDate
+        unset prevGroupDate
+        unset prevRes
+        unset curGroupDate
+	fi
+
+	# note about the "prev" variables:
+	# 	If only one file is present for that instrment, no checking will need
+	# 	to be done. This code accounts for that.
+
+                       ##########
+                       # MOPITT #
+                       ##########
+
+	if [ "$instrumentSection" == "MOP" ]; then
+		
+		# line now contains a valid file path. Check to see if prevDate has been set.
+		# If it has not, set it to the value of line and continue to the next line
+		if [ -z "$prevDate" ]; then
+			# get the date information from line
+			# first find the filename itself (truncate line by cutting off the path)
+			prevfilename=$(echo ${line##*/})
+			#set prevDate to the date contained in filename
+			prevDate=${prevfilename:6:8}
+			# continue while loop
+			continue
+		fi
+
+		# we now have the previous date and the current line. Now we need to find the
+		# current date from the variable "curfilename" and compare that with the previous date
+		curDate=${curfilename:6:8}
+		if [[ "$curDate"<"$prevDate" || "$curDate"=="$prevDate" ]]; then
+			printf "\e[4m\e[93mWarning\e[0m: " >&2
+			printf "MOPITT files found to be out of order.\n" >&2
+			printf "\t\"$prevfilename\" (Date: $prevDate)\n\tcame before\n\t\"$curfilename\" (Date: $curDate)\n\tDates should be strictly increasing downward.\n" >&2
+		fi
+
+		prevDate="$curDate"
+		prevfilename="$curfilename"
+
+                      #########
+                      # CERES #
+                      #########
+
+    elif [ "$instrumentSection" == "CER" ]; then
+        # line now contains a valid file path. Check to see if prevDate has been set.
+        # If it has not, set it to the value of line and continue to the next line
+        if [ -z "$prevDate" ]; then
+            # get the date information from line
+            #set prevDate to the date contained in filename
+		    prevfilename=$(echo ${line##*/})
+            prevDate=$(echo ${prevfilename##*.})
+            # continue while loop
+            continue
+        fi
+
+	    # we now have the previous date and the current line. Now we need to find the
+        # current date from the variable "curfilename" and compare that with the previous date
+        curDate=${curfilename##*.}
+        if [[ "$curDate" < "$prevDate" || "$curDate" == "$prevDate" ]]; then
+            printf "\e[4m\e[93mWarning\e[0m: " >&2
+            printf "CERES files found to be out of order.\n" >&2
+            printf "\t\"$prevfilename\" (Date: $prevDate)\n\tcame before\n\t\"$curfilename\" (Date: $curDate)\n\tDates should be strictly increasing downward.\n" >&2
+        fi
+
+        prevDate="$curDate"
+	    prevfilename="$curfilename"
+
+                      #########
+                      # MODIS #
+                      #########
+    # MODIS will have two checks. The first is to check for chronological consistency.
+    # The second is to check that the files follow in either the order of:
+    # MOD021KM
+    # MOD03
+    # or
+    # MOD021KM
+    # MOD02HKM
+    # MOD02QKM
+    # MOD03
+
+    # TODO: Program does not correctly detect date mismatches between groups.
+
+    elif [ "$instrumentSection" == "MOD" ]; then
+        # note: "res" refers to "MOD021KM", "MOD02HKM", "MOD02QKM", or "MOD03"
+        if [ -z "$prevDate" ]; then
+            prevfilename=$(echo ${line##*/})
+            # extract the date
+            tmp=${prevfilename#*.A}
+            prevDate=$(echo "$tmp" | cut -f1,2 -d'.')
+            prevRes=$(echo ${prevfilename%%.*})
+            curGroupDate="$prevDate"
+            continue
+        fi
+
+        # CHECK FOR RESOLUTION CONSISTENCY
+
+        tmp=${curfilename#*.A}
+        curDate=$(echo "$tmp" | cut -f1,2 -d'.')
+        curRes=$(echo ${curfilename%%.*})
+
+        if [[ "$prevRes" == "MOD021KM" ]]; then
+            if [[ "$curRes" != "MOD03" && "$curRes" != "MOD02HKM" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MODIS resolutions are out of order.\n" >&2
+                printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
+                printf "\tExpected to see MOD03 or MOD02HKM after MOD021KM.\n" >&2
+                printf "Exiting script.\n" >&2
+                exit 1
+            fi
+        elif [[ "$prevRes" == "MOD02HKM" ]]; then
+            if [[ "$curRes" != "MOD02QKM" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MODIS resolutions are out of order.\n" >&2
+                printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
+                printf "\tExpected to see MOD02QKM after MOD02HKM.\n" >&2
+                printf "Exiting script.\n" >&2
+                exit 1
+            fi
+        elif [[ "$prevRes" == "MOD02QKM" ]]; then
+            if [[ "$curRes" != "MOD03" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MODIS resolutions are out of order.\n" >&2
+                printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
+                printf "\tExpected to see MOD03 after MOD02QKM.\n" >&2
+                printf "Exiting script.\n" >&2
+                exit 1
+            fi
+        elif [[ "$prevRes" == "MOD03" ]]; then
+            if [[ "$curRes" != "MOD021KM" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MODIS resolutions are out of order.\n" >&2
+                printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
+                printf "\tExpected to see MOD021KM after MOD03.\n" >&2
+                printf "Exiting script.\n" >&2
+                exit 1
+            fi
+        else
+            printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+            printf "Unknown error at line $LINENO. Exiting script.\n" >&2
+            exit 1
+        fi
+
+        # CHECK FOR DATE CONSISTENCY
+
+        # Internally, we will consider the file "MOD021KM" to be the indication that a new
+        # "group" has begun i.e.:
+        # MOD021KM...
+        # MOD03...
+        # or
+        # MOD021KM...
+        # MOD02HKM...
+        # MOD02QKM
+        # MOD03
+        
+        # If the current line is a MOD021KM file, we have found the beginning of a new group
+        
+        if [[ "$curRes" == "MOD021KM" ]]; then
+            
+            curGroupDate="$curDate"
+            # if prevGroupDate has not yet been set (we are on our first group)
+            if [ -z "$prevGroupDate" ]; then
+                prevGroupDate="$curGroupDate"
+            # else check if the current group's date correctly follows the previous group's date
+            else
+                if [[ "$curDate" < "$prevGroupDate" || "$curDate" == "$prevGroupDate" ]]; then
+                    printf "\e[4m\e[93mWarning\e[0m: " >&2
+                    printf "MODIS date inconsistency found.\n"
+                    printf "\tThe group proceeding \"$curfilename\" has a date of: $curGroupDate, which is less than/equal to\n" >&2
+                    printf "\tthe previous group which had a date of: $prevGroupDate.\n" >&2
+                fi
+            fi
+        fi
+
+        # check that the current line's date is the same as the rest its group. Each file in a group should
+        # have the same date.
+        if [[ "$curDate" != "$curGroupDate" ]]; then
+            printf "\e[4m\e[93mWarning\e[0m: " >&2
+            printf "MODIS date inconsistency found.\n"
+            printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
+            printf "\tThese two dates should be equal.\n" >&2
+        fi
+
+        prevDate="$curDate"
+        prevRes="$curRes"
+        prevfilename="$curfilename"
+    fi
+        
+
+done <"$CURDIR"/"test.txt"
+
 printf "Granules read:\n"
 printf "\tMOPITT: $MOPITTNUM ($(($MOPITTNUM * 1440)) minutes)\n"
 printf "\tCERES:  $CERESNUM ($(($CERESNUM * 1440)) minutes)\n"
 printf "\tMODIS:  $MODISNUM ($(($MODISNUM * 5)) minutes)\n"
 printf "\tASTER:  $ASTERNUM ($(bc -l <<< "$ASTERNUM * 0.15") minutes)\n"
 printf "\tMISR:   $MISRNUM (~$(($MISRNUM * 45))-$(($MISRNUM * 50)) minutes)\n"
-
-
-
-
-
-
 
 
 
