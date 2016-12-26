@@ -9,7 +9,8 @@
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1615.006.2012239144035.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1620.006.2014231113646.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1620.006.2012239144326.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1625.006.2014231113702.hdf
+
+
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD02HKM.A2007184.1625.006.2014230150204.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MODIS/MOD02QKM.A2007184.1625.006.2014230073105.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1625.006.2012239144215.hdf
@@ -85,7 +86,7 @@
 /projects/sciteam/jq0/TerraFusion/oneorbit/ASTER/AST_L1T_00307032007171929_20150520034311_1794.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/ASTER/AST_L1T_00307032007171938_20150520034321_2519.hdf
 # MISR
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/ERROR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf
+/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AF_F03_0024.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AN_F03_0024.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_BA_F03_0024.hdf
@@ -94,3 +95,4 @@
 /projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_CF_F03_0024.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DA_F03_0024.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DF_F03_0024.hdf
+/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_AGP_P022_F01_24.hdf

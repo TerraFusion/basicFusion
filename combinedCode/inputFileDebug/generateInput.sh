@@ -429,6 +429,8 @@ while read -r line; do
     # MOD02QKM
     # MOD03
 
+    # TODO: Program does not correctly detect date mismatches between groups.
+
     elif [ "$instrumentSection" == "MOD" ]; then
         # note: "res" refers to "MOD021KM", "MOD02HKM", "MOD02QKM", or "MOD03"
         if [ -z "$prevDate" ]; then
@@ -675,16 +677,6 @@ while read -r line; do
                 printf "MISR files are out of order.\n" >&2
                 printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\"\n" >&2
                 printf "\tExpected to see an AGP file after a DF camera.\n" >&2
-                printf "Exiting script.\n" >&2
-                rm -r "$CURDIR"/__tempFiles
-                exit 1
-            fi
-        elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "AGP" ]]; then
-            if [[ "$curCam" != "AA" ]]; then
-                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
-                printf "MISR files are out of order.\n" >&2
-                printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
-                printf "\tExpected to see AA after AGP file.\n" >&2
                 printf "Exiting script.\n" >&2
                 rm -r "$CURDIR"/__tempFiles
                 exit 1
