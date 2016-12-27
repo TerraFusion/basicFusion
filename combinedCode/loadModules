@@ -1,5 +1,0 @@
-#!/bin/bash
-
-module swap PrgEnv-cray PrgEnv-intel
-module load szip/2.1
-module load cray-hdf5/1.8.16
