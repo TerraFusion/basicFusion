@@ -6,6 +6,8 @@ Email: clipp2@illinois.edu
 This file outlines the structure of the combined TERRA Fusion code, how to compile it on a local machine, and how to add
 additional code to the program. This file may not be up to date during development.
 
+THE MASTER BRANCH OF THIS REPOSITORY REPRESENTS CURRENT WORKING CODE (COMPILABLE AND RUNNABLE ON BW)
+
 The code is written in C using the following HDF libraries:  
 1. hdf.h -- For the HDF4 functions  
 2. hdf5.h -- For the HDF5 functions  
@@ -22,16 +24,13 @@ file and a program-wide global variable has been declared "hid_t outputFile" tha
 HDF5 functions to handle writing information into the file. This is an HDF5 only identifier, it is not valid for HDF4.
 
 Each segment of the code is to be written as if it is its own standalone program. It will have a main function (named by the
-convention of MOPITTmain(), CERESmain(), etc ) where all of the appropriate function calling relevant for that instrument will
-go. Any and all helper functions should be declared in the "libTERRA.h" and defined in the "libTERRA.c" files. This allows
-code reusability so that a function is available to any segment of the code if need be.
+convention of MOPITT(), CERES(), etc ) where all of the appropriate function calling relevant for that instrument will
+go. Any functions that could conceivably be reused across the instruments should be declared in the "libTERRA.h" and 
+defined in the "libTERRA.c" files. This allows code reusability so that a function is available to any segment of the 
+code if need be.
 
-Every instrument's main function should receive the normal main arguments, int argc and char* argv[] (aka char** argv). The
-main function should also have a prototype in the libTERRA.h file. Then, a master main function (main.c) will pass in the 
-appropriate arguments to the instrument's main functions.
-
-Remember, the MOPITT segment must be run before any other segment because it is responsible for creating the output file
-and initializing the outputFile variable for the use of other segments.
+Every instrument's function should receive the normal main arguments, int argc and char* argv[] (aka char** argv). The
+main function (main.c) will pass in the appropriate arguments to each instrument function.
 
 *********************
 * COMPILING/RUNNING *
@@ -49,35 +48,63 @@ so. The HDF wrappers simply call gcc using the appropriate include paths for you
 automatically know the path of your include file when you compile the HDF libraries. Instructions for installing the HDF
 libraries (and by extension the h4cc/h5cc compilers) can be provided if desired.
 
-Once you have installed h4cc and h5cc and confirmed that they are visible to your command line interpreter, the only thing
-you need to do change the value of "INCLUDE2" and "LIB1" in the makefile to point to your HDF5 header files and your HDF4 
-libraries respectively. For some reason, the HDF5 (or HDF4) libraries might want access to JPEG libraries, so if you get 
+Once you have installed h4cc and h5cc and confirmed that they are visible to your command line interpreter, you need to edit
+your Makefile so that the compiler and linker are appropriately pointed to the correct inlcude and library files (using
+the -I and -L arguments respectively). NOTE that h5cc only points to HDF5 libraries by default, and h4cc only points to 
+HDF4 libraries.
+
+The HDF5 (or HDF4) libraries might want access to JPEG libraries, so if you get 
 errors about JPEG libraries, try updating or installing those.
 
 ---BLUE WATERS---
 
 Steps to compile and run on Blue Waters:
-Directory: /projects/sciteam/jq0/TerraFusion/basicFusion/combinedCode
+Directory: /projects/sciteam/jq0/TerraFusion/basicFusion
     
                     BATCH SCRIPT
-Step 1: Compile.
-  1. Manually enter the module lines in the file "combinedCode/loadModules" into your temrinal. Currently, this file is set up as a batch script but it does not work for some reason. So just enter the lines manually. Copy/pasting the lines works as well.
-  2. Perform a "make clean" in the combinedCode directory.
-  3. "make" the program.
-Step 2: Run.
-  1. Run the script "./jobSubmit". This executes the qsub command to place the batchscript.pbs script into the Blue Waters
-     queue. qsub is a queueing command to request access to a compute node. Once the compute node has been granted,
-     batchscript.pbs will be executed to run the program "TERRArepackage".
-  2. Check the status of the job by executing the command "qstat | grep [your BW username]". A flag of "Q" means the job
-     is enqueued. A flag of "C" means the job has completed.
+A script has been provided to make compiling and running the program easy. In the basicFusion directory, the script called
+"jobSubmit" in the bin directory contains all of the necessary commands to run the program. All you need to do is to run
+this script. Here are the steps the script takes (you can also do these steps manually):
+
+Step 1: Load modules
+  Loads the following modules:
+    a. Intel programming environment
+    b. szip library
+    c. HDF5 library
+    d. HDF4 library
+Step 2: Compile the program (Makefile is located in the root project directory).
+  Step 1 must be completed before step 2. The Makefile uses the default BW HDF4 and HDF5 libraries.
+Step 3: Generates the inputFiles.txt file using the generateInput.sh script
+Step 4: Submits the executable to the BW job queue (qsub)
+
+Check the status of the job by executing the command "qstat | grep [your BW username]". A flag of "Q" means the job
+is enqueued. A flag of "R" means the job is currently executing. A flag of "C" means the job has completed. 
      
      
                     INTERACTIVE
-Coming soon...
-     
-NOTE:
-  Currently there is no error output from the program when running a batch script. I am working on fixing this
-  so that the useful diagnostic information the program provides can be accessible.
+The steps for interactive mode are exactly the same as the batch script except for step 4. To run the program in interactive
+mode, follow these steps:
+Step 1: Load modules
+  Enter into the bin directory and enter exactly: . ./loadModules
+Step 2: Compile
+  Enter into the root program directory and enter: make
+Step 3:
+  Generate the inputFiles.txt file using the generateInput.sh script located in bin.
+  Give the script a path to the 5 instruments.
+Step 4:
+  Run the following command:
+  aprun -n 1 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage out.h5 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt &> /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/output.txt
+  
+  Explanation of the aprun command argument by argument:
+  -n [number]: number of nodes requested
+  /projects/sciteam...: path to executable program
+  out.h5: argument to the executable program of what the output file will be called
+  /projects/sciteam...: Argument to executable of the inputFiles.txt file
+  &> /projects...: Send all program output to this text file
+  
+The program is now being executed. Use qstat to check the status.
+  
+ 
 
 *****************
 ***ADDING CODE***
