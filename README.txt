@@ -82,8 +82,8 @@ is enqueued. A flag of "R" means the job is currently executing. A flag of "C" m
      
      
                     INTERACTIVE
-The steps for interactive mode are exactly the same as the batch script except for step 4. To run the program in interactive
-mode, follow these steps:
+The steps for interactive mode are exactly the same as the batch script except for step 4, except you will need to enter
+all the commands manually. To run the program in interactive mode, follow these steps:
 Step 1: Load modules
   Enter into the bin directory and enter exactly: . ./loadModules
 Step 2: Compile
@@ -92,6 +92,11 @@ Step 3:
   Generate the inputFiles.txt file using the generateInput.sh script located in bin.
   Give the script a path to the 5 instruments.
 Step 4:
+  Enter interactive mode (if not already):
+    qsub -I -l nodes=1 -l walltime=03:00:00
+  You may enter any value in for walltime. This is the time you will be alloted in interactive mode. It is given
+  by HH:MM:SS.
+Step 5:
   Run the following command:
   aprun -n 1 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage out.h5 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt &> /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/output.txt
   
