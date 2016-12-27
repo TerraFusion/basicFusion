@@ -5,7 +5,7 @@
 #   AUTHOR: Landon Clipp
 #   EMAIL:  clipp2@illinois.edu
 #
-#   This script reads the hdf files contained in the directory given to it and generates an inputFiles.txt
+#   This script reads the hdf files contained in the directory given to it an generates an inputFiles.txt
 #   file for the TERRA fusion program to read. It performs comprehensive error checking for the generated
 #   output file to make sure that all files are in chronological order, that all files are in the order
 #   expected and that there are no unknown errors in the output file.
@@ -29,7 +29,7 @@ MISRNUM=0
 # DEBUGFILE is the file where all of the error checking for date, order and general file consistency
 # is done. Setting this to anything other than $OUTFILE means that this program will NOT debug
 # the file it generated (OUTFILE) but rather the file you point it to.
-DEBUGFILE=test.txt
+DEBUGFILE=MISRpath.txt
 
 # Check if the provided INPATH actually contains directories for all 5 instruments.
 # Note that the following if statements do not take into account if the INPATH
@@ -428,6 +428,8 @@ while read -r line; do
     # MOD02HKM
     # MOD02QKM
     # MOD03
+
+    # TODO: Program does not correctly detect date mismatches between groups.
 
     elif [ "$instrumentSection" == "MOD" ]; then
         # note: "res" refers to "MOD021KM", "MOD02HKM", "MOD02QKM", or "MOD03"

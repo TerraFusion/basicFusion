@@ -66,8 +66,8 @@
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1745.006.2014231114122.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1745.006.2012239144155.hdf
 # ASTER
-/projects/sciteam/jq0/TerraFusion/oneorbit/ASTER/AST_L1T_00307032007162020_20150520034221_121033.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/ASTER/AST_L1T_00307032007162029_20150520034221_121034.hdf
+/projects/sciteam/jq0/TerraFusion/oneorbit/ASTER/AST_L1T_00307032007162020_20150520034221_121033.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/ASTER/AST_L1T_00307032007164549_20150520034236_114188.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/ASTER/AST_L1T_00307032007164557_20150520034238_121881.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/ASTER/AST_L1T_00307032007164606_20150520034238_121883.hdf

@@ -9,7 +9,8 @@
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1615.006.2012239144035.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1620.006.2014231113646.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1620.006.2012239144326.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1625.006.2014231113702.hdf
+
+
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD02HKM.A2007184.1625.006.2014230150204.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MODIS/MOD02QKM.A2007184.1625.006.2014230073105.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1625.006.2012239144215.hdf

@@ -1,7 +1,13 @@
 # MOPITT
 /projects/sciteam/jq0/TerraFusion/oneorbit/MOPITT/MOP01-20070703-L1V3.50.0.he5
+/projects/sciteam/jq0/TerraFusion/oneorbit/MOPITT/MOP01-20070704-L1V3.50.0.he5
+/projects/sciteam/jq0/TerraFusion/oneorbit/MOPITT/MOP01-20070705-L1V3.50.0.he5
+/projects/sciteam/jq0/TerraFusion/oneorbit/MOPITT/MOP01-20070704-L1V3.50.0.he5
 # CERES
 /projects/sciteam/jq0/TerraFusion/oneorbit/CERES/CER_BDS_Terra-FM1_Edition3_032040.20070703
+/projects/sciteam/jq0/TerraFusion/oneorbit/CERES/CER_BDS_Terra-FM1_Edition3_032040.20070704
+/projects/sciteam/jq0/TerraFusion/oneorbit/CERES/CER_BDS_Terra-FM1_Edition3_032040.20070705
+/projects/sciteam/jq0/TerraFusion/oneorbit/CERES/CER_BDS_Terra-FM1_Edition3_032040.20070706
 # MODIS
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1610.006.2014231113627.hdf
 /projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1610.006.2012239144154.hdf
