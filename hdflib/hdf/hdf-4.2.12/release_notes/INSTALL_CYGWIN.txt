@@ -1,0 +1,160 @@
+************************************************************************
+         HDF4 Build and Install Instructions for Cygwin
+************************************************************************
+
+This document is a instruction on how to build, test and install HDF4 libary on 
+Cygwin.  See detailed information in hdf4/INSTALL. 
+
+NOTE: hdf4 can be built with CMake, see the INSTALL_CMake.txt file for more guidance.
+
+Preconditions:
+--------------
+
+1. Installed Cygwin 1.7.32 or higher
+
+   To install the Cygwin net release, go to http://www.cygwin.com and 
+   click on "setup-x86.exe" (32-bit installation) under the heading
+    "Current Cygwin DLL version". This will download a GUI 
+   installer called setup-x86.exe which can be run to download a complete 
+   Cygwin installation via the internet. Then follow the instructions 
+   on each screen to install Cygwin.
+
+   Cygwin uses packages to manage installing various software. Users can 
+   choose to install or uninstall certain packages by running setup.exe.
+   http://www.cygwin.com/packages/ provides detailed information about 
+   Cygwin packages.
+
+   Most required dependencies can be satisfied by installing all packages in
+   the "Devel" category.  However, please verify that you have installed all
+   packages listed below.
+
+2. Compilers, Libraries and Utilities Installed
+
+   2.1 Compilers Supported
+    
+    The following compilers are supported by HDF4 and included in the Cygwin
+    package system:
+       gcc (4.8.3), which includes:
+            gcc4-core    : C compiler
+            gcc4-g++     : C++ compiler
+            gcc4-fortran : fortran compiler
+            
+
+   2.1.1 Using Compilers Not Supported
+       
+       By default the current configuration uses vendor compilers; to use
+        another compiler run the following commands before running
+        configure: 
+ 
+        setenv CC   "foo -flags"
+        setenv F77  "fffoo -flags"
+ 
+        See the configure help page (configure --help) for a list of
+        environment variables that have an affect on building the
+        library.
+        
+    2.2 Libraries Installed
+    
+    The following libraries are required to build HDF4:
+    
+        libjpeg-devel   : JPEG library (either 6b or 8b)
+        tirpc           : RPC library
+        zlib            : Zlib compression library
+
+    Back in 2005, the SunRPC of the glibc has been replaced by a TI-RPC 
+    (Transport Independent RPC) library to support IPv6. Note that HDF4 configure 
+    expects to find the library with the name libtirpc.a, since Cygwin 1.7.7.
+
+    HDF4 also requires xdr support which is not provided by the Cygwin
+    version of tirpc.  HDF4 provides a library for xdr support when the 
+    configure flag --enable-hdf4-xdr is specified (see note 3 in the section
+    "Build, Test and Install HDF4 on Cygwin").
+    
+    HDF4 may be configured to use the SZIP compression Library.
+    For more information about the SZIP library, see
+
+               https://hdfgroup.org/doc_resource/SZIP/ 
+
+    The SZIP compression library is free for non-commercial use; 
+    see https://hdfgroup.org/doc_resource/SZIP/Commercial_szip.html
+    for information regarding commercial use.   
+
+    
+    2.3 Additional Utilities
+    
+    The following standard utilities are also required to build and test HDF4:
+        
+        bison           : yacc implementation
+        diffutils       : diff command
+        flex            : flex utility
+        make            : make utility
+    
+    2.4 Alternate Build Process
+    
+    Download the CMake package and follow the notes in the "INSTALL_CMake.txt" 
+    file to build HDF4 with the CMake utilities.
+        
+        
+        
+Build, Test and Install HDF4 on Cygwin
+--------------------------------------
+
+Notes: Use the configure command in the top level HDF4 directory.
+
+1. HDF4 Source code and precompiled binaries
+     
+   HDF provides "tar source ball" and precompiled binaries from 
+   the HDF ftp server (ftp.hdfgroup.org) in the directories:
+
+         ftp://ftp.hdfgroup.org/HDF/HDF_Current/src
+         ftp://ftp.hdfgroup.org/HDF/HDF_Current/bin 
+  
+2. Unpacking the distribution
+
+   gzip -cd <HDF-X.Y.Z.tar.gz>| tar xvf -
+
+3. To configure 
+     
+       ./configure <--disable-fortran> 
+                   --enable-hdf4-xdr
+                   --with-zlib=/path_to_ZLIB_install_directory 
+                   --with-jpeg=/path_to_JPEG_install_directory 
+                   <--with-szlib=/path_to_SZIP_install_directory>
+                   --prefix=/path_to_HDF4_install_directory
+
+       * Please note that when szlib option is not used, SZIP Library will not
+         be configured in and SZIP compression will not be enabled.
+       * If your system has ZLIB and/or JPEG libraries installed under a
+         system library directory (such as /usr/lib), configure will
+         automatically find the library. In this case, the corresponding
+         configure flag may be omitted.
+       * Note that --prefix defines where the installation path is.
+         The default is set as <hdf4_build_directory>/hdf4 
+
+4. To Build and Test:
+
+  4.1 To build the library
+
+        make >& make.out
+
+  4.2 To build and run the tests
+
+        make check >& check.out
+
+5. To Install:
+
+        make install
+
+6. To test the installation:
+
+	make installcheck
+
+Acknowledgements:
+-----------------
+HDF group would like to thank Xinmin Hua(NASA/GSFC) for his help to 
+make HDF4 work on Cygwin.  
+
+-----------------------------------------------------------------------
+
+Need Further assistance, email help@hdfgroup.org
+

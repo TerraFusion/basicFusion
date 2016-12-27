@@ -1,0 +1,21 @@
+hdiff [-V] [-b] [-g] [-s] [-d] [-D] [-S] [-v var1[,...]] [-u var1[,...]] [-e count] [-t limit] [-p relative] file1 file2
+  [-V]              Display version of the HDF4 library and exit
+  [-b]              Verbose mode
+  [-g]              Compare global attributes only
+  [-s]              Compare SD local attributes only
+  [-d]              Compare SD data only
+  [-D]              Compare Vdata data only
+  [-S]              Print statistics
+  [-v var1[,...]]   Compare SD data on variable(s) <var1>,... only
+  [-u var1[,...]]   Compare vdata on variable(s) <var1>,... only
+  [-e count]        Print difference up to count number for each variable
+  [-t limit]        Print difference when it is greater than limit
+  [-p relative]     Print difference when it is greater than a relative limit
+  file1             File name of the first HDF file
+  file2             File name of the second HDF file
+
+The 'count' value must be a positive integer
+The 'limit' and 'relative' values must be positive numbers
+The -t compare criteria is |a - b| > limit
+The -p compare criteria is |(b-a)/a| > relative
+Return codes: 0 (no differences found), 1 (differences found)
