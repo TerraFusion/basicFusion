@@ -10,6 +10,10 @@
 #   output file to make sure that all files are in chronological order, that all files are in the order
 #   expected and that there are no unknown errors in the output file.
 
+# TODO
+# The checks that verify all files made it into the output file need to check the PATHNAME and not the
+# file name of the files.
+
 if [ "$#" -ne 1 ]; then
 	printf "Usage:\n\t$0 [relative/absolute path to all 5 instruments]\n\n"
 	printf "Example: $0 /path/to/instrument/directories\nDo not provide path to individual instruments.\n"
@@ -170,7 +174,7 @@ while read -r line; do
 	# write in the corrseponding QKM file
 	temp="$(cat $CURDIR/__tempFiles/QKMfile.txt | grep $substr)"
 	if [ ${#temp} -ge 2 ]; then
-        	echo "$(pwd)/MODIS/$temp" >> "$CURDIR"/"$OUTFILE"
+        	echo "$(pwd)/$temp" >> "$CURDIR"/"$OUTFILE"
 	fi
 
 	# write in the corresponding MOD03 file
@@ -206,6 +210,7 @@ cd "../MISR"
 # put the MISR files into temp text files
 ls | grep "MISR_AM1_GRP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_GRP.txt
 ls | grep "MISR_AM1_AGP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_AGP.txt
+ls | grep "MISR_AM1_GP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_GP.txt
 # iterate over this file, prepending the path of the file into our
 # OUTFILE
 
@@ -217,6 +222,10 @@ while read -r line; do
     echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
     let "MISRNUM++"
 done <"$CURDIR"/__tempFiles/MISR_AGP.txt
+while read -r line; do
+    echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+    let "MISRNUM++"
+done <"$CURDIR"/__tempFiles/MISR_GP.txt
 
 ##################################################
 #           PREPROCESSING ERROR CHECKS           #
@@ -680,11 +689,21 @@ while read -r line; do
                 exit 1
             fi
         elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "AGP" ]]; then
+            if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" != "GP" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MISR files are out of order.\n" >&2
+                printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
+                printf "\tExpected to see GP after AGP file.\n" >&2
+                printf "Exiting script.\n" >&2
+                rm -r "$CURDIR"/__tempFiles
+                exit 1
+            fi
+        elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
             if [[ "$curCam" != "AA" ]]; then
                 printf "\e[4m\e[91mFatal Error\e[0m: " >&2
                 printf "MISR files are out of order.\n" >&2
                 printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
-                printf "\tExpected to see AA after AGP file.\n" >&2
+                printf "\tExpected to see AA file after GP file.\n" >&2
                 printf "Exiting script.\n" >&2
                 rm -r "$CURDIR"/__tempFiles
                 exit 1
@@ -731,7 +750,14 @@ while read -r line; do
                 printf "\t$curfilename has a path number: $curpath != $prevpath\n" >&2
                 printf "\tThese two path numbers should be equal.\n" >&2
             fi
-        
+        elif [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
+            curDate=$(echo "$curfilename" | cut -f5,6 -d'_')
+            if [[ "$curDate" != "$curGroupDate" ]]; then
+                printf "\e[4m\e[93mWarning\e[0m: " >&2
+                printf "MISR date inconsistency found.\n"
+                printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
+                printf "\tThese two dates should be equal.\n" >&2
+            fi
         # else we need to check the dates between cur and prev
         elif [[ "$curDate" != "$curGroupDate" ]]; then
             printf "\e[4m\e[93mWarning\e[0m: " >&2

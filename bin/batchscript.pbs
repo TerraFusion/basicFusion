@@ -3,7 +3,7 @@
 ### set the number of PEs per node
 #PBS -l nodes=1:ppn=1:xe
 ### set the wallclock time
-#PBS -l walltime=01:00:00
+#PBS -l walltime=00:30:00
 ### set the job name
 #PBS -N TERRAFusion
 ### set the job stdout and stderr
@@ -47,6 +47,6 @@ module load cray-hdf5/1.8.16
 ### redirecting stdin and stdout if needed
 ### NOTE: (the "in" file must exist for input)
 
-aprun -n 1 ../exe/TERRArepackage out.h5  &> /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/err.txt
+aprun -n 1 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage out.h5 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt &> /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/err.txt
 
 ### For more information see the man page for aprun

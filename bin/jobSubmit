@@ -1,5 +1,5 @@
 #!/bin/bash
 # This script will run the basicFusion code on Blue Waters
 
-qsub ./batchscript.pbs
+qsub /projects/sciteam/jq0/TerraFusion/basicFusion/bin/batchscript.pbs
 

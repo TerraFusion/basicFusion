@@ -143,6 +143,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	{
 		fprintf( stderr, "[%s:%s:%d]: Unable to open 250m file.\n", __FILE__, __func__,
 				 __LINE__ );
+        printf("%s\n", argv[3] );
 		return (EXIT_FAILURE);
 	}
         }
