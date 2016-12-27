@@ -40,7 +40,7 @@ $(OBJDIR)/MISR.o: $(SRCDIR)/MISR.c
 	$(CC) $(CFLAGS) -I$(INCLUDE1) $(SRCDIR)/MISR.c -o $(OBJDIR)/MISR.o
 
 clean:
-	rm -f ./exe/$(TARGET) $(OBJDIR)/*.o
+	rm -f $(TARGET) $(OBJDIR)/*.o
 	
 run:
-	./exe/$(TARGET) out.h5
+	$(TARGET) out.h5
