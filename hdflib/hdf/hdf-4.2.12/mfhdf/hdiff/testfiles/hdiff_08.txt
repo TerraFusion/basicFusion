@@ -1,5 +1,0 @@
-
----------------------------
-Vdata Name: vdata1 (Data record comparison)
-> 0: V
-< 0: X

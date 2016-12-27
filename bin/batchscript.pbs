@@ -47,6 +47,6 @@ module load cray-hdf5/1.8.16
 ### redirecting stdin and stdout if needed
 ### NOTE: (the "in" file must exist for input)
 
-aprun -n 1 ./TERRArepackage out.h5  > /projects/sciteam/jq0/TerraFusion/basicFusion/combinedCode/jobOutput/out.$PBS_JOBID
+aprun -n 1 ../exe/TERRArepackage out.h5  &> /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/err.txt
 
 ### For more information see the man page for aprun
