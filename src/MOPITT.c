@@ -32,7 +32,7 @@ int MOPITT( char* argv[] )
     hid_t attrID;		// attribute ID
     hid_t inputAttrID;
     hid_t stringType;
-    hid_t tempDatasetID;
+    hid_t tempGroupID;
     hid_t datatypeID;
 	
     herr_t status;
@@ -43,33 +43,76 @@ int MOPITT( char* argv[] )
     float tempFloat;
 	
     // open the input file
-    if ( openFile( &file, argv[1], H5F_ACC_RDONLY ) ) return EXIT_FAILURE;
+    if ( openFile( &file, argv[1], H5F_ACC_RDONLY ) )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to open MOPITT file.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
 	
     // create the root group
-    if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) ) return EXIT_FAILURE;
+    if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT root group.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
 	
-    if(H5LTset_attribute_string(MOPITTroot,"/MOPITT","GranuleTime",argv[1])<0) return EXIT_FAILURE;
+    if(H5LTset_attribute_string(MOPITTroot,"/MOPITT","GranuleTime",argv[1])<0)
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
     // create the radiance group
-    if ( createGroup ( &MOPITTroot, &radianceGroup, "Data Fields" ) ) return EXIT_FAILURE;
+    if ( createGroup ( &MOPITTroot, &radianceGroup, "Data Fields" ) )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT radiance group.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
 	
     // create the geolocation group
-    if ( createGroup ( &MOPITTroot, &geolocationGroup, "Geolocation" ) ) return EXIT_FAILURE;
+    if ( createGroup ( &MOPITTroot, &geolocationGroup, "Geolocation" ) )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT geolocation group.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
 	
     // insert the radiance dataset
     radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "MOPITTRadiances", H5T_NATIVE_FLOAT, 1 );
-    if ( radianceDataset == EXIT_FAILURE ) return EXIT_FAILURE;
+    if ( radianceDataset == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT radiance dataset.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
 	
     // insert the longitude dataset
     longitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude", H5T_NATIVE_FLOAT, 1 );
-    if ( longitudeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
+    if ( longitudeDataset == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT longitude dataset.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
 	
     // insert the latitude dataset
     latitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude", H5T_NATIVE_FLOAT, 1 );
-    if ( latitudeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
+    if ( latitudeDataset == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT latitude dataset.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
 	
     // insert the time dataset
     timeDataset = MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time", H5T_NATIVE_DOUBLE, 1);
-    if ( timeDataset == EXIT_FAILURE ) return EXIT_FAILURE;
+    if ( timeDataset < 0 )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT time dataset.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
 	
     /***************************************************************
      * Add the appropriate attributes to the groups we just created*
@@ -82,13 +125,20 @@ int MOPITT( char* argv[] )
                             /*#############*/ 
 	
     attrID = attributeCreate( radianceGroup, "TrackCount", H5T_NATIVE_UINT );
-    if ( attrID == EXIT_FAILURE ) return EXIT_FAILURE;
+    if ( attrID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT TrackCout attribute.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
 
     /* We need to get the value for TrackCount. This is simply the first dimension in the MOPITTRadiances
      * dataset
      */
     /* First get the rank */
-    tempInt = H5Sget_simple_extent_ndims( radianceDataset );
+    hid_t tempSpace = H5Dget_space( radianceDataset );
+    tempInt = H5Sget_simple_extent_ndims( tempSpace );
+
     if ( tempInt < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to get dataset rank for MOPITT.\n", __FILE__,__func__,__LINE__);
@@ -98,11 +148,12 @@ int MOPITT( char* argv[] )
     /* Now that we have rank, allocate space for the array to store the size of each dimension */
     dims = malloc( sizeof(hsize_t) * tempInt );
     /* Get the size of each dimension */
-    if ( H5Sget_simple_extent_dims( radianceDataset, dims, NULL ) < 0 )
+    if ( H5Sget_simple_extent_dims( tempSpace, dims, NULL ) < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to get dataset dimension sizes for MOPITT.\n", __FILE__,__func__,__LINE__);
         return EXIT_FAILURE;
     }
+    H5Sclose(tempSpace);
 
     /* write the value of the first element in dims to the TrackCount attribute */
     status = H5Awrite( attrID, H5T_NATIVE_UINT, dims );
@@ -136,15 +187,15 @@ int MOPITT( char* argv[] )
 	
     /* we need to get the value of missing_invalid from the input dataset */
     /* first however, we need to open this attribute from the input dataset */
-    tempDatasetID = H5Dopen( file, RADIANCE, H5P_DEFAULT );
-    if ( tempDatasetID < 0 )
+    tempGroupID = H5Gopen( file, "HDFEOS/SWATHS/MOP01", H5P_DEFAULT );
+    if ( tempGroupID < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to open dataset from input file.\n",__FILE__,__func__,__LINE__);
+        fprintf( stderr, "[%s:%s:%d] Unable to open group from input file.\n",__FILE__,__func__,__LINE__);
         return EXIT_FAILURE;
     }
 
     /* open the missing invalid attribute */
-    inputAttrID = H5Aopen_name(tempDatasetID, "missing_invalid" );
+    inputAttrID = H5Aopen_name(tempGroupID, "missing_invalid" );
     if ( inputAttrID < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to open attribute from input file.\n",__FILE__,__func__,__LINE__);
@@ -187,14 +238,14 @@ int MOPITT( char* argv[] )
     status = H5Aclose( inputAttrID );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to close attribute.\n",__FILE__,__func__,__LINE__);
+        fprintf( stderr, "[%s:%s:%d] Unable to close output file attribute.\n",__FILE__,__func__,__LINE__);
         return EXIT_FAILURE;
     }
 
     status = H5Tclose( datatypeID );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to close attribute.\n",__FILE__,__func__,__LINE__);
+        fprintf( stderr, "[%s:%s:%d] Unable to close input file attribute.\n",__FILE__,__func__,__LINE__);
         return EXIT_FAILURE;
     }
 
@@ -210,7 +261,7 @@ int MOPITT( char* argv[] )
     }
 
     /* open the missing invalid attribute */
-    inputAttrID = H5Aopen_name(tempDatasetID, "missing_nodata" );
+    inputAttrID = H5Aopen_name(tempGroupID, "missing_nodata" );
     if ( inputAttrID < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to open attribute from input file.\n",__FILE__,__func__,__LINE__);
@@ -246,21 +297,21 @@ int MOPITT( char* argv[] )
     status = H5Aclose( attrID );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to close attribute.\n",__FILE__,__func__,__LINE__);
+        fprintf( stderr, "[%s:%s:%d] Unable to close output file attribute.\n",__FILE__,__func__,__LINE__);
         return EXIT_FAILURE;
     }
 
-    status = H5Dclose( tempDatasetID );
+    status = H5Gclose( tempGroupID );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to close attribute.\n",__FILE__,__func__,__LINE__);
+        fprintf( stderr, "[%s:%s:%d] Unable to close group.\n",__FILE__,__func__,__LINE__);
         return EXIT_FAILURE;
     }
 
     status = H5Aclose( inputAttrID );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to close attribute.\n",__FILE__,__func__,__LINE__);
+        fprintf( stderr, "[%s:%s:%d] Unable to close input file attribute.\n",__FILE__,__func__,__LINE__);
         return EXIT_FAILURE;
     }
 

@@ -1,9 +1,40 @@
 #!/bin/bash
 # This script will compile and run the basicFusion code on Blue Waters
 
+input=
+
+while [[ "$input" != "y" && "$input" != "Y" && "$input" != "n" && "$input" != "N" ]]; do
+    printf "Should data be unpacked? Unpacked data will be significantly larger! [y/n]: "
+    read input
+done
+
+if [[ "$input" == "y" || "$input" == "Y" ]]; then
+    export TERRA_DATA_UNPACK=1
+else
+    unset TERRA_DATA_UNPACK
+fi
+
 cd /projects/sciteam/jq0/TerraFusion/basicFusion/bin
+
+printf "\e[92m\e[4mLoading modules\e[0m\n"
+printf "    \e[2mDisregard errors about PrgEnv-cray not being loaded.\e[0m\n"
 . ./loadModules
+printf "\e[92m\e[4mCompiling program\e[0m\n"
 make -C ./..
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf "\e[91m\e[4mFatal error\e[0m: make returned with an exit status of $status.\nAborting script.\n"
+    exit 1
+fi
+
+printf "\e[92m\e[4mGenerating input file list\e[0m\n"
 ./generateInput.sh /projects/sciteam/jq0/TerraFusion/oneorbit
-qsub /projects/sciteam/jq0/TerraFusion/basicFusion/bin/batchscript.pbs
+status=$?
+if [ "$status" -ne 0 ]; then
+    printf "\e[91m\e[4mFatal error\e[0m: generateInput.sh returned with an exit status of $status.\nAborting script.\n"
+    exit 1
+fi
+
+printf "\e[92m\e[4mSubmitting job to scheduler\e[0m\n"
+qsub -v TERRA_DATA_UNPACK /projects/sciteam/jq0/TerraFusion/basicFusion/bin/batchscript.pbs
 

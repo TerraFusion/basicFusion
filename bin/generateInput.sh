@@ -21,7 +21,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 INPATH=$1
-OUTFILE=../exe/inputFiles.txt
+OUTFILE=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt
 CURDIR=$(pwd)
 FAIL=0
 MOPITTNUM=0
@@ -115,7 +115,7 @@ mkdir __tempFiles
 ##########
 # MOPITT #
 ##########
-printf "# MOPITT\n" >> "$CURDIR/$OUTFILE"
+printf "# MOPITT\n" >> "$OUTFILE"
 cd "$INPATH"/MOPITT
 # grep -v removes any "xml" files
 # put results of ls into a temporary text file
@@ -123,14 +123,14 @@ ls | grep "MOP" | grep -v "xml" >> "$CURDIR"/__tempFiles/MOPITT.txt
 # iterate over this file, prepending the path of the file into our
 # OUTFILE
 while read -r line; do
-	echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+	echo "$(pwd)/$line" >> "$OUTFILE"
 	let "MOPITTNUM++"
 done <"$CURDIR"/__tempFiles/MOPITT.txt
 
 #########
 # CERES #
 #########
-printf "# CERES\n" >> "$CURDIR/$OUTFILE"
+printf "# CERES\n" >> "$OUTFILE"
 cd "../CERES"
 # grep -v removes any files with "met" in them, they're unwanted
 ls | grep "CER_BDS_Terra" | grep -v "met" >> "$CURDIR"/__tempFiles/CERES.txt
@@ -138,7 +138,7 @@ ls | grep "CER_BDS_Terra" | grep -v "met" >> "$CURDIR"/__tempFiles/CERES.txt
 # OUTFILE
 
 while read -r line; do
-        echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+        echo "$(pwd)/$line" >> "$OUTFILE"
 	let "CERESNUM++"
 done <"$CURDIR"/__tempFiles/CERES.txt
 
@@ -155,10 +155,10 @@ ls | grep "MOD02HKM" | grep "hdf" >> "$CURDIR"/__tempFiles/HKMfile.txt
 ls | grep "MOD02QKM" | grep "hdf" >> "$CURDIR"/__tempFiles/QKMfile.txt
 ls | grep "MOD03" | grep "hdf" >> "$CURDIR"/__tempFiles/MOD03file.txt
 
-printf "# MODIS\n" >> "$CURDIR/$OUTFILE"
+printf "# MODIS\n" >> "$OUTFILE"
 while read -r line; do
 	# first, echo this 1KM filename into the outfile
-	echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+	echo "$(pwd)/$line" >> "$OUTFILE"
 	let "MODISNUM++"
 	# then extract the substring in this line containing the date info
 	# (using shell parameter expansion)
@@ -168,19 +168,19 @@ while read -r line; do
 	# note that it may not exist.
 	temp="$(cat $CURDIR/__tempFiles/HKMfile.txt | grep $substr)"
 	if [ ${#temp} -ge 2 ]; then	# if temp is a non-zero length string
-		echo "$(pwd)/$temp" >> "$CURDIR"/"$OUTFILE"
+		echo "$(pwd)/$temp" >> "$OUTFILE"
 	fi
 
 	# write in the corrseponding QKM file
 	temp="$(cat $CURDIR/__tempFiles/QKMfile.txt | grep $substr)"
 	if [ ${#temp} -ge 2 ]; then
-        	echo "$(pwd)/$temp" >> "$CURDIR"/"$OUTFILE"
+        	echo "$(pwd)/$temp" >> "$OUTFILE"
 	fi
 
 	# write in the corresponding MOD03 file
 	temp="$(cat $CURDIR/__tempFiles/MOD03file.txt | grep $substr)"
         if [ ${#temp} -ge 2 ]; then
-		echo "$(pwd)/$temp" >> "$CURDIR"/"$OUTFILE"
+		echo "$(pwd)/$temp" >> "$OUTFILE"
 	fi
 
 done <"$CURDIR"/__tempFiles/1KMfile.txt
@@ -189,7 +189,7 @@ done <"$CURDIR"/__tempFiles/1KMfile.txt
 # ASTER #
 #########
 
-printf "# ASTER\n" >> "$CURDIR/$OUTFILE"
+printf "# ASTER\n" >> "$OUTFILE"
 cd "../ASTER"
 # grep -v removes any files with "tif" in them, they're unwanted
 ls | grep "AST" | grep "hdf" >> "$CURDIR"/__tempFiles/ASTER.txt
@@ -197,7 +197,7 @@ ls | grep "AST" | grep "hdf" >> "$CURDIR"/__tempFiles/ASTER.txt
 # OUTFILE
 
 while read -r line; do
-        echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+        echo "$(pwd)/$line" >> "$OUTFILE"
 	let "ASTERNUM++"
 done <"$CURDIR"/__tempFiles/ASTER.txt
 
@@ -205,7 +205,7 @@ done <"$CURDIR"/__tempFiles/ASTER.txt
 # MISR #
 ########
 
-printf "# MISR\n" >> "$CURDIR/$OUTFILE"
+printf "# MISR\n" >> "$OUTFILE"
 cd "../MISR"
 # put the MISR files into temp text files
 ls | grep "MISR_AM1_GRP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_GRP.txt
@@ -215,15 +215,15 @@ ls | grep "MISR_AM1_GP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_GP.txt
 # OUTFILE
 
 while read -r line; do
-    echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+    echo "$(pwd)/$line" >> "$OUTFILE"
     let "MISRNUM++"
 done <"$CURDIR"/__tempFiles/MISR_GRP.txt
 while read -r line; do
-    echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+    echo "$(pwd)/$line" >> "$OUTFILE"
     let "MISRNUM++"
 done <"$CURDIR"/__tempFiles/MISR_AGP.txt
 while read -r line; do
-    echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+    echo "$(pwd)/$line" >> "$OUTFILE"
     let "MISRNUM++"
 done <"$CURDIR"/__tempFiles/MISR_GP.txt
 
@@ -783,7 +783,7 @@ while read -r line; do
         exit 1
     fi
 
-done <"$CURDIR"/"$DEBUGFILE"
+done <"$DEBUGFILE"
 
 
 printf "Files read:\n"
