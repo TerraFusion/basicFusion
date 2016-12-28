@@ -85,6 +85,18 @@ int main( int argc, char* argv[] )
             if((unsigned int)strtol(s,NULL,0) == 1)
                 unpack = 1;
     }
+    
+    /* remove output file if it already exists. Note that no conditional statements are used. If file does not exist,
+     * this function will throw an error but we do not care.
+     */
+    remove( argv[1] );
+
+    /* create the output file or open it if it exists */
+    if ( createOutputFile( &outputFile, argv[1] )) 
+    {    
+        fprintf( stderr, "[%s:%s:%d] Unable to create output file.\n",__FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
 	
 	/**********
 	 * MOPITT *
