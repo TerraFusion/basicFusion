@@ -1,8 +1,9 @@
 #!/bin/bash
 # This script will compile and run the basicFusion code on Blue Waters
 
+cd /projects/sciteam/jq0/TerraFusion/basicFusion/bin
 . ./loadModules
-make -C ..
-/projects/sciteam/jq0/TerraFusion/basicFusion/bin/generateInput.sh ../../oneorbit
+make -C ./..
+./generateInput.sh /projects/sciteam/jq0/TerraFusion/oneorbit
 qsub /projects/sciteam/jq0/TerraFusion/basicFusion/bin/batchscript.pbs
 
