@@ -3,13 +3,35 @@
 #include <ctype.h>
 #include <string.h>
 #include <assert.h>
+#include <curses.h>
 #define STR_LEN 500
-
+#define LOGIN_NODE "h2ologin4"
+#define MOM_NODE
 
 int getNextLine ( char* string, FILE* const inputFile );
 
 int main( int argc, char* argv[] )
 {
+
+    /* Check that this program is not being run on a login node or a MOM node.
+     * If it is, shame on you!
+     */
+
+    {
+        const char* hostname = getenv("HOSTNAME");
+        printf("%s", hostname );
+        if ( strstr( hostname, LOGIN_NODE ) != NULL )
+        {
+            fprintf( stderr, "\n\t\x1b[1m\x1b[31m\x1b[47m*******************\n");
+            fprintf( stderr, "\t* \x1b[4mCRITICAL ERROR\x1b[24m! *\n");
+            fprintf( stderr, "\t*******************\x1b[0m\n\n");
+            fprintf( stderr, "You have attempted to run this program on a non-compute node!\n");
+            fprintf( stderr, "Don't ever do such a thing! Please refer to README.txt in the root project directory.\n\n");
+            return EXIT_FAILURE;
+        }
+
+    }   
+
 	if ( argc != 3 )
 	{
 		fprintf( stderr, "Usage: %s [outputFile] [inputFiles.txt] \n", argv[0] );
