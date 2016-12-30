@@ -289,6 +289,7 @@ fi
 
 if [ $FAIL -ne 0 ]; then
     printf "Exiting script.\n"
+    rm -r "$CURDIR"/__tempFiles
     exit $FAIL
 fi
 
