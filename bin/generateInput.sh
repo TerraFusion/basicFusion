@@ -231,11 +231,78 @@ done <"$CURDIR"/__tempFiles/MISR_GP.txt
 #           PREPROCESSING ERROR CHECKS           #
 ##################################################
 
-#__________________________________________________________________#
-#                                                                  #
-# CHECK THAT ALL FILES PRESENT IN OUR INPUT DIRECTORY MADE IT INTO #
-# THE INPUT FILES LIST (ALL DESIRED HDF FILES)                     #
-#__________________________________________________________________#
+# We need to check for the existence of the necessary files for each instrument
+# in our generated file list.
+# Also in addition to the above, we need to check that the following is true:
+#   MODIS: The first file is MOD021KM
+#   MISR: The first file is AA
+# For MODIS and MISR, other necessary files include MOD03, AF, AN, AGP etc,
+# but if we can first establish that the first file for MISR, for instance,
+# is an AA file, checking for the existence of everything else will be 
+# handled downstream.
+
+cd "$CURDIR"
+
+FAIL=0
+
+# Note: the '.*' is simply a wildcard operator for grep
+
+tempLine=$(cat "$DEBUGFILE" | grep 'MOP01.*.he5')
+if [ -z "$tempLine" ]; then
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tNo MOPITT \"MOP01\" files were found in generated file list.\n"
+    FAIL=1
+fi
+tempLine=$(cat "$DEBUGFILE" | grep "CER_BDS_Terra")
+if [ -z "$tempLine" ]; then
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tNo CERES files were found in generated file list.\n"
+    FAIL=1
+fi
+
+# Note: the sed command is capturing the first line of the output of grep.
+# We are checking that the first MODIS line is a 1KM file
+tempLine=$(cat "$DEBUGFILE" | grep "MOD.*.hdf" | sed -n 1p )
+# Now that tempLine has the first MODIS line, grep it to see if it's a
+# 1KM file
+tempLine=$(echo "$tempLine" | grep "MOD021KM")
+if [ -z "$tempLine" ]; then
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tNo MODIS \"MOD021KM\" files found or \"MOD021KM\" was not the first MODIS file.\n"
+    FAIL=1
+fi
+tempLine=$(cat "$DEBUGFILE" | grep "AST_L1T_.*.hdf")
+if [ -z "$tempLine" ]; then
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tNo ASTER files were found in generated file list.\n"
+    FAIL=1
+fi
+
+# Repeat same process here as for MODIS
+tempLine=$(cat "$DEBUGFILE" | grep "MISR.*.hdf" | sed -n 1p )
+tempLine=$(echo "$tempLine" | grep "MISR.*_AA_.*.hdf")
+if [ -z "$tempLine" ]; then
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tNo MISR \"AA\" files found or \"AA\" was not the first MISR file.\n"
+    FAIL=1
+fi
+
+if [ $FAIL -ne 0 ]; then
+    printf "Exiting script.\n"
+    exit $FAIL
+fi
+
+
+
+
+
+
+
+#__________________________________________________________________
+#                                                                  |
+# CHECK THAT ALL FILES PRESENT IN OUR INPUT DIRECTORY MADE IT INTO |
+# THE INPUT FILES LIST (ALL DESIRED HDF FILES)                     |
+#__________________________________________________________________|
 
 FAIL=0
 cd "$CURDIR"
@@ -341,6 +408,8 @@ prevGroupDate=""
 curGroupDate=""
 instrumentSection=""
 
+
+# Read through the DEBUGFILE file.
 while read -r line; do
 	# continue if we have a non-valid line (comment or otherwise)
 	if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." ]]; then

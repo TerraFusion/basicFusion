@@ -5,10 +5,14 @@
 #   AUTHOR: Landon Clipp
 #   EMAIL:  clipp2@illinois.edu
 #
-#   This script reads the hdf files contained in the directory given to it an generates an inputFiles.txt
+#   This script reads the hdf files contained in the directory given to it and generates an inputFiles.txt
 #   file for the TERRA fusion program to read. It performs comprehensive error checking for the generated
 #   output file to make sure that all files are in chronological order, that all files are in the order
 #   expected and that there are no unknown errors in the output file.
+
+# TODO
+# The checks that verify all files made it into the output file need to check the PATHNAME and not the
+# file name of the files.
 
 if [ "$#" -ne 1 ]; then
 	printf "Usage:\n\t$0 [relative/absolute path to all 5 instruments]\n\n"
@@ -17,7 +21,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 INPATH=$1
-OUTFILE=inputFiles.txt
+OUTFILE=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt
 CURDIR=$(pwd)
 FAIL=0
 MOPITTNUM=0
@@ -29,7 +33,7 @@ MISRNUM=0
 # DEBUGFILE is the file where all of the error checking for date, order and general file consistency
 # is done. Setting this to anything other than $OUTFILE means that this program will NOT debug
 # the file it generated (OUTFILE) but rather the file you point it to.
-DEBUGFILE=test.txt
+DEBUGFILE=necessaryFiles.txt
 
 # Check if the provided INPATH actually contains directories for all 5 instruments.
 # Note that the following if statements do not take into account if the INPATH
@@ -111,7 +115,7 @@ mkdir __tempFiles
 ##########
 # MOPITT #
 ##########
-printf "# MOPITT\n" >> "$CURDIR/$OUTFILE"
+printf "# MOPITT\n" >> "$OUTFILE"
 cd "$INPATH"/MOPITT
 # grep -v removes any "xml" files
 # put results of ls into a temporary text file
@@ -119,14 +123,14 @@ ls | grep "MOP" | grep -v "xml" >> "$CURDIR"/__tempFiles/MOPITT.txt
 # iterate over this file, prepending the path of the file into our
 # OUTFILE
 while read -r line; do
-	echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+	echo "$(pwd)/$line" >> "$OUTFILE"
 	let "MOPITTNUM++"
 done <"$CURDIR"/__tempFiles/MOPITT.txt
 
 #########
 # CERES #
 #########
-printf "# CERES\n" >> "$CURDIR/$OUTFILE"
+printf "# CERES\n" >> "$OUTFILE"
 cd "../CERES"
 # grep -v removes any files with "met" in them, they're unwanted
 ls | grep "CER_BDS_Terra" | grep -v "met" >> "$CURDIR"/__tempFiles/CERES.txt
@@ -134,7 +138,7 @@ ls | grep "CER_BDS_Terra" | grep -v "met" >> "$CURDIR"/__tempFiles/CERES.txt
 # OUTFILE
 
 while read -r line; do
-        echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+        echo "$(pwd)/$line" >> "$OUTFILE"
 	let "CERESNUM++"
 done <"$CURDIR"/__tempFiles/CERES.txt
 
@@ -151,10 +155,10 @@ ls | grep "MOD02HKM" | grep "hdf" >> "$CURDIR"/__tempFiles/HKMfile.txt
 ls | grep "MOD02QKM" | grep "hdf" >> "$CURDIR"/__tempFiles/QKMfile.txt
 ls | grep "MOD03" | grep "hdf" >> "$CURDIR"/__tempFiles/MOD03file.txt
 
-printf "# MODIS\n" >> "$CURDIR/$OUTFILE"
+printf "# MODIS\n" >> "$OUTFILE"
 while read -r line; do
 	# first, echo this 1KM filename into the outfile
-	echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+	echo "$(pwd)/$line" >> "$OUTFILE"
 	let "MODISNUM++"
 	# then extract the substring in this line containing the date info
 	# (using shell parameter expansion)
@@ -164,19 +168,19 @@ while read -r line; do
 	# note that it may not exist.
 	temp="$(cat $CURDIR/__tempFiles/HKMfile.txt | grep $substr)"
 	if [ ${#temp} -ge 2 ]; then	# if temp is a non-zero length string
-		echo "$(pwd)/$temp" >> "$CURDIR"/"$OUTFILE"
+		echo "$(pwd)/$temp" >> "$OUTFILE"
 	fi
 
 	# write in the corrseponding QKM file
 	temp="$(cat $CURDIR/__tempFiles/QKMfile.txt | grep $substr)"
 	if [ ${#temp} -ge 2 ]; then
-        	echo "$(pwd)/MODIS/$temp" >> "$CURDIR"/"$OUTFILE"
+        	echo "$(pwd)/$temp" >> "$OUTFILE"
 	fi
 
 	# write in the corresponding MOD03 file
 	temp="$(cat $CURDIR/__tempFiles/MOD03file.txt | grep $substr)"
         if [ ${#temp} -ge 2 ]; then
-		echo "$(pwd)/$temp" >> "$CURDIR"/"$OUTFILE"
+		echo "$(pwd)/$temp" >> "$OUTFILE"
 	fi
 
 done <"$CURDIR"/__tempFiles/1KMfile.txt
@@ -185,7 +189,7 @@ done <"$CURDIR"/__tempFiles/1KMfile.txt
 # ASTER #
 #########
 
-printf "# ASTER\n" >> "$CURDIR/$OUTFILE"
+printf "# ASTER\n" >> "$OUTFILE"
 cd "../ASTER"
 # grep -v removes any files with "tif" in them, they're unwanted
 ls | grep "AST" | grep "hdf" >> "$CURDIR"/__tempFiles/ASTER.txt
@@ -193,7 +197,7 @@ ls | grep "AST" | grep "hdf" >> "$CURDIR"/__tempFiles/ASTER.txt
 # OUTFILE
 
 while read -r line; do
-        echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+        echo "$(pwd)/$line" >> "$OUTFILE"
 	let "ASTERNUM++"
 done <"$CURDIR"/__tempFiles/ASTER.txt
 
@@ -201,32 +205,104 @@ done <"$CURDIR"/__tempFiles/ASTER.txt
 # MISR #
 ########
 
-printf "# MISR\n" >> "$CURDIR/$OUTFILE"
+printf "# MISR\n" >> "$OUTFILE"
 cd "../MISR"
 # put the MISR files into temp text files
 ls | grep "MISR_AM1_GRP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_GRP.txt
 ls | grep "MISR_AM1_AGP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_AGP.txt
+ls | grep "MISR_AM1_GP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_GP.txt
 # iterate over this file, prepending the path of the file into our
 # OUTFILE
 
 while read -r line; do
-    echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+    echo "$(pwd)/$line" >> "$OUTFILE"
     let "MISRNUM++"
 done <"$CURDIR"/__tempFiles/MISR_GRP.txt
 while read -r line; do
-    echo "$(pwd)/$line" >> "$CURDIR"/"$OUTFILE"
+    echo "$(pwd)/$line" >> "$OUTFILE"
     let "MISRNUM++"
 done <"$CURDIR"/__tempFiles/MISR_AGP.txt
+while read -r line; do
+    echo "$(pwd)/$line" >> "$OUTFILE"
+    let "MISRNUM++"
+done <"$CURDIR"/__tempFiles/MISR_GP.txt
 
 ##################################################
 #           PREPROCESSING ERROR CHECKS           #
 ##################################################
 
-#__________________________________________________________________#
-#                                                                  #
-# CHECK THAT ALL FILES PRESENT IN OUR INPUT DIRECTORY MADE IT INTO #
-# THE INPUT FILES LIST (ALL DESIRED HDF FILES)                     #
-#__________________________________________________________________#
+# We need to check for the existence of the necessary files for each instrument
+# in our generated file list.
+# Also in addition to the above, we need to check that the following is true:
+#   MODIS: The first file is MOD021KM
+#   MISR: The first file is AA
+# For MODIS and MISR, other necessary files include MOD03, AF, AN, AGP etc,
+# but if we can first establish that the first file for MISR, for instance,
+# is an AA file, checking for the existence of everything else will be 
+# handled downstream.
+
+cd "$CURDIR"
+
+FAIL=0
+
+# Note: the '.*' is simply a wildcard operator for grep
+
+tempLine=$(cat "$DEBUGFILE" | grep 'MOP01.*.he5')
+if [ -z "$tempLine" ]; then
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tNo MOPITT \"MOP01\" files were found in generated file list.\n"
+    FAIL=1
+fi
+tempLine=$(cat "$DEBUGFILE" | grep "CER_BDS_Terra")
+if [ -z "$tempLine" ]; then
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tNo CERES files were found in generated file list.\n"
+    FAIL=1
+fi
+
+# Note: the sed command is capturing the first line of the output of grep.
+# We are checking that the first MODIS line is a 1KM file
+tempLine=$(cat "$DEBUGFILE" | grep "MOD.*.hdf" | sed -n 1p )
+# Now that tempLine has the first MODIS line, grep it to see if it's a
+# 1KM file
+tempLine=$(echo "$tempLine" | grep "MOD021KM")
+if [ -z "$tempLine" ]; then
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tNo MODIS \"MOD021KM\" files found or \"MOD021KM\" was not the first MODIS file.\n"
+    FAIL=1
+fi
+tempLine=$(cat "$DEBUGFILE" | grep "AST_L1T_.*.hdf")
+if [ -z "$tempLine" ]; then
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tNo ASTER files were found in generated file list.\n"
+    FAIL=1
+fi
+
+# Repeat same process here as for MODIS
+tempLine=$(cat "$DEBUGFILE" | grep "MISR.*.hdf" | sed -n 1p )
+tempLine=$(echo "$tempLine" | grep "MISR.*_AA_.*.hdf")
+if [ -z "$tempLine" ]; then
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tNo MISR \"AA\" files found or \"AA\" was not the first MISR file.\n"
+    FAIL=1
+fi
+
+if [ $FAIL -ne 0 ]; then
+    printf "Exiting script.\n"
+    exit $FAIL
+fi
+
+
+
+
+
+
+
+#__________________________________________________________________
+#                                                                  |
+# CHECK THAT ALL FILES PRESENT IN OUR INPUT DIRECTORY MADE IT INTO |
+# THE INPUT FILES LIST (ALL DESIRED HDF FILES)                     |
+#__________________________________________________________________|
 
 FAIL=0
 cd "$CURDIR"
@@ -332,6 +408,8 @@ prevGroupDate=""
 curGroupDate=""
 instrumentSection=""
 
+
+# Read through the DEBUGFILE file.
 while read -r line; do
 	# continue if we have a non-valid line (comment or otherwise)
 	if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." ]]; then
@@ -428,8 +506,6 @@ while read -r line; do
     # MOD02HKM
     # MOD02QKM
     # MOD03
-
-    # TODO: Program does not correctly detect date mismatches between groups.
 
     elif [ "$instrumentSection" == "MOD" ]; then
         # note: "res" refers to "MOD021KM", "MOD02HKM", "MOD02QKM", or "MOD03"
@@ -681,6 +757,26 @@ while read -r line; do
                 rm -r "$CURDIR"/__tempFiles
                 exit 1
             fi
+        elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "AGP" ]]; then
+            if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" != "GP" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MISR files are out of order.\n" >&2
+                printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
+                printf "\tExpected to see GP after AGP file.\n" >&2
+                printf "Exiting script.\n" >&2
+                rm -r "$CURDIR"/__tempFiles
+                exit 1
+            fi
+        elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
+            if [[ "$curCam" != "AA" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MISR files are out of order.\n" >&2
+                printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
+                printf "\tExpected to see AA file after GP file.\n" >&2
+                printf "Exiting script.\n" >&2
+                rm -r "$CURDIR"/__tempFiles
+                exit 1
+            fi
         else
             printf "\e[4m\e[91mFatal Error\e[0m: " >&2
             printf "Unknown error at line $LINENO. Exiting script.\n" >&2
@@ -723,7 +819,14 @@ while read -r line; do
                 printf "\t$curfilename has a path number: $curpath != $prevpath\n" >&2
                 printf "\tThese two path numbers should be equal.\n" >&2
             fi
-        
+        elif [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
+            curDate=$(echo "$curfilename" | cut -f5,6 -d'_')
+            if [[ "$curDate" != "$curGroupDate" ]]; then
+                printf "\e[4m\e[93mWarning\e[0m: " >&2
+                printf "MISR date inconsistency found.\n"
+                printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
+                printf "\tThese two dates should be equal.\n" >&2
+            fi
         # else we need to check the dates between cur and prev
         elif [[ "$curDate" != "$curGroupDate" ]]; then
             printf "\e[4m\e[93mWarning\e[0m: " >&2
@@ -749,7 +852,7 @@ while read -r line; do
         exit 1
     fi
 
-done <"$CURDIR"/"$DEBUGFILE"
+done <"$DEBUGFILE"
 
 
 printf "Files read:\n"
