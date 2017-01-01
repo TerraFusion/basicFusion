@@ -124,7 +124,7 @@ int MISR( char* argv[],int unpack )
                     scale_factor = Obtain_scale_factor(inHFileID,band_name[j]);
 
                     h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j],DFNT_UINT16,
-                                                    H5T_NATIVE_USHORT,h4FileID,scale_factor);
+                                                    h4FileID,scale_factor);
                     assert(h5DataFieldID != EXIT_FAILURE);
                     H5Dclose(h5DataFieldID);
 

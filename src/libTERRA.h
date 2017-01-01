@@ -15,9 +15,7 @@ extern hid_t outputFile;
 int MOPITT( char* argv[] );
 int CERES( char* argv[] ,int index);
 int MODIS( char* argv[],int modis_count,int unpack );
-//int MODIS( char* argv[]);
 int ASTER( char* argv[],int aster_count,int unpack );
-//int ASTER( char* argv[]);
 int MISR( char* argv[],int unpack );
 
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, 
@@ -46,17 +44,17 @@ char *correct_name(const char* oldname);
 /* ASTER functions */
 
 hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
-                                           hid_t outputDataType, int32 inputFile, float unc);
+                                           int32 inputFile, float unc);
 
 /* MISR funcions */
 hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
-                                           hid_t outputDataType, int32 inputFile, float scale_factor);
+                                           int32 inputFile, float scale_factor);
 
 hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
-                                  hid_t outputDataType, int32 inputFileID);
+                                  int32 inputFileID);
 
 hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
-                                  hid_t outputDataType, int32 inputFileID);
+                                  int32 inputFileID);
 
 
 #if 0
