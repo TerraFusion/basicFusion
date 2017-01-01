@@ -245,41 +245,41 @@ float unc[5][15] =
 		/* SWIR */
         
 	imageData4ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData4",
-					DFNT_UINT8, H5T_STD_U8LE, inFileID,unc[gain_index[4]][4] ); 
+					DFNT_UINT8, inFileID,unc[gain_index[4]][4] ); 
 	assert( imageData4ID != EXIT_FAILURE );
 	
 	imageData5ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData5",
-					DFNT_UINT8, H5T_STD_U8LE, inFileID, unc[gain_index[5]][5] ); 
+					DFNT_UINT8, inFileID, unc[gain_index[5]][5] ); 
 	assert( imageData5ID != EXIT_FAILURE );
 	
 	imageData6ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData6",
-					DFNT_UINT8, H5T_STD_U8LE, inFileID , unc[gain_index[6]][6]); 
+					DFNT_UINT8, inFileID , unc[gain_index[6]][6]); 
 	assert( imageData6ID != EXIT_FAILURE );
 	
 	imageData7ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData7",
-					DFNT_UINT8, H5T_STD_U8LE, inFileID, unc[gain_index[7]][7] ); 
+					DFNT_UINT8, inFileID, unc[gain_index[7]][7] ); 
 	assert( imageData7ID != EXIT_FAILURE );
 	
 	imageData8ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData8",
-					DFNT_UINT8, H5T_STD_U8LE, inFileID , unc[gain_index[8]][8]); 
+					DFNT_UINT8, inFileID , unc[gain_index[8]][8]); 
 	assert( imageData8ID != EXIT_FAILURE );
 	
 	imageData9ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData9",
-					DFNT_UINT8, H5T_STD_U8LE, inFileID ,unc[gain_index[9]][9]); 
+					DFNT_UINT8, inFileID ,unc[gain_index[9]][9]); 
 	assert( imageData9ID != EXIT_FAILURE );
 	
 		/* VNIR */
         if(vnir_grp_ref >0) {
 	imageData1ID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData1",
-					DFNT_UINT8, H5T_STD_U8LE, inFileID,unc[gain_index[0]][0] ); 
+					DFNT_UINT8, inFileID,unc[gain_index[0]][0] ); 
 	assert( imageData1ID != EXIT_FAILURE );
 	
 	imageData2ID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData2",
-					DFNT_UINT8, H5T_STD_U8LE, inFileID,unc[gain_index[1]][1] ); 
+					DFNT_UINT8, inFileID,unc[gain_index[1]][1] ); 
 	assert( imageData2ID != EXIT_FAILURE );
 	
 	imageData3NID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3N",
-					DFNT_UINT8, H5T_STD_U8LE, inFileID,unc[gain_index[2]][2] ); 
+					DFNT_UINT8, inFileID,unc[gain_index[2]][2] ); 
 	assert( imageData3NID != EXIT_FAILURE );
 
         /* We don't see ImageData3B in the current orbit, however, the table indeed indicates the 3B band.
@@ -290,7 +290,7 @@ float unc[5][15] =
         if(imageData3Bindex != FAIL) {
 
             imageData3BID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3B",
-                                        DFNT_UINT8, H5T_STD_U8LE, inFileID,unc[gain_index[3]][3] );
+                                        DFNT_UINT8, inFileID,unc[gain_index[3]][3] );
 	    assert( imageData3BID != EXIT_FAILURE );
 
         }
@@ -299,23 +299,23 @@ float unc[5][15] =
 	
 		/* TIR */
 	imageData10ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData10",
-					DFNT_UINT16, H5T_STD_U16LE, inFileID,unc[gain_index[10]][10] ); 
+					DFNT_UINT16, inFileID,unc[gain_index[10]][10] ); 
 	assert( imageData10ID != EXIT_FAILURE );
 	
 	imageData11ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData11",
-					DFNT_UINT16, H5T_STD_U16LE, inFileID, unc[gain_index[11]][11] ); 
+					DFNT_UINT16, inFileID, unc[gain_index[11]][11] ); 
 	assert( imageData11ID != EXIT_FAILURE );
 	
 	imageData12ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData12",
-					DFNT_UINT16, H5T_STD_U16LE, inFileID, unc[gain_index[12]][12] ); 
+					DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
 	assert( imageData12ID != EXIT_FAILURE );
 	
 	imageData13ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData13",
-					DFNT_UINT16, H5T_STD_U16LE, inFileID, unc[gain_index[12]][12] ); 
+					DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
 	assert( imageData13ID != EXIT_FAILURE );
 	
 	imageData14ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData14",
-					DFNT_UINT16, H5T_STD_U16LE, inFileID,unc[gain_index[13]][13] ); 
+					DFNT_UINT16, inFileID,unc[gain_index[13]][13] ); 
 	assert( imageData14ID != EXIT_FAILURE );
     } // end if(unpacked =1)
 

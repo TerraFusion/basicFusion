@@ -275,10 +275,10 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	
         if(argv[2]!=NULL) {
 	_1KMDatasetID = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", DFNT_UINT16, 
-					H5T_NATIVE_USHORT, _1KMFileID);
+					 _1KMFileID);
         
         	_1KMUncertID = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes",
-					DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
+					DFNT_UINT8, _1KMFileID );
 	
 					
         }
@@ -316,11 +316,11 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if(1==unpack) {
 
 	_1KMEmissive = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive",
-					DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
+					DFNT_UINT16, _1KMFileID);
 	
 	_1KMEmissiveUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID,
 						  "EV_1KM_Emissive_Uncert_Indexes",
-						  DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);
+						  DFNT_UINT8, _1KMFileID);
 	
         }
         else {
@@ -347,12 +347,12 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
 	
 	_250Aggr1km = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB",
-					DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
+					DFNT_UINT16, _1KMFileID);
 		/*__________EV_250_Aggr1km_RefSB_Uncert_Indexes_____________*/
 	
 	_250Aggr1kmUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID, 
 						"EV_250_Aggr1km_RefSB_Uncert_Indexes",
-						DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);				
+						DFNT_UINT8, _1KMFileID);				
 					
         }
         }
@@ -379,13 +379,13 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if(argv[2]!=NULL) {
 	
 	_500Aggr1km = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB",
-				  DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID );
+				  DFNT_UINT16, _1KMFileID );
 
 		/*__________EV_500_Aggr1km_RefSB_Uncert_Indexes____________*/
 	
 	_500Aggr1kmUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID, 
 						"EV_500_Aggr1km_RefSB_Uncert_Indexes",
-						DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
+						DFNT_UINT8, _1KMFileID );
 				  
         }
         }
@@ -398,16 +398,12 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 						DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
 	
         }
-
-						
-//printf("before Latitude \n");
 							
 	/*_______________latitude data under geolocation_______________*/
 	
 	latitudeDatasetID = readThenWrite( MODIS1KMgeolocationGroupID,
 					  "Latitude",
 					  DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-//printf("after Latitude \n");
 	
 	/*_______________longitude data under geolocation______________*/
 	longitudeDatasetID = readThenWrite( MODIS1KMgeolocationGroupID,
@@ -439,22 +435,22 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if(unpack == 1) {
 	_250Aggr500 = readThenWrite_MODIS_Unpack( MODIS500mdataFieldsGroupID, 
 						"EV_250_Aggr500_RefSB",
-						DFNT_UINT16, H5T_NATIVE_USHORT, _500mFileID );
+						DFNT_UINT16, _500mFileID );
        	/*_____________EV_250_Aggr500_RefSB_Uncert_Indexes____________*/
 	
 	_250Aggr500Uncert = readThenWrite_MODIS_Uncert_Unpack( MODIS500mdataFieldsGroupID, 
 						"EV_250_Aggr500_RefSB_Uncert_Indexes",
-						DFNT_UINT8, H5T_STD_U8LE, _500mFileID );
+						DFNT_UINT8, _500mFileID );
 	 }
         else {
 	_250Aggr500 = readThenWrite( MODIS500mdataFieldsGroupID, 
 						"EV_250_Aggr500_RefSB",
-						DFNT_UINT16, H5T_NATIVE_USHORT, _500mFileID );
+						DFNT_UINT16,H5T_NATIVE_USHORT,  _500mFileID );
 		/*_____________EV_250_Aggr500_RefSB_Uncert_Indexes____________*/
 	
 	_250Aggr500Uncert = readThenWrite( MODIS500mdataFieldsGroupID, 
 						"EV_250_Aggr500_RefSB_Uncert_Indexes",
-						DFNT_UINT8, H5T_STD_U8LE, _500mFileID );
+						DFNT_UINT8,H5T_STD_U8LE, _500mFileID );
 
         }
 						
@@ -463,11 +459,11 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	/*____________EV_500_RefSB_____________*/
 	
 	_500RefSB = readThenWrite_MODIS_Unpack( MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
-				H5T_NATIVE_USHORT, _500mFileID );
+				 _500mFileID );
         	/*____________EV_500_RefSB_Uncert_Indexes_____________*/
 	
 	_500RefSBUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS500mdataFieldsGroupID, "EV_500_RefSB_Uncert_Indexes",
-					  DFNT_UINT8, H5T_STD_U8LE, _500mFileID );
+					  DFNT_UINT8, _500mFileID );
         }
         else {
 	_500RefSB = readThenWrite( MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
@@ -493,12 +489,12 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if(argv[3] != NULL) {
          if(unpack == 1) {
 	_250RefSB = readThenWrite_MODIS_Unpack( MODIS250mdataFieldsGroupID, "EV_250_RefSB", DFNT_UINT16,
-				H5T_NATIVE_USHORT, _250mFileID );
+				 _250mFileID );
 
 		/*____________EV_250_RefSB_Uncert_Indexes_____________*/
 	
 	_250RefSBUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS250mdataFieldsGroupID, "EV_250_RefSB_Uncert_Indexes",
-					  DFNT_UINT8, H5T_STD_U8LE, _250mFileID); 			  			
+					  DFNT_UINT8, _250mFileID); 			  			
          }
          else {
 	_250RefSB = readThenWrite( MODIS250mdataFieldsGroupID, "EV_250_RefSB", DFNT_UINT16,

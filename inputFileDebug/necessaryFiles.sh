@@ -33,7 +33,7 @@ MISRNUM=0
 # DEBUGFILE is the file where all of the error checking for date, order and general file consistency
 # is done. Setting this to anything other than $OUTFILE means that this program will NOT debug
 # the file it generated (OUTFILE) but rather the file you point it to.
-DEBUGFILE=$OUTFILE
+DEBUGFILE=necessaryFiles.txt
 
 # Check if the provided INPATH actually contains directories for all 5 instruments.
 # Note that the following if statements do not take into account if the INPATH
@@ -250,13 +250,13 @@ FAIL=0
 tempLine=$(cat "$DEBUGFILE" | grep 'MOP01.*.he5')
 if [ -z "$tempLine" ]; then
     printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-    printf "\tNo MOPITT \"MOP01\" files were found in generated file list.\n" >&2
+    printf "\tNo MOPITT \"MOP01\" files were found in generated file list.\n"
     FAIL=1
 fi
 tempLine=$(cat "$DEBUGFILE" | grep "CER_BDS_Terra")
 if [ -z "$tempLine" ]; then
     printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-    printf "\tNo CERES files were found in generated file list.\n" >&2
+    printf "\tNo CERES files were found in generated file list.\n"
     FAIL=1
 fi
 
@@ -268,13 +268,13 @@ tempLine=$(cat "$DEBUGFILE" | grep "MOD.*.hdf" | sed -n 1p )
 tempLine=$(echo "$tempLine" | grep "MOD021KM")
 if [ -z "$tempLine" ]; then
     printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-    printf "\tNo MODIS \"MOD021KM\" files found or \"MOD021KM\" was not the first MODIS file.\n" >&2
+    printf "\tNo MODIS \"MOD021KM\" files found or \"MOD021KM\" was not the first MODIS file.\n"
     FAIL=1
 fi
 tempLine=$(cat "$DEBUGFILE" | grep "AST_L1T_.*.hdf")
 if [ -z "$tempLine" ]; then
     printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-    printf "\tNo ASTER files were found in generated file list.\n" >&2
+    printf "\tNo ASTER files were found in generated file list.\n"
     FAIL=1
 fi
 
@@ -283,12 +283,12 @@ tempLine=$(cat "$DEBUGFILE" | grep "MISR.*.hdf" | sed -n 1p )
 tempLine=$(echo "$tempLine" | grep "MISR.*_AA_.*.hdf")
 if [ -z "$tempLine" ]; then
     printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-    printf "\tNo MISR \"AA\" files found or \"AA\" was not the first MISR file.\n" >&2
+    printf "\tNo MISR \"AA\" files found or \"AA\" was not the first MISR file.\n"
     FAIL=1
 fi
 
 if [ $FAIL -ne 0 ]; then
-    printf "Exiting script.\n" >&2
+    printf "Exiting script.\n"
     rm -r "$CURDIR"/__tempFiles
     exit $FAIL
 fi
@@ -315,85 +315,85 @@ while read -r line; do
     searchFile=$(echo ${searchFile##*/})
     if [[ "$line" != "$searchFile" ]]; then
         printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-        printf "\t$line was missing in the generated file list.\n" >&2
+        printf "\t$line was missing in the generated file list.\n"
         FAIL=1
     fi
-done <"$CURDIR/__tempFiles/MOPITT.txt"
+done <"./__tempFiles/MOPITT.txt"
 while read -r line; do
     searchFile="$(cat $DEBUGFILE | grep $line)"
     searchFile=$(echo ${searchFile##*/})
     if [[ "$line" != "$searchFile" ]]; then
         printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-        printf "\t$line was missing in the generated file list.\n" >&2
+        printf "\t$line was missing in the generated file list.\n"
         FAIL=1
     fi
-done <"$CURDIR/__tempFiles/CERES.txt"
+done <"./__tempFiles/CERES.txt"
 while read -r line; do
     searchFile="$(cat $DEBUGFILE | grep $line)"
     searchFile=$(echo ${searchFile##*/})
     if [[ "$line" != "$searchFile" ]]; then
         printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-        printf "\t$line was missing in the generated file list.\n" >&2
+        printf "\t$line was missing in the generated file list.\n"
         FAIL=1
     fi
-done <"$CURDIR/__tempFiles/1KMfile.txt"
+done <"./__tempFiles/1KMfile.txt"
 while read -r line; do
     searchFile="$(cat $DEBUGFILE | grep $line)"
     searchFile=$(echo ${searchFile##*/})
     if [[ "$line" != "$searchFile" ]]; then
         printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-        printf "\t$line was missing in the generated file list.\n" >&2
+        printf "\t$line was missing in the generated file list.\n"
         FAIL=1
     fi
-done <"$CURDIR/__tempFiles/HKMfile.txt"
+done <"./__tempFiles/HKMfile.txt"
 while read -r line; do
     searchFile="$(cat $DEBUGFILE | grep $line)"
     searchFile=$(echo ${searchFile##*/})
     if [[ "$line" != "$searchFile" ]]; then
         printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-        printf "\t$line was missing in the generated file list.\n" >&2
+        printf "\t$line was missing in the generated file list.\n"
         FAIL=1
     fi
-done <"$CURDIR/__tempFiles/QKMfile.txt"
+done <"./__tempFiles/QKMfile.txt"
 while read -r line; do
     searchFile="$(cat $DEBUGFILE | grep $line)"
     searchFile=$(echo ${searchFile##*/})
     if [[ "$line" != "$searchFile" ]]; then
         printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-        printf "\t$line was missing in the generated file list.\n" >&2
+        printf "\t$line was missing in the generated file list.\n"
         FAIL=1
     fi
-done <"$CURDIR/__tempFiles/MOD03file.txt"
+done <"./__tempFiles/MOD03file.txt"
 while read -r line; do
     searchFile="$(cat $DEBUGFILE | grep $line)"
     searchFile=$(echo ${searchFile##*/})
     if [[ "$line" != "$searchFile" ]]; then
         printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-        printf "\t$line was missing in the generated file list.\n" >&2
+        printf "\t$line was missing in the generated file list.\n"
         FAIL=1
     fi
-done <"$CURDIR/__tempFiles/ASTER.txt"
+done <"./__tempFiles/ASTER.txt"
 while read -r line; do
     searchFile="$(cat $DEBUGFILE | grep $line)"
     searchFile=$(echo ${searchFile##*/})
     if [[ "$line" != "$searchFile" ]]; then
         printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-        printf "\t$line was missing in the generated file list.\n" >&2
+        printf "\t$line was missing in the generated file list.\n"
         FAIL=1
     fi
-done <"$CURDIR/__tempFiles/MISR_GRP.txt"
+done <"./__tempFiles/MISR_GRP.txt"
 while read -r line; do
     searchFile="$(cat $DEBUGFILE | grep $line)"
     searchFile=$(echo ${searchFile##*/})
     if [[ "$line" != "$searchFile" ]]; then
         printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-        printf "\t$line was missing in the generated file list.\n" >&2
+        printf "\t$line was missing in the generated file list.\n"
         FAIL=1
     fi
-done <"$CURDIR/__tempFiles/MISR_AGP.txt"
+done <"./__tempFiles/MISR_AGP.txt"
 
 if [ $FAIL -ne 0 ]; then
-    printf "Exiting script.\n" >&2
+    printf "Exiting script.\n"
     rm -r "$CURDIR"/__tempFiles
     exit 1
 fi
@@ -411,25 +411,9 @@ instrumentSection=""
 
 
 # Read through the DEBUGFILE file.
-# Remember, DEBUGFILE is the variable our script will do the debugging on. It may
-# or may not be set to the OUTFILE variable.
-linenum=1
-
 while read -r line; do
-    # Check to make sure that each line is either a comment, a newline or a path.
-    # If it is none of them, throw an error. This line would cause the C program
-    # downstream to crash because if the line isn't a comment or newline,
-    # it will interpret it as a file path.
-    if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." && ${line:0:1} != "#" && ${line:0:1} != "\n" && ${line:0:1} != "\0" && ${#line} != 0 ]]; then
-        printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
-        printf "\tAt line number: $linenum\n"
-        printf "\t\"$line\" is an invalid line.\nExiting script.\n" >&2
-        rm -r "$CURDIR"/__tempFiles
-        exit 1
-    fi
 	# continue if we have a non-valid line (comment or otherwise)
-	if [[ ${line:0:1} != "\n" || ${line:0:1} != "#" ]]; then
-        let "linenum++"
+	if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." ]]; then
 		continue
 	fi
 
@@ -869,7 +853,6 @@ while read -r line; do
         exit 1
     fi
 
-    let "linenum++"
 done <"$DEBUGFILE"
 
 
@@ -880,4 +863,4 @@ printf "\tMODIS:  $MODISNUM\n"
 printf "\tASTER:  $ASTERNUM\n"
 printf "\tMISR:   $MISRNUM\n"
 
-rm -r "$CURDIR"/__tempFiles
+rm -r ./__tempFiles
