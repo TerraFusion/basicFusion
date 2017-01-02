@@ -16,12 +16,14 @@
 ##PBS -A xyz
 ### Set umask so users in my group can read job stdout and stderr files
 ##PBS -W umask=0027
-
-
+EXEDIR=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage
+OUTFILEDIR=/projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.h5
+FILELISTDIR=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt
+STD_STREAM_OUTFILE=/projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.txt
 ### COMMENT OUT THIS SETTING BEFORE FULL OPERATION OF PROGRAM!!!
 ### A COMMENT IS TWO POUND SYMBOLS
 ### Set the job to be submitted to the debug queue
-#PBS -q debug
+##PBS -q debug
 
 # NOTE: lines that begin with "#PBS" are not interpreted by the shell but ARE
 # used by the batch system, wheras lines that begin with multiple # signs,
@@ -53,6 +55,9 @@ module load cray-hdf5/1.8.16
 ### redirecting stdin and stdout if needed
 ### NOTE: (the "in" file must exist for input)
 
-aprun -n 1 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.h5 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt &> /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.txt
+aprun -n 1 "$EXEDIR" "$OUTFILEDIR" "$FILELISTDIR" &> "$STD_STREAM_OUTFILE"
+
+# For valgrind debugging, uncomment the following:
+# aprun -n 1 valgrind --leak-check=full --track-origins=yes /projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.h5 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt &> /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.txt
 
 ### For more information see the man page for aprun
