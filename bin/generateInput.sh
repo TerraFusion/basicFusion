@@ -10,10 +10,6 @@
 #   output file to make sure that all files are in chronological order, that all files are in the order
 #   expected and that there are no unknown errors in the output file.
 
-# TODO
-# The checks that verify all files made it into the output file need to check the PATHNAME and not the
-# file name of the files.
-
 if [ "$#" -ne 1 ]; then
 	printf "Usage:\n\t$0 [relative/absolute path to all 5 instruments]\n\n"
 	printf "Example: $0 /path/to/instrument/directories\nDo not provide path to individual instruments.\n"
@@ -408,7 +404,9 @@ prevRes=""
 prevGroupDate=""
 curGroupDate=""
 instrumentSection=""
-
+MODISVersionMismatch=0
+ASTERVersionMismatch=0
+MISRVersionMismatch=0
 
 # Read through the DEBUGFILE file.
 # Remember, DEBUGFILE is the variable our script will do the debugging on. It may
@@ -420,6 +418,7 @@ while read -r line; do
     # If it is none of them, throw an error. This line would cause the C program
     # downstream to crash because if the line isn't a comment or newline,
     # it will interpret it as a file path.
+    
     if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." && ${line:0:1} != "#" && ${line:0:1} != "\n" && ${line:0:1} != "\0" && ${#line} != 0 ]]; then
         printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
         printf "\tAt line number: $linenum\n"
@@ -428,10 +427,11 @@ while read -r line; do
         exit 1
     fi
 	# continue if we have a non-valid line (comment or otherwise)
-	if [[ ${line:0:1} != "\n" || ${line:0:1} != "#" ]]; then
+	if [[ ${#line} == 0 || ${line:0:1} == "#" ]]; then
         let "linenum++"
 		continue
 	fi
+    
 
 	# check to see if we have entered into a new instrument section.
 	# Note that internally we represent the current instrument we're reading
@@ -468,7 +468,8 @@ while read -r line; do
 			#set prevDate to the date contained in filename
 			prevDate=${prevfilename:6:8}
 			# continue while loop
-			continue
+			let "linenum++"
+            continue
 		fi
 
 		# we now have the previous date and the current line. Now we need to find the
@@ -496,6 +497,7 @@ while read -r line; do
 		    prevfilename=$(echo ${line##*/})
             prevDate=$(echo ${prevfilename##*.})
             # continue while loop
+            let "linenum++"
             continue
         fi
 
@@ -514,7 +516,7 @@ while read -r line; do
                       #########
                       # MODIS #
                       #########
-    # MODIS will have two checks. The first is to check for chronological consistency.
+    # MODIS will have tgree checks. The first is to check for chronological consistency.
     # The second is to check that the files follow in either the order of:
     # MOD021KM
     # MOD03
@@ -523,6 +525,8 @@ while read -r line; do
     # MOD02HKM
     # MOD02QKM
     # MOD03
+    #
+    # The third will throw a warning if the files have different version numbers
 
     elif [ "$instrumentSection" == "MOD" ]; then
         # note: "res" refers to "MOD021KM", "MOD02HKM", "MOD02QKM", or "MOD03"
@@ -533,6 +537,7 @@ while read -r line; do
             prevDate=$(echo "$tmp" | cut -f1,2 -d'.')
             prevRes=$(echo ${prevfilename%%.*})
             curGroupDate="$prevDate"
+            let "linenum++"
             continue
         fi
 
@@ -630,6 +635,22 @@ while read -r line; do
             printf "\tThese two dates should be equal.\n" >&2
         fi
 
+        # CHECK FOR VERSION CONSISTENCY
+        # If there hasn't been a previous MODIS file, then skip this step
+        
+        if [[ ${#prevfilename} != 0 && $MODISVersionMismatch == 0 ]]; then
+            prevVersion=$(echo "$prevfilename" | cut -f4,4 -d'.')
+            curVersion=$(echo "$curfilename" | cut -f4,4 -d'.')
+            
+            if [[ "$prevVersion" != "$curVersion" ]]; then
+                printf "\e[4m\e[93mWarning\e[0m: " >&2
+                printf "MODIS file version mismatch.\n" >&2
+                printf "\t$prevVersion and $curVersion versions were found at line $linenum\n" >&2
+                printf "\tWill not print any more MODIS warnings of this type.\n" >&2
+                MODISVersionMismatch=1
+            fi
+        fi
+
         prevDate="$curDate"
         prevRes="$curRes"
         prevfilename="$curfilename"
@@ -646,21 +667,42 @@ while read -r line; do
             #set prevDate to the date contained in filename
             prevfilename=$(echo ${line##*/})
             prevDate=$(echo "$prevfilename" | cut -f3,3 -d'_')
+            prevVersion=${prevDate:0:3}
+            prevDate="${prevDate:3}"
             # continue while loop
+            let "linenum++"
             continue
         fi
 
         # we now have the previous date and the current line. Now we need to find the
         # current date from the variable "curfilename" and compare that with the previous date
         curDate=$(echo "$curfilename" | cut -f3,3 -d'_')
+        curVersion=${curDate:0:3}
+        curDate="${curDate:3}"
         if [[ "$curDate" < "$prevDate" || "$curDate" == "$prevDate" ]]; then
             printf "\e[4m\e[93mWarning\e[0m: " >&2
             printf "ASTER files found to be out of order.\n" >&2
             printf "\t\"$prevfilename\" (Date: $prevDate)\n\tcame before\n\t\"$curfilename\" (Date: $curDate)\n\tDates should be strictly increasing downward.\n" >&2
         fi
 
+        # CHECK FOR VERSION CONSISTENCY
+        # If there hasn't been a previous ASTER file, then skip this step
+
+        if [[ ${#prevfilename} != 0 && $ASTERVersionMismatch == 0 ]]; then
+
+            if [[ "$prevVersion" != "$curVersion" ]]; then
+                printf "\e[4m\e[93mWarning\e[0m: " >&2
+                printf "ASTER file version mismatch.\n" >&2
+                printf "\t$prevVersion and $curVersion versions were found at line $linenum\n" >&2
+                printf "\tWill not print any more ASTER warnings of this type.\n" >&2
+                ASTERVersionMismatch=1
+            fi
+        fi
+
+
         prevDate="$curDate"
         prevfilename="$curfilename"
+        prevVersion="$curVersion"
 
        
             ########
@@ -675,6 +717,7 @@ while read -r line; do
             prevDate=$(echo "$prevfilename" | cut -f6,7 -d'_')
             prevCam=$(echo "$prevfilename" | cut -f8,8 -d'_' )
             curGroupDate="$prevDate"
+            let "linenum++"
             continue
         fi
 
@@ -851,6 +894,35 @@ while read -r line; do
             printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
             printf "\tThese two dates should be equal.\n" >&2
         fi
+
+        # CHECK FOR VERSION CONSISTENCY
+        # If there hasn't been a previous MISR file, then skip this step
+
+        # If the current file is an AGP file, skip it
+        if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" != "AGP" ]]; then
+            # if this isn't our first MISR file and there hasn't been a version mismatch
+            # before, then
+            if [[ ${#prevfilename} != 0 && $MISRVersionMismatch == 0 ]]; then
+                # if the previous file was an AGP file, then don't update the prevVersion
+                # variable
+                if [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" != "AGP" ]]; then
+                    prevVersion=$(echo ${prevfilename##*_})
+                    prevVersion=${prevVersion:0:4}
+                fi
+
+                curVersion=$(echo ${curfilename##*_})
+                curVersion=${curVersion:0:4}
+
+                if [[ "$prevVersion" != "$curVersion" ]]; then
+                    printf "\e[4m\e[93mWarning\e[0m: " >&2
+                    printf "MISR file version mismatch.\n" >&2
+                    printf "\t$prevVersion and $curVersion versions were found at line $linenum\n" >&2
+                    printf "\tWill not print any more MISR warnings of this type.\n" >&2
+                    MISRVersionMismatch=1
+                fi
+            fi
+        fi
+
 
         prevDate="$curDate"
         prevCam="$curCam"

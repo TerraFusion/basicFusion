@@ -21,7 +21,7 @@
 ### COMMENT OUT THIS SETTING BEFORE FULL OPERATION OF PROGRAM!!!
 ### A COMMENT IS TWO POUND SYMBOLS
 ### Set the job to be submitted to the debug queue
-#PBS -q debug
+##PBS -q debug
 
 # NOTE: lines that begin with "#PBS" are not interpreted by the shell but ARE
 # used by the batch system, wheras lines that begin with multiple # signs,
@@ -54,5 +54,8 @@ module load cray-hdf5/1.8.16
 ### NOTE: (the "in" file must exist for input)
 
 aprun -n 1 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.h5 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt &> /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.txt
+
+# For valgrind debugging, uncomment the following:
+# aprun -n 1 valgrind --leak-check=full --track-origins=yes /projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.h5 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt &> /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.txt
 
 ### For more information see the man page for aprun

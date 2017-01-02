@@ -5,7 +5,7 @@
 #include <assert.h>
 #include <curses.h>
 #define STR_LEN 500
-#define LOGIN_NODE "h2ologin4"
+#define LOGIN_NODE "login"
 #define MOM_NODE
 
 int getNextLine ( char* string, FILE* const inputFile );
