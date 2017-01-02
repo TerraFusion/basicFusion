@@ -43,9 +43,9 @@ int MISR( char* argv[],int unpack )
 	 * geo data files *
 	 ******************/
 		/* File IDs */
-        int32 h4FileID;
-        int32 inHFileID;
-        int32 h4_status;
+    int32 h4FileID;
+    int32 inHFileID;
+    int32 h4_status;
 	int32 geoFileID;
 	int32 gmpFileID;
 
@@ -59,142 +59,208 @@ int MISR( char* argv[],int unpack )
 		/* Group IDs */
 	hid_t gmpSolarGeoGroupID;
 
-        hid_t solarAzimuthID;
-        hid_t solarZenithID;
+    hid_t solarAzimuthID;
+    hid_t solarZenithID;
 
-        hid_t h5GroupID;
-        hid_t h5DataGroupID;
-        hid_t h5SensorGeomGroupID;
+    hid_t h5GroupID;
+    hid_t h5DataGroupID;
+    hid_t h5SensorGeomGroupID;
 
-        hid_t h5DataFieldID;
-        hid_t h5SensorGeomFieldID;
+    hid_t h5DataFieldID;
+    hid_t h5SensorGeomFieldID;
         
 	createGroup( &outputFile, &MISRrootGroupID, "MISR" );
-	assert( MISRrootGroupID != EXIT_FAILURE );
+	if ( MISRrootGroupID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Failed to create MISR root group.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
 
-        if(H5LTset_attribute_string(outputFile,"MISR","GranuleTime",argv[1])<0) {
-            printf("Cannot add the time stamp\n");
-            return EXIT_FAILURE;
-        }
+    if(H5LTset_attribute_string(outputFile,"MISR","GranuleTime",argv[1])<0) {
+        fprintf(stderr, "[%s:%s:%d] Cannot add the time stamp\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
 
 	geoFileID = SDstart( argv[10], DFACC_READ );
-        assert( geoFileID != -1 );
+    if ( geoFileID == -1 )
+    {
+        fprintf( stderr, "[%s:%s:%d] Failed to open the SD interface.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
 
 	gmpFileID = SDstart( argv[11], DFACC_READ );
-        assert( gmpFileID != -1 );
+    if ( gmpFileID == -1 )
+    {
+        fprintf( stderr, "[%s:%s:%d] Failed to open the SD interface.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
 
         /* Loop all the 0 cameras */
-        for(int i = 0; i<9;i++) {
+    for(int i = 0; i<9;i++) {
 
-            h4FileID = SDstart(argv[i+1],DFACC_READ);
-            /*
-            *           *    * Open the HDF file for reading.
-            *                     *       */
+        h4FileID = SDstart(argv[i+1],DFACC_READ);
+        /*
+        *           *    * Open the HDF file for reading.
+        *                     *       */
 
-            /* Need to use the H interface to obtain scale_factor */
-            inHFileID = Hopen(argv[i+1],DFACC_READ, 0);
-            if(inHFileID <0) {
-            printf("Cannot open the file\n");
-
+        /* Need to use the H interface to obtain scale_factor */
+        inHFileID = Hopen(argv[i+1],DFACC_READ, 0);
+        if(inHFileID <0) {
+            fprintf( stderr, "[%s:%s:%d] Failed to open the HDF file.\n", __FILE__,__func__,__LINE__);
             return EXIT_FAILURE;
- 
-            }
-            assert( inHFileID != -1 );
-
-             /*
-              *          *    * Initialize the V interface.
-              *                   *       */
-            h4_status = Vstart (inHFileID);
-            assert(h4_status != -1);
-
-
-	    createGroup(&MISRrootGroupID, &h5GroupID, camera_name[i]);
-            assert( h5GroupID != EXIT_FAILURE );
-
-            createGroup(&h5GroupID,&h5DataGroupID,data_gname);
-            assert( h5DataGroupID != EXIT_FAILURE );
-
-            /* Need to get all the four band data */
-            for (int j = 0; j<4;j++) {
-
-                // If we choose to unpack the data.
-                if(unpack == 1) {
-
-                    float scale_factor = -1.;
-                    scale_factor = Obtain_scale_factor(inHFileID,band_name[j]);
-
-                    h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j],DFNT_UINT16,
-                                                    h4FileID,scale_factor);
-                    assert(h5DataFieldID != EXIT_FAILURE);
-                    H5Dclose(h5DataFieldID);
-
-                }
-                else {
-                    h5DataFieldID =  readThenWrite( h5DataGroupID, radiance_name[j],DFNT_UINT16,
-                                                    H5T_NATIVE_USHORT,h4FileID);
-                    assert(h5DataFieldID != EXIT_FAILURE);
-                    H5Dclose(h5DataFieldID);
-
-
-                }
-                
-            }
-
-            createGroup(&h5GroupID,&h5SensorGeomGroupID,sensor_geom_gname);
-            assert( h5SensorGeomGroupID != EXIT_FAILURE );
-
-
-            for (int j = 0; j<4;j++) {
-                h5SensorGeomFieldID = readThenWrite(h5SensorGeomGroupID,band_geom_name[i*4+j],DFNT_FLOAT64,
-                                                    H5T_NATIVE_DOUBLE,gmpFileID);
-                assert(h5SensorGeomFieldID != EXIT_FAILURE);
-                H5Dclose(h5SensorGeomFieldID);
-            }
-
-            SDend(h4FileID);
-             /* No need inHFileID, close H and V interfaces */
-            h4_status = Vend(inHFileID);
-            assert(h4_status != -1);
-
-            h4_status = Hclose(inHFileID);
-            assert(h4_status != -1);
-
-            H5Gclose(h5DataGroupID);
-            H5Gclose(h5SensorGeomGroupID);
-            H5Gclose(h5GroupID);
-        
         }
 
-        createGroup( &MISRrootGroupID, &geoGroupID, geo_gname );
-        assert( geoGroupID != EXIT_FAILURE );
-
-	latitudeID  = readThenWrite(geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
-        assert(latitudeID != EXIT_FAILURE);
-        longitudeID = readThenWrite(geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
-        assert(longitudeID != EXIT_FAILURE);
-
-        createGroup( &MISRrootGroupID, &gmpSolarGeoGroupID, solar_geom_gname );
-        assert( gmpSolarGeoGroupID != EXIT_FAILURE );
+         /*
+          *          *    * Initialize the V interface.
+          *                   *       */
+        h4_status = Vstart (inHFileID);
+        assert(h4_status != -1);
 
 
-        solarAzimuthID = readThenWrite(gmpSolarGeoGroupID,solar_geom_name[0],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
-        assert(solarAzimuthID != EXIT_FAILURE);
-        solarZenithID = readThenWrite(gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
-        assert(solarZenithID != EXIT_FAILURE);
+        createGroup(&MISRrootGroupID, &h5GroupID, camera_name[i]);
+        if ( h5GroupID == EXIT_FAILURE )
+        {
+            fprintf( stderr, "[%s:%s:%d] Failed to create an HDF5 group.\n", __FILE__,__func__,__LINE__);
+            return EXIT_FAILURE;
+        }
 
-        SDend(geoFileID);
-        SDend(gmpFileID);
-        
-        H5Dclose(latitudeID);
-        H5Dclose(longitudeID);
+        createGroup(&h5GroupID,&h5DataGroupID,data_gname);
+        if ( h5GroupID == EXIT_FAILURE )
+        {
+            fprintf( stderr, "[%s:%s:%d] Failed to create an HDF5 group.\n", __FILE__,__func__,__LINE__);
+            return EXIT_FAILURE;
+        }
 
-        H5Dclose(solarAzimuthID);
-        H5Dclose(solarZenithID);
-      
-        H5Gclose(geoGroupID);
-        H5Gclose(gmpSolarGeoGroupID);
+        /* Need to get all the four band data */
+        for (int j = 0; j<4;j++) {
 
-        H5Gclose(MISRrootGroupID);
+            // If we choose to unpack the data.
+            if(unpack == 1) {
+
+                float scale_factor = -1.;
+                scale_factor = Obtain_scale_factor(inHFileID,band_name[j]);
+
+                h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j],DFNT_UINT16,
+                                                h4FileID,scale_factor);
+                if ( h5DataFieldID == EXIT_FAILURE )
+                {
+                    fprintf( stderr, "[%s:%s:%d] MISR readThenWrite Unpacking function failed.\n", __FILE__,__func__,__LINE__);
+                    H5Dclose(h5DataFieldID);
+                    return EXIT_FAILURE;
+                }
+                H5Dclose(h5DataFieldID);
+
+            }
+            else {
+                h5DataFieldID =  readThenWrite( h5DataGroupID, radiance_name[j],DFNT_UINT16,
+                                                H5T_NATIVE_USHORT,h4FileID);
+                if ( h5DataFieldID == EXIT_FAILURE )
+                {
+                    fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed.\n", __FILE__,__func__,__LINE__);
+                    H5Dclose(h5DataFieldID);
+                    return EXIT_FAILURE;
+                }
+                H5Dclose(h5DataFieldID);
+            }
+            
+        }
+
+        createGroup(&h5GroupID,&h5SensorGeomGroupID,sensor_geom_gname);
+        if ( h5SensorGeomGroupID == EXIT_FAILURE )
+        {
+            fprintf( stderr, "[%s:%s:%d] Failed to create an HDF5 group.\n", __FILE__,__func__,__LINE__);
+            return EXIT_FAILURE;
+        }
+
+        for (int j = 0; j<4;j++) {
+            h5SensorGeomFieldID = readThenWrite(h5SensorGeomGroupID,band_geom_name[i*4+j],DFNT_FLOAT64,
+                                                H5T_NATIVE_DOUBLE,gmpFileID);
+            if ( h5SensorGeomGroupID == EXIT_FAILURE )
+            {   
+                fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed.\n", __FILE__,__func__,__LINE__);
+                return EXIT_FAILURE;
+            }
+            H5Dclose(h5SensorGeomFieldID);
+        }
+
+        SDend(h4FileID);
+         /* No need inHFileID, close H and V interfaces */
+        h4_status = Vend(inHFileID);
+        if ( h4_status == -1 )
+        {   
+            fprintf( stderr, "[%s:%s:%d] Failed to end V interface.\n", __FILE__,__func__,__LINE__);
+            return EXIT_FAILURE;
+        }
+
+        h4_status = Hclose(inHFileID);
+        if ( h4_status == -1 )
+        {
+            fprintf( stderr, "[%s:%s:%d] Failed to end H interface.\n", __FILE__,__func__,__LINE__);
+            return EXIT_FAILURE;
+        }
+
+        H5Gclose(h5DataGroupID);
+        H5Gclose(h5SensorGeomGroupID);
+        H5Gclose(h5GroupID);
+    
+    }
+
+    createGroup( &MISRrootGroupID, &geoGroupID, geo_gname );
+    if ( geoGroupID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Failed to create HDF5 group.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
+
+    latitudeID  = readThenWrite(geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
+    if ( latitudeID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed (latitude dataset).\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
+    longitudeID = readThenWrite(geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
+    if ( longitudeID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed (longitude dataset).\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
+    createGroup( &MISRrootGroupID, &gmpSolarGeoGroupID, solar_geom_gname );
+    if ( gmpSolarGeoGroupID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Failed to create HDF5 group.\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
+
+    solarAzimuthID = readThenWrite(gmpSolarGeoGroupID,solar_geom_name[0],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
+    if ( solarAzimuthID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed (solarAzimuth dataset).\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+    solarZenithID = readThenWrite(gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
+    if ( solarZenithID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed (solarZenith dataset).\n", __FILE__,__func__,__LINE__);
+        return EXIT_FAILURE;
+    }
+
+    SDend(geoFileID);
+    SDend(gmpFileID);
+    
+    H5Dclose(latitudeID);
+    H5Dclose(longitudeID);
+
+    H5Dclose(solarAzimuthID);
+    H5Dclose(solarZenithID);
+  
+    H5Gclose(geoGroupID);
+    H5Gclose(gmpSolarGeoGroupID);
+
+    H5Gclose(MISRrootGroupID);
 	return EXIT_SUCCESS;
 }
 
@@ -218,7 +284,6 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
 
     int32 status = -1;
 
-//printf("Coming to Obtain scale factor \n");
     /* Obtain the vgroup reference number of this band */
     band_group_ref = H4ObtainLoneVgroupRef(h4_file_id,band_name);
     assert(band_group_ref >0);
@@ -238,7 +303,6 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
 
         if (Visvg (band_group_id, sub_group_ref) == TRUE) {
 
-//printf("coming to grid attribute group \n");
             sub_group_id = Vattach (h4_file_id, sub_group_ref, "r");
             status = Vgetnamelen(sub_group_id, &name_len);
             sub_group_name = (char *) HDmalloc(sizeof(char *) * (name_len+1));
@@ -248,7 +312,6 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
              return -1.0;
             }
             status = Vgetname (sub_group_id, sub_group_name);
-//printf("grid_attr_group name OUT is %s\n",sub_group_name);
             if(strncmp(sub_group_name,grid_attr_group_name,strlen(grid_attr_group_name))==0) {
                 
                  int num_sgobjects = Vntagrefs(sub_group_id);
@@ -275,10 +338,7 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                         }
 
 
-//printf("vdata_name is %s\n",vdata_name);
                         if(strncmp(scale_factor_name,vdata_name,strlen(scale_factor_name)) == 0){
-                            //char*fieldname=VFfieldname(vdata_id,0);
-//printf("vdata field name is %s\n",fieldname);
 
                             int32 fieldsize=-1;
                             int32 nelms = -1;
@@ -291,7 +351,6 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                                 return -1.0;
                             }
                             fieldtype = VFfieldtype(vdata_id,0);
-//printf("fieldtype is %d\n",fieldtype);
 
                             // Obtain number of elements
                             nelms = VSelts (vdata_id);
@@ -319,13 +378,10 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                                 VSdetach (vdata_id);
                                 return -1.0;
                             }
-//printf("scale factor is %f\n",sc);
 
 
 
                         }
-                        //int vsnattrs = VSnattrs(vdata_id);
-//printf("vdata n attributes is %d\n",vsnattrs);
                         VSdetach(vdata_id);
 
                     }
