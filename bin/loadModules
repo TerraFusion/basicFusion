@@ -1,6 +1,15 @@
 #!/bin/bash
+HDFBINPATH=/projects/sciteam/jqo/TerraFusion/basicFusion/hdflib/bin
 
 module --verbose swap PrgEnv-cray PrgEnv-intel
 module --verbose load szip/2.1
 module --verbose load cray-hdf5/1.8.16
 module --verbose load hdf4/4.2.10
+
+# Export the path of our HDF bin directory. This is where h5cc and h4cc
+# reside, and we'll want those for compiling a dynamic program.
+if [[ $PATH != *"$HDFBINPATH"* ]];then
+    export PATH=$PATH:$HDFBINPATH
+fi
+unset HDFBINPATH
+
