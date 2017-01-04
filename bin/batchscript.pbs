@@ -16,7 +16,7 @@
 ##PBS -A xyz
 ### Set umask so users in my group can read job stdout and stderr files
 ##PBS -W umask=0027
-EXEDIR=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage
+EXE=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage
 OUTFILEDIR=/projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.h5
 FILELISTDIR=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt
 STD_STREAM_OUTFILE=/projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.txt
@@ -48,16 +48,16 @@ cd $PBS_O_WORKDIR
 module swap PrgEnv-cray PrgEnv-intel
 module load szip/2.1
 module load cray-hdf5/1.8.16 
-
+module load hdf4/4.2.10
 # export APRUN_XFER_LIMITS=1  # to transfer shell limits to the executable
 
 ### launch the application
 ### redirecting stdin and stdout if needed
 ### NOTE: (the "in" file must exist for input)
 
-aprun -n 1 "$EXEDIR" "$OUTFILEDIR" "$FILELISTDIR" &> "$STD_STREAM_OUTFILE"
+# aprun -n 1 "$EXE" "$OUTFILEDIR" "$FILELISTDIR" &> "$STD_STREAM_OUTFILE"
 
 # For valgrind debugging, uncomment the following:
-# aprun -n 1 valgrind --leak-check=full --track-origins=yes /projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.h5 /projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt &> /projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.txt
+aprun -n 1 valgrind --leak-check=full --track-origins=yes "$EXE" "$OUTFILEDIR" "$FILELISTDIR" &> "$STD_STREAM_OUTFILE"
 
 ### For more information see the man page for aprun

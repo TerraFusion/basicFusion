@@ -32,59 +32,58 @@ int main( int argc, char* argv[] )
 
     }   
 
-	if ( argc != 3 )
-	{
-		fprintf( stderr, "Usage: %s [outputFile] [inputFiles.txt] \n", argv[0] );
-		return EXIT_FAILURE;
-	}
+    if ( argc != 3 )
+    {
+        fprintf( stderr, "Usage: %s [outputFile] [inputFiles.txt] \n", argv[0] );
+        return EXIT_FAILURE;
+    }
 	
         
-	/* open the input file list */
-	FILE* const inputFile = fopen( argv[2], "r" );
-	char string[STR_LEN];
+    /* open the input file list */
+    FILE* const inputFile = fopen( argv[2], "r" );
+    char string[STR_LEN];
 	
-	if ( inputFile == NULL )
-	{
-		fprintf( stderr, "Fatal error: file \"%s\" does not exist. Exiting program.\n", argv[2] );
-		
-		return EXIT_FAILURE;
-	}
+    if ( inputFile == NULL )
+    {
+        fprintf( stderr, "Fatal error: file \"%s\" does not exist. Exiting program.\n", argv[2] );
+        return EXIT_FAILURE;
+    }
 	
-	char* MOPITTargs[3];
-	char* CERESargs[3];
-	char* MODISargs[7];
-	char* ASTERargs[4];
-	char* MISRargs[11];
+    char* MOPITTargs[3] = {NULL};
+    char* CERESargs[3] = {NULL};
+    char* MODISargs[7] = {NULL};
+    char* ASTERargs[4] = {NULL};
+    char* MISRargs[11] = {NULL};
     
     int status = EXIT_SUCCESS;
 	
-	/* Main will assert that the lines found in the inputFiles.txt file match
-	 * the expected input files. This will be done using string.h's strstr() function.
-	 * This will halt the execution of the program if the line recieved by getNextLine
-	 * does not match the expected input. In other words, only input files meant for
-	 * MOPITT, CERES, ASERT etc will pass this error check.
-	 */
-	char MOPITTcheck[] = "MOP01";
-	char CEREScheck1[] = "CER_BDS_Terra-FM1";
+    /* Main will assert that the lines found in the inputFiles.txt file match
+     * the expected input files. This will be done using string.h's strstr() function.
+     * This will halt the execution of the program if the line recieved by getNextLine
+     * does not match the expected input. In other words, only input files meant for
+     * MOPITT, CERES, ASTER etc will pass this error check.
+     */
+    char MOPITTcheck[] = "MOP01";
+    char CEREScheck1[] = "CER_BDS_Terra-FM1";
 
     /*MY 2016-12-20: add FM2 based on GZ's request. FM2 file is not available yet. */
-	char CEREScheck2[] = "CER_BDS_Terra-FM2";
-	char MODIScheck1[] = "MOD021KM";
-	char MODIScheck2[] = "MOD02HKM";
-	char MODIScheck3[] = "MOD02QKM";
-	char MODIScheck4[] = "MOD03";
-	char ASTERcheck[] = "AST_L1T_";
-	char MISRcheck1[] = "MISR_AM1_GRP";
-	char MISRcheck2[] = "MISR_AM1_AGP";
+    char CEREScheck2[] = "CER_BDS_Terra-FM2";
+    char MODIScheck1[] = "MOD021KM";
+    char MODIScheck2[] = "MOD02HKM";
+    char MODIScheck3[] = "MOD02QKM";
+    char MODIScheck4[] = "MOD03";
+    char ASTERcheck[] = "AST_L1T_";
+    char MISRcheck1[] = "MISR_AM1_GRP";
+    char MISRcheck2[] = "MISR_AM1_AGP";
 
     /* MY 2016-12-21: this is added on GZ's requet. This is for solar geometry */
-	char MISRcheck3[] = "MISR_AM1_GP";
+    char MISRcheck3[] = "MISR_AM1_GP";
          
     /* MY 2016-12-21: granule is added on GZ's request. Basically per time per granule for ASTER and MODIS.*/
         
     char granule[] ="granule";
-    char modis_granule_suffix[3];
-    char aster_granule_suffix[3];
+    char modis_granule_suffix[3] = {'\0'};
+    char aster_granule_suffix[3] = {'\0'};
 
     memset(modis_granule_suffix,0,3);
     memset(aster_granule_suffix,0,3);
@@ -117,34 +116,54 @@ int main( int argc, char* argv[] )
     if ( createOutputFile( &outputFile, argv[1] )) 
     {    
         fprintf( stderr, "[%s:%s:%d] Unable to create output file.\n",__FILE__,__func__,__LINE__);
+        fclose(inputFile);
         return EXIT_FAILURE;
     }
 	
 	/**********
 	 * MOPITT *
 	 **********/
-	/* get the MOPITT input file paths from our inputFiles.txt */
-	status = getNextLine( string, inputFile);
+    /* get the MOPITT input file paths from our inputFiles.txt */
+    status = getNextLine( string, inputFile);
     if ( status == EXIT_FAILURE )
     {
         fprintf(stderr,"[%s:%s:%d] Failed to get MOPITT line. Exiting program.\n", __FILE__,__func__,__LINE__);
+        H5Fclose(outputFile);
+        fclose(inputFile);
         return EXIT_FAILURE;
     }
-	/* assert will fail if unexpected input is present */
-	assert( strstr( string, MOPITTcheck ) != NULL );
+    /* strstr will fail if unexpected input is present */
+    if ( strstr( string, MOPITTcheck ) == NULL )
+    {
+        fprintf(stderr,"[%s:%s:%d] Received an unexpected input line for MOPITT.\n", __FILE__,__func__,__LINE__);
+        fprintf(stderr,"\tReceived string:\n%s\n",string);
+        fprintf(stderr,"\tExpected to receive string containing a substring of: %s\nExiting program.\n",MOPITTcheck);
+        H5Fclose(outputFile);
+        fclose(inputFile);
+        return EXIT_FAILURE;
+    }
 	
-	MOPITTargs[0] = argv[0];
-	/* allocate space for the argument */
-	MOPITTargs[1] = malloc( strlen(string)+1 );
-
+    MOPITTargs[0] = argv[0];
+    /* allocate space for the argument */
+    MOPITTargs[1] = malloc( strlen(string)+1 );
     memset(MOPITTargs[1],0,strlen(string)+1);
-	/* copy the data over */
-	strncpy( MOPITTargs[1], string, strlen(string) );
-	MOPITTargs[2] = argv[1];
+    /* copy the data over */
+    strncpy( MOPITTargs[1], string, strlen(string) );
+    MOPITTargs[2] = argv[1];
 
-	printf("Transferring MOPITT..."); fflush(stdout);
-	assert ( MOPITT( MOPITTargs ) != EXIT_FAILURE );
-	printf("MOPITT done.\nTransferring CERES..."); fflush(stdout);
+    printf("Transferring MOPITT..."); fflush(stdout);
+    if ( MOPITT( MOPITTargs ) == EXIT_FAILURE )
+    {
+        fprintf(stderr,"[%s:%s:%d] MOPITT failed data transfer.\nExiting program.\n", __FILE__,__func__,__LINE__);
+        H5Fclose(outputFile);
+        free(MOPITTargs[1]);
+        fclose(inputFile);
+        return EXIT_FAILURE;
+    }
+
+    free(MOPITTargs[1]);
+
+    printf("MOPITT done.\nTransferring CERES..."); fflush(stdout);
 	
 	
 	/*********
@@ -155,19 +174,38 @@ int main( int argc, char* argv[] )
     if ( status == EXIT_FAILURE )
     {
         fprintf(stderr,"[%s:%s:%d] Failed to get CERES line. Exiting program.\n", __FILE__,__func__,__LINE__);
+        H5Fclose(outputFile);
+        fclose(inputFile);
         return EXIT_FAILURE;
     }
-	assert( strstr( string, CEREScheck1 ) != NULL );
+	if ( strstr( string, CEREScheck1 ) == NULL )
+    {
+        fprintf(stderr,"[%s:%s:%d] Received an unexpected input line for CERES.\n", __FILE__,__func__,__LINE__);
+        fprintf(stderr,"\tReceived string:\n%s\n",string);
+        fprintf(stderr,"\tExpected to receive string containing a substring of: %s\nExiting program.\n",CEREScheck1);
+        H5Fclose(outputFile);
+        fclose(inputFile);
+        return EXIT_FAILURE;
+    }
 	
 	CERESargs[0] = argv[0];
 	/* allocate memory for the argument */
 	CERESargs[1] = malloc( strlen(string )+1);
-        memset(CERESargs[1],0,strlen(string)+1);
+    memset(CERESargs[1],0,strlen(string)+1);
 	strncpy( CERESargs[1], string, strlen(string) );
 	CERESargs[2] = argv[1];
 
-	assert ( CERES( CERESargs,1) != EXIT_FAILURE );
+	if ( CERES( CERESargs,1) == EXIT_FAILURE )
+    {
+        fprintf(stderr,"[%s:%s:%d] CERES failed data transfer.\nExiting program.\n", __FILE__,__func__,__LINE__);
+        H5Fclose(outputFile);
         free(CERESargs[1]);
+        fclose(inputFile);
+        return EXIT_FAILURE;
+    }
+
+    
+    free(CERESargs[1]);
 
 // UNCOMMENT When the FM2 is avaliable
 #if 0
@@ -188,8 +226,6 @@ int main( int argc, char* argv[] )
 
 	printf("CERES done.\nTransferring MODIS..."); fflush(stdout);
 
-
-
         
 	/*********
 	 * MODIS *
@@ -208,6 +244,8 @@ int main( int argc, char* argv[] )
         if ( status == EXIT_FAILURE )
         {
             fprintf(stderr,"[%s:%s:%d] Failed to get MODIS 1KM line. Exiting program.\n", __FILE__,__func__,__LINE__);
+            fclose(inputFile);
+            H5Fclose(outputFile);
             return EXIT_FAILURE;
         }
 
@@ -216,10 +254,20 @@ int main( int argc, char* argv[] )
             modis_count = 0;
             continue;
         }
-              
-            /* should be 1 km */
-	    assert( strstr( string, MODIScheck1 ) != NULL );
 
+
+        // TODO Begin removing asserts and adding graceful exits from this point
+ 
+            /* should be 1 km */
+	    if ( strstr( string, MODIScheck1 ) == NULL )
+        {
+            fprintf(stderr,"[%s:%s:%d] Received an unexpected input line for MODIS.\n", __FILE__,__func__,__LINE__);
+            fprintf(stderr,"\tReceived string:\n%s\n",string);
+            fprintf(stderr,"\tExpected to receive string containing a substring of: %s\nExiting program.\n",MODIScheck1);
+            H5Fclose(outputFile);
+            fclose(inputFile);
+            return EXIT_FAILURE;
+        }
 	    /* allocate memory for the argument */
 	    MODISargs[1] = malloc ( strlen(string )+1 );
         memset(MODISargs[1],0,strlen(string)+1);
@@ -229,10 +277,12 @@ int main( int argc, char* argv[] )
         if ( status == EXIT_FAILURE )
         {
             fprintf(stderr,"[%s:%s:%d] Failed to get MODIS line. Exiting program.\n", __FILE__,__func__,__LINE__);
+            H5Fclose(outputFile);
+            fclose(inputFile);
+            free(MODISargs[1]);
             return EXIT_FAILURE;
         }
-//printf("string is %s\n",string);
-//
+
         /*This may be MOD02HKM or MOD03, so need to check */
         if(strstr(string,MODIScheck2) !=NULL) {/*Has MOD02HKM*/
 
@@ -246,9 +296,23 @@ int main( int argc, char* argv[] )
             if ( status == EXIT_FAILURE )
             {
                 fprintf(stderr,"[%s:%s:%d] Failed to get MODIS line. Exiting program.\n", __FILE__,__func__,__LINE__);
+                H5Fclose(outputFile);
+                fclose(inputFile);
+                free(MODISargs[2]);
+                free(MODISargs[1]);
                 return EXIT_FAILURE;
             }
-	        assert( strstr( string, MODIScheck3 ) != NULL );
+	        if ( strstr( string, MODIScheck3 ) == NULL )
+            {
+                fprintf(stderr,"[%s:%s:%d] Received an unexpected input line for MODIS.\n", __FILE__,__func__,__LINE__);
+                fprintf(stderr,"\tReceived string:\n%s\n",string);
+                fprintf(stderr,"\tExpected to receive string containing a substring of: %s\nExiting program.\n",MODIScheck3);
+                H5Fclose(outputFile);
+                fclose(inputFile);
+                free(MODISargs[2]);
+                free(MODISargs[1]);
+                return EXIT_FAILURE;
+            }   
 	
 	        MODISargs[3] = malloc( strlen(string)+1 );
             memset(MODISargs[3],0,strlen(string)+1);
@@ -259,9 +323,25 @@ int main( int argc, char* argv[] )
             if ( status == EXIT_FAILURE )
             {
                 fprintf(stderr,"[%s:%s:%d] Failed to get MODIS line. Exiting program.\n", __FILE__,__func__,__LINE__);
+                H5Fclose(outputFile);
+                fclose(inputFile);
+                free(MODISargs[2]);
+                free(MODISargs[1]);
+                free(MODISargs[3]);
                 return EXIT_FAILURE;
             }
-	        assert( strstr( string, MODIScheck4 ) != NULL );
+	        if ( strstr( string, MODIScheck4 ) == NULL )
+            {
+                fprintf(stderr,"[%s:%s:%d] Received an unexpected input line for MODIS.\n", __FILE__,__func__,__LINE__);
+                fprintf(stderr,"\tReceived string:\n%s\n",string);
+                fprintf(stderr,"\tExpected to receive string containing a substring of: %s\nExiting program.\n",MODIScheck4);
+                H5Fclose(outputFile);
+                fclose(inputFile);
+                free(MODISargs[2]);
+                free(MODISargs[1]);
+                free(MODISargs[3]);
+                return EXIT_FAILURE;
+            }
 	
 	        MODISargs[4] = malloc( strlen( string )+1 );
             memset(MODISargs[4],0,strlen(string)+1);
@@ -275,7 +355,19 @@ int main( int argc, char* argv[] )
             strncpy(MODISargs[5],granule,strlen(granule));
             strncat(MODISargs[5],modis_granule_suffix,strlen(modis_granule_suffix));
 
-	        assert ( MODIS( MODISargs,modis_count,unpack) != EXIT_FAILURE );
+	        status = MODIS( MODISargs,modis_count,unpack);
+            if ( status == EXIT_FAILURE )
+            {
+                fprintf(stderr,"[%s:%s:%d] MODIS failed data transfer.\nExiting program.\n", __FILE__,__func__,__LINE__);
+                H5Fclose(outputFile);
+                fclose(inputFile);
+                free(MODISargs[2]);
+                free(MODISargs[1]);
+                free(MODISargs[3]);
+                free(MODISargs[4]);
+                free(MODISargs[5]);
+                return EXIT_FAILURE;
+            }
 
         }
         else if(strstr(string,MODIScheck4)!=NULL) {
@@ -293,28 +385,31 @@ int main( int argc, char* argv[] )
             strncpy(MODISargs[5],granule,strlen(granule));
             strncat(MODISargs[5],modis_granule_suffix,strlen(modis_granule_suffix));
 
-            assert ( MODIS( MODISargs,modis_count,unpack ) != EXIT_FAILURE );
+            status = MODIS( MODISargs,modis_count,unpack );
+            if ( status == EXIT_FAILURE )
+            {
+                fprintf(stderr,"[%s:%s:%d] MODIS failed data transfer.\nExiting program.\n", __FILE__,__func__,__LINE__);
+                H5Fclose(outputFile);
+                fclose(inputFile);
+                free(MODISargs[1]);
+                free(MODISargs[4]);
+                free(MODISargs[5]);
+                return EXIT_FAILURE;
+            }
         } 
         else {
-            fprintf( stderr, "Fatal error: MODIS file order is not right. The current file should either be MOD03.. or MOD02HKM.. but it is %s\n",string );
+            fprintf( stderr, "[%s:%s:%d] Fatal error: MODIS file order is not right. The current file should either be MOD03.. or MOD02HKM.. but it is %s\n",__FILE__,__func__,__LINE__,string );
             fclose(inputFile);
-            free( MOPITTargs[1] );
-            free( CERESargs[1] );
             free(MODISargs[1]);
             H5Fclose(outputFile);
-            exit(EXIT_FAILURE);
+            return (EXIT_FAILURE);
         }
 
-        if(MODISargs[1]!=NULL)
-            free(MODISargs[1]);
-        if(MODISargs[2]!=NULL)
-            free(MODISargs[2]);
-        if(MODISargs[3]!=NULL)
-            free(MODISargs[3]);
-        if(MODISargs[4]!=NULL)
-            free(MODISargs[4]);
-        if(MODISargs[5]!=NULL)
-            free(MODISargs[5]);
+        if(MODISargs[1]) free(MODISargs[1]);
+        if(MODISargs[2]) free(MODISargs[2]);
+        if(MODISargs[3]) free(MODISargs[3]);
+        if(MODISargs[4]) free(MODISargs[4]);
+        if(MODISargs[5]) free(MODISargs[5]);
 
 
         modis_count++;
@@ -331,7 +426,7 @@ int main( int argc, char* argv[] )
     ASTERargs[3] = argv[1];
 
 	/* get the ASTER input files */
-    /* MY 2016-12-20, Need to loop ASTER files since the number of grnaule may be different for each orbit */
+    /* MY 2016-12-20, Need to loop ASTER files since the number of granules may be different for each orbit */
     while(aster_count != 0) {
             
 	    if(strstr( string, ASTERcheck ) != NULL ){
@@ -349,7 +444,19 @@ int main( int argc, char* argv[] )
             strncpy(ASTERargs[2],granule,strlen(granule));
             strncat(ASTERargs[2],aster_granule_suffix,strlen(aster_granule_suffix));
  
-	        assert ( ASTER( ASTERargs,aster_count,unpack) != EXIT_FAILURE );
+            // EXECUTE ASTER DATA TRANSFER
+	        status = ASTER( ASTERargs,aster_count,unpack);
+            
+            if ( status == EXIT_FAILURE )
+            {
+                fprintf(stderr,"[%s:%s:%d] ASTER failed data transfer.\nExiting program.\n", __FILE__,__func__,__LINE__);
+                H5Fclose(outputFile);
+                fclose(inputFile);
+                free(ASTERargs[1]);
+                free(ASTERargs[2]);
+                return EXIT_FAILURE;
+            }
+
             aster_count++;
             free(ASTERargs[1]);
             free(ASTERargs[2]);
@@ -357,22 +464,21 @@ int main( int argc, char* argv[] )
             if ( status == EXIT_FAILURE )
             {
                 fprintf(stderr,"[%s:%s:%d] Failed to get ASTER line. Exiting program.\n", __FILE__,__func__,__LINE__);
+                H5Fclose(outputFile);
+                fclose(inputFile);
                 return EXIT_FAILURE;
             }
         }
-            // Assume MISR is after ASTER
-            else if(strstr(string,MISRcheck1)!=NULL) 
-                break;
-            else {
-                fprintf( stderr, "Fatal error: either the ASTER file is wrong or the MISR_GRP file is not right after ASTER file. The file name is %s .\n",string );
-                fclose(inputFile);
-                free( MOPITTargs[1] );
-                free( CERESargs[1] );
-                free(MODISargs[1]);
-                H5Fclose(outputFile);
-                exit(EXIT_FAILURE);
-            }
+        // Assume MISR is after ASTER
+        else if(strstr(string,MISRcheck1)!=NULL) 
+            break;
+        else {
+            fprintf( stderr, "[%s:%s:%d] Fatal error: either the ASTER file is wrong or the MISR_GRP file is not right after ASTER file. The received line is %s.\n",__FILE__,__func__,__LINE__,string );
+            fclose(inputFile);
+            H5Fclose(outputFile);
+            return (EXIT_FAILURE);
         }
+    }
 
 	printf("ASTER done.\nTransferring MISR..."); fflush(stdout);
 
@@ -385,20 +491,40 @@ int main( int argc, char* argv[] )
 	for ( int i = 1; i < 10; i++ )
 	{
 		/* get the next MISR input file */
-		assert( strstr( string, MISRcheck1 ) != NULL );
-		MISRargs[i] = malloc ( strlen( string ) +1);
+		if ( strstr( string, MISRcheck1 ) == NULL )
+        {
+            fprintf(stderr,"[%s:%s:%d] Received an unexpected input line for MISR.\n", __FILE__,__func__,__LINE__);
+            fprintf(stderr,"\tReceived string:\n%s\n",string);
+            fprintf(stderr,"\tExpected to receive string containing a substring of: %s\nExiting program.\n",MISRcheck1);
+            H5Fclose(outputFile);
+            fclose(inputFile);
+            for ( int j = 1; j < i; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
+            return EXIT_FAILURE;
+        }
+		MISRargs[i] = malloc( strlen( string ) +1 );
         memset(MISRargs[i],0,strlen(string)+1);
 		strncpy( MISRargs[i], string, strlen(string) );
 		status = getNextLine( string, inputFile );
         if ( status == EXIT_FAILURE )
         {
             fprintf(stderr,"[%s:%s:%d] Failed to get MISR line. Exiting program.\n", __FILE__,__func__,__LINE__);
-            printf("%s\n", string);
+            for ( int j = 1; j <= i; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
+            H5Fclose(outputFile);
+            fclose(inputFile);
             return EXIT_FAILURE;
         }
 	}
 	
-	assert( strstr( string, MISRcheck2 ) != NULL );
+	if ( strstr( string, MISRcheck2 ) == NULL )
+    {
+        fprintf(stderr,"[%s:%s:%d] Received an unexpected input line for MODIS.\n", __FILE__,__func__,__LINE__);
+        fprintf(stderr,"\tReceived string:\n%s\n",string);
+        fprintf(stderr,"\tExpected to receive string containing a substring of: %s\nExiting program.\n",MISRcheck2);
+        H5Fclose(outputFile);
+        fclose(inputFile);
+        for ( int j = 1; j < 10; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
+        return EXIT_FAILURE;
+    }
 	MISRargs[10] = malloc ( strlen( string ) +1);
     memset(MISRargs[10],0,strlen(string)+1);
 	strncpy( MISRargs[10], string, strlen(string) );
@@ -406,22 +532,42 @@ int main( int argc, char* argv[] )
     if ( status == EXIT_FAILURE )
     {
         fprintf(stderr,"[%s:%s:%d] Failed to get MISR line. Exiting program.\n", __FILE__,__func__,__LINE__);
-        printf("%s\n", string);
+        H5Fclose(outputFile);
+        fclose(inputFile);
+        for ( int j = 1; j < 11; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
         return EXIT_FAILURE;
     }
-    assert( strstr( string, MISRcheck3 ) != NULL );
+    if ( strstr( string, MISRcheck3 ) == NULL )
+    {
+        fprintf(stderr,"[%s:%s:%d] Received an unexpected input line for MODIS.\n", __FILE__,__func__,__LINE__);
+        fprintf(stderr,"\tReceived string:\n%s\n",string);
+        fprintf(stderr,"\tExpected to receive string containing a substring of: %s\nExiting program.\n",MISRcheck3);
+        H5Fclose(outputFile);
+        fclose(inputFile);
+        for ( int j = 1; j < 11; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
+        return EXIT_FAILURE;
+    }
+
     MISRargs[11] = malloc ( strlen( string ) +1);
     memset(MISRargs[11],0,strlen(string)+1);
     strncpy( MISRargs[11], string, strlen(string) );
 
-	assert ( MISR( MISRargs,unpack) != EXIT_FAILURE );
+    // EXECUTE MISR DATA TRANSFER
+	status = MISR( MISRargs,unpack);
+    if ( status == EXIT_FAILURE )
+    {
+        fprintf(stderr,"[%s:%s:%d] ASTER failed data transfer.\nExiting program.\n", __FILE__,__func__,__LINE__);
+        H5Fclose(outputFile);
+        fclose(inputFile);
+        for ( int i = 1; i <= 11; i++ ) free( MISRargs[i] );
+        return EXIT_FAILURE;
+    }
 	printf("MISR done.\n");
-		
+	printf("Data transfer successful.\n");
+
 	/* free all memory */
 	fclose( inputFile );
-	free( MOPITTargs[1] );
 	for ( int i = 1; i <= 11; i++ ) free( MISRargs[i] );
-	
 	H5Fclose(outputFile);
 	
 	return 0;
@@ -440,10 +586,7 @@ int getNextLine ( char* string, FILE* const inputFile )
 			fprintf( stderr, "[%s:%s:%d] Unable to get next line.\n", __FILE__, __func__, __LINE__ );
 			
 			return EXIT_FAILURE;
-		}
-//printf("string in the inputFile is %s\n",string);
-		
-		
+		}		
 	} while ( string[0] == '#' || string[0] == '\n' || string[0] == ' ' );
 	
 	/* remove the trailing newline or space character from the buffer if it exists */

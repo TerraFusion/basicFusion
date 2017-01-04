@@ -1,7 +1,7 @@
 #!/bin/bash
 # This script will compile and run the basicFusion code on Blue Waters
 
-input=
+inputFiles=/projects/sciteam/jq0/TerraFusion/basicFusion/testFiles
 
 while [[ "$input" != "y" && "$input" != "Y" && "$input" != "n" && "$input" != "N" ]]; do
     printf "Should data be unpacked? Unpacked data will be significantly larger! [y/n]: "
@@ -28,7 +28,7 @@ if [ "$status" -ne 0 ]; then
 fi
 
 printf "\e[92m\e[4mGenerating input file list\e[0m\n"
-./generateInput.sh /projects/sciteam/jq0/TerraFusion/oneorbit
+./generateInput.sh "$inputFiles"
 status=$?
 if [ "$status" -ne 0 ]; then
     printf "\e[91m\e[4mFatal error\e[0m: generateInput.sh returned with an exit status of $status.\nAborting script.\n"
