@@ -176,7 +176,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
-        H5Sclose(tempspace);
+        H5Sclose(tempSpace);
         H5Aclose( attrID );
         return EXIT_FAILURE;
     }
@@ -191,7 +191,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
-        H5Sclose(tempspace);
+        H5Sclose(tempSpace);
         free(dims);
         H5Aclose( attrID );
         return EXIT_FAILURE;
