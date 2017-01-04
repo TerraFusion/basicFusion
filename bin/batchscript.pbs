@@ -55,9 +55,9 @@ module load hdf4/4.2.10
 ### redirecting stdin and stdout if needed
 ### NOTE: (the "in" file must exist for input)
 
-# aprun -n 1 "$EXE" "$OUTFILEDIR" "$FILELISTDIR" &> "$STD_STREAM_OUTFILE"
+aprun -n 1 "$EXE" "$OUTFILEDIR" "$FILELISTDIR" &> "$STD_STREAM_OUTFILE"
 
 # For valgrind debugging, uncomment the following:
-aprun -n 1 valgrind --leak-check=full --track-origins=yes "$EXE" "$OUTFILEDIR" "$FILELISTDIR" &> "$STD_STREAM_OUTFILE"
+#aprun -n 1 valgrind --leak-check=full --track-origins=yes "$EXE" "$OUTFILEDIR" "$FILELISTDIR" &> "$STD_STREAM_OUTFILE"
 
 ### For more information see the man page for aprun

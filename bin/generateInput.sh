@@ -165,18 +165,21 @@ while read -r line; do
 	temp="$(cat $CURDIR/__tempFiles/HKMfile.txt | grep $substr)"
 	if [ ${#temp} -ge 2 ]; then	# if temp is a non-zero length string
 		echo "$(pwd)/$temp" >> "$OUTFILE"
+        let "MODISNUM++"
 	fi
 
 	# write in the corrseponding QKM file
 	temp="$(cat $CURDIR/__tempFiles/QKMfile.txt | grep $substr)"
 	if [ ${#temp} -ge 2 ]; then
         	echo "$(pwd)/$temp" >> "$OUTFILE"
+            let "MODISNUM++"
 	fi
 
 	# write in the corresponding MOD03 file
 	temp="$(cat $CURDIR/__tempFiles/MOD03file.txt | grep $substr)"
-        if [ ${#temp} -ge 2 ]; then
+    if [ ${#temp} -ge 2 ]; then
 		echo "$(pwd)/$temp" >> "$OUTFILE"
+        let "MODISNUM++"
 	fi
 
 done <"$CURDIR"/__tempFiles/1KMfile.txt
