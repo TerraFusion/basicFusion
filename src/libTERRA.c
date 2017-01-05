@@ -767,14 +767,6 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
         H5Aclose(attrID);
         return EXIT_FAILURE;
 	}
-
-	status = H5Aclose( attrID );
-	if ( status < 0 ) 
-	{
-		fprintf( stderr, "[%s:%s:%d] H5Aclose: Unable to close %s attribute.\n", __FILE__, __func__,__LINE__, name);
-        H5Tclose(stringType);
-		return EXIT_FAILURE;
-	}
 	H5Tclose(stringType);
 	
 	return attrID;
