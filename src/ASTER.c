@@ -118,23 +118,34 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         /*
          *    * Initialize the V interface.
          *       */
-        h4_status = Vstart (inHFileID);
-        assert(h4_status != -1);
+    h4_status = Vstart (inHFileID);
+    if ( h4_status < 0 )
+    {
+        FATAL_MSG("Failed to start V interface.\n");
+        Hclose(inHFileID);
+        return EXIT_FAILURE;
+    }
 
         /* If VNIR exists, vnir_grp_ref should be > 0 */
-        vnir_grp_ref = H4ObtainLoneVgroupRef(inHFileID,vnir_grp_name);
-	assert( vnir_grp_ref != -1 );
+    vnir_grp_ref = H4ObtainLoneVgroupRef(inHFileID,vnir_grp_name);
+    if ( vnir_grp_ref < 0 )
+    {
+        FATAL_MSG("Failed to obtain lone V group reference.\n");
+        Vend(inHFileID);
+        Hclose(inHFileID);
+    }
 
-        /* No need inHFileID, close H and V interfaces */
-        h4_status = Vend(inHFileID);
-        assert(h4_status != -1);
-        
-        h4_status = Hclose(inHFileID);
-        assert(h4_status != -1);
-        
-	/* open the input file */
-	inFileID = SDstart( argv[1], DFACC_READ );
-	assert( inFileID != -1 );
+    /* No need inHFileID, close H and V interfaces */
+    h4_status = Vend(inHFileID);        
+    h4_status = Hclose(inHFileID);
+            
+    /* open the input file */
+    inFileID = SDstart( argv[1], DFACC_READ );
+    if ( inFileID < 0 )
+    {
+        FATAL_MSG("Failed to open the ASTER input file.\n");
+        return EXIT_FAILURE;
+    }
 	
 	/********************************************************************************
 	 *                                GROUP CREATION                                *
@@ -143,53 +154,94 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
 		/* ASTER root group */
 
         /* MY 2016-12-20: Create the root group for the first grnaule */
-        if(aster_count == 1) {
-	createGroup( &outputFile, &ASTERrootGroupID, "ASTER" );
-	assert( ASTERrootGroupID != EXIT_FAILURE );
+    if(aster_count == 1) {
+        createGroup( &outputFile, &ASTERrootGroupID, "ASTER" );
+        if ( ASTERrootGroupID == EXIT_FAILURE )
+		{
+            FATAL_MSG("Failed to create ASTER root group.\n");
+            SDend(inFileID);
+            return EXIT_FAILURE;
+		}
+    }
+
+    else {
+
+    	ASTERrootGroupID = H5Gopen2(outputFile, "/ASTER",H5P_DEFAULT);
+        if(ASTERrootGroupID <0) {
+            FATAL_MSG("Failed to open the ASTER root group in the output file.\n");
+            SDend(inFileID);
+            return EXIT_FAILURE;
         }
-
-        else {
-
-            ASTERrootGroupID = H5Gopen2(outputFile, "/ASTER",H5P_DEFAULT);
-            if(ASTERrootGroupID <0) {
-                fprintf( stderr, "[%s]: Failed to open ASTER root group.\n", __func__);
-                exit (EXIT_FAILURE);
-
-            }
-
-
-        }
+    }
 	
-        // Create the granule group under MODIS group
-        if ( createGroup( &ASTERrootGroupID, &ASTERgranuleGroupID,argv[2] ) )
-        {
-            fprintf( stderr, "[%s]: Failed to create ASTER granule group.\n", __func__);
-            exit (EXIT_FAILURE);
-        }
+    // Create the granule group under ASTER group
+    if ( createGroup( &ASTERrootGroupID, &ASTERgranuleGroupID,argv[2] ) )
+    {
+        FATAL_MSG("Failed to create ASTER granule group.\n");
+        SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        return EXIT_FAILURE;
+    }
 
         /* MY 2016-12-20: Add the granule time information. Now just add the file name */
 	if(H5LTset_attribute_string(ASTERrootGroupID,argv[2],"GranuleTime",argv[1])<0) 
-        {
-            printf("Cannot add the time stamp\n");
-            return EXIT_FAILURE;
-        }
+    {
+        FATAL_MSG("Failed to add ASTER string attribute.\n");
+        SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        return EXIT_FAILURE;
+    }
 	/* SWIR group */
 	createGroup( &ASTERgranuleGroupID, &SWIRgroupID, "SWIR" );
-	assert( SWIRgroupID != EXIT_FAILURE );
+	if ( SWIRgroupID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to create ASTER SWIR group.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        return EXIT_FAILURE;
+	}
 	
-		/* Only add the VNIR group if it exists.*/
-        if(vnir_grp_ref >0) {
-	createGroup( &ASTERgranuleGroupID, &VNIRgroupID, "VNIR" );
-	assert( VNIRgroupID != EXIT_FAILURE );
-        }
+	/* Only add the VNIR group if it exists.*/
+    if(vnir_grp_ref >0) {
+	    createGroup( &ASTERgranuleGroupID, &VNIRgroupID, "VNIR" );
+	    if ( VNIRgroupID == EXIT_FAILURE )
+	    {
+	        FATAL_MSG("Failed to create ASTER VNIR group.\n");
+	        SDend(inFileID);
+            H5Gclose(ASTERrootGroupID);
+            H5Gclose(ASTERgranuleGroupID);
+            H5Gclose(SWIRgroupID);
+            return EXIT_FAILURE;
+	    }
+    }
 	
 		/* TIR group */
 	createGroup( &ASTERgranuleGroupID, &TIRgroupID, "TIR" );
-	assert( TIRgroupID != EXIT_FAILURE );
-	
+	if ( TIRgroupID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to create ASTER TIR group.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        return EXIT_FAILURE;
+	}
 		/* geolocation group */
 	createGroup( &ASTERgranuleGroupID, &geoGroupID, "Geolocation" );
-	assert( geoGroupID != EXIT_FAILURE );
+	if ( geoGroupID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to create ASTER geolocation group.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        return EXIT_FAILURE;
+	}
 	
 	/******************************************************************************* 
 	 *                              INSERT DATASETS                                *
@@ -203,8 +255,8 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
  * row 1: normal gain(NOR)
  * row 2: low gain 1(LO1)
  * row 3: low gain 2(LO2)
- * row 4: off(OFF) (not used just foe mapping the off information at productmetada.0)
- * Wince 3B and 3N share the same Unit conversion coefficient(UNC), we just use oen coeffieent for these two bands)
+ * row 4: off(OFF) (not used just for mapping the off information at productmetada.0)
+ * Since 3B and 3N share the same Unit conversion coefficient(UNC), we just use oen coeffieent for these two bands)
  * -1 is assigned to N/A and off case.
  *  */
 float unc[5][15] =
@@ -237,130 +289,543 @@ float unc[5][15] =
         */
 
       
-        short gain_index[15];
-        float band_unc = 0;
+    short gain_index[15];
+    float band_unc = 0;
 
         /* Obtain the index of the gain */
-        obtain_gain_index(inFileID,gain_index);
+    obtain_gain_index(inFileID,gain_index);
            
         /* obtain the Unit conversion coefficient */
-        band_unc  = unc[gain_index[4]][4];
-//printf("band_unc is %f\n",band_unc);
+    band_unc  = unc[gain_index[4]][4];
+
 		/* SWIR */
         
 	imageData4ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData4",
 					DFNT_UINT8, inFileID,unc[gain_index[4]][4] ); 
-	assert( imageData4ID != EXIT_FAILURE );
+	if ( imageData4ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData5ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData5",
 					DFNT_UINT8, inFileID, unc[gain_index[5]][5] ); 
-	assert( imageData5ID != EXIT_FAILURE );
+	if ( imageData5ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData6ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData6",
 					DFNT_UINT8, inFileID , unc[gain_index[6]][6]); 
-	assert( imageData6ID != EXIT_FAILURE );
+	if ( imageData6ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData7ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData7",
 					DFNT_UINT8, inFileID, unc[gain_index[7]][7] ); 
-	assert( imageData7ID != EXIT_FAILURE );
+	if ( imageData7ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData8ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData8",
 					DFNT_UINT8, inFileID , unc[gain_index[8]][8]); 
-	assert( imageData8ID != EXIT_FAILURE );
+	if ( imageData8ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData9ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData9",
 					DFNT_UINT8, inFileID ,unc[gain_index[9]][9]); 
-	assert( imageData9ID != EXIT_FAILURE );
+	if ( imageData9ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        return EXIT_FAILURE;
+	}
 	
 		/* VNIR */
-        if(vnir_grp_ref >0) {
-	imageData1ID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData1",
+    if(vnir_grp_ref >0) {
+	    imageData1ID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData1",
 					DFNT_UINT8, inFileID,unc[gain_index[0]][0] ); 
-	assert( imageData1ID != EXIT_FAILURE );
+	    if ( imageData1ID == EXIT_FAILURE )
+	    {
+	        FATAL_MSG("Failed to transfer ASTER ImageData1 dataset.\n");
+	        SDend(inFileID);
+            H5Gclose(ASTERrootGroupID);
+            H5Gclose(ASTERgranuleGroupID);
+            H5Gclose(SWIRgroupID);
+            if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+            H5Gclose(TIRgroupID);
+            H5Dclose(imageData4ID);
+            H5Dclose(imageData5ID);
+            H5Dclose(imageData6ID);
+            H5Dclose(imageData7ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData9ID);
+            return EXIT_FAILURE;
+	    }
 	
-	imageData2ID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData2",
+	    imageData2ID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData2",
 					DFNT_UINT8, inFileID,unc[gain_index[1]][1] ); 
-	assert( imageData2ID != EXIT_FAILURE );
+	    if ( imageData2ID == EXIT_FAILURE )
+	    {
+	        FATAL_MSG("Failed to transfer ASTER ImageData2 dataset.\n");
+	        SDend(inFileID);
+            H5Gclose(ASTERrootGroupID);
+            H5Gclose(ASTERgranuleGroupID);
+            H5Gclose(SWIRgroupID);
+            if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+            H5Gclose(TIRgroupID);
+            H5Dclose(imageData4ID);
+            H5Dclose(imageData5ID);
+            H5Dclose(imageData6ID);
+            H5Dclose(imageData7ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData9ID);
+            H5Dclose(imageData1ID);
+            return EXIT_FAILURE;
+	    }
 	
-	imageData3NID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3N",
+	    imageData3NID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3N",
 					DFNT_UINT8, inFileID,unc[gain_index[2]][2] ); 
-	assert( imageData3NID != EXIT_FAILURE );
+	    if ( imageData3NID == EXIT_FAILURE )
+	    {
+	        FATAL_MSG("Failed to transfer ASTER ImageData3N dataset.\n");
+	        SDend(inFileID);
+            H5Gclose(ASTERrootGroupID);
+            H5Gclose(ASTERgranuleGroupID);
+            H5Gclose(SWIRgroupID);
+            if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+            H5Gclose(TIRgroupID);
+            H5Dclose(imageData4ID);
+            H5Dclose(imageData5ID);
+            H5Dclose(imageData6ID);
+            H5Dclose(imageData7ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData9ID);
+            H5Dclose(imageData1ID);
+            H5Dclose(imageData2ID);
+            return EXIT_FAILURE;
+	    }
 
-        /* We don't see ImageData3B in the current orbit, however, the table indeed indicates the 3B band.
-           So here we check if there is an SDS with the name "ImangeData3B" and then do the conversation. 
-        */
+    /* We don't see ImageData3B in the current orbit, however, the table indeed indicates the 3B band.
+       So here we check if there is an SDS with the name "ImangeData3B" and then do the conversation. 
+    */
 
         imageData3Bindex = SDnametoindex(inFileID,"ImageData3B");
         if(imageData3Bindex != FAIL) {
-
             imageData3BID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3B",
                                         DFNT_UINT8, inFileID,unc[gain_index[3]][3] );
-	    assert( imageData3BID != EXIT_FAILURE );
-
+	        if ( imageData3NID == EXIT_FAILURE )
+	        {
+	            FATAL_MSG("Failed to transfer ASTER ImageData3B dataset.\n");
+	            SDend(inFileID);
+                H5Gclose(ASTERrootGroupID);
+                H5Gclose(ASTERgranuleGroupID);
+                H5Gclose(SWIRgroupID);
+                if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+                H5Gclose(TIRgroupID);
+                H5Dclose(imageData4ID);
+                H5Dclose(imageData5ID);
+                H5Dclose(imageData6ID);
+                H5Dclose(imageData7ID);
+                H5Dclose(imageData8ID);
+                H5Dclose(imageData8ID);
+                H5Dclose(imageData8ID);
+                H5Dclose(imageData9ID);
+                if ( vnir_grp_ref > 0 ){
+                H5Dclose(imageData1ID);
+                H5Dclose(imageData2ID);
+                H5Dclose(imageData3NID);
+                }
+            
+                return EXIT_FAILURE;
+	        }
         }
-
-        }// end if(vnir_grp_ref
+    }// end if(vnir_grp_ref)
 	
 		/* TIR */
 	imageData10ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData10",
 					DFNT_UINT16, inFileID,unc[gain_index[10]][10] ); 
-	assert( imageData10ID != EXIT_FAILURE );
+	if ( imageData10ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData11ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData11",
 					DFNT_UINT16, inFileID, unc[gain_index[11]][11] ); 
-	assert( imageData11ID != EXIT_FAILURE );
+	if ( imageData11ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        H5Dclose(imageData10ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData12ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData12",
 					DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
-	assert( imageData12ID != EXIT_FAILURE );
+	if ( imageData12ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        H5Dclose(imageData10ID);
+        H5Dclose(imageData11ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData13ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData13",
 					DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
-	assert( imageData13ID != EXIT_FAILURE );
+	if ( imageData13ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        H5Dclose(imageData10ID);
+        H5Dclose(imageData11ID);
+        H5Dclose(imageData12ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData14ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData14",
 					DFNT_UINT16, inFileID,unc[gain_index[13]][13] ); 
-	assert( imageData14ID != EXIT_FAILURE );
+	if ( imageData14ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        H5Dclose(imageData10ID);
+        H5Dclose(imageData11ID);
+        H5Dclose(imageData12ID);
+        H5Dclose(imageData13ID);
+        return EXIT_FAILURE;
+	}
     } // end if(unpacked =1)
 
     else {
 	imageData4ID = readThenWrite( SWIRgroupID, "ImageData4",
 					DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-	assert( imageData4ID != EXIT_FAILURE );
+	if ( imageData4ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData5ID = readThenWrite( SWIRgroupID, "ImageData5",
 					DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-	assert( imageData5ID != EXIT_FAILURE );
+	if ( imageData5ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData6ID = readThenWrite( SWIRgroupID, "ImageData6",
 					DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-	assert( imageData6ID != EXIT_FAILURE );
+	if ( imageData6ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData7ID = readThenWrite( SWIRgroupID, "ImageData7",
 					DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-	assert( imageData7ID != EXIT_FAILURE );
+	if ( imageData7ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData8ID = readThenWrite( SWIRgroupID, "ImageData8",
 					DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-	assert( imageData8ID != EXIT_FAILURE );
+	if ( imageData8ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData9ID = readThenWrite( SWIRgroupID, "ImageData9",
 					DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-	assert( imageData9ID != EXIT_FAILURE );
+	if ( imageData9ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        return EXIT_FAILURE;
+	}
 	
 		/* VNIR */
-        if(vnir_grp_ref >0) {
+    if(vnir_grp_ref >0) {
 	imageData1ID = readThenWrite( VNIRgroupID, "ImageData1",
 					DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-	assert( imageData1ID != EXIT_FAILURE );
+	if ( imageData1ID == EXIT_FAILURE )
+	    {
+	        FATAL_MSG("Failed to transfer ASTER ImageData1 dataset.\n");
+	        SDend(inFileID);
+            H5Gclose(ASTERrootGroupID);
+            H5Gclose(ASTERgranuleGroupID);
+            H5Gclose(SWIRgroupID);
+            if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+            H5Gclose(TIRgroupID);
+            H5Dclose(imageData4ID);
+            H5Dclose(imageData5ID);
+            H5Dclose(imageData6ID);
+            H5Dclose(imageData7ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData9ID);
+            return EXIT_FAILURE;
+	    }
 	
 	imageData2ID = readThenWrite( VNIRgroupID, "ImageData2",
 					DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-	assert( imageData2ID != EXIT_FAILURE );
+	if ( imageData2ID == EXIT_FAILURE )
+	    {
+	        FATAL_MSG("Failed to transfer ASTER ImageData2 dataset.\n");
+	        SDend(inFileID);
+            H5Gclose(ASTERrootGroupID);
+            H5Gclose(ASTERgranuleGroupID);
+            H5Gclose(SWIRgroupID);
+            if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+            H5Gclose(TIRgroupID);
+            H5Dclose(imageData4ID);
+            H5Dclose(imageData5ID);
+            H5Dclose(imageData6ID);
+            H5Dclose(imageData7ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData9ID);
+            H5Dclose(imageData1ID);
+            return EXIT_FAILURE;
+	    }
 	
 	imageData3NID = readThenWrite( VNIRgroupID, "ImageData3N",
 					DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-	assert( imageData3NID != EXIT_FAILURE );
+	if ( imageData3NID == EXIT_FAILURE )
+	    {
+	        FATAL_MSG("Failed to transfer ASTER ImageData3N dataset.\n");
+	        SDend(inFileID);
+            H5Gclose(ASTERrootGroupID);
+            H5Gclose(ASTERgranuleGroupID);
+            H5Gclose(SWIRgroupID);
+            if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+            H5Gclose(TIRgroupID);
+            H5Dclose(imageData4ID);
+            H5Dclose(imageData5ID);
+            H5Dclose(imageData6ID);
+            H5Dclose(imageData7ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData8ID);
+            H5Dclose(imageData9ID);
+            H5Dclose(imageData1ID);
+            H5Dclose(imageData2ID);
+            return EXIT_FAILURE;
+	    }
 
          /* We don't see ImageData3B in the current orbit, however, the table indeed indicates the 3B band.
            So here we check if there is an SDS with the name "ImangeData3B" and then do the conversation. 
@@ -371,32 +836,186 @@ float unc[5][15] =
 
             imageData3BID = readThenWrite( VNIRgroupID, "ImageData3B",
                                         DFNT_UINT8, H5T_STD_U8LE, inFileID);
-	    assert( imageData3BID != EXIT_FAILURE );
+	        if ( imageData3NID == EXIT_FAILURE )
+	        {
+	            FATAL_MSG("Failed to transfer ASTER ImageData3B dataset.\n");
+	            SDend(inFileID);
+                H5Gclose(ASTERrootGroupID);
+                H5Gclose(ASTERgranuleGroupID);
+                H5Gclose(SWIRgroupID);
+                if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+                H5Gclose(TIRgroupID);
+                H5Dclose(imageData4ID);
+                H5Dclose(imageData5ID);
+                H5Dclose(imageData6ID);
+                H5Dclose(imageData7ID);
+                H5Dclose(imageData8ID);
+                H5Dclose(imageData8ID);
+                H5Dclose(imageData8ID);
+                H5Dclose(imageData9ID);
+                if ( vnir_grp_ref > 0 ){
+                H5Dclose(imageData1ID);
+                H5Dclose(imageData2ID);
+                H5Dclose(imageData3NID);
+                }
+            
+                return EXIT_FAILURE;
+	        }
 
         }
 
-       }
+       } // end if(vnir_grp_ref >0) 
 	
 		/* TIR */
 	imageData10ID = readThenWrite( TIRgroupID, "ImageData10",
 					DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
-	assert( imageData10ID != EXIT_FAILURE );
+	if ( imageData10ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData11ID = readThenWrite( TIRgroupID, "ImageData11",
 					DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
-	assert( imageData11ID != EXIT_FAILURE );
+	if ( imageData11ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        H5Dclose(imageData10ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData12ID = readThenWrite( TIRgroupID, "ImageData12",
 					DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
-	assert( imageData12ID != EXIT_FAILURE );
+	if ( imageData12ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        H5Dclose(imageData10ID);
+        H5Dclose(imageData11ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData13ID = readThenWrite( TIRgroupID, "ImageData13",
 					DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
-	assert( imageData13ID != EXIT_FAILURE );
+	if ( imageData13ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        H5Dclose(imageData10ID);
+        H5Dclose(imageData11ID);
+        H5Dclose(imageData12ID);
+        return EXIT_FAILURE;
+	}
 	
 	imageData14ID = readThenWrite( TIRgroupID, "ImageData14",
 					DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
-	assert( imageData14ID != EXIT_FAILURE );
+	if ( imageData14ID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        H5Dclose(imageData10ID);
+        H5Dclose(imageData11ID);
+        H5Dclose(imageData12ID);
+        H5Dclose(imageData13ID);
+        return EXIT_FAILURE;
+	}
 
 
     }// else (packed)
@@ -404,11 +1023,70 @@ float unc[5][15] =
 		/* geolocation */
 	latDataID = readThenWrite( geoGroupID, "Latitude",
 					DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID ); 
-	assert( latDataID != EXIT_FAILURE );
+	if ( latDataID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER Latitude dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        H5Dclose(imageData10ID);
+        H5Dclose(imageData11ID);
+        H5Dclose(imageData12ID);
+        H5Dclose(imageData13ID);
+        H5Dclose(imageData14ID);
+        return EXIT_FAILURE;
+	}
 	
 	lonDataID = readThenWrite( geoGroupID, "Longitude",
 					DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID ); 
-	assert( lonDataID != EXIT_FAILURE );
+	if ( lonDataID == EXIT_FAILURE )
+	{
+	    FATAL_MSG("Failed to transfer ASTER Longitude dataset.\n");
+	    SDend(inFileID);
+        H5Gclose(ASTERrootGroupID);
+        H5Gclose(ASTERgranuleGroupID);
+        H5Gclose(SWIRgroupID);
+        if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
+        H5Gclose(TIRgroupID);
+        H5Dclose(imageData4ID);
+        H5Dclose(imageData5ID);
+        H5Dclose(imageData6ID);
+        H5Dclose(imageData7ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData8ID);
+        H5Dclose(imageData9ID);
+        if ( vnir_grp_ref > 0 ){
+        H5Dclose(imageData1ID);
+        H5Dclose(imageData2ID);
+        H5Dclose(imageData3NID);
+        }
+        if(imageData3BID) H5Dclose(imageData3BID);
+        H5Dclose(imageData10ID);
+        H5Dclose(imageData11ID);
+        H5Dclose(imageData12ID);
+        H5Dclose(imageData13ID);
+        H5Dclose(imageData14ID);
+        H5Dclose(latDataID);
+        return EXIT_FAILURE;
+	}
 	
 	/* release identifiers */
 	SDend(inFileID);
@@ -439,8 +1117,10 @@ float unc[5][15] =
 	H5Dclose(imageData12ID);
 	H5Dclose(imageData13ID);
 	H5Dclose(imageData14ID);
+	H5Dclose(latDataID);
 	
 	return EXIT_SUCCESS;
+	
 }
 
 char* obtain_gain_info(char *whole_string) {
@@ -516,9 +1196,9 @@ int obtain_gain_index(int32 sd_id,short gain_index[15]) {
       char* gain_string = NULL;
       size_t gain_string_len = 0;
       char*  tp= NULL;
-      char* band_index_str;
-      char* gain_stat_str;
-      int  gain[15];
+      char* band_index_str = NULL;
+      char* gain_stat_str = NULL;
+      int  gain[15] = {0};
 
 
       /*
@@ -534,16 +1214,12 @@ int obtain_gain_index(int32 sd_id,short gain_index[15]) {
       /*
       * Print out file attribute value and free buffer.
       */
-//      printf ("File attribute value is : %s\n", fileattr_data);
-      //fileattr_data[n_values-1]='\0';
+
       string_gaininfo = obtain_gain_info(fileattr_data);
 
-      //printf("sub string 1 is %s\n",string_gaininfo);
       string_gaininfo++;
-//printf("string_gaininfo size is %d\n",strlen(string_gaininfo));
+
       string_nogaininfo = obtain_gain_info(string_gaininfo);
-      //printf("sub string 2 is %s\n",string_nogaininfo);
-//printfk-check=full("string_nogaininfo size is %d\n",strlen(string_nogaininfo));
 
       // Somehow valgrind complains. Need to check why.
       gain_string_len = strlen(string_gaininfo)-strlen(string_nogaininfo);
@@ -568,16 +1244,12 @@ int obtain_gain_index(int32 sd_id,short gain_index[15]) {
           tp+=2;
           // tp starts with the number
           strncpy(band_index_str,tp,2);
-//printf("band_index_str is %s\n",band_index_str);
-          band_index = get_band_index(band_index_str);
-//printf("band_index is %d\n",band_index);
 
+          band_index = get_band_index(band_index_str);
 
           //skip 6 characters starting from 0 [01", "]
           tp+=6;
           strncpy(gain_stat_str,tp,3);
-//printf("temp_gain_index is %s\n",gain_stat_str);
-
           temp_gain_index = get_gain_stat(gain_stat_str);
 
           gain[band_index] = temp_gain_index;
@@ -590,25 +1262,12 @@ int obtain_gain_index(int32 sd_id,short gain_index[15]) {
                  gain[i] = 1;
       }
 
-#if 0
-      for(i = 0; i <15;i++)
-         printf("For band %d, the gain index is %d\n",i,gain[i]);
-#endif
-
       for(i = 0; i <15;i++)
           gain_index[i] = gain[i];
             
-
-
-//printf("gain_string is %s\n",gain_string);
-
-
-      //while(strstr
       free(gain_string);
-
       free(band_index_str);
       free(gain_stat_str);
-
       free (fileattr_data);
    }
 
