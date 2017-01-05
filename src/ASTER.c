@@ -41,59 +41,59 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
 	/***************************************************************************
 	 *                                VARIABLES                                *
 	 ***************************************************************************/
-	int32 inFileID;
-        int32 inHFileID;
-        int32 h4_status;
+	int32 inFileID = 0;
+    int32 inHFileID = 0;
+    int32 h4_status = 0;
 
-	hid_t ASTERrootGroupID;
-        hid_t ASTERgranuleGroupID;
+	hid_t ASTERrootGroupID = 0;
+    hid_t ASTERgranuleGroupID = 0;
 	 
 	/*********************** 
 	 * SWIR data variables *
 	 ***********************/
 		/* Group IDs */
-	hid_t SWIRgroupID;
+	hid_t SWIRgroupID = 0;
 		/* Dataset IDs */
-	hid_t imageData4ID;
-	hid_t imageData5ID;
-	hid_t imageData6ID;
-	hid_t imageData7ID;
-	hid_t imageData8ID;
-	hid_t imageData9ID;
+	hid_t imageData4ID = 0;
+	hid_t imageData5ID = 0;
+	hid_t imageData6ID = 0;
+	hid_t imageData7ID = 0;
+	hid_t imageData8ID = 0;
+	hid_t imageData9ID = 0;
 	
 	
 	/***********************
 	 * VNIR data variables *
 	 ***********************/
 	 	/* Group IDs */
-	 hid_t VNIRgroupID;
+	 hid_t VNIRgroupID = 0;
 	 	/* Dataset IDs */
-	 hid_t imageData1ID;
-	 hid_t imageData2ID;
-	 hid_t imageData3NID;
-         hid_t imageData3BID;
-         int32 imageData3Bindex = FAIL;
+	 hid_t imageData1ID = 0;
+	 hid_t imageData2ID = 0;
+	 hid_t imageData3NID = 0;
+    hid_t imageData3BID = 0;
+    int32 imageData3Bindex = FAIL;
 	
 	/**********************
 	 * TIR data variables *
 	 **********************/
 		/* Group IDs */
-	hid_t TIRgroupID;
+	hid_t TIRgroupID = 0;
 		/* Dataset IDs */
-	hid_t imageData10ID;
-	hid_t imageData11ID;
-	hid_t imageData12ID;
-	hid_t imageData13ID;
-	hid_t imageData14ID;
+	hid_t imageData10ID = 0;
+	hid_t imageData11ID = 0;
+	hid_t imageData12ID = 0;
+	hid_t imageData13ID = 0;
+	hid_t imageData14ID = 0;
 	
 	/******************************
 	 * Geolocation data variables *
 	 ******************************/
 		/* Group IDs */
-	hid_t geoGroupID;
+	hid_t geoGroupID = 0;
 		/* Dataset IDs */
-	hid_t latDataID;
-	hid_t lonDataID;
+	hid_t latDataID = 0;
+	hid_t lonDataID = 0;
 
 
 	/* 
@@ -101,15 +101,19 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         	Add checks for the existence of the VNIR group.
 		Some files will not have it.
 	*/
-        char *vnir_grp_name ="VNIR";
-        int32 vnir_grp_ref = -1;
+    char *vnir_grp_name ="VNIR";
+    int32 vnir_grp_ref = -1;
 
 
          /*
           *    * Open the HDF file for reading.
           *       */
-        inHFileID = Hopen(argv[1],DFACC_READ, 0);
-	assert( inHFileID != -1 );
+    inHFileID = Hopen(argv[1],DFACC_READ, 0);
+	if ( inHFileID < 0 )
+    {
+        FATAL_MSG("Failed to open the H interface.\n");
+        return EXIT_FAILURE;
+    }
 
         /*
          *    * Initialize the V interface.
