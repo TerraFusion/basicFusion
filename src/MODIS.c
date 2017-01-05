@@ -117,8 +117,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	_1KMFileID = SDstart( argv[1], DFACC_READ );
 	if ( _1KMFileID < 0 )
 	{
-		fprintf( stderr, "[%s:%s:%d]: Unable to open 1KM file.\n", __FILE__, __func__,
-				 __LINE__ );
+        FATAL_MES( "Unable to open 1KM file.\n" );
 		return (EXIT_FAILURE);
 	}
 	
