@@ -98,7 +98,7 @@ int MOPITT( char* argv[] )
         return EXIT_FAILURE;
     }
 
-    H5Dclose(radianceDataset);
+
     // insert the longitude dataset
     longitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude", H5T_NATIVE_FLOAT, 1 );
     if ( longitudeDataset == EXIT_FAILURE )
@@ -108,6 +108,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -121,6 +122,7 @@ int MOPITT( char* argv[] )
         H5Fclose(file);
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
+        H5Dclose(radianceDataset);
         H5Gclose(geolocationGroup);
         return EXIT_FAILURE;
     }
@@ -136,6 +138,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -157,6 +160,7 @@ int MOPITT( char* argv[] )
         H5Fclose(file);
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
+        H5Dclose(radianceDataset);
         H5Gclose(geolocationGroup);
         return EXIT_FAILURE;
     }
@@ -178,6 +182,7 @@ int MOPITT( char* argv[] )
         H5Gclose(geolocationGroup);
         H5Sclose(tempSpace);
         H5Aclose( attrID );
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -194,6 +199,7 @@ int MOPITT( char* argv[] )
         H5Sclose(tempSpace);
         free(dims);
         H5Aclose( attrID );
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
     H5Sclose(tempSpace);
@@ -209,6 +215,7 @@ int MOPITT( char* argv[] )
         H5Gclose(geolocationGroup);
         free(dims);
         H5Aclose( attrID );
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -220,6 +227,7 @@ int MOPITT( char* argv[] )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to close TrackCount attribute.\n",__FILE__,__func__,__LINE__);
         H5Fclose(file);
+        H5Dclose(radianceDataset);
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
@@ -237,6 +245,7 @@ int MOPITT( char* argv[] )
         H5Fclose(file);
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
+        H5Dclose(radianceDataset);
         H5Gclose(geolocationGroup);
         return EXIT_FAILURE;
     }
@@ -251,6 +260,7 @@ int MOPITT( char* argv[] )
         H5Fclose(file);
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
+        H5Dclose(radianceDataset);
         H5Gclose(geolocationGroup);
         H5Aclose(attrID);
         return EXIT_FAILURE;
@@ -264,6 +274,7 @@ int MOPITT( char* argv[] )
         H5Fclose(file);
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
+        H5Dclose(radianceDataset);
         H5Gclose(geolocationGroup);
         H5Aclose(attrID);
         H5Gclose(tempGroupID);
@@ -279,6 +290,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
+        H5Dclose(radianceDataset);
         H5Aclose(attrID);
         H5Gclose(tempGroupID);
         H5Aclose(inputAttrID);
@@ -294,6 +306,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
+        H5Dclose(radianceDataset);
         H5Aclose(attrID);
         H5Gclose(tempGroupID);
         H5Aclose(inputAttrID);
@@ -308,6 +321,7 @@ int MOPITT( char* argv[] )
         fprintf( stderr, "[%s:%s:%d] Unable to read data from attribute.\n",__FILE__,__func__,__LINE__);
         H5Fclose(file);
         H5Gclose(MOPITTroot);
+        H5Dclose(radianceDataset);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
         H5Aclose(attrID);
@@ -334,6 +348,7 @@ int MOPITT( char* argv[] )
         fprintf( stderr, "[%s:%s:%d] Unable to create missing_invalid attribute.\n",__FILE__,__func__,__LINE__);
         H5Fclose(file);
         H5Gclose(MOPITTroot);
+        H5Dclose(radianceDataset);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
         H5Gclose(tempGroupID);
@@ -347,6 +362,7 @@ int MOPITT( char* argv[] )
         fprintf( stderr, "[%s:%s:%d] Unable to open attribute from input file.\n",__FILE__,__func__,__LINE__);
         H5Fclose(file);
         H5Gclose(MOPITTroot);
+        H5Dclose(radianceDataset);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
         H5Gclose(tempGroupID);
@@ -365,6 +381,7 @@ int MOPITT( char* argv[] )
         H5Gclose(geolocationGroup);
         H5Gclose(tempGroupID);
         H5Aclose(attrID);
+        H5Dclose(radianceDataset);
         H5Aclose(inputAttrID);
         return EXIT_FAILURE;
     }
@@ -380,7 +397,8 @@ int MOPITT( char* argv[] )
         H5Gclose(geolocationGroup);
         H5Gclose(tempGroupID);
         H5Aclose(attrID);
-        H5Aclose(inputAttrID);
+        H5Aclose(inputAttrID);  
+        H5Dclose(radianceDataset);
         H5Tclose(datatypeID);
         return EXIT_FAILURE;
     }
@@ -397,6 +415,7 @@ int MOPITT( char* argv[] )
         H5Gclose(tempGroupID);
         H5Aclose(attrID);
         H5Aclose(inputAttrID);
+        H5Dclose(radianceDataset);
         H5Tclose(datatypeID);
         return EXIT_FAILURE;
     }
@@ -423,6 +442,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -435,6 +455,7 @@ int MOPITT( char* argv[] )
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -448,6 +469,7 @@ int MOPITT( char* argv[] )
         H5Gclose(radianceGroup);
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -461,6 +483,7 @@ int MOPITT( char* argv[] )
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
         H5Aclose(attrID);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -481,6 +504,7 @@ int MOPITT( char* argv[] )
         H5Fclose(file);
         H5Gclose(MOPITTroot);
         H5Gclose(geolocationGroup);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -492,6 +516,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -504,6 +529,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -517,6 +543,7 @@ int MOPITT( char* argv[] )
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
         H5Aclose(attrID);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 	
@@ -531,6 +558,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -543,6 +571,7 @@ int MOPITT( char* argv[] )
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
         H5Aclose(attrID);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 
@@ -556,6 +585,7 @@ int MOPITT( char* argv[] )
         H5Fclose(file);
         H5Gclose(MOPITTroot);
         H5Gclose(geolocationGroup);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 	status = H5Tset_size( stringType, strlen(TIME_UNIT) );
@@ -566,6 +596,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 	
@@ -578,6 +609,7 @@ int MOPITT( char* argv[] )
         H5Gclose(MOPITTroot);
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 	
@@ -590,6 +622,7 @@ int MOPITT( char* argv[] )
         H5Gclose(geolocationGroup);
         H5Tclose(stringType);
         H5Aclose(attrID);
+        H5Dclose(radianceDataset);
         return EXIT_FAILURE;
     }
 	
@@ -598,7 +631,7 @@ int MOPITT( char* argv[] )
     H5Tclose(stringType);
     H5Gclose(MOPITTroot);
 	H5Fclose(file);
-	
+    H5Dclose(radianceDataset);	
 	
 	return 0;
 

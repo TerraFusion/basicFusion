@@ -43,55 +43,59 @@ int MISR( char* argv[],int unpack )
 	 * geo data files *
 	 ******************/
 		/* File IDs */
-    int32 h4FileID;
-    int32 inHFileID;
-    int32 h4_status;
-	int32 geoFileID;
-	int32 gmpFileID;
+    int32 h4FileID = 0;
+    int32 inHFileID = 0;
+    int32 h4_status = 0;
+	int32 geoFileID = 0;
+	int32 gmpFileID = 0;
 
 		/* Group IDs */
-	hid_t MISRrootGroupID;
-	hid_t geoGroupID;
+	hid_t MISRrootGroupID = 0;
+	hid_t geoGroupID = 0;
 		/* Dataset IDs */
-	hid_t latitudeID;
-	hid_t longitudeID;
+	hid_t latitudeID = 0;
+	hid_t longitudeID = 0;
 
 		/* Group IDs */
-	hid_t gmpSolarGeoGroupID;
+	hid_t gmpSolarGeoGroupID = 0;
 
-    hid_t solarAzimuthID;
-    hid_t solarZenithID;
+    hid_t solarAzimuthID = 0;
+    hid_t solarZenithID = 0;
 
-    hid_t h5GroupID;
-    hid_t h5DataGroupID;
-    hid_t h5SensorGeomGroupID;
+    hid_t h5GroupID = 0;
+    hid_t h5DataGroupID = 0;
+    hid_t h5SensorGeomGroupID = 0;
 
-    hid_t h5DataFieldID;
-    hid_t h5SensorGeomFieldID;
+    hid_t h5DataFieldID = 0;
+    hid_t h5SensorGeomFieldID = 0;
         
 	createGroup( &outputFile, &MISRrootGroupID, "MISR" );
 	if ( MISRrootGroupID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to create MISR root group.\n", __FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to create MISR root group.\n");
         return EXIT_FAILURE;
     }
 
     if(H5LTset_attribute_string(outputFile,"MISR","GranuleTime",argv[1])<0) {
-        fprintf(stderr, "[%s:%s:%d] Cannot add the time stamp\n", __FILE__,__func__,__LINE__);
+        FATAL_MSG("Cannot add the time stamp\n");
+        H5Gclose(MISRrootGroupID);
         return EXIT_FAILURE;
     }
 
 	geoFileID = SDstart( argv[10], DFACC_READ );
     if ( geoFileID == -1 )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to open the SD interface.\n", __FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to open the SD interface.\n");
+        H5Gclose(MISRrootGroupID);
         return EXIT_FAILURE;
     }
 
 	gmpFileID = SDstart( argv[11], DFACC_READ );
     if ( gmpFileID == -1 )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to open the SD interface.\n", __FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to open the SD interface.\n");
+        H5Gclose(MISRrootGroupID);
+        SDend(geoFileID);
         return EXIT_FAILURE;
     }
 
@@ -99,6 +103,14 @@ int MISR( char* argv[],int unpack )
     for(int i = 0; i<9;i++) {
 
         h4FileID = SDstart(argv[i+1],DFACC_READ);
+        if ( h4FileID < 0 )
+        {
+            H5Gclose(MISRrootGroupID);
+            SDend(geoFileID);
+            SDend(gmpFileID);
+            FATAL_MSG("Failed to open the HDF file.\n");
+            return EXIT_FAILURE;
+        }
         /*
         *           *    * Open the HDF file for reading.
         *                     *       */
@@ -106,28 +118,53 @@ int MISR( char* argv[],int unpack )
         /* Need to use the H interface to obtain scale_factor */
         inHFileID = Hopen(argv[i+1],DFACC_READ, 0);
         if(inHFileID <0) {
-            fprintf( stderr, "[%s:%s:%d] Failed to open the HDF file.\n", __FILE__,__func__,__LINE__);
+            H5Gclose(MISRrootGroupID);
+            SDend(geoFileID);
+            SDend(gmpFileID);
+            SDend(h4FileID);
+            FATAL_MSG("Failed to start the H interface.\n");
             return EXIT_FAILURE;
         }
-
          /*
           *          *    * Initialize the V interface.
           *                   *       */
         h4_status = Vstart (inHFileID);
-        assert(h4_status != -1);
+        if (h4_status < 0)
+        {
+            H5Gclose(MISRrootGroupID);
+            SDend(geoFileID);
+            SDend(gmpFileID);
+            SDend(h4FileID);
+            Hclose(inHFileID);
+            FATAL_MSG("Failed to start the H interface.\n");
+            return EXIT_FAILURE;
+        }
 
 
         createGroup(&MISRrootGroupID, &h5GroupID, camera_name[i]);
         if ( h5GroupID == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to create an HDF5 group.\n", __FILE__,__func__,__LINE__);
+            H5Gclose(MISRrootGroupID);
+            SDend(geoFileID);
+            SDend(gmpFileID);
+            SDend(h4FileID);
+            Hclose(inHFileID);
+            
+            FATAL_MSG("Failed to create an HDF5 group.\n");
             return EXIT_FAILURE;
         }
 
         createGroup(&h5GroupID,&h5DataGroupID,data_gname);
-        if ( h5GroupID == EXIT_FAILURE )
+        if ( h5DataGroupID == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to create an HDF5 group.\n", __FILE__,__func__,__LINE__);
+            H5Gclose(MISRrootGroupID);
+            SDend(geoFileID);
+            SDend(gmpFileID);
+            SDend(h4FileID);
+            Hclose(inHFileID);
+            
+            H5Gclose(h5GroupID);
+            FATAL_MSG("Failed to create an HDF5 group.\n");
             return EXIT_FAILURE;
         }
 
@@ -139,13 +176,33 @@ int MISR( char* argv[],int unpack )
 
                 float scale_factor = -1.;
                 scale_factor = Obtain_scale_factor(inHFileID,band_name[j]);
-
+                if ( scale_factor < 0.0 )
+                {
+                    H5Gclose(MISRrootGroupID);
+                    SDend(geoFileID);
+                    SDend(gmpFileID);
+                    SDend(h4FileID);
+                    Hclose(inHFileID);
+                    
+                    H5Gclose(h5GroupID);
+                    H5Gclose(h5DataGroupID);
+                    FATAL_MSG("Failed to obtain scale factor for MISR.\n)");
+                    return EXIT_FAILURE;
+                }
                 h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j],DFNT_UINT16,
                                                 h4FileID,scale_factor);
                 if ( h5DataFieldID == EXIT_FAILURE )
                 {
-                    fprintf( stderr, "[%s:%s:%d] MISR readThenWrite Unpacking function failed.\n", __FILE__,__func__,__LINE__);
-                    H5Dclose(h5DataFieldID);
+                    FATAL_MSG("MISR readThenWrite Unpacking function failed.\n");
+                    H5Gclose(MISRrootGroupID);
+                    SDend(geoFileID);
+                    SDend(gmpFileID);
+                    SDend(h4FileID);
+                    Hclose(inHFileID);
+                    H5Gclose(h5DataGroupID);
+                    
+                    H5Gclose(h5GroupID);
+                    if ( h5DataFieldID ) H5Dclose(h5DataFieldID);
                     return EXIT_FAILURE;
                 }
                 H5Dclose(h5DataFieldID);
@@ -156,8 +213,16 @@ int MISR( char* argv[],int unpack )
                                                 H5T_NATIVE_USHORT,h4FileID);
                 if ( h5DataFieldID == EXIT_FAILURE )
                 {
-                    fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed.\n", __FILE__,__func__,__LINE__);
-                    H5Dclose(h5DataFieldID);
+                    FATAL_MSG("MISR readThenWrite function failed.\n");
+                    H5Gclose(MISRrootGroupID);
+                    SDend(geoFileID);
+                    H5Gclose(h5DataGroupID);
+                    SDend(gmpFileID);
+                    SDend(h4FileID);
+                    Hclose(inHFileID);
+                    
+                    H5Gclose(h5GroupID);
+                    if ( h5DataFieldID ) H5Dclose(h5DataFieldID);
                     return EXIT_FAILURE;
                 }
                 H5Dclose(h5DataFieldID);
@@ -168,16 +233,33 @@ int MISR( char* argv[],int unpack )
         createGroup(&h5GroupID,&h5SensorGeomGroupID,sensor_geom_gname);
         if ( h5SensorGeomGroupID == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to create an HDF5 group.\n", __FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to create an HDF5 group.\n");
+            H5Gclose(MISRrootGroupID);
+            SDend(geoFileID);
+            SDend(gmpFileID);
+            H5Gclose(h5DataGroupID);
+            SDend(h4FileID);
+            Hclose(inHFileID);
+            
+            H5Gclose(h5GroupID);
             return EXIT_FAILURE;
         }
 
         for (int j = 0; j<4;j++) {
             h5SensorGeomFieldID = readThenWrite(h5SensorGeomGroupID,band_geom_name[i*4+j],DFNT_FLOAT64,
                                                 H5T_NATIVE_DOUBLE,gmpFileID);
-            if ( h5SensorGeomGroupID == EXIT_FAILURE )
+            if ( h5SensorGeomFieldID == EXIT_FAILURE )
             {   
-                fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed.\n", __FILE__,__func__,__LINE__);
+                FATAL_MSG("MISR readThenWrite function failed.\n");
+                H5Gclose(MISRrootGroupID);
+                SDend(geoFileID);
+                SDend(gmpFileID);
+                H5Gclose(h5DataGroupID);
+                SDend(h4FileID);
+                Hclose(inHFileID);
+                
+                H5Gclose(h5GroupID);
+                H5Gclose(h5SensorGeomGroupID);
                 return EXIT_FAILURE;
             }
             H5Dclose(h5SensorGeomFieldID);
@@ -188,14 +270,27 @@ int MISR( char* argv[],int unpack )
         h4_status = Vend(inHFileID);
         if ( h4_status == -1 )
         {   
-            fprintf( stderr, "[%s:%s:%d] Failed to end V interface.\n", __FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to end V interface.\n");
+            H5Gclose(MISRrootGroupID);
+            SDend(geoFileID);
+            SDend(gmpFileID);
+            Hclose(inHFileID);
+            H5Gclose(h5DataGroupID);
+            H5Gclose(h5GroupID);
+            H5Gclose(h5SensorGeomGroupID);
             return EXIT_FAILURE;
         }
 
         h4_status = Hclose(inHFileID);
         if ( h4_status == -1 )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to end H interface.\n", __FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to end H interface.\n");
+            H5Gclose(MISRrootGroupID);
+            SDend(geoFileID);
+            SDend(gmpFileID);
+            H5Gclose(h5DataGroupID);
+            H5Gclose(h5GroupID);
+            H5Gclose(h5SensorGeomGroupID);
             return EXIT_FAILURE;
         }
 
@@ -208,7 +303,10 @@ int MISR( char* argv[],int unpack )
     createGroup( &MISRrootGroupID, &geoGroupID, geo_gname );
     if ( geoGroupID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to create HDF5 group.\n", __FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to create HDF5 group.\n");
+        H5Gclose(MISRrootGroupID);
+        SDend(geoFileID);
+        SDend(gmpFileID);
         return EXIT_FAILURE;
     }
 
@@ -216,21 +314,36 @@ int MISR( char* argv[],int unpack )
     latitudeID  = readThenWrite(geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
     if ( latitudeID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed (latitude dataset).\n", __FILE__,__func__,__LINE__);
+        FATAL_MSG("MISR readThenWrite function failed (latitude dataset).\n");
+        H5Gclose(MISRrootGroupID);
+        SDend(geoFileID);
+        SDend(gmpFileID);
+        H5Gclose(geoGroupID);
         return EXIT_FAILURE;
     }
 
     longitudeID = readThenWrite(geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
     if ( longitudeID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed (longitude dataset).\n", __FILE__,__func__,__LINE__);
+        FATAL_MSG("MISR readThenWrite function failed (longitude dataset).\n");
+        H5Gclose(MISRrootGroupID);
+        SDend(geoFileID);
+        SDend(gmpFileID);
+        H5Gclose(geoGroupID);
+        H5Dclose(latitudeID);
         return EXIT_FAILURE;
     }
 
     createGroup( &MISRrootGroupID, &gmpSolarGeoGroupID, solar_geom_gname );
     if ( gmpSolarGeoGroupID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to create HDF5 group.\n", __FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to create HDF5 group.\n");
+        H5Gclose(MISRrootGroupID);
+        SDend(geoFileID);
+        SDend(gmpFileID);
+        H5Gclose(geoGroupID);
+        H5Dclose(latitudeID);
+        H5Dclose(longitudeID);
         return EXIT_FAILURE;
     }
 
@@ -238,13 +351,29 @@ int MISR( char* argv[],int unpack )
     solarAzimuthID = readThenWrite(gmpSolarGeoGroupID,solar_geom_name[0],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
     if ( solarAzimuthID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed (solarAzimuth dataset).\n", __FILE__,__func__,__LINE__);
+        FATAL_MSG("MISR readThenWrite function failed (solarAzimuth dataset).\n");
+        H5Gclose(MISRrootGroupID);
+        SDend(geoFileID);
+        SDend(gmpFileID);
+        H5Gclose(geoGroupID);
+        H5Dclose(latitudeID);
+        H5Dclose(longitudeID);
+        H5Gclose(gmpSolarGeoGroupID);
         return EXIT_FAILURE;
     }
+
     solarZenithID = readThenWrite(gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
     if ( solarZenithID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] MISR readThenWrite function failed (solarZenith dataset).\n", __FILE__,__func__,__LINE__);
+        FATAL_MSG("MISR readThenWrite function failed (solarZenith dataset).\n");
+        H5Gclose(MISRrootGroupID);
+        SDend(geoFileID);
+        SDend(gmpFileID);
+        H5Gclose(geoGroupID);
+        H5Dclose(latitudeID);
+        H5Dclose(longitudeID);
+        H5Gclose(gmpSolarGeoGroupID);
+        H5Dclose(solarAzimuthID);
         return EXIT_FAILURE;
     }
 
@@ -308,8 +437,8 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
             sub_group_name = (char *) HDmalloc(sizeof(char *) * (name_len+1));
             if (sub_group_name == NULL)
             {
-             fprintf(stderr, "Not enough memory for vgroup_name!\n");
-             return -1.0;
+                FATAL_MSG("Not enough memory for vgroup_name!\n");
+                return -1.0;
             }
             status = Vgetname (sub_group_id, sub_group_name);
             if(strncmp(sub_group_name,grid_attr_group_name,strlen(grid_attr_group_name))==0) {
@@ -320,6 +449,7 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                     if (Vgettagref (sub_group_id, j, &sub_group_obj_tag, &sub_group_obj_ref) == FAIL) {
                           Vdetach (sub_group_id);
                           Vdetach(band_group_id);
+                          FATAL_MSG("Vgetagref failed.\n");
                           return -1.0;
                     }
 
@@ -329,11 +459,13 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                         int32 vdata_id = -1;
 
                         vdata_id = VSattach (h4_file_id, sub_group_obj_ref, "r");
-                        if (vdata_id == FAIL) 
+                        if (vdata_id == FAIL){ 
+                            FATAL_MSG("VSattach failed.\n");
                             return -1.0;
-
+                        }
                         if (VSgetname (vdata_id, vdata_name) == FAIL) {
                             VSdetach (vdata_id);
+                            FATAL_MSG("VSgetname failed.\n");
                             return -1.0;
                         }
 
@@ -348,6 +480,7 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                             fieldsize = VFfieldesize (vdata_id, 0);
                             if (fieldsize == FAIL) {
                                 VSdetach (vdata_id);
+                                FATAL_MSG("VFfieldesize failed.\n");
                                 return -1.0;
                             }
                             fieldtype = VFfieldtype(vdata_id,0);
@@ -356,6 +489,7 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                             nelms = VSelts (vdata_id);
                             if (nelms == FAIL) {
                                 VSdetach (vdata_id);
+                                FATAL_MSG("VSelts failed.\n");
                                  return -1.0;
                             }
 
@@ -363,12 +497,14 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                             // Initialize the seeking process
                             if (VSseek (vdata_id, 0) == FAIL) {
                                 VSdetach (vdata_id);
+                                FATAL_MSG("VSseek failed.\n");
                                 return -1.0;
                             }
 
  // The field to seek is CERE_META_FIELD_NAME
                             if (VSsetfields (vdata_id, "AttrValues") == FAIL) {
                                 VSdetach (vdata_id);
+                                FATAL_MSG("VSsetfields failed.\n");
                                 return -1.0;
                             }
 
@@ -376,38 +512,30 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                             if (VSread(vdata_id, (uint8 *) &sc, 1,FULL_INTERLACE)
                                 == FAIL) {
                                 VSdetach (vdata_id);
+                                FATAL_MSG("VSread failed.\n");
                                 return -1.0;
                             }
 
 
 
-                        }
+                        } // end if
                         VSdetach(vdata_id);
 
-                    }
+                    } // end if
 
-                 }
+                 } // end for
 
 
-#if 0
-printf("grid_attr_group name is %s\n",grid_attr_group_name);
-                int n_attrs = Vnattrs(sub_group_id);
-printf("number of attributes is %d\n",n_attrs);
-                sc_attr_index = Vfindattr(sub_group_id,scale_factor_name);
-                assert(sc_attr_index !=FAIL);
-                status = Vgetattr(sub_group_id,sc_attr_index,&sc);
-                assert(status!=FAIL);
-#endif
                 free(sub_group_name);
                 break;
-            }
+            } // end if
 
             free(sub_group_name);
             Vdetach(sub_group_id);
 
-        }
+        } // end if
 
-    }
+    } // end for
     Vdetach(band_group_id);
 
     return (float)sc;
