@@ -30,6 +30,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	hid_t MODIS500mdataFieldsGroupID = 0;
 	hid_t MODIS250mdataFieldsGroupID = 0;
 	hid_t MODIS1KMgeolocationGroupID = 0;
+    herr_t status = EXIT_SUCCESS;
+    float fltTemp = 0.0;
 
 	/**********************
 	 * 1KM data variables *
@@ -378,7 +380,13 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
                 if(_1KMDatasetID) H5Dclose(_1KMDatasetID);
                 return EXIT_FAILURE;
-            }	
+            }
+            
+            status = H5LTset_attribute_string(_1KMDatasetID,"EV_1KM_RefSB","units","Watts/m^2/micrometer/steradian");
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(_1KMDatasetID,"EV_1KM_RefSB","_FillValue",&fltTemp, 1 );
+            fltTemp = 0.0;
+            status = H5LTset_attribute_float(_1KMDatasetID,"EV_1KM_RefSB","valid_min",&fltTemp, 1 );
         }
     }
         
@@ -427,6 +435,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
     }
 
+
     // Close the identifiers related to these datasets
     H5Dclose(_1KMDatasetID);
     H5Dclose(_1KMUncertID);
@@ -454,7 +463,9 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
             return EXIT_FAILURE;
         }
+        
 
+        
         _1KMEmissiveUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID,
                       "EV_1KM_Emissive_Uncert_Indexes",
                       DFNT_UINT8, _1KMFileID);
@@ -475,7 +486,12 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             H5Dclose(_1KMEmissive);
             return EXIT_FAILURE;
         }
-
+        
+        status = H5LTset_attribute_string(_1KMEmissive,"EV_1KM_Emissive","units","Watts/m^2/micrometer/steradian");
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(_1KMEmissive,"EV_1KM_Emissive","_FillValue",&fltTemp, 1 );
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(_1KMEmissive,"EV_1KM_Emissive","valid_min",&fltTemp, 1 );
     }
     else {
         _1KMEmissive = readThenWrite( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive",
@@ -519,10 +535,32 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         }
     }
 
+    // Add attributes for these two datasets
+   
+    // EMISSIVE: 
+
+    // UNCERT:
+    
     // Close the identifiers related to these datasets
     H5Dclose(_1KMEmissive);
     H5Dclose(_1KMEmissiveUncert);
 
+    /* TODO
+        Here we have code structured like:
+        if ( unpack == 1 )
+            if ( argv[2] != NULL )
+                Do unpacking work
+        else
+            Do normal work
+
+        Should it not be structured:
+        if ( argv[2] != NULL )
+            if (unpack == 1)
+                Do unpacking work
+            else
+                Do normal work
+        First structure could possibly run code for a file that doesn't exist.
+    */
 						  
 	/*__________EV_250_Aggr1km_RefSB_______________*/
 
@@ -570,7 +608,12 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 H5Dclose(_250Aggr1km);
                 return EXIT_FAILURE;
             }
-                
+         
+            status = H5LTset_attribute_string(_250Aggr1km,"EV_250_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(_250Aggr1km,"EV_250_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
+            fltTemp = 0.0;
+            status = H5LTset_attribute_float(_250Aggr1km,"EV_250_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
         }
     }
 
@@ -620,6 +663,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
                 
     }
+
         
     // Close the identifiers related to these datasets
     H5Dclose(_250Aggr1km);
@@ -670,8 +714,16 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
                 H5Dclose(_500Aggr1km);
                 return EXIT_FAILURE;
-            }	  
+            }
+            	  
+            // ATTRIBUTES
+            status = H5LTset_attribute_string(_500Aggr1km,"EV_500_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(_500Aggr1km,"EV_500_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
+            fltTemp = 0.0;
+            status = H5LTset_attribute_float(_500Aggr1km,"EV_500_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
         }
+
     }
 
     else {
@@ -715,6 +767,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 return EXIT_FAILURE;
             }	
     }
+
 
     // Release identifiers associated with these datasets
     H5Dclose(_500Aggr1km);
@@ -867,6 +920,13 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 H5Dclose(_250Aggr500);
                 return EXIT_FAILURE;
             }
+           
+            // ATTRIBUTES 
+            status = H5LTset_attribute_string(_250Aggr500,"EV_250_Aggr500_RefSB","units","Watts/m^2/micrometer/steradian");
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(_250Aggr500,"EV_250_Aggr500_RefSB","_FillValue",&fltTemp, 1 );
+            fltTemp = 0.0;
+            status = H5LTset_attribute_float(_250Aggr500,"EV_250_Aggr500_RefSB","valid_min",&fltTemp, 1 );
         }
         else {
             _250Aggr500 = readThenWrite( MODIS500mdataFieldsGroupID, 
@@ -913,6 +973,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             }
 
         }
+
 
         // close identifiers associated with these datasets
         H5Dclose(_250Aggr500);
@@ -961,6 +1022,13 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 H5Dclose(_500RefSB);
                 return EXIT_FAILURE;
             }
+
+            // ATTRIBUTES
+            status = H5LTset_attribute_string(_500RefSB,"EV_500_RefSB","units","Watts/m^2/micrometer/steradian");
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(_500RefSB,"EV_500_RefSB","_FillValue",&fltTemp, 1 );
+            fltTemp = 0.0;
+            status = H5LTset_attribute_float(_500RefSB,"EV_500_RefSB","valid_min",&fltTemp, 1 );
         }
         else {
             _500RefSB = readThenWrite( MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
@@ -1058,6 +1126,13 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 H5Dclose(_250RefSB);
                 return EXIT_FAILURE;
             }
+    
+            // ATTRIBUTES
+            status = H5LTset_attribute_string(_250RefSB,"EV_250_RefSB","units","Watts/m^2/micrometer/steradian");
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(_250RefSB,"EV_250_RefSB","_FillValue",&fltTemp, 1 );
+            fltTemp = 0.0;
+            status = H5LTset_attribute_float(_250RefSB,"EV_250_RefSB","valid_min",&fltTemp, 1 );
         }
         else {
             _250RefSB = readThenWrite( MODIS250mdataFieldsGroupID, "EV_250_RefSB", DFNT_UINT16,
