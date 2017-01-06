@@ -1,7 +1,6 @@
 # basicFusion
 Terra Data Fusion Project - University of Illinois  
 Author: Landon Clipp  
-Email: clipp2@illinois.edu  
 
 This file outlines the structure of the combined TERRA Fusion code, how to compile it on a local machine, and how to add
 additional code to the program. This file may not be up to date during development.
