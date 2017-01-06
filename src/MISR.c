@@ -148,6 +148,7 @@ int MISR( char* argv[],int unpack )
             SDend(geoFileID);
             SDend(gmpFileID);
             SDend(h4FileID);
+            Vend(inHFileID);
             Hclose(inHFileID);
             
             FATAL_MSG("Failed to create an HDF5 group.\n");
@@ -161,7 +162,8 @@ int MISR( char* argv[],int unpack )
             SDend(geoFileID);
             SDend(gmpFileID);
             SDend(h4FileID);
-            Hclose(inHFileID);
+			Vend(inHFileID);     
+   	        Hclose(inHFileID);
             
             H5Gclose(h5GroupID);
             FATAL_MSG("Failed to create an HDF5 group.\n");
@@ -182,6 +184,7 @@ int MISR( char* argv[],int unpack )
                     SDend(geoFileID);
                     SDend(gmpFileID);
                     SDend(h4FileID);
+                    Vend(inHFileID);
                     Hclose(inHFileID);
                     
                     H5Gclose(h5GroupID);
@@ -198,6 +201,7 @@ int MISR( char* argv[],int unpack )
                     SDend(geoFileID);
                     SDend(gmpFileID);
                     SDend(h4FileID);
+                    Vend(inHFileID);
                     Hclose(inHFileID);
                     H5Gclose(h5DataGroupID);
                     
@@ -219,6 +223,7 @@ int MISR( char* argv[],int unpack )
                     H5Gclose(h5DataGroupID);
                     SDend(gmpFileID);
                     SDend(h4FileID);
+                    Vend(inHFileID);
                     Hclose(inHFileID);
                     
                     H5Gclose(h5GroupID);
@@ -239,6 +244,7 @@ int MISR( char* argv[],int unpack )
             SDend(gmpFileID);
             H5Gclose(h5DataGroupID);
             SDend(h4FileID);
+            Vend(inHFileID);
             Hclose(inHFileID);
             
             H5Gclose(h5GroupID);
@@ -256,6 +262,7 @@ int MISR( char* argv[],int unpack )
                 SDend(gmpFileID);
                 H5Gclose(h5DataGroupID);
                 SDend(h4FileID);
+                Vend(inHFileID);
                 Hclose(inHFileID);
                 
                 H5Gclose(h5GroupID);
@@ -268,32 +275,7 @@ int MISR( char* argv[],int unpack )
         SDend(h4FileID);
          /* No need inHFileID, close H and V interfaces */
         h4_status = Vend(inHFileID);
-        if ( h4_status == -1 )
-        {   
-            FATAL_MSG("Failed to end V interface.\n");
-            H5Gclose(MISRrootGroupID);
-            SDend(geoFileID);
-            SDend(gmpFileID);
-            Hclose(inHFileID);
-            H5Gclose(h5DataGroupID);
-            H5Gclose(h5GroupID);
-            H5Gclose(h5SensorGeomGroupID);
-            return EXIT_FAILURE;
-        }
-
         h4_status = Hclose(inHFileID);
-        if ( h4_status == -1 )
-        {
-            FATAL_MSG("Failed to end H interface.\n");
-            H5Gclose(MISRrootGroupID);
-            SDend(geoFileID);
-            SDend(gmpFileID);
-            H5Gclose(h5DataGroupID);
-            H5Gclose(h5GroupID);
-            H5Gclose(h5SensorGeomGroupID);
-            return EXIT_FAILURE;
-        }
-
         H5Gclose(h5DataGroupID);
         H5Gclose(h5SensorGeomGroupID);
         H5Gclose(h5GroupID);
