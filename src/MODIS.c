@@ -8,12 +8,13 @@
 #endif
 
 /*
-	[0] = main program name
-	[1] = 1km filename
-	[2] = 500m filename
-	[3] = 250m filename
-	[4] = MOD03 filename
-	[5] = output filename (already exists);
+    [0] = main program name
+    [1] = 1km filename
+    [2] = 500m filename
+    [3] = 250m filename
+    [4] = MOD03 filename
+    [5] = granule name ("granule1","granule2", etc)
+    [6] = output filename (already exists);
 */
 
 /* MY 2016-12-20, handling the MODIS files with and without MOD02HKM and MOD02QKM. */
@@ -120,7 +121,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	if ( _1KMFileID < 0 )
 	{
         FATAL_MSG( "Unable to open 1KM file.\n" );
-		return (EXIT_FAILURE);
+		_1KMFileID = 0;
+        return (EXIT_FAILURE);
 	}
 	
     if(argv[2]!= NULL) {
@@ -129,8 +131,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	    {
 		    fprintf( stderr, "[%s:%s:%d]: Unable to open 500m file.\n", __FILE__, __func__,
 				 __LINE__ );
-            SDend(_1KMFileID);
-		    return (EXIT_FAILURE);
+            _500mFileID = 0;
+            goto cleanupFail;
 	    }
     }
 	
@@ -140,10 +142,9 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	    {
 		    fprintf( stderr, "[%s:%s:%d]: Unable to open 250m file.\n", __FILE__, __func__,
 				 __LINE__ );
-            SDend(_1KMFileID);
-            if(_500mFileID) SDend(_500mFileID);
-		    return (EXIT_FAILURE);
-	    }   
+            _250mFileID = 0;
+	        goto cleanupFail;
+        }   
     }
 	
 	MOD03FileID = SDstart( argv[4], DFACC_READ );
@@ -151,10 +152,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	{
 		fprintf( stderr, "[%s:%s:%d]: Unable to open MOD03 file.\n", __FILE__, __func__,
 				 __LINE__ );
-		SDend(_1KMFileID);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_250mFileID) SDend(_250mFileID);
-        return (EXIT_FAILURE);
+        MOD03FileID = 0;
+		goto cleanupFail;
 	}
 	
 	
@@ -169,23 +168,17 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	    if ( createGroup( &outputFile, &MODISrootGroupID, "MODIS" ) == EXIT_FAILURE )
 	    {
 		    fprintf( stderr, "[%s:%s:%d] Failed to create MODIS root group.\n",__FILE__,__func__,__LINE__);
-            SDend(_1KMFileID);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-		    return (EXIT_FAILURE);
-	    }
+	        MODISrootGroupID = 0;
+            goto cleanupFail;
+        }
     }
     else {
         MODISrootGroupID = H5Gopen2(outputFile, "/MODIS",H5P_DEFAULT);
 
         if(MODISrootGroupID <0) {
 		    fprintf( stderr, "[%s:%s:%d] Failed to open MODIS root group.\n",__FILE__,__func__,__LINE__);
-            SDend(_1KMFileID);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-		    return (EXIT_FAILURE);
+            MODISrootGroupID = 0;
+            goto cleanupFail;
         }
     }
 
@@ -193,95 +186,57 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         // Create the granule group under MODIS group
 	if ( createGroup( &MODISrootGroupID, &MODISgranuleGroupID,argv[5] ) )
 	{
-        SDend(_1KMFileID);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_250mFileID) SDend(_250mFileID);
-        SDend(MOD03FileID);
-        H5Gclose(MODISrootGroupID);
 		fprintf( stderr, "[%s:%s:%d] Failed to create MODIS root group.\n",__FILE__,__func__,__LINE__);
-		return (EXIT_FAILURE);
+		MODISgranuleGroupID = 0;
+        goto cleanupFail;
 	}
 
         
     if(H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleTime",argv[1])<0) 
     {
         fprintf(stderr, "[%s:%s:%d] Cannot add the time stamp.\n",__FILE__,__func__,__LINE__);
-        SDend(_1KMFileID);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_250mFileID) SDend(_250mFileID);
-        SDend(MOD03FileID);
-        H5Gclose(MODISrootGroupID);
-        return EXIT_FAILURE;
+        
+        goto cleanupFail;
     }
 
 	/* create the 1 kilometer product group */
 	if ( createGroup ( &MODISgranuleGroupID, &MODIS1KMGroupID, "1KM" ) )
 	{
 		fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 1KM group.\n",__FILE__,__func__,__LINE__);
-        SDend(_1KMFileID);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_250mFileID) SDend(_250mFileID);
-        SDend(MOD03FileID);
-        H5Gclose(MODISrootGroupID);
-		return (EXIT_FAILURE);
+		MODIS1KMGroupID = 0;
+        goto cleanupFail;
 	}
 	
 	// create the data fields group
 	if ( createGroup ( &MODIS1KMGroupID, &MODIS1KMdataFieldsGroupID, "Data Fields" ) )
 	{
 		fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 1KM data fields group.\n",__FILE__,__func__,__LINE__);
-		SDend(_1KMFileID);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_250mFileID) SDend(_250mFileID);
-        SDend(MOD03FileID);
-        H5Gclose(MODISrootGroupID);
-        H5Gclose(MODIS1KMGroupID);
-        return (EXIT_FAILURE);
-	}
+	    MODIS1KMdataFieldsGroupID = 0;
+        goto cleanupFail;
+    }
 	
 	// create 1KMgeolocation fields group
 	if ( createGroup( &MODIS1KMGroupID, &MODIS1KMgeolocationGroupID, "Geolocation" ) )
 	{
 		fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 1KMgeolocation group.\n",__FILE__,__func__,__LINE__);
-		SDend(_1KMFileID);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_250mFileID) SDend(_250mFileID);
-        SDend(MOD03FileID);
-        H5Gclose(MODISrootGroupID);
-        H5Gclose(MODIS1KMGroupID);
-        H5Gclose(MODIS1KMdataFieldsGroupID);
-        return (EXIT_FAILURE);
-	}
+	    MODIS1KMgeolocationGroupID = 0;
+        goto cleanupFail;
+    }
 
     if (argv[2] !=NULL) {
 	    /* create the 500m product group */
 	    if ( createGroup ( &MODISgranuleGroupID, &MODIS500mGroupID, "500m" ) )
 	    {
 		    fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 500m group.\n",__FILE__, __func__,__LINE__);
-            SDend(_1KMFileID);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-		    return (EXIT_FAILURE);
-	    }
+	        MODIS500mGroupID = 0;
+            goto cleanupFail;
+        }
 
         if ( createGroup ( &MODIS500mGroupID, &MODIS500mdataFieldsGroupID, "Data Fields" ) )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 500m data fields group.\n",__FILE__, __func__,__LINE__);
-            SDend(_1KMFileID);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            return (EXIT_FAILURE);
+            MODIS500mdataFieldsGroupID = 0;
+            goto cleanupFail;
         }
 
 	
@@ -292,32 +247,15 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	    if ( createGroup ( &MODISgranuleGroupID, &MODIS250mGroupID, "250m" ) )
 	    {
 		    fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 250m group.\n",__FILE__, __func__,__LINE__);
-		    if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            return (EXIT_FAILURE);
-	    }
+	        MODIS250mGroupID = 0;
+            goto cleanupFail;
+        }
 
         if ( createGroup ( &MODIS250mGroupID, &MODIS250mdataFieldsGroupID, "Data Fields" ) )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 250m data fields group.\n",__FILE__,__func__,__LINE__);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-            if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-            return (EXIT_FAILURE);
+            MODIS250mdataFieldsGroupID = 0;
+            goto cleanupFail;
         }
     }
 	
@@ -343,23 +281,18 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     // IF WE ARE UNPACKING DATA
     if(unpack == 1) {
         if(argv[2]!=NULL) {
+
+            /* Forgive me oh mighty programming gods for using the insidious goto.
+             * I believe if you look carefully, goto makes a lot of sense in this context.
+             */
+
             _1KMDatasetID = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", DFNT_UINT16, 
                  _1KMFileID);
             if ( _1KMDatasetID == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_RefSB data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                return EXIT_FAILURE;
+                _1KMDatasetID = 0; // Done to prevent program from trying to close this ID erroneously
+                goto cleanupFail;
             }
     
             _1KMUncertID = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes",
@@ -367,26 +300,45 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _1KMUncertID == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                if(_1KMDatasetID) H5Dclose(_1KMDatasetID);
-                return EXIT_FAILURE;
+                _1KMUncertID = 0;
+                goto cleanupFail;
             }
             
-            status = H5LTset_attribute_string(_1KMDatasetID,"EV_1KM_RefSB","units","Watts/m^2/micrometer/steradian");
+            // ATTRIBUTES
+            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","units","Watts/m^2/micrometer/steradian");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_1KM_RefSB units attribute.\n");
+                goto cleanupFail;
+            }
             fltTemp = -999.0;
-            status = H5LTset_attribute_float(_1KMDatasetID,"EV_1KM_RefSB","_FillValue",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_1KM_RefSB _FillValue attribute.\n");
+                goto cleanupFail;
+            }
             fltTemp = 0.0;
-            status = H5LTset_attribute_float(_1KMDatasetID,"EV_1KM_RefSB","valid_min",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","valid_min",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_1KM_RefSB valid_min attribute.\n");
+                goto cleanupFail;
+            }
+            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","units","percent");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes units attribute.\n");
+                goto cleanupFail;
+            }
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes _FillValue attribute.\n");
+                goto cleanupFail;
+            }
+
         }
     }
         
@@ -397,18 +349,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if ( _1KMDatasetID == EXIT_FAILURE )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_RefSB data.\n",__FILE__,__func__,__LINE__);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-            if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-            if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-            return EXIT_FAILURE;
+            _1KMDatasetID = 0;
+            goto cleanupFail;
         }
     /*______________EV_1KM_RefSB_Uncert_Indexes______________*/
 
@@ -418,27 +360,15 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if ( _1KMUncertID == EXIT_FAILURE )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-            if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-            if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-            if(_1KMDatasetID) H5Dclose(_1KMDatasetID);
-            return EXIT_FAILURE;
+            _1KMUncertID = 0;
+            goto cleanupFail;
         }
 
     }
 
-
     // Close the identifiers related to these datasets
-    H5Dclose(_1KMDatasetID);
-    H5Dclose(_1KMUncertID);
+    H5Dclose(_1KMDatasetID); _1KMDatasetID = 0;
+    H5Dclose(_1KMUncertID); _1KMUncertID = 0;
 
                 
 /*___________EV_1KM_Emissive___________*/
@@ -450,18 +380,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if ( _1KMEmissive == EXIT_FAILURE )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_Emissive data.\n",__FILE__,__func__,__LINE__);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-            if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-            if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-            return EXIT_FAILURE;
+            _1KMEmissive = 0;
+            goto cleanupFail;
         }
         
 
@@ -472,26 +392,45 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if ( _1KMEmissiveUncert == EXIT_FAILURE )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_Emissive_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-            if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-            if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-            H5Dclose(_1KMEmissive);
-            return EXIT_FAILURE;
+            _1KMEmissiveUncert = 0;
+            goto cleanupFail;
         }
         
-        status = H5LTset_attribute_string(_1KMEmissive,"EV_1KM_Emissive","units","Watts/m^2/micrometer/steradian");
+        // ATTRIBUTES
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","units","Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_Emissive units attribute.\n");
+            goto cleanupFail;
+        }
         fltTemp = -999.0;
-        status = H5LTset_attribute_float(_1KMEmissive,"EV_1KM_Emissive","_FillValue",&fltTemp, 1 );
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_Emissive _FillValue attribute.\n");
+            goto cleanupFail;
+        }
         fltTemp = 0.0;
-        status = H5LTset_attribute_float(_1KMEmissive,"EV_1KM_Emissive","valid_min",&fltTemp, 1 );
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_Emissive valid_min attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive_Uncert_Indexes","units","percent");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_Emissive_Uncert_Indexes units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_Emissive_Uncert_Indexes _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
     }
     else {
         _1KMEmissive = readThenWrite( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive",
@@ -499,18 +438,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if ( _1KMEmissive == EXIT_FAILURE )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_Emissive data.\n",__FILE__,__func__,__LINE__);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-            if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-            if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-            return EXIT_FAILURE;
+            _1KMEmissive = 0;
+            goto cleanupFail;
         }
 
         _1KMEmissiveUncert = readThenWrite( MODIS1KMdataFieldsGroupID,
@@ -519,48 +448,16 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if ( _1KMEmissiveUncert == EXIT_FAILURE )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_Emissive_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-            if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-            if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-            H5Dclose(_1KMEmissive);
-            return EXIT_FAILURE;
+            _1KMEmissiveUncert = 0;
+            goto cleanupFail;
         }
     }
 
-    // Add attributes for these two datasets
-   
-    // EMISSIVE: 
-
-    // UNCERT:
-    
+     
     // Close the identifiers related to these datasets
-    H5Dclose(_1KMEmissive);
-    H5Dclose(_1KMEmissiveUncert);
+    H5Dclose(_1KMEmissive); _1KMEmissive = 0;
+    H5Dclose(_1KMEmissiveUncert); _1KMEmissiveUncert = 0;
 
-    /* TODO
-        Here we have code structured like:
-        if ( unpack == 1 )
-            if ( argv[2] != NULL )
-                Do unpacking work
-        else
-            Do normal work
-
-        Should it not be structured:
-        if ( argv[2] != NULL )
-            if (unpack == 1)
-                Do unpacking work
-            else
-                Do normal work
-        First structure could possibly run code for a file that doesn't exist.
-    */
 						  
 	/*__________EV_250_Aggr1km_RefSB_______________*/
 
@@ -573,18 +470,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _250Aggr1km == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr1km_RefSB data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                return EXIT_FAILURE;
+                _250Aggr1km = 0;
+                goto cleanupFail;
             }
             /*__________EV_250_Aggr1km_RefSB_Uncert_Indexes_____________*/
 
@@ -594,26 +481,46 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _250Aggr1kmUncert == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr1km_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                H5Dclose(_250Aggr1km);
-                return EXIT_FAILURE;
+                _250Aggr1kmUncert = 0;
+                goto cleanupFail;
             }
-         
-            status = H5LTset_attribute_string(_250Aggr1km,"EV_250_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
+        
+            // ATTRIBUTES 
+            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB units attribute.\n");
+                goto cleanupFail;
+            }
             fltTemp = -999.0;
-            status = H5LTset_attribute_float(_250Aggr1km,"EV_250_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB _FillValue attribute.\n");
+                goto cleanupFail;
+            }
+
             fltTemp = 0.0;
-            status = H5LTset_attribute_float(_250Aggr1km,"EV_250_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB valid_min attribute.\n");
+                goto cleanupFail;
+            }
+            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","units","percent");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB_Uncert_Indexes units attribute.\n");
+                goto cleanupFail;
+            }
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
+                goto cleanupFail;
+            }
+
         }
     }
 
@@ -624,18 +531,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if ( _250Aggr1km == EXIT_FAILURE )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr1km_RefSB data.\n",__FILE__,__func__,__LINE__);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-            if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-            if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-            return EXIT_FAILURE;
+            _250Aggr1km = 0;
+            goto cleanupFail;
         }
 
 /*__________EV_250_Aggr1km_RefSB_Uncert_Indexes_____________*/
@@ -646,19 +543,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         if ( _250Aggr1kmUncert == EXIT_FAILURE )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr1km_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-            if(_500mFileID) SDend(_500mFileID);
-            if(_250mFileID) SDend(_250mFileID);
-            SDend(MOD03FileID);
-            H5Gclose(MODISrootGroupID);
-            H5Gclose(MODIS1KMgeolocationGroupID);
-            H5Gclose(MODIS1KMGroupID);
-            H5Gclose(MODIS1KMdataFieldsGroupID);
-            if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-            if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-            if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-            if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-            H5Dclose(_250Aggr1km);
-            return EXIT_FAILURE;
+            _250Aggr1kmUncert = 0;
+            goto cleanupFail;
         }
 
                 
@@ -666,9 +552,9 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
         
     // Close the identifiers related to these datasets
-    H5Dclose(_250Aggr1km);
-    H5Dclose(_250Aggr1kmUncert);
-        
+    H5Dclose(_250Aggr1km); _250Aggr1km = 0;
+    H5Dclose(_250Aggr1kmUncert); _250Aggr1kmUncert = 0;
+   
 	/*__________EV_500_Aggr1km_RefSB____________*/
 	if(unpack == 1) {
 	
@@ -679,18 +565,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _500Aggr1km == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_Aggr1km_RefSB data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                return EXIT_FAILURE;
+                 _500Aggr1km = 0;
+                goto cleanupFail;
             }
 
 		/*__________EV_500_Aggr1km_RefSB_Uncert_Indexes____________*/
@@ -701,27 +577,45 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _500Aggr1kmUncert == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_Aggr1km_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                H5Dclose(_500Aggr1km);
-                return EXIT_FAILURE;
+                _500Aggr1kmUncert = 0;
+                goto cleanupFail;
             }
             	  
             // ATTRIBUTES
-            status = H5LTset_attribute_string(_500Aggr1km,"EV_500_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
+            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB units attribute.\n");
+                goto cleanupFail;
+            }
             fltTemp = -999.0;
-            status = H5LTset_attribute_float(_500Aggr1km,"EV_500_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB _FillValue attribute.\n");
+                goto cleanupFail;
+            }
             fltTemp = 0.0;
-            status = H5LTset_attribute_float(_500Aggr1km,"EV_500_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB valid_min attribute.\n");
+                goto cleanupFail;
+            }
+            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","units","percent");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes units attribute.\n");
+                goto cleanupFail;
+            }
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
+                goto cleanupFail;
+            }
+
         }
 
     }
@@ -730,48 +624,27 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         _500Aggr1km = readThenWrite( MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB",
 				  DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID );
         if ( _500Aggr1km == EXIT_FAILURE )
-            {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_Aggr1km_RefSB data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                return EXIT_FAILURE;
-            }
+        {
+            fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_Aggr1km_RefSB data.\n",__FILE__,__func__,__LINE__);
+            _500Aggr1km = 0;
+            goto cleanupFail;
+        }
 
 	    _500Aggr1kmUncert = readThenWrite( MODIS1KMdataFieldsGroupID, 
 						"EV_500_Aggr1km_RefSB_Uncert_Indexes",
 						DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
         if ( _500Aggr1kmUncert == EXIT_FAILURE )
-            {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_Aggr1km_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                H5Dclose(_500Aggr1km);
-                return EXIT_FAILURE;
-            }	
+        {
+            fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_Aggr1km_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+            _500Aggr1kmUncert = 0;
+            goto cleanupFail;
+        }	
     }
 
 
     // Release identifiers associated with these datasets
-    H5Dclose(_500Aggr1km);
-    H5Dclose(_500Aggr1kmUncert);
+    H5Dclose(_500Aggr1km); _500Aggr1km = 0;
+    H5Dclose(_500Aggr1kmUncert); _500Aggr1kmUncert = 0;
 							
 	/*_______________latitude data under geolocation_______________*/
 	
@@ -781,21 +654,16 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     if ( latitudeDatasetID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Failed to transfer latitude data.\n",__FILE__,__func__,__LINE__);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_250mFileID) SDend(_250mFileID);
-        SDend(MOD03FileID);
-        H5Gclose(MODISrootGroupID);
-        H5Gclose(MODIS1KMGroupID);
-        H5Gclose(MODIS1KMdataFieldsGroupID);
-        H5Gclose(MODIS1KMgeolocationGroupID);
-        if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-        if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-        if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-        if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-        return EXIT_FAILURE;
+        latitudeDatasetID = 0;
+        goto cleanupFail;
     }
-    
-    H5Dclose( latitudeDatasetID );
+    status = H5LTset_attribute_string(MODIS1KMgeolocationGroupID,"Latitude","units","degrees_north");
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set latitude units attribute.\n");
+        goto cleanupFail;
+    }
+    H5Dclose( latitudeDatasetID ); latitudeDatasetID = 0;
 	
 	/*_______________longitude data under geolocation______________*/
 	longitudeDatasetID = readThenWrite( MODIS1KMgeolocationGroupID,
@@ -804,67 +672,126 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	if ( longitudeDatasetID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Failed to transfer longitude data.\n",__FILE__,__func__,__LINE__);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_250mFileID) SDend(_250mFileID);
-        SDend(MOD03FileID);
-        H5Gclose(MODISrootGroupID);
-        H5Gclose(MODIS1KMgeolocationGroupID);
-        H5Gclose(MODIS1KMGroupID);
-        H5Gclose(MODIS1KMdataFieldsGroupID);
-        if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-        if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-        if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-        if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-        return EXIT_FAILURE;
+        longitudeDatasetID = 0;
+        goto cleanupFail;
+    }
+    status = H5LTset_attribute_string(MODIS1KMgeolocationGroupID,"Longitude","units","degrees_east");
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set longitude units attribute.\n");
+        goto cleanupFail;
     }
 
-    H5Dclose( longitudeDatasetID);
+    H5Dclose( longitudeDatasetID); longitudeDatasetID = 0;
 
-		
+
 	/*_______________Sun angle under the granule group______________*/
     SDSunzenithDatasetID = readThenWrite(MODISgranuleGroupID,"SD Sun zenith",
                                              DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
     if ( SDSunzenithDatasetID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Failed to transfer SD Sun zenith data.\n",__FILE__,__func__,__LINE__);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_250mFileID) SDend(_250mFileID);
-        SDend(MOD03FileID);
-        H5Gclose(MODISrootGroupID);
-        H5Gclose(MODIS1KMGroupID);
-        H5Gclose(MODIS1KMgeolocationGroupID);
-        H5Gclose(MODIS1KMdataFieldsGroupID);
-        if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-        if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-        if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-        if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-        return EXIT_FAILURE;
+        SDSunzenithDatasetID = 0;
+        goto cleanupFail;
+    }
+    
+    // ATTRIBUTES
+    status = H5LTset_attribute_string(MODISgranuleGroupID,"SD Sun zenith","units","radians");
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to add SD Sun zenith units attribute.\n");
+        goto cleanupFail;
+    }
+    // get the attribute "_FillValue" value from SD Sun zenith
+    {
+        int32 dsetIndex = SDnametoindex(MOD03FileID,"SD Sun zenith");
+        if ( dsetIndex < 0 )
+        {
+            FATAL_MSG("Failed to get dataset index.\n");
+            goto cleanupFail;
+        }
+        int32 dsetID = SDselect(MOD03FileID, dsetIndex);
+        if ( dsetID < 0 )
+        {
+            FATAL_MSG("Failed to get dataset ID.\n");
+            goto cleanupFail;
+        }
+        int32 attrIdx = SDfindattr(dsetID,"_FillValue");
+        if ( attrIdx < 0 )
+        {
+            FATAL_MSG("Failed to get attribute index.\n");
+            goto cleanupFail;
+        }
+        float tempfloat;
+        intn statusn = SDreadattr(dsetID,attrIdx,&tempfloat);
+        if ( statusn < 0 )
+        {
+            FATAL_MSG("Failed to read attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_float(MODISgranuleGroupID,"SD Sun zenith","_FillValue",&tempfloat,1);
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add SD Sun zenith _FillValue attribute.\n");
+            goto cleanupFail;
+        }
     }
 
-    H5Dclose(SDSunzenithDatasetID);
+    H5Dclose(SDSunzenithDatasetID); SDSunzenithDatasetID = 0;
 
     SDSunazimuthDatasetID = readThenWrite(MODISgranuleGroupID,"SD Sun azimuth",
                                              DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
     if ( SDSunazimuthDatasetID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Failed to transfer SD Sun azimuth data.\n",__FILE__,__func__,__LINE__);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_250mFileID) SDend(_250mFileID);
-        SDend(MOD03FileID);
-        H5Gclose(MODISrootGroupID);
-        H5Gclose(MODIS1KMGroupID);
-        H5Gclose(MODIS1KMgeolocationGroupID);
-        H5Gclose(MODIS1KMdataFieldsGroupID);
-        if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-        if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-        if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-        if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-        return EXIT_FAILURE;
+        SDSunazimuthDatasetID = 0;
+        goto cleanupFail;
+    }
+    
+    // ATTRIBUTES
+    status = H5LTset_attribute_string(MODISgranuleGroupID,"SD Sun azimuth","units","radians");
+    if ( status < 0 )
+    {                                        
+        FATAL_MSG("Failed to add SD Sun azimuth units attribute.\n");
+        goto cleanupFail;
+    }   
+    // get the attribute "_FillValue" value from SD Sun zenith
+    {   
+        int32 dsetIndex = SDnametoindex(MOD03FileID,"SD Sun azimuth");
+        if ( dsetIndex < 0 )
+        {
+            FATAL_MSG("Failed to get dataset index.\n");
+            goto cleanupFail;
+        }
+        int32 dsetID = SDselect(MOD03FileID, dsetIndex);
+        if ( dsetID < 0 )
+        {
+            FATAL_MSG("Failed to get dataset ID.\n");
+            goto cleanupFail;
+        }
+        int32 attrIdx = SDfindattr(dsetID,"_FillValue");
+        if ( attrIdx < 0 )
+        {
+            FATAL_MSG("Failed to get attribute index.\n");
+            goto cleanupFail;
+        }
+        float tempfloat;
+        intn statusn = SDreadattr(dsetID,attrIdx,&tempfloat);
+        if ( statusn < 0 )
+        {
+            FATAL_MSG("Failed to read attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_float(MODISgranuleGroupID,"SD Sun azimuth","_FillValue",&tempfloat,1);
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add SD Sun zenith _FillValue attribute.\n");
+            goto cleanupFail;
+        }
     }
 
-    H5Dclose(SDSunazimuthDatasetID);
 
-       
+    H5Dclose(SDSunazimuthDatasetID); SDSunazimuthDatasetID = 0;
 					
 						
 				/*-------------------------------------
@@ -885,18 +812,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
        	    if ( _250Aggr500 == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr500_RefSB data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                return EXIT_FAILURE;
+                _250Aggr500 = 0;
+                goto cleanupFail;
             }
             /*_____________EV_250_Aggr500_RefSB_Uncert_Indexes____________*/
 	
@@ -906,27 +823,47 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _250Aggr500Uncert == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr500_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                H5Dclose(_250Aggr500);
-                return EXIT_FAILURE;
+                _250Aggr500Uncert = 0;
+                goto cleanupFail;
             }
            
             // ATTRIBUTES 
-            status = H5LTset_attribute_string(_250Aggr500,"EV_250_Aggr500_RefSB","units","Watts/m^2/micrometer/steradian");
+            status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","units","Watts/m^2/micrometer/steradian");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_Aggr500_RefSB units attribute.\n");
+                
+                goto cleanupFail;
+            }
             fltTemp = -999.0;
-            status = H5LTset_attribute_float(_250Aggr500,"EV_250_Aggr500_RefSB","_FillValue",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_Aggr500_RefSB _FillValue attribute.\n");
+                goto cleanupFail;
+            }
+
             fltTemp = 0.0;
-            status = H5LTset_attribute_float(_250Aggr500,"EV_250_Aggr500_RefSB","valid_min",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","valid_min",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_Aggr500_RefSB valid_min attribute.\n");
+                goto cleanupFail;
+            }
+            status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB_Uncert_Indexes","units","percent");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_Aggr500_RefSB_Uncert_Indexes units attribute.\n");
+                goto cleanupFail;
+            }
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_Aggr500_RefSB_Uncert_Indexes _FillValue attribute.\n");
+                goto cleanupFail;
+            }
+
         }
         else {
             _250Aggr500 = readThenWrite( MODIS500mdataFieldsGroupID, 
@@ -936,18 +873,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _250Aggr500 == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr500_RefSB data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                return EXIT_FAILURE;
+                _250Aggr500 = 0;
+                goto cleanupFail;
             }
             /*_____________EV_250_Aggr500_RefSB_Uncert_Indexes____________*/
         
@@ -957,27 +884,16 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _250Aggr500Uncert == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr500_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                H5Dclose(_250Aggr500);
-                return EXIT_FAILURE;
+                _250Aggr500Uncert = 0;
+                goto cleanupFail;
             }
 
         }
 
 
         // close identifiers associated with these datasets
-        H5Dclose(_250Aggr500);
-        H5Dclose(_250Aggr500Uncert);
+        H5Dclose(_250Aggr500); _250Aggr500 = 0;
+        H5Dclose(_250Aggr500Uncert); _250Aggr500Uncert = 0;
                             
                             
         if(unpack == 1) {
@@ -988,18 +904,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _500RefSB == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_RefSB data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                return EXIT_FAILURE;
+                _500RefSB = 0;
+                goto cleanupFail;
             }
                 /*____________EV_500_RefSB_Uncert_Indexes_____________*/
         
@@ -1008,27 +914,44 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _500RefSBUncert == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                H5Dclose(_500RefSB);
-                return EXIT_FAILURE;
+                _500RefSBUncert = 0;
+                goto cleanupFail;
             }
 
             // ATTRIBUTES
-            status = H5LTset_attribute_string(_500RefSB,"EV_500_RefSB","units","Watts/m^2/micrometer/steradian");
+            status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB","units","Watts/m^2/micrometer/steradian");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_RefSB units attribute.\n");
+                goto cleanupFail;
+            }
             fltTemp = -999.0;
-            status = H5LTset_attribute_float(_500RefSB,"EV_500_RefSB","_FillValue",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_500_RefSB","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_RefSB _FillValue attribute.\n");
+                goto cleanupFail;
+            }
             fltTemp = 0.0;
-            status = H5LTset_attribute_float(_500RefSB,"EV_500_RefSB","valid_min",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_500_RefSB","valid_min",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_RefSB valid_min attribute.\n");
+                goto cleanupFail;
+            }
+            status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB_Uncert_Indexes","units","percent");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes units attribute.\n");
+                goto cleanupFail;
+            }
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_500_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes _FillValue attribute.\n");
+                goto cleanupFail;
+            }
         }
         else {
             _500RefSB = readThenWrite( MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
@@ -1037,46 +960,24 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _500RefSB == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_RefSB data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                return EXIT_FAILURE;
+                _500RefSB = 0;
+                goto cleanupFail;
             }
             _500RefSBUncert = readThenWrite( MODIS500mdataFieldsGroupID, "EV_500_RefSB_Uncert_Indexes",
                           DFNT_UINT8, H5T_STD_U8LE, _500mFileID );
             if ( _500RefSBUncert == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                H5Dclose(_500RefSB);
-                return EXIT_FAILURE;
+                _500RefSBUncert = 0;
+                goto cleanupFail;
             }
         }
         
-        H5Dclose(_500RefSB);
-        H5Dclose(_500RefSBUncert);
+        H5Dclose(_500RefSB); _500RefSB = 0;
+        H5Dclose(_500RefSBUncert); _500RefSBUncert = 0;
 				
     }
 					  
-	
 	
 				/*-------------------------------------
 	 			  ------------- 250m File -------------
@@ -1092,18 +993,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _250RefSB == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_RefSB data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                return EXIT_FAILURE;
+                _250RefSB = 0;
+                goto cleanupFail;
             }
             /*____________EV_250_RefSB_Uncert_Indexes_____________*/
 
@@ -1112,27 +1003,47 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _250RefSBUncert == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                H5Dclose(_250RefSB);
-                return EXIT_FAILURE;
+                _250RefSBUncert = 0;
+                goto cleanupFail;
             }
     
             // ATTRIBUTES
-            status = H5LTset_attribute_string(_250RefSB,"EV_250_RefSB","units","Watts/m^2/micrometer/steradian");
+            status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB","units","Watts/m^2/micrometer/steradian");
+            if ( _250RefSB == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to add EV_250_RefSB units attribute.\n");
+                goto cleanupFail;
+            }
             fltTemp = -999.0;
-            status = H5LTset_attribute_float(_250RefSB,"EV_250_RefSB","_FillValue",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB","_FillValue",&fltTemp, 1 );
+            if ( _250RefSB == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to add EV_250_RefSB _FillValue attribute.\n");
+                goto cleanupFail;
+            }
+
             fltTemp = 0.0;
-            status = H5LTset_attribute_float(_250RefSB,"EV_250_RefSB","valid_min",&fltTemp, 1 );
+            status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB","valid_min",&fltTemp, 1 );
+            if ( _250RefSB == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to add EV_250_RefSB valid_min attribute.\n");
+                goto cleanupFail;
+            }
+            status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB_Uncert_Indexes","units","percent");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_250_RefSB_Uncert_Indexes units attribute.\n");
+                goto cleanupFail;
+            }
+            fltTemp = -999.0;
+            status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes _FillValue attribute.\n");
+                goto cleanupFail;
+            }
+
+
         }
         else {
             _250RefSB = readThenWrite( MODIS250mdataFieldsGroupID, "EV_250_RefSB", DFNT_UINT16,
@@ -1140,18 +1051,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _250RefSB == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_RefSB data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                return EXIT_FAILURE;
+                _250RefSB = 0;
+                goto cleanupFail;
             }
             /*____________EV_250_RefSB_Uncert_Indexes_____________*/
 
@@ -1160,23 +1061,12 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             if ( _250RefSBUncert == EXIT_FAILURE )
             {
                 fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
-                if(_500mFileID) SDend(_500mFileID);
-                if(_250mFileID) SDend(_250mFileID);
-                SDend(MOD03FileID);
-                H5Gclose(MODISrootGroupID);
-                H5Gclose(MODIS1KMGroupID);
-                H5Gclose(MODIS1KMgeolocationGroupID);
-                H5Gclose(MODIS1KMdataFieldsGroupID);
-                if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);      
-                if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-                if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-                if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-                H5Dclose(_250RefSB);
-                return EXIT_FAILURE;
+                _250RefSBUncert = 0;
+                goto cleanupFail;
             }
         }
-        H5Dclose(_250RefSB);
-        H5Dclose(_250RefSBUncert);
+        H5Dclose(_250RefSB); _250RefSB = 0;
+        H5Dclose(_250RefSBUncert); _250RefSBUncert = 0;
     }
 	
 	
@@ -1206,40 +1096,83 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 #endif
 
        
-        
-	/*********************
-	 * INSERT ATTRIBUTES *
-	 *********************/
-	 
-	/*-------------------- EV_1KM_RefSB --------------------------*/
-	//MODIS_1KM_RefSBAttr( _1KMDatasetID );
-	
+    if ( 0 )
+    {
+	    cleanupFail:
+        if(latitudeAttrID) H5Aclose(latitudeAttrID);
+        if(latitudeDatasetID ) H5Dclose( latitudeDatasetID );
+        if(longitudeAttrID) H5Aclose(longitudeAttrID);
+        if(longitudeDatasetID) H5Dclose( longitudeDatasetID);
+        if(MOD03FileID) SDend(MOD03FileID);
+        if(MODIS1KMdataFieldsGroupID) H5Gclose(MODIS1KMdataFieldsGroupID);
+        if(MODIS1KMgeolocationGroupID) H5Gclose(MODIS1KMgeolocationGroupID);
+        if(MODIS1KMGroupID) H5Gclose(MODIS1KMGroupID);
+        if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
+        if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
+        if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
+        if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
+        if(MODISgranuleGroupID) H5Gclose(MODISgranuleGroupID);
+        if(MODISrootGroupID) H5Gclose(MODISrootGroupID);
+        if(SDSunazimuthDatasetID) H5Dclose(SDSunazimuthDatasetID);
+        if(SDSunzenithDatasetID) H5Dclose(SDSunzenithDatasetID);
+        if(_1KMAttrID) H5Aclose(_1KMAttrID);
+        if(_1KMDatasetID) H5Dclose(_1KMDatasetID);
+        if(_1KMEmissive) H5Dclose(_1KMEmissive);
+        if(_1KMEmissiveUncert) H5Dclose(_1KMEmissiveUncert);
+        if(_1KMFileID) SDend(_1KMFileID);
+        if(_1KMUncertID) H5Dclose(_1KMUncertID);
+        if(_250Aggr1km) H5Dclose(_250Aggr1km);
+        if(_250Aggr1kmUncert) H5Dclose(_250Aggr1kmUncert);
+        if(_250Aggr500) H5Dclose(_250Aggr500);
+        if(_250Aggr500Uncert) H5Dclose(_250Aggr500Uncert);
+        if(_250mFileID) SDend(_250mFileID);
+        if(_250RefSB) H5Dclose(_250RefSB);
+        if(_250RefSBUncert) H5Dclose(_250RefSBUncert);
+        if(_500Aggr1km) H5Dclose(_500Aggr1km);
+        if(_500Aggr1kmUncert) H5Dclose(_500Aggr1kmUncert);
+        if(_500mFileID) SDend(_500mFileID);
+        if(_500RefSB) H5Dclose(_500RefSB);
+        if(_500RefSBUncert) H5Dclose(_500RefSBUncert);
+        return EXIT_FAILURE;
+    }
 	
 	
 	/* release associated identifiers */
-    if(_500mFileID) SDend(_500mFileID);
-    if(_250mFileID) SDend(_250mFileID);
-    SDend(MOD03FileID);
-    H5Gclose(MODISrootGroupID);
-    H5Gclose(MODIS1KMGroupID);
-    H5Gclose(MODIS1KMdataFieldsGroupID);
-    if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-    if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
+	if(latitudeAttrID) H5Aclose(latitudeAttrID);
+    if(latitudeDatasetID ) H5Dclose( latitudeDatasetID );
+    if(longitudeAttrID) H5Aclose(longitudeAttrID);
+    if(longitudeDatasetID) H5Dclose( longitudeDatasetID);
+    if(MOD03FileID) SDend(MOD03FileID);
+    if(MODIS1KMdataFieldsGroupID) H5Gclose(MODIS1KMdataFieldsGroupID);
+    if(MODIS1KMgeolocationGroupID) H5Gclose(MODIS1KMgeolocationGroupID);
+    if(MODIS1KMGroupID) H5Gclose(MODIS1KMGroupID);
+    if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
     if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-    if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);	
-	H5Gclose(MODIS1KMgeolocationGroupID);
+    if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
+    if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
+    if(MODISgranuleGroupID) H5Gclose(MODISgranuleGroupID);
+    if(MODISrootGroupID) H5Gclose(MODISrootGroupID);
+    if(SDSunazimuthDatasetID) H5Dclose(SDSunazimuthDatasetID);
+    if(SDSunzenithDatasetID) H5Dclose(SDSunzenithDatasetID);
+    if(_1KMAttrID) H5Aclose(_1KMAttrID);
+    if(_1KMDatasetID) H5Dclose(_1KMDatasetID);
+    if(_1KMEmissive) H5Dclose(_1KMEmissive);
+    if(_1KMEmissiveUncert) H5Dclose(_1KMEmissiveUncert);
+    if(_1KMFileID) SDend(_1KMFileID);
+    if(_1KMUncertID) H5Dclose(_1KMUncertID);
+    if(_250Aggr1km) H5Dclose(_250Aggr1km);
+    if(_250Aggr1kmUncert) H5Dclose(_250Aggr1kmUncert);
+    if(_250Aggr500) H5Dclose(_250Aggr500);
+    if(_250Aggr500Uncert) H5Dclose(_250Aggr500Uncert);
+    if(_250mFileID) SDend(_250mFileID);
+    if(_250RefSB) H5Dclose(_250RefSB);
+    if(_250RefSBUncert) H5Dclose(_250RefSBUncert);
+    if(_500Aggr1km) H5Dclose(_500Aggr1km);
+    if(_500Aggr1kmUncert) H5Dclose(_500Aggr1kmUncert);
+    if(_500mFileID) SDend(_500mFileID);
+    if(_500RefSB) H5Dclose(_500RefSB);
+    if(_500RefSBUncert) H5Dclose(_500RefSBUncert);
 
-
-     
-        // Attributes are not handled yet. 
-#if 0
-	H5Aclose(_1KMAttrID);
-	H5Aclose(longitudeAttrID);
-	H5Aclose(latitudeAttrID);
-#endif
-	
-	
-	
-	return 0;
+	return EXIT_SUCCESS;
 	
 }
