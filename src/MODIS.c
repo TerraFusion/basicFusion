@@ -33,7 +33,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 	hid_t MODIS1KMgeolocationGroupID = 0;
     herr_t status = EXIT_SUCCESS;
     float fltTemp = 0.0;
-
+    intn statusn = 0;
 	/**********************
 	 * 1KM data variables *
 	 **********************/
@@ -723,7 +723,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             goto cleanupFail;
         }
         float tempfloat;
-        intn statusn = SDreadattr(dsetID,attrIdx,&tempfloat);
+        statusn = SDreadattr(dsetID,attrIdx,&tempfloat);
         if ( statusn < 0 )
         {
             FATAL_MSG("Failed to read attribute.\n");
@@ -1009,14 +1009,14 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     
             // ATTRIBUTES
             status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB","units","Watts/m^2/micrometer/steradian");
-            if ( _250RefSB == EXIT_FAILURE )
+            if ( status < 0 )
             {
                 FATAL_MSG("Failed to add EV_250_RefSB units attribute.\n");
                 goto cleanupFail;
             }
             fltTemp = -999.0;
             status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB","_FillValue",&fltTemp, 1 );
-            if ( _250RefSB == EXIT_FAILURE )
+            if ( status < 0  )
             {
                 FATAL_MSG("Failed to add EV_250_RefSB _FillValue attribute.\n");
                 goto cleanupFail;
@@ -1024,7 +1024,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
             fltTemp = 0.0;
             status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB","valid_min",&fltTemp, 1 );
-            if ( _250RefSB == EXIT_FAILURE )
+            if ( status < 0  )
             {
                 FATAL_MSG("Failed to add EV_250_RefSB valid_min attribute.\n");
                 goto cleanupFail;
@@ -1100,78 +1100,83 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     {
 	    cleanupFail:
         if(latitudeAttrID) H5Aclose(latitudeAttrID);
-        if(latitudeDatasetID ) H5Dclose( latitudeDatasetID );
-        if(longitudeAttrID) H5Aclose(longitudeAttrID);
-        if(longitudeDatasetID) H5Dclose( longitudeDatasetID);
-        if(MOD03FileID) SDend(MOD03FileID);
-        if(MODIS1KMdataFieldsGroupID) H5Gclose(MODIS1KMdataFieldsGroupID);
-        if(MODIS1KMgeolocationGroupID) H5Gclose(MODIS1KMgeolocationGroupID);
-        if(MODIS1KMGroupID) H5Gclose(MODIS1KMGroupID);
-        if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-        if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-        if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-        if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-        if(MODISgranuleGroupID) H5Gclose(MODISgranuleGroupID);
-        if(MODISrootGroupID) H5Gclose(MODISrootGroupID);
-        if(SDSunazimuthDatasetID) H5Dclose(SDSunazimuthDatasetID);
-        if(SDSunzenithDatasetID) H5Dclose(SDSunzenithDatasetID);
-        if(_1KMAttrID) H5Aclose(_1KMAttrID);
-        if(_1KMDatasetID) H5Dclose(_1KMDatasetID);
-        if(_1KMEmissive) H5Dclose(_1KMEmissive);
-        if(_1KMEmissiveUncert) H5Dclose(_1KMEmissiveUncert);
-        if(_1KMFileID) SDend(_1KMFileID);
-        if(_1KMUncertID) H5Dclose(_1KMUncertID);
-        if(_250Aggr1km) H5Dclose(_250Aggr1km);
-        if(_250Aggr1kmUncert) H5Dclose(_250Aggr1kmUncert);
-        if(_250Aggr500) H5Dclose(_250Aggr500);
-        if(_250Aggr500Uncert) H5Dclose(_250Aggr500Uncert);
-        if(_250mFileID) SDend(_250mFileID);
-        if(_250RefSB) H5Dclose(_250RefSB);
-        if(_250RefSBUncert) H5Dclose(_250RefSBUncert);
-        if(_500Aggr1km) H5Dclose(_500Aggr1km);
-        if(_500Aggr1kmUncert) H5Dclose(_500Aggr1kmUncert);
-        if(_500mFileID) SDend(_500mFileID);
-        if(_500RefSB) H5Dclose(_500RefSB);
-        if(_500RefSBUncert) H5Dclose(_500RefSBUncert);
+        if(latitudeDatasetID  !=0 ) H5Dclose( latitudeDatasetID );
+        if(longitudeAttrID !=0 ) H5Aclose(longitudeAttrID);
+        if(longitudeDatasetID !=0 ) H5Dclose( longitudeDatasetID);
+        if(MOD03FileID !=0 ) SDend(MOD03FileID);
+        if(MODIS1KMdataFieldsGroupID !=0 ) H5Gclose(MODIS1KMdataFieldsGroupID);
+        if(MODIS1KMgeolocationGroupID !=0 ) H5Gclose(MODIS1KMgeolocationGroupID);
+        if(MODIS1KMGroupID !=0 ) H5Gclose(MODIS1KMGroupID);
+        if(MODIS250mdataFieldsGroupID !=0 ) H5Gclose(MODIS250mdataFieldsGroupID);
+        if(MODIS250mGroupID !=0 ) H5Gclose(MODIS250mGroupID);
+        if(MODIS500mdataFieldsGroupID !=0 ) H5Gclose(MODIS500mdataFieldsGroupID);
+        if(MODIS500mGroupID !=0 ) H5Gclose(MODIS500mGroupID);
+        if(MODISgranuleGroupID !=0 ) H5Gclose(MODISgranuleGroupID);
+        if(MODISrootGroupID !=0 ) H5Gclose(MODISrootGroupID);
+        if(SDSunazimuthDatasetID !=0 ) H5Dclose(SDSunazimuthDatasetID);
+        if(SDSunzenithDatasetID !=0 ) H5Dclose(SDSunzenithDatasetID);
+        if(_1KMAttrID !=0 ) H5Aclose(_1KMAttrID);
+        if(_1KMDatasetID !=0 ) H5Dclose(_1KMDatasetID);
+        if(_1KMEmissive !=0 ) H5Dclose(_1KMEmissive);
+        if(_1KMEmissiveUncert !=0 ) H5Dclose(_1KMEmissiveUncert);
+        if(_1KMFileID !=0 ) SDend(_1KMFileID);
+        if(_1KMUncertID !=0 ) H5Dclose(_1KMUncertID);
+        if(_250Aggr1km !=0 ) H5Dclose(_250Aggr1km);
+        if(_250Aggr1kmUncert !=0 ) H5Dclose(_250Aggr1kmUncert);
+        if(_250Aggr500 !=0 ) H5Dclose(_250Aggr500);
+        if(_250Aggr500Uncert !=0 ) H5Dclose(_250Aggr500Uncert);
+        if(_250mFileID !=0 ) SDend(_250mFileID);
+        if(_250RefSB !=0 ) H5Dclose(_250RefSB);
+        if(_250RefSBUncert !=0 ) H5Dclose(_250RefSBUncert);
+        if(_500Aggr1km !=0 ) H5Dclose(_500Aggr1km);
+        if(_500Aggr1kmUncert !=0 ) H5Dclose(_500Aggr1kmUncert);
+        if(_500mFileID !=0 ) SDend(_500mFileID);
+        if(_500RefSB !=0 ) H5Dclose(_500RefSB);
+        if(_500RefSBUncert !=0 ) H5Dclose(_500RefSBUncert);
         return EXIT_FAILURE;
     }
 	
-	
+    /* TODO
+        H5Dclose is failing on multiple datasets. Need to figure out why.
+    */
+	status = 0;
+    statusn = 0;
 	/* release associated identifiers */
-	if(latitudeAttrID) H5Aclose(latitudeAttrID);
-    if(latitudeDatasetID ) H5Dclose( latitudeDatasetID );
-    if(longitudeAttrID) H5Aclose(longitudeAttrID);
-    if(longitudeDatasetID) H5Dclose( longitudeDatasetID);
-    if(MOD03FileID) SDend(MOD03FileID);
-    if(MODIS1KMdataFieldsGroupID) H5Gclose(MODIS1KMdataFieldsGroupID);
-    if(MODIS1KMgeolocationGroupID) H5Gclose(MODIS1KMgeolocationGroupID);
-    if(MODIS1KMGroupID) H5Gclose(MODIS1KMGroupID);
-    if(MODIS250mdataFieldsGroupID) H5Gclose(MODIS250mdataFieldsGroupID);
-    if(MODIS250mGroupID) H5Gclose(MODIS250mGroupID);
-    if(MODIS500mdataFieldsGroupID) H5Gclose(MODIS500mdataFieldsGroupID);
-    if(MODIS500mGroupID) H5Gclose(MODIS500mGroupID);
-    if(MODISgranuleGroupID) H5Gclose(MODISgranuleGroupID);
-    if(MODISrootGroupID) H5Gclose(MODISrootGroupID);
-    if(SDSunazimuthDatasetID) H5Dclose(SDSunazimuthDatasetID);
-    if(SDSunzenithDatasetID) H5Dclose(SDSunzenithDatasetID);
-    if(_1KMAttrID) H5Aclose(_1KMAttrID);
-    if(_1KMDatasetID) H5Dclose(_1KMDatasetID);
-    if(_1KMEmissive) H5Dclose(_1KMEmissive);
-    if(_1KMEmissiveUncert) H5Dclose(_1KMEmissiveUncert);
-    if(_1KMFileID) SDend(_1KMFileID);
-    if(_1KMUncertID) H5Dclose(_1KMUncertID);
-    if(_250Aggr1km) H5Dclose(_250Aggr1km);
-    if(_250Aggr1kmUncert) H5Dclose(_250Aggr1kmUncert);
-    if(_250Aggr500) H5Dclose(_250Aggr500);
-    if(_250Aggr500Uncert) H5Dclose(_250Aggr500Uncert);
-    if(_250mFileID) SDend(_250mFileID);
-    if(_250RefSB) H5Dclose(_250RefSB);
-    if(_250RefSBUncert) H5Dclose(_250RefSBUncert);
-    if(_500Aggr1km) H5Dclose(_500Aggr1km);
-    if(_500Aggr1kmUncert) H5Dclose(_500Aggr1kmUncert);
-    if(_500mFileID) SDend(_500mFileID);
-    if(_500RefSB) H5Dclose(_500RefSB);
-    if(_500RefSBUncert) H5Dclose(_500RefSBUncert);
+    printf("%d %d %d %d", latitudeDatasetID,longitudeDatasetID,_1KMDatasetID,_1KMEmissive);
+	if(latitudeAttrID !=0 ) status = H5Aclose(latitudeAttrID); 
+    if(latitudeDatasetID  !=0 ) status = H5Dclose( latitudeDatasetID ); 
+    if(longitudeAttrID !=0 ) status = H5Aclose(longitudeAttrID);
+    if(longitudeDatasetID !=0 ) status = H5Dclose( longitudeDatasetID);
+    if(MOD03FileID !=0 ) statusn = SDend(MOD03FileID);
+    if(MODIS1KMdataFieldsGroupID !=0 ) status = H5Gclose(MODIS1KMdataFieldsGroupID);
+    if(MODIS1KMgeolocationGroupID !=0 ) status = H5Gclose(MODIS1KMgeolocationGroupID);
+    if(MODIS1KMGroupID !=0 ) status = H5Gclose(MODIS1KMGroupID);
+    if(MODIS250mdataFieldsGroupID !=0 ) status = H5Gclose(MODIS250mdataFieldsGroupID);
+    if(MODIS250mGroupID !=0 ) status = H5Gclose(MODIS250mGroupID);
+    if(MODIS500mdataFieldsGroupID !=0 ) status = H5Gclose(MODIS500mdataFieldsGroupID);
+    if(MODIS500mGroupID !=0 ) status = H5Gclose(MODIS500mGroupID);
+    if(MODISgranuleGroupID !=0 ) status = H5Gclose(MODISgranuleGroupID);
+    if(MODISrootGroupID !=0 ) status = H5Gclose(MODISrootGroupID);
+    if(SDSunazimuthDatasetID !=0 ) status = H5Dclose(SDSunazimuthDatasetID);
+    if(SDSunzenithDatasetID !=0 ) status = H5Dclose(SDSunzenithDatasetID);
+    if(_1KMAttrID !=0 ) status = H5Aclose(_1KMAttrID);
+    if(_1KMDatasetID !=0 ) status = H5Dclose(_1KMDatasetID);
+    if(_1KMEmissive !=0 ) status = H5Dclose(_1KMEmissive);
+    if(_1KMEmissiveUncert !=0 ) status = H5Dclose(_1KMEmissiveUncert);
+    if(_1KMFileID !=0 ) statusn = SDend(_1KMFileID);
+    if(_1KMUncertID !=0 ) status = H5Dclose(_1KMUncertID);
+    if(_250Aggr1km !=0 ) status = H5Dclose(_250Aggr1km);
+    if(_250Aggr1kmUncert !=0 ) status = H5Dclose(_250Aggr1kmUncert);
+    if(_250Aggr500 !=0 ) status = H5Dclose(_250Aggr500);
+    if(_250Aggr500Uncert !=0 ) status = H5Dclose(_250Aggr500Uncert);
+    if(_250mFileID !=0 ) statusn = SDend(_250mFileID);
+    if(_250RefSB !=0 ) status = H5Dclose(_250RefSB);
+    if(_250RefSBUncert !=0 ) status = H5Dclose(_250RefSBUncert);
+    if(_500Aggr1km !=0 ) status = H5Dclose(_500Aggr1km);
+    if(_500Aggr1kmUncert !=0 ) status = H5Dclose(_500Aggr1kmUncert);
+    if(_500mFileID !=0 ) statusn = SDend(_500mFileID);
+    if(_500RefSB !=0 ) status = H5Dclose(_500RefSB);
+    if(_500RefSBUncert !=0 ) status = H5Dclose(_500RefSBUncert);
 
 	return EXIT_SUCCESS;
 	
