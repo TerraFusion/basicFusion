@@ -1,10 +1,8 @@
 #!/bin/bash
 # This script will compile and run the basicFusion code on Blue Waters
 inputFiles=/projects/sciteam/jq0/TerraFusion/basicFusion/testFiles
-# Path to the basicFusion/bin directory
-BINPATH=/projects/sciteam/jq0/TerraFusion/basicFusion/bin
-# Path to the batchscript.pbs script
-BSCRIPT=/projects/sciteam/jq0/TerraFusion/basicFusion/bin/batchscript.pbs
+# Path to the basicFusion directory
+PROJDIR=/u/sciteam/clipp/basicFusion/
 while [[ "$input" != "y" && "$input" != "Y" && "$input" != "n" && "$input" != "N" ]]; do
     printf "Should data be unpacked? Unpacked data will be significantly larger! [y/n]: "
     read input
@@ -16,7 +14,7 @@ else
     unset TERRA_DATA_UNPACK
 fi
 
-cd "$BINPATH"
+cd "$PROJDIR"/bin
 
 printf "\e[92m\e[4mLoading modules\e[0m\n"
 printf "    \e[2mDisregard errors about PrgEnv-cray not being loaded.\e[0m\n"
@@ -38,5 +36,5 @@ if [ "$status" -ne 0 ]; then
 fi
 
 printf "\e[92m\e[4mSubmitting job to scheduler\e[0m\n"
-qsub -v TERRA_DATA_UNPACK "$BSCRIPT"
+qsub -v TERRA_DATA_UNPACK "$PROJDIR"/bin/batchscript.pbs
 
