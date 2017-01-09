@@ -767,10 +767,6 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
         H5Aclose(attrID);
         return EXIT_FAILURE;
 	}
-<<<<<<< HEAD
-
-=======
->>>>>>> 8b635bc2754d3fe5fe64d68160b61cbae828b0b2
 	H5Tclose(stringType);
 	
 	return attrID;

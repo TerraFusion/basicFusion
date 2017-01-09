@@ -16,12 +16,13 @@
 ##PBS -A xyz
 ### Set umask so users in my group can read job stdout and stderr files
 ##PBS -W umask=0027
-EXE=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage
-OUTFILEDIR=/projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.h5
-FILELISTDIR=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt
-STD_STREAM_OUTFILE=/projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.txt
+EXE=/u/sciteam/clipp/basicFusion/exe/TERRArepackage
+OUTFILEDIR=/u/sciteam/clipp/basicFusion/jobOutput/out.h5
+FILELISTDIR=/u/sciteam/clipp/basicFusion/exe/inputFiles.txt
+STD_STREAM_OUTFILE=/u/sciteam/clipp/basicFusion/jobOutput/out.txt
+HLIBPATH=/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/lib
 if [[ $LD_LIBRARY_PATH != *"hdflib/lib"* ]]; then
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/lib
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH":"$HLIBPATH"
 fi
 ### COMMENT OUT THIS SETTING BEFORE FULL OPERATION OF PROGRAM!!!
 ### A COMMENT IS TWO POUND SYMBOLS

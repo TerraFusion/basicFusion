@@ -17,7 +17,7 @@ if [ "$#" -ne 1 ]; then
 fi
 
 INPATH=$1
-OUTFILE=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt
+OUTFILE=/u/sciteam/clipp/basicFusion/exe/inputFiles.txt
 CURDIR=$(pwd)
 FAIL=0
 MOPITTNUM=0
