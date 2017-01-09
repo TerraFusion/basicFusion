@@ -63,9 +63,9 @@ Steps to compile and run on Blue Waters:
 Download:
 1. Change into the desired directory and type "git clone https://github.com/TerraFusion/basicFusion"
 
-2. Make your own development branch: "git branch -b develop_[your desired suffix]"
+2. cd into the basicFusion directory
 
-3. cd into the basicFusion directory
+3. Make your own development branch: "git branch -b develop_[your desired suffix]"
 
 Setup:
 4. cd into bin
