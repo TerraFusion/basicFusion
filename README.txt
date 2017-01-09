@@ -1,4 +1,4 @@
-sicFusion
+TerraFusion
 Terra Data Fusion Project - University of Illinois  
 Author: Landon Clipp  
 
