@@ -252,7 +252,6 @@ int main( int argc, char* argv[] )
         }
 
 
-        // TODO Begin removing asserts and adding graceful exits from this point
  
             /* should be 1 km */
 	    if ( strstr( string, MODIScheck1 ) == NULL )
