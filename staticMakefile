@@ -2,8 +2,8 @@
 # This makefile is currently set up to be run on the 
 # Blue Waters computer.
 CC=cc
-CFLAGS=-c -g -O0 -Wall -std=c99
-LINKFLAGS= -g -std=c99
+CFLAGS=-c -g -O0 -Wall -std=c11
+LINKFLAGS= -g -std=c11
 INCLUDE1=.
 INCLUDE2=
 LIB1=.

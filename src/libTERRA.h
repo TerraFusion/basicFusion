@@ -6,8 +6,16 @@
 #include <hdf5_hl.h>
 
 #define DIM_MAX 10
-#define FATAL_MSG( ... ) fprintf(stderr,"[%s:%s:%d] Fatal error: ",__FILE__,__func__,__LINE__); fprintf(stderr, __VA_ARGS__);
-#define WARN_MSG( ... ) fprintf(stderr,"[%s:%s:%d] Warning: ",__FILE__,__func__,__LINE__); fprintf(stderr, __VA_ARGS__);
+#define FATAL_MSG( ... ) \
+do { \
+    fprintf(stderr,"[%s:%s:%d] Fatal error: ",__FILE__,__func__,__LINE__); \
+    fprintf(stderr, __VA_ARGS__); \
+    } while(0)
+#define WARN_MSG( ... ) \
+do { \
+    fprintf(stderr,"[%s:%s:%d] Warning: ",__FILE__,__func__,__LINE__); \
+    fprintf(stderr, __VA_ARGS__); \
+    } while(0)
 
 /*********************
  *FUNCTION PROTOTYPES*

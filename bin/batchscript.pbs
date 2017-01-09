@@ -20,6 +20,9 @@ EXE=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/TERRArepackage
 OUTFILEDIR=/projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.h5
 FILELISTDIR=/projects/sciteam/jq0/TerraFusion/basicFusion/exe/inputFiles.txt
 STD_STREAM_OUTFILE=/projects/sciteam/jq0/TerraFusion/basicFusion/jobOutput/out.txt
+if [[ $LD_LIBRARY_PATH != *"hdflib/lib"* ]]; then
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/lib
+fi
 ### COMMENT OUT THIS SETTING BEFORE FULL OPERATION OF PROGRAM!!!
 ### A COMMENT IS TWO POUND SYMBOLS
 ### Set the job to be submitted to the debug queue

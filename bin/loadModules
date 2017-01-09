@@ -1,5 +1,5 @@
 #!/bin/bash
-HDFBINPATH=/projects/sciteam/jqo/TerraFusion/basicFusion/hdflib/bin
+HDFBINPATH=/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/bin
 
 module --verbose swap PrgEnv-cray PrgEnv-intel
 module --verbose load szip/2.1
