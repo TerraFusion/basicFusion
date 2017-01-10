@@ -1,0 +1,50 @@
+# This file provides the paths to the input files for the program.
+# File paths must be provided in a specific sequence.
+# Program reads all non-commented lines (excluding newlines).
+# Make sure there are no unnecessary space characters, this will 
+# crash the program.
+
+# MOPITT file:
+/projects/TDataFus/oneorbit/MOPITT/MOP01-20070703-L1V3.50.0.he5
+
+# CERES file:
+/projects/TDataFus/oneorbit/CERES/CER_BDS_Terra-FM1_Edition3_032040.20070703
+
+# MODIS file:
+# MODIS input requires 4 different files.
+# 1. The 1km product
+# 2. The 500m product
+# 3. The 250m product
+# 4. The MOD03 product which contains the geolocation information
+
+/projects/TDataFus/oneorbit/MODIS/MOD021KM.A2007184.1610.006.2014231113627.hdf
+/projects/TDataFus/oneorbit/MODIS/MOD03.A2007184.1610.006.2012239144154.hdf
+/projects/TDataFus/oneorbit/MODIS/MOD021KM.A2007184.1625.006.2014231113702.hdf
+/projects/TDataFus/oneorbit/MODIS/MOD02HKM.A2007184.1625.006.2014230150204.hdf
+/projects/TDataFus/oneorbit/MODIS/MOD02QKM.A2007184.1625.006.2014230073105.hdf
+/projects/TDataFus/oneorbit/MODIS/MOD03.A2007184.1625.006.2012239144215.hdf
+
+
+# **************
+# * ASTER File *
+# **************
+/projects/TDataFus/oneorbit/ASTER/AST_L1T_00307032007162020_20150520034221_121033.hdf
+
+# **************
+# * MISR Files *
+# **************
+#
+# MISR must be provided in a specific sequence.
+# List all data files FIRST (AA, AF, AN, BA etc) and then list the geolocation
+# file, denoted by "MISR_AM1_AGP".
+/projects/TDataFus/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf
+/projects/TDataFus/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AF_F03_0024.hdf
+/projects/TDataFus/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AN_F03_0024.hdf
+/projects/TDataFus/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_BA_F03_0024.hdf
+/projects/TDataFus/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_BF_F03_0024.hdf
+/projects/TDataFus/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_CA_F03_0024.hdf
+/projects/TDataFus/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_CF_F03_0024.hdf
+/projects/TDataFus/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DA_F03_0024.hdf
+/projects/TDataFus/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DF_F03_0024.hdf
+/projects/TDataFus/oneorbit/MISR/AGP/MISR_AM1_AGP_P022_F01_24.hdf
+/projects/TDataFus/oneorbit/MISR/MISR_AM1_GP_GMP_P022_O040110_F03_0013.hdf
