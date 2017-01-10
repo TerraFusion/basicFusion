@@ -129,14 +129,29 @@ done <"$CURDIR"/__tempFiles/MOPITT.txt
 printf "# CERES\n" >> "$OUTFILE"
 cd "../CERES"
 # grep -v removes any files with "met" in them, they're unwanted
-ls | grep "CER_BDS_Terra" | grep -v "met" >> "$CURDIR"/__tempFiles/CERES.txt
+ls | grep "CER_BDS_Terra.*FM1.*" | grep -v "met" >> "$CURDIR"/__tempFiles/CERESFM1.txt
+ls | grep "CER_BDS_Terra.*FM2.*" | grep -v "met" >> "$CURDIR"/__tempFiles/CERESFM2.txt
 # iterate over this file, prepending the path of the file into our
 # OUTFILE
 
 while read -r line; do
-        echo "$(pwd)/$line" >> "$OUTFILE"
+    echo "$(pwd)/$line" >> "$OUTFILE"
+    # Find the corresponding FM2 file to add
+    FM1date=${line##*.}
+    FM2line=$(cat "$CURDIR"/__tempFiles/CERESFM2.txt | grep "$FM1date")
+    if [[ ${#FM2line} == 0 ]]; then
+        printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+        printf "Unable to find FM2 pair for CERES FM1 file.\n" >&2
+        printf "\tCould not find a corresponding FM2 file for $line\nExiting script.\n" >&2
+        rm -r "$CURDIR"/__tempFiles
+        exit 1
+    else
+        let "CERESNUM++"
+    fi
+
+    echo "$(pwd)/$FM2line" >> "$OUTFILE"
 	let "CERESNUM++"
-done <"$CURDIR"/__tempFiles/CERES.txt
+done <"$CURDIR"/__tempFiles/CERESFM1.txt
 
 
 #########
@@ -326,7 +341,17 @@ while read -r line; do
         printf "\t$line was missing in the generated file list.\n" >&2
         FAIL=1
     fi
-done <"$CURDIR/__tempFiles/CERES.txt"
+done <"$CURDIR/__tempFiles/CERESFM1.txt"
+while read -r line; do
+    searchFile="$(cat $DEBUGFILE | grep $line)"
+    searchFile=$(echo ${searchFile##*/})
+    if [[ "$line" != "$searchFile" ]]; then
+        printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+        printf "\t$line was missing in the generated file list.\n" >&2
+        FAIL=1
+    fi
+done <"$CURDIR/__tempFiles/CERESFM2.txt"
+
 while read -r line; do
     searchFile="$(cat $DEBUGFILE | grep $line)"
     searchFile=$(echo ${searchFile##*/})
@@ -496,7 +521,7 @@ while read -r line; do
         # If it has not, set it to the value of line and continue to the next line
         if [ -z "$prevDate" ]; then
             # get the date information from line
-            #set prevDate to the date contained in filename
+            # set prevDate to the date contained in filename
 		    prevfilename=$(echo ${line##*/})
             prevDate=$(echo ${prevfilename##*.})
             # continue while loop
@@ -504,13 +529,41 @@ while read -r line; do
             continue
         fi
 
+        
 	    # we now have the previous date and the current line. Now we need to find the
         # current date from the variable "curfilename" and compare that with the previous date
         curDate=${curfilename##*.}
-        if [[ "$curDate" < "$prevDate" || "$curDate" == "$prevDate" ]]; then
-            printf "\e[4m\e[93mWarning\e[0m: " >&2
-            printf "CERES files found to be out of order.\n" >&2
-            printf "\t\"$prevfilename\" (Date: $prevDate)\n\tcame before\n\t\"$curfilename\" (Date: $curDate)\n\tDates should be strictly increasing downward.\n" >&2
+
+        prevCam=${prevfilename:14:3}
+        curCam=${curfilename:14:3}
+
+        if [[ "$curCam" == "FM1" ]]; then
+            if [[ ${#prevGroupDate} != 0 ]]; then
+                if [[ $curDate < $prevGroupDate || $curDate == $prevGroupDate ]]; then
+                    printf "\e[4m\e[93mWarning\e[0m: " >&2
+                    printf "CERES files found to be out of order.\n" >&2
+                    printf "\tDate of previous FM1/FM2 pair was $prevGroupDate.\n" >&2
+                    printf "\tDate of current FM1/FM2 pair is $curDate.\n" >&2
+                    printf "\tThe dates between pairs should be strictly increasing down the file list.\n" >&2
+                fi
+            fi
+            prevGroupDate="$curDate"
+        fi
+        if [[ "$prevCam" == "$curCam" ]]; then
+            printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+            printf "CERES FM1 followed FM1 or FM2 followed FM2.\n" >&2
+            printf "\tAn FM1 file should always be paired with an FM2 file!\n" >&2
+            printf "\tFound at line $linenum\n" >&2
+            printf "Exiting script\n"
+            exit 1
+        elif [[ "$prevCam" != "$curCam" ]]; then
+            if [[ "$curDate" != "$prevDate" ]]; then
+                printf "\e[4m\e[93mWarning\e[0m: " >&2
+                printf "FM1/FM2 pair don't have the same date.\n" >&2
+                printf "\tIf an FM1 file is followed by FM2, they must have the same date.\n"
+                printf "\tprevDate=$prevDate curDate=$curDate"
+                printf "\tLine $linenum\n"
+            fi
         fi
 
         prevDate="$curDate"
@@ -519,7 +572,7 @@ while read -r line; do
                       #########
                       # MODIS #
                       #########
-    # MODIS will have tgree checks. The first is to check for chronological consistency.
+    # MODIS will have three checks. The first is to check for chronological consistency.
     # The second is to check that the files follow in either the order of:
     # MOD021KM
     # MOD03

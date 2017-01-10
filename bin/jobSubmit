@@ -1,6 +1,6 @@
 #!/bin/bash
 # This script will compile and run the basicFusion code on Blue Waters
-inputFiles=/projects/sciteam/jq0/TerraFusion/basicFusion/testFiles
+inputFiles=/projects/sciteam/jq0/TerraFusion/oneorbit
 # Path to the basicFusion directory
 PROJDIR=/u/sciteam/clipp/basicFusion/
 while [[ "$input" != "y" && "$input" != "Y" && "$input" != "n" && "$input" != "N" ]]; do

@@ -204,19 +204,26 @@ int main( int argc, char* argv[] )
     free(CERESargs[1]);
 
 // UNCOMMENT When the FM2 is avaliable
-#if 0
+#if 1
 	getNextLine( string, inputFile);
 	assert( strstr( string, CEREScheck2 ) != NULL );
 	
 	CERESargs[0] = argv[0];
 	/* allocate memory for the argument */
 	CERESargs[1] = malloc( strlen(string )+1);
-        memset(CERESargs[1],0,strlen(string)+1);
+    memset(CERESargs[1],0,strlen(string)+1);
 	strncpy( CERESargs[1], string, strlen(string) );
 	CERESargs[2] = argv[1];
 
-	assert ( CERES( CERESargs) != EXIT_FAILURE );
+	if ( CERES( CERESargs,2) == EXIT_FAILURE )
+    {
+        FATAL_MSG("CERES failed data transfer.\nExiting program.\n");
+        H5Fclose(outputFile);
         free(CERESargs[1]);
+        fclose(inputFile);
+        return EXIT_FAILURE;
+    }
+    free(CERESargs[1]);
 #endif
 
 

@@ -16,14 +16,16 @@
 ##PBS -A xyz
 ### Set umask so users in my group can read job stdout and stderr files
 ##PBS -W umask=0027
-EXE=/u/sciteam/clipp/basicFusion/exe/TERRArepackage
-OUTFILEDIR=/u/sciteam/clipp/basicFusion/jobOutput/out.h5
-FILELISTDIR=/u/sciteam/clipp/basicFusion/exe/inputFiles.txt
-STD_STREAM_OUTFILE=/u/sciteam/clipp/basicFusion/jobOutput/out.txt
-HLIBPATH=/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/lib
-if [[ $LD_LIBRARY_PATH != *"hdflib/lib"* ]]; then
-    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH":"$HLIBPATH"
-fi
+PROJDIR=/u/sciteam/clipp/basicFusion/
+EXENAME=TERRArepackage
+OUTFILENAME=out.h5
+FILELISTNAME=inputFiles.txt
+STD_OUTFILENAME=out.txt
+
+#HLIBPATH=/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/lib
+#if [[ $LD_LIBRARY_PATH != *"hdflib/lib"* ]]; then
+#    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH":"$HLIBPATH"
+#fi
 ### COMMENT OUT THIS SETTING BEFORE FULL OPERATION OF PROGRAM!!!
 ### A COMMENT IS TWO POUND SYMBOLS
 ### Set the job to be submitted to the debug queue
@@ -59,9 +61,7 @@ module load hdf4/4.2.10
 ### redirecting stdin and stdout if needed
 ### NOTE: (the "in" file must exist for input)
 
-aprun -n 1 "$EXE" "$OUTFILEDIR" "$FILELISTDIR" &> "$STD_STREAM_OUTFILE"
+aprun -n 1 "$PROJDIR"/exe/"$EXENAME" "$PROJDIR"/jobOutput/"$OUTFILENAME" "$PROJDIR"/exe/"$FILELISTNAME" &> "$PROJDIR"/jobOutput/"$STD_OUTFILENAME"
 
-# For valgrind debugging, uncomment the following:
-#aprun -n 1 valgrind --leak-check=full --track-origins=yes "$EXE" "$OUTFILEDIR" "$FILELISTDIR" &> "$STD_STREAM_OUTFILE"
 
 ### For more information see the man page for aprun

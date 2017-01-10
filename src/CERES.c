@@ -43,22 +43,22 @@ int CERES( char* argv[],int index )
 
     /* outputfile already exists (created by main). Create the group directories */
     //create root CERES group
-    if ( createGroup( &outputFile, &CERESrootID, "CERES" ) )
-    {
-        FATAL_MSG("Failed to create CERES root group.\n");
-        SDend(fileID);
-        return EXIT_FAILURE;
-    }
+    if ( index == 1 ){
+        if ( createGroup( &outputFile, &CERESrootID, "CERES" ) )
+        {
+            FATAL_MSG("Failed to create CERES root group.\n");
+            SDend(fileID);
+            return EXIT_FAILURE;
+        }
 
 
-    if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",argv[1])<0) {
-        FATAL_MSG("Failed to add CERES time stamp.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        return EXIT_FAILURE;
-    }
+        if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",argv[1])<0) {
+            FATAL_MSG("Failed to add CERES time stamp.\n");
+            SDend(fileID);
+            H5Gclose(CERESrootID);
+            return EXIT_FAILURE;
+        }
 
-    if(index == 1) {
         if ( createGroup( &CERESrootID, &CERESgranuleID, "FM1" ) )
         {
             FATAL_MSG("CERES create granule group failure.\n");
@@ -68,6 +68,13 @@ int CERES( char* argv[],int index )
         }
     }   
     else if(index == 2) {
+        CERESrootID = H5Gopen2( outputFile, "CERES", H5P_DEFAULT );
+        if ( CERESrootID < 0 )
+        {
+            FATAL_MSG("Unable to open CERES root group.\n");
+            SDend(fileID);
+            return EXIT_FAILURE;
+        }
         if ( createGroup( &CERESrootID, &CERESgranuleID, "FM2" ) )
         {
             FATAL_MSG("CERES create granule group failure.\n");
