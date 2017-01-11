@@ -42,6 +42,7 @@ int MISR( char* argv[],int unpack )
     int fail = 0;
     herr_t errStat = 0;
     float tempFloat = 0.0;
+    double tempDouble = 0.0;
     /******************
      * geo data files *
      ******************/
@@ -295,7 +296,7 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
     // Read the value of the _FillValue attribute in the SolarAzimuth dataset
-    double tempDouble = 0.0;
+    tempDouble = 0.0;
     errStat = H4readSDSAttr( gmpFileID, solar_geom_name[0], "_FillValue", (void*) &tempDouble );
     if ( errStat != EXIT_SUCCESS )
     {
