@@ -29,11 +29,11 @@ int ASTER( char* argv[],int aster_count,int unpack );
 int MISR( char* argv[],int unpack );
 
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, 
-					 int returnDatasetID, int rank, hsize_t* datasetDims, 
-					 hid_t dataType, char* datasetName, void* data_out);
-					 
+                     int returnDatasetID, int rank, hsize_t* datasetDims, 
+                     hid_t dataType, char* datasetName, void* data_out);
+                     
 hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
-							char * inDatasetPath, char* outDatasetPath, hid_t dataType, int returnDatasetID);
+                            char * inDatasetPath, char* outDatasetPath, hid_t dataType, int returnDatasetID);
 herr_t openFile(hid_t *file, char* inputFileName, unsigned flags );
 herr_t createOutputFile( hid_t *outputFile, char* outputFileName);
 herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroupName);
@@ -45,9 +45,9 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value );
 int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname);
 
 int32 H4readData( int32 fileID, char* datasetName, void** data,
-				  int32 *rank, int32* dimsizes, int32 dataType );
+                  int32 *rank, int32* dimsizes, int32 dataType );
 hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
-					   hid_t outputDataType, int32 inputFile);	  
+                       hid_t outputDataType, int32 inputFile);    
 
 char *correct_name(const char* oldname);
 
