@@ -1736,4 +1736,33 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
     return datasetID;
 }
 
+herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* buffer )
+{
+    int32 statusn = 0;
+    int32 dsetIndex = SDnametoindex(h4FileID,datasetName);
+    if ( dsetIndex < 0 )
+    {
+        FATAL_MSG("Failed to get dataset index.\n");
+        return EXIT_FAILURE;
+    }
+    int32 dsetID = SDselect(h4FileID, dsetIndex);
+    if ( dsetID < 0 )
+    {
+        FATAL_MSG("Failed to get dataset ID.\n");
+        return EXIT_FAILURE;
+    }
+    int32 attrIdx = SDfindattr(dsetID,attrName);
+    if ( attrIdx < 0 )
+    {
+        FATAL_MSG("Failed to get attribute index.\n");
+        return EXIT_FAILURE;
+    }
+    statusn = SDreadattr(dsetID,attrIdx,(VOIDP) buffer );
+    if ( statusn < 0 )
+    {
+        FATAL_MSG("Failed to read attribute.\n");
+        return EXIT_FAILURE;
+    }
 
+    return EXIT_SUCCESS;
+}
