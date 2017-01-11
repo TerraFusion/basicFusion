@@ -11,11 +11,11 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name);
 
 int MISR( char* argv[],int unpack )
 {
-	/****************************************
-	 *		VARIABLES		*
-	 ****************************************/
+    /****************************************
+     *      VARIABLES       *
+     ****************************************/
 
-		/* File IDs */
+        /* File IDs */
 
     char *camera_name[9]={"AA","AF","AN","BA","BF","CA","CF","DA","DF"};
     char *band_name[4]={"RedBand","BlueBand","GreenBand","NIRBand"};
@@ -41,25 +41,26 @@ int MISR( char* argv[],int unpack )
     int32 statusn = 0;
     int fail = 0;
     herr_t errStat = 0;
-	/******************
-	 * geo data files *
-	 ******************/
-		/* File IDs */
+    float tempFloat = 0.0;
+    /******************
+     * geo data files *
+     ******************/
+        /* File IDs */
     int32 h4FileID = 0;
     int32 inHFileID = 0;
     int32 h4_status = 0;
-	int32 geoFileID = 0;
-	int32 gmpFileID = 0;
+    int32 geoFileID = 0;
+    int32 gmpFileID = 0;
 
-		/* Group IDs */
-	hid_t MISRrootGroupID = 0;
-	hid_t geoGroupID = 0;
-		/* Dataset IDs */
-	hid_t latitudeID = 0;
-	hid_t longitudeID = 0;
+        /* Group IDs */
+    hid_t MISRrootGroupID = 0;
+    hid_t geoGroupID = 0;
+        /* Dataset IDs */
+    hid_t latitudeID = 0;
+    hid_t longitudeID = 0;
 
-		/* Group IDs */
-	hid_t gmpSolarGeoGroupID = 0;
+        /* Group IDs */
+    hid_t gmpSolarGeoGroupID = 0;
 
     hid_t solarAzimuthID = 0;
     hid_t solarZenithID = 0;
@@ -71,8 +72,8 @@ int MISR( char* argv[],int unpack )
     hid_t h5DataFieldID = 0;
     hid_t h5SensorGeomFieldID = 0;
         
-	createGroup( &outputFile, &MISRrootGroupID, "MISR" );
-	if ( MISRrootGroupID == EXIT_FAILURE )
+    createGroup( &outputFile, &MISRrootGroupID, "MISR" );
+    if ( MISRrootGroupID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to create MISR root group.\n");
         return EXIT_FAILURE;
@@ -83,7 +84,7 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
 
-	geoFileID = SDstart( argv[10], DFACC_READ );
+    geoFileID = SDstart( argv[10], DFACC_READ );
     if ( geoFileID == -1 )
     {
         FATAL_MSG("Failed to open the SD interface.\n");
@@ -91,7 +92,7 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
 
-	gmpFileID = SDstart( argv[11], DFACC_READ );
+    gmpFileID = SDstart( argv[11], DFACC_READ );
     if ( gmpFileID == -1 )
     {
         FATAL_MSG("Failed to open the SD interface.\n");
@@ -99,7 +100,7 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
 
-        /* Loop all the 0 cameras */
+        /* Loop all 9 cameras */
     for(int i = 0; i<9;i++) {
 
         h4FileID = SDstart(argv[i+1],DFACC_READ);
@@ -168,7 +169,7 @@ int MISR( char* argv[],int unpack )
                     h5DataFieldID = 0;
                     goto cleanupFail;
                 }
-                H5Dclose(h5DataFieldID); h5DataFieldID = 0;
+                
 
             }
             else {
@@ -180,10 +181,19 @@ int MISR( char* argv[],int unpack )
                     FATAL_MSG("MISR readThenWrite function failed.\n");
                     goto cleanupFail;
                 }
-                H5Dclose(h5DataFieldID); h5DataFieldID = 0;
             }
             
-        }
+            tempFloat = -999.0;
+            errStat = H5LTset_attribute_float( h5DataGroupID, radiance_name[j],"_Fillvalue",&tempFloat,1);
+            if ( errStat < 0 )
+            {
+                FATAL_MSG("Failed to write an HDF5 attribute.\n");
+                goto cleanupFail;
+            }
+            
+                        
+            H5Dclose(h5DataFieldID); h5DataFieldID = 0;
+        } // End for (first inner j loop)
 
         createGroup(&h5GroupID,&h5SensorGeomGroupID,sensor_geom_gname);
         if ( h5SensorGeomGroupID == EXIT_FAILURE )
@@ -193,6 +203,7 @@ int MISR( char* argv[],int unpack )
             goto cleanupFail;
         }
 
+        /* Inserting the "AaAzimuth", "AaGlitter", "AaScatter"... etc. */
         for (int j = 0; j<4;j++) {
             h5SensorGeomFieldID = readThenWrite(h5SensorGeomGroupID,band_geom_name[i*4+j],DFNT_FLOAT64,
                                                 H5T_NATIVE_DOUBLE,gmpFileID);
@@ -202,9 +213,17 @@ int MISR( char* argv[],int unpack )
                 h5SensorGeomFieldID = 0;
                 goto cleanupFail;
             }
+
+            tempDouble = -555.0;
+            errStat = H5LTset_attribute_double( h5SensorGeomGroupID, band_geom_name[i*4+j],"_Fillvalue",&tempDouble,1);
+            if ( errStat < 0 )
+            {
+                FATAL_MSG("Failed to write an HDF5 attribute.\n");
+                goto cleanupFail;
+            }        
             status = H5Dclose(h5SensorGeomFieldID); h5SensorGeomFieldID = 0;
             if ( status ) WARN_MSG("H5Dclose\n");
-        }
+        } // End for (second inner j loop)
 
         statusn = SDend(h4FileID); h4FileID = 0;
         if ( statusn ) WARN_MSG("SDend.\n");
@@ -237,12 +256,25 @@ int MISR( char* argv[],int unpack )
         latitudeID = 0;
         goto cleanupFail;
     }
+    errStat = H5LTset_attribute_string(geoGroupID,geo_name[0],"units","degrees_north");
+    if ( errStat < 0 )
+    {
+        FATAL_MSG("Failed to create HDF5 attribute.\n");
+        goto cleanupFail;
+    }
 
     longitudeID = readThenWrite(geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
     if ( longitudeID == EXIT_FAILURE )
     {
         FATAL_MSG("MISR readThenWrite function failed (longitude dataset).\n");
         longitudeID = 0;
+        goto cleanupFail;
+    }
+
+    errStat = H5LTset_attribute_string(geoGroupID,geo_name[1],"units","degrees_east");
+    if ( errStat < 0 )
+    {
+        FATAL_MSG("Failed to create HDF5 attribute.\n");
         goto cleanupFail;
     }
 
@@ -319,7 +351,7 @@ int MISR( char* argv[],int unpack )
     if ( gmpSolarGeoGroupID ) status = H5Gclose(gmpSolarGeoGroupID);
     if ( solarAzimuthID ) status = H5Dclose(solarAzimuthID);
     if ( solarZenithID ) status = H5Dclose(solarZenithID);
-	
+    
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;
