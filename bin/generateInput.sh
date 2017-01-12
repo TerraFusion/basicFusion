@@ -10,7 +10,7 @@
 #   output file to make sure that all files are in chronological order, that all files are in the order
 #   expected and that there are no unknown errors in the output file.
 
-if [ "$#" -ne 1 ]; then
+if [ "$#" -ne 2 ]; then
 	printf "Usage:\n\t$0 [relative/absolute path to all 5 instruments] [output directory]\n\n"
 	exit 1
 fi
