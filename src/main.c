@@ -107,6 +107,8 @@ int main( int argc, char* argv[] )
                 unpack = 1;
     }
     
+    if ( unpack ) printf("_____UNPACKING ENABLED_____\n");
+    else printf("_____UNPACKING DISABLED_____\n");
     /* remove output file if it already exists. Note that no conditional statements are used. If file does not exist,
      * this function will throw an error but we do not care.
      */

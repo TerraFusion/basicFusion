@@ -34,7 +34,7 @@ int MOPITT( char* argv[] )
     hid_t stringType = 0;
     hid_t tempGroupID = 0;
     hid_t datatypeID = 0;
-    
+    hid_t tempSpace = 0;
     herr_t status = 0;
     
     hsize_t* dims = NULL;
@@ -59,7 +59,7 @@ int MOPITT( char* argv[] )
         goto cleanupFail;
     }
     
-    if(H5LTset_attribute_string(MOPITTroot,"/MOPITT","GranuleTime",argv[1])<0)
+    if(H5LTset_attribute_string(file,"/MOPITT","GranuleTime",argv[1])<0)
     {
         fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
         goto cleanupFail;
@@ -148,7 +148,7 @@ int MOPITT( char* argv[] )
      * dataset
      */
     /* First get the rank */
-    hid_t tempSpace = H5Dget_space( radianceDataset );
+    tempSpace = H5Dget_space( radianceDataset );
     tempInt = H5Sget_simple_extent_ndims( tempSpace );
 
     if ( tempInt < 0 )
