@@ -187,6 +187,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     double * data_out;
     
     int rank;
+    short fail = 0;
 
     // Get the corrected dataset name.
     outDatasetName = correct_name(outDatasetName);
