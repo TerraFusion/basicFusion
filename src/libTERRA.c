@@ -135,12 +135,8 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
         2. The output file ID has already been prepared
         3. The output group ID has already been prepared
         
-        An absolute path for the inputDatasetPath is required, but the outDatasetPath is relative to the datasetGroup.
-        It actually would work fine if you passed a group identifier for argument 1, but your inDatasetPath must then
-        be relative to that group identifier. It's recommended however that you simply pass a file ID with an absolute path.
-        This just makes the function more intuitive to use, but it is up to the client user.
-        
-        NOTE that if you are using a group ID for anything, the dataset paths must refer to a path that EXISTS
+        An absolute path for the inputDatasetPath is required if passing in file ID, else it
+        can be relative to your object ID.
         
         The caller MUST be sure to free the dataset identifier using H5Dclose() if returnDatasetID is set to non-zero (aka true)
         or else a memory leak will occur.
@@ -175,7 +171,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
 */  
 
 hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
-                           char * inDatasetPath, char* outDatasetPath, hid_t dataType, int returnDatasetID )
+                           char * inDatasetPath, char* outDatasetName, hid_t dataType, int returnDatasetID )
 {
     
     hid_t dataset;                              // dataset ID
@@ -191,6 +187,14 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     double * data_out;
     
     int rank;
+
+    // Get the corrected dataset name.
+    outDatasetName = correct_name(outDatasetName);
+    if ( outDatasetName == NULL )
+    {
+        FATAL_MSG("Failed to get corrected name.\n");
+        goto cleanupFail;
+    }
     
     /*
      * open dataset and do error checking
@@ -201,8 +205,8 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     if ( dataset < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] H5Dopen -- Could not open \"%s\".\n",__FILE__, __func__,__LINE__, inDatasetPath );
-        H5Dclose(dataset);
-        return EXIT_FAILURE;
+        dataset = 0;
+        goto cleanupFail;
     }
     
     
@@ -211,47 +215,55 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
      */
      
     dataspace = H5Dget_space(dataset);
-    
+    if ( dataspace < 0 )
+    {
+        dataspace = 0;
+        FATAL_MSG("Failed to get dataspace.\n");
+        goto cleanupFail;
+    }
     rank = H5Sget_simple_extent_ndims( dataspace );
     
     if ( rank < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5S_get_simple_extent_ndims -- Unable to get rank.\n",__FILE__,__func__,__LINE__ );
-        H5Sclose(dataspace);
-        H5Dclose(dataset);
-        return (EXIT_FAILURE);
+        FATAL_MSG("Unable to get rank of dataset.\n");
+        goto cleanupFail;
     }
     
     /* Allocate memory for the following arrays (now that we have the rank) */
     
     datasetDims = malloc( sizeof(hsize_t) * 5 );
+    if ( datasetDims == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
     datasetMaxSize = malloc( sizeof(hsize_t) * rank );
+    if ( datasetMaxSize == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
     datasetChunkSize = malloc( sizeof(hsize_t) * rank );
-    
+    if ( datasetChunkSize == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
     /* initialize all elements of datasetDims to 1 */
     
     for ( int i = 0; i < 5; i++ )
         datasetDims[i] = 1;
     
-    
-    
     status_n  = H5Sget_simple_extent_dims(dataspace, datasetDims, datasetMaxSize );
     
     if ( status_n < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5S_get_simple_extent_dims -- Unable to get dimensions.\n",__FILE__, __func__,__LINE__ );
-        H5Dclose(dataset);
-        H5Sclose(dataspace);
-        free(datasetDims);
-        free(datasetMaxSize);
-        free(datasetChunkSize);
-        return (EXIT_FAILURE);
+        FATAL_MSG("Unable to get dimensions.\n");
+        goto cleanupFail;
     }
     
-    
-    
     /*
-     * Create a data_out buffer using the dimensions of the dataset specified by MOPITTdims
+     * Create a data_out buffer using the dimensions of the dataset specified by datasetDims
      */
     
     data_out = malloc( sizeof(double ) * datasetDims[0] * datasetDims[1] * datasetDims[2] *  datasetDims[3] * datasetDims[4]);
@@ -265,22 +277,16 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     status = H5Dread( dataset, dataType, dataspace, H5S_ALL, H5P_DEFAULT, data_out );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5Dread: Unable to read from dataset \"%s\".\n",__FILE__, __func__,__LINE__, inDatasetPath );
-        H5Sclose(dataspace);
-        H5Dclose(dataset);
-        free(data_out);
-        free(datasetDims);
-        free(datasetMaxSize);
-        free(datasetChunkSize);
-        return (EXIT_FAILURE);
+        FATAL_MSG("Unable to read dataset into output data buffer.\n");
+        goto cleanupFail;
     }
     
     
     
     /* Free all memory associated with the input data */
     
-    H5Sclose(dataspace);
-    H5Dclose(dataset);
+    H5Sclose(dataspace); dataspace = 0;
+    H5Dclose(dataset); dataset = 0;
     
     /*******************************************************************************************
      *Reading the dataset is now complete. We have freed all related memory for the input data *
@@ -289,7 +295,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     
     memspace = H5Screate_simple( rank, datasetDims, NULL );
     
-    dataset = H5Dcreate( *datasetGroup_ID, outDatasetPath, dataType, memspace, 
+    dataset = H5Dcreate( *datasetGroup_ID, outDatasetName, dataType, memspace, 
                          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
                          
     /* Now that dataset has been created, read into this data set our data_out array */
@@ -297,42 +303,40 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, data_out );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5DWrite -- Unable to write to dataset \"%s\".\n",__FILE__, __func__,__LINE__, outDatasetPath );
-        H5Dclose(dataset);
-        H5Sclose(memspace);
-        free(data_out);
-        free(datasetDims);
-        free(datasetMaxSize);
-        free(datasetChunkSize);
-        return (EXIT_FAILURE);
+        FATAL_MSG("Unable to write to dataset.\n");
+        goto cleanupFail;
     }
     
-    
-    
-    /* Free all remaining memory */
-    
-    H5Sclose(memspace);
-    free(data_out);
-    free(datasetDims);
-    free(datasetMaxSize);
-    free(datasetChunkSize);
-    
-    /*
-     * Check to see if caller wants the dataset ID returned. If not, go ahead and close the ID.
-     */
-     
-    if ( returnDatasetID == 0 )
-    {   
-        status = H5Dclose(dataset);
-        if ( status < 0 )
-        {
-            fprintf( stderr, "[%s:%s:%d] H5Dclose -- Unable to close dataset.\n",__FILE__, __func__,__LINE__ );
-            return EXIT_FAILURE;
-        }
-        return EXIT_SUCCESS;
+      
+
+    if ( 0 )
+    {
+        cleanupFail:
+        fail = 1;
     }
+
+    if ( outDatasetName ) free(outDatasetName);
+    if ( returnDatasetID == 0 ) 
+    {
+        if ( dataset ) H5Dclose(dataset);
+    }
+    if ( dataspace ) H5Sclose(dataspace);
+    if ( datasetDims ) free(datasetDims);
+    if ( datasetMaxSize ) free(datasetMaxSize);
+    if ( datasetChunkSize ) free(datasetChunkSize);
+    if ( data_out ) free(data_out);
+    if ( memspace ) H5Sclose(memspace);
+
+    if ( fail != 0 ) return EXIT_FAILURE;                   // first check if something failed
     
-    return dataset;
+    if ( returnDatasetID == 0 ) return EXIT_SUCCESS;   // if caller doesn't want ID, return success
+    
+    if ( fail == 0 ) return dataset;                   // otherwise, caller does want ID
+    else                                            // if all these checks failed, something went wrong
+    {
+        FATAL_MSG("Something strange just happened.\n");
+        return EXIT_FAILURE;
+    }
 
 }
 
@@ -418,6 +422,9 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
         3. The name of the new group.
     EFFECTS:
         Creates a new directory in the HDF file, updates the group pointer.
+        The name of the new group is determined by the function correct_name().
+        Caller must be aware of this fact that name of the new group will not necessarily
+        be the value passed in at newGroupName.
     RETURN:
         EXIT_FAILURE on failure
         EXIT_SUCCESS on success
@@ -426,14 +433,17 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
 herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroupName)
 {
 
+    newGroupName = correct_name(newGroupName);
     *newGroup = H5Gcreate( *referenceGroup, newGroupName, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
     if ( *newGroup < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] H5Gcreate -- Could not create '%s' root group.\n",__FILE__,__func__,__LINE__ , newGroupName);
         *newGroup = EXIT_FAILURE;
+        free(newGroupName);
         return EXIT_FAILURE;
     }
     
+    free(newGroupName);
     return EXIT_SUCCESS;
 }
 
@@ -858,34 +868,68 @@ hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType
     return datasetID;
 }
 
+/*
+        correct_name
+
+ DESCRIPTION:
+    Returns a pointer to a valid HDF5 name. This is following the CF convention.
+    The returned string is allocated with malloc, so it will be the duty of the caller
+    to free this string when done.
+ 
+ ARGUMENTS:
+    1. const char* oldname -- string to be corrected
+
+ EFFECTS:
+    Allocates memory on heap for returned string.
+
+ RETURN:
+    A valid pointer to the string upon success. NULL upon failure.
+*/
+
 char *correct_name(const char* oldname){
 
-  char * cptr; /* temproary pointer that stores the address
-                  of the string where the ORI_SLASH is located. */
-  char * newname; /* the new name after changing the ORI_SLASH to
-                     CHA_SLASH. */
+    char* newname = NULL;
+    short offset = 0;
 
+#define IS_DIGIT(c)  ('0' <= (c) && (c) <= '9')
+#define IS_ALPHA(c)  (('a' <= (c) && (c) <= 'z') || ('A' <= (c) && (c) <= 'Z'))
+#define IS_OTHER(c)  ((c) == '_')
 
-  if(oldname == NULL) {
-    fprintf(stderr, "[%s:%s:%d] The name cannot be NULL. \n", __FILE__, __func__,__LINE__ );
-    return NULL;
-  }
+    if(oldname == NULL) {
+        FATAL_MSG("The oldname can't be empty.\n");
+        return NULL;
+    }
 
-  newname = malloc(strlen(oldname)+1);
-  if(newname == NULL) {
-    fprintf(stderr, "[%s:%s:%d] Not enough memory to allocate the newname. \n", __FILE__, __func__,__LINE__ );
-    return NULL;
-  }
+    /* If the first character in oldname is a number, we will need to prepend it with '_'.
+     * Thus, malloc will need to allocate one extra space.
+     */
 
-  memset(newname,0,strlen(oldname)+1);
+    if ( IS_DIGIT(oldname[0]) )
+    {
+        offset = 1;
+    }
+    
+    newname = malloc(strlen(oldname)+1+offset);
 
-  newname = strncpy(newname, oldname, strlen(oldname));
-  while(strchr(newname,'/')!= NULL){
-    cptr = strchr(newname,'/');
-    *cptr = '_';
-  }
+    if(newname == NULL) {
+        FATAL_MSG("Not enough memory to allocate newname.\n");
+        return NULL;
+    }
 
-  return newname;
+    memset(newname,0,strlen(oldname)+1+offset);
+
+    if ( offset ) newname[0] = '_';
+
+    size_t i;
+    for ( i = 0; i < strlen(oldname)+1; i++ )
+    {
+        if ( IS_DIGIT(oldname[i]) || IS_ALPHA(oldname[i]) )
+            newname[i+offset] = oldname[i];
+        else
+            newname[i+offset] = '_';
+    }
+
+    return newname;
 }
 
 /*
@@ -1766,3 +1810,4 @@ herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* b
 
     return EXIT_SUCCESS;
 }
+

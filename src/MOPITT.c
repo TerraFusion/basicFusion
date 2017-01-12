@@ -38,40 +38,39 @@ int MOPITT( char* argv[] )
     herr_t status = 0;
     
     hsize_t* dims = NULL;
-    
     int tempInt = 0;
+    int fail = 0;
+
     float tempFloat = 0.0f;
     
     // open the input file
     if ( openFile( &file, argv[1], H5F_ACC_RDONLY ) )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to open MOPITT file.\n", __FILE__,__func__,__LINE__);
-        return EXIT_FAILURE;
+        file = 0;
+        goto cleanupFail;
     }
     
     // create the root group
     if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT root group.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        return EXIT_FAILURE;
+        MOPITTroot = 0;
+        goto cleanupFail;
     }
     
     if(H5LTset_attribute_string(MOPITTroot,"/MOPITT","GranuleTime",argv[1])<0)
     {
         fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
     // create the radiance group
     if ( createGroup ( &MOPITTroot, &radianceGroup, "Data Fields" ) )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT radiance group.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        return EXIT_FAILURE;
+        radianceGroup = 0;
+        goto cleanupFail;
     }
 
     
@@ -79,10 +78,8 @@ int MOPITT( char* argv[] )
     if ( createGroup ( &MOPITTroot, &geolocationGroup, "Geolocation" ) )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT geolocation group.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        return EXIT_FAILURE;
+        geolocationGroup = 0;
+        goto cleanupFail;
     }
 
     
@@ -91,11 +88,8 @@ int MOPITT( char* argv[] )
     if ( radianceDataset == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT radiance dataset.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        return EXIT_FAILURE;
+        radianceDataset = 0;
+        goto cleanupFail;
     }
 
 
@@ -104,45 +98,33 @@ int MOPITT( char* argv[] )
     if ( longitudeDataset == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT longitude dataset.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        longitudeDataset = 0;
+        goto cleanupFail;
     }
 
-    H5Dclose(longitudeDataset);
+    H5Dclose(longitudeDataset); longitudeDataset = 0;
 
     // insert the latitude dataset
     latitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude", H5T_NATIVE_FLOAT, 1 );
     if ( latitudeDataset == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT latitude dataset.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Dclose(radianceDataset);
-        H5Gclose(geolocationGroup);
-        return EXIT_FAILURE;
+        latitudeDataset = 0;
+        goto cleanupFail;
     }
-
-    H5Dclose(latitudeDataset);
+    
+    H5Dclose(latitudeDataset); latitudeDataset = 0;
 
     // insert the time dataset
     timeDataset = MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time", H5T_NATIVE_DOUBLE, 1);
     if ( timeDataset < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT time dataset.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        timeDataset = 0;
+        goto cleanupFail;
     }
 
-    H5Dclose(timeDataset);  
+    H5Dclose(timeDataset); timeDataset = 0;  
     /***************************************************************
      * Add the appropriate attributes to the groups we just created*
      ***************************************************************/
@@ -157,12 +139,8 @@ int MOPITT( char* argv[] )
     if ( attrID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT TrackCout attribute.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Dclose(radianceDataset);
-        H5Gclose(geolocationGroup);
-        return EXIT_FAILURE;
+        attrID = 0;
+        goto cleanupFail;
     }
 
 
@@ -176,14 +154,7 @@ int MOPITT( char* argv[] )
     if ( tempInt < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to get dataset rank for MOPITT.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Sclose(tempSpace);
-        H5Aclose( attrID );
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
     /* Now that we have rank, allocate space for the array to store the size of each dimension */
@@ -192,46 +163,25 @@ int MOPITT( char* argv[] )
     if ( H5Sget_simple_extent_dims( tempSpace, dims, NULL ) < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to get dataset dimension sizes for MOPITT.\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Sclose(tempSpace);
-        free(dims);
-        H5Aclose( attrID );
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
-    H5Sclose(tempSpace);
+    H5Sclose(tempSpace); tempSpace = 0;
 
     /* write the value of the first element in dims to the TrackCount attribute */
     status = H5Awrite( attrID, H5T_NATIVE_UINT, dims );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to write to TrackCount attribute (radiance dataset).\n", __FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        free(dims);
-        H5Aclose( attrID );
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
     /* free the dims array */
-    free( dims );
+    free( dims ); dims = NULL;
     /* close the attribute */
-    status = H5Aclose( attrID );
+    status = H5Aclose( attrID ); attrID = 0;
     if ( status < 0 ) 
     {
         fprintf( stderr, "[%s:%s:%d] Unable to close TrackCount attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Dclose(radianceDataset);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        return EXIT_FAILURE;
     }
                             
                             /*#################*/
@@ -242,12 +192,7 @@ int MOPITT( char* argv[] )
     if ( attrID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create missing_invalid attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Dclose(radianceDataset);
-        H5Gclose(geolocationGroup);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
     
     
@@ -257,13 +202,8 @@ int MOPITT( char* argv[] )
     if ( tempGroupID < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to open group from input file.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Dclose(radianceDataset);
-        H5Gclose(geolocationGroup);
-        H5Aclose(attrID);
-        return EXIT_FAILURE;
+        tempGroupID = 0;
+        goto cleanupFail;
     }
 
     /* open the missing invalid attribute */
@@ -271,14 +211,8 @@ int MOPITT( char* argv[] )
     if ( inputAttrID < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to open attribute from input file.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Dclose(radianceDataset);
-        H5Gclose(geolocationGroup);
-        H5Aclose(attrID);
-        H5Gclose(tempGroupID);
-        return EXIT_FAILURE;
+        inputAttrID = 0;
+        goto cleanupFail;
     }
 
     /* get the datatype stored at this attribute */
@@ -286,15 +220,8 @@ int MOPITT( char* argv[] )
     if ( datatypeID < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to get datatype from attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Dclose(radianceDataset);
-        H5Aclose(attrID);
-        H5Gclose(tempGroupID);
-        H5Aclose(inputAttrID);
-        return EXIT_FAILURE;
+        datatypeID = 0;
+        goto cleanupFail;
     }
 
     /* read the value stored here */
@@ -302,16 +229,7 @@ int MOPITT( char* argv[] )
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read data from attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Dclose(radianceDataset);
-        H5Aclose(attrID);
-        H5Gclose(tempGroupID);
-        H5Aclose(inputAttrID);
-        H5Tclose(datatypeID);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
     /* now we can write the value of missing_invalid to our output attribute */
@@ -319,23 +237,14 @@ int MOPITT( char* argv[] )
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read data from attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Dclose(radianceDataset);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Aclose(attrID);
-        H5Gclose(tempGroupID);
-        H5Aclose(inputAttrID);
-        H5Tclose(datatypeID);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
     /* close all related identifiers */
 
-    H5Aclose( attrID );
-    H5Aclose( inputAttrID );
-    H5Tclose( datatypeID );
+    H5Aclose( attrID ); attrID = 0;
+    H5Aclose( inputAttrID ); inputAttrID = 0;
+    H5Tclose( datatypeID ); datatypeID = 0;
     
 
                             /*################*/
@@ -346,13 +255,8 @@ int MOPITT( char* argv[] )
     if ( attrID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create missing_invalid attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Dclose(radianceDataset);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Gclose(tempGroupID);
-        return EXIT_FAILURE;
+        attrID = 0;
+        goto cleanupFail;
     }
 
     /* open the missing invalid attribute */
@@ -360,14 +264,8 @@ int MOPITT( char* argv[] )
     if ( inputAttrID < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to open attribute from input file.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Dclose(radianceDataset);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Gclose(tempGroupID);
-        H5Aclose(attrID);
-        return EXIT_FAILURE;
+        inputAttrID = 0;
+        goto cleanupFail;
     }
 
     /* get the datatype stored at this attribute */
@@ -375,15 +273,8 @@ int MOPITT( char* argv[] )
     if ( datatypeID < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to get datatype from attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Gclose(tempGroupID);
-        H5Aclose(attrID);
-        H5Dclose(radianceDataset);
-        H5Aclose(inputAttrID);
-        return EXIT_FAILURE;
+        datatypeID = 0;
+        goto cleanupFail;
     }
 
     /* read the value stored here */
@@ -391,16 +282,7 @@ int MOPITT( char* argv[] )
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read data from attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Gclose(tempGroupID);
-        H5Aclose(attrID);
-        H5Aclose(inputAttrID);  
-        H5Dclose(radianceDataset);
-        H5Tclose(datatypeID);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
     /* now we can write the value of missing_nodata to our output attribute */
@@ -408,24 +290,15 @@ int MOPITT( char* argv[] )
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read data from attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Gclose(tempGroupID);
-        H5Aclose(attrID);
-        H5Aclose(inputAttrID);
-        H5Dclose(radianceDataset);
-        H5Tclose(datatypeID);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
     /* close all related identifiers */
 
-    H5Aclose( attrID );
-    H5Gclose( tempGroupID );
-    H5Aclose( inputAttrID );
-    H5Tclose( datatypeID );
+    H5Aclose( attrID ); attrID = 0;
+    H5Gclose( tempGroupID ); tempGroupID = 0;
+    H5Aclose( inputAttrID ); inputAttrID = 0;
+    H5Tclose( datatypeID ); datatypeID = 0;
     
 
                                     /*###############*/
@@ -438,25 +311,15 @@ int MOPITT( char* argv[] )
     if ( stringType < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to copy datatype.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        stringType = 0;
+        goto cleanupFail;
     }
 
     status = H5Tset_size( stringType, strlen(RADIANCE_UNIT));
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to set the size of a datatype.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
     
@@ -464,32 +327,20 @@ int MOPITT( char* argv[] )
     if ( attrID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create radiance_unit attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        attrID = 0;
+        goto cleanupFail;
     }
 
     status = H5Awrite( attrID, stringType, RADIANCE_UNIT );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to write to attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(radianceGroup);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Aclose(attrID);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
-    H5Aclose( attrID );
-    H5Tclose(stringType);
-    H5Gclose(radianceGroup);
+    H5Aclose( attrID ); attrID = 0;
+    H5Tclose(stringType); stringType = 0;
+    H5Gclose(radianceGroup); radianceGroup = 0;
 
                                 /* ### END OF RADIANCE FIELD ATTRIBUTE CREATION ### */
                                 
@@ -501,23 +352,15 @@ int MOPITT( char* argv[] )
     if ( stringType < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to copy datatype.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(geolocationGroup);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        stringType = 0;
+        goto cleanupFail;
     }
 
     status = H5Tset_size( stringType, strlen(LAT_LON_UNIT) );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to set the size of a datatype.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
     
@@ -525,12 +368,8 @@ int MOPITT( char* argv[] )
     if ( attrID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        attrID = 0;
+        goto cleanupFail;
     }
 
     
@@ -538,66 +377,42 @@ int MOPITT( char* argv[] )
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to write to attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Aclose(attrID);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
     
-    H5Aclose( attrID );
+    H5Aclose( attrID ); attrID = 0;
     /* Longitude_unit */
     
     attrID = attributeCreate( geolocationGroup, "Longitude_unit", stringType );
     if ( attrID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        attrID = 0;
+        goto cleanupFail;
     }
 
     status = H5Awrite( attrID, stringType, LAT_LON_UNIT );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to write to attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Aclose(attrID);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
 
-    H5Aclose( attrID );
-    H5Tclose(stringType);
+    H5Aclose( attrID ); attrID = 0;
+    H5Tclose(stringType); stringType = 0;
     /* Time_unit */
     stringType = H5Tcopy(H5T_C_S1);
     if ( stringType < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to copy datatype.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(geolocationGroup);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        stringType = 0;
+        goto cleanupFail;
     }
     status = H5Tset_size( stringType, strlen(TIME_UNIT) );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to set the size of a datatype.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
     
     
@@ -605,34 +420,43 @@ int MOPITT( char* argv[] )
     if ( attrID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        attrID = 0;
+        goto cleanupFail;
     }
     
     status = H5Awrite( attrID, stringType, TIME_UNIT );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to write to attribute.\n",__FILE__,__func__,__LINE__);
-        H5Fclose(file);
-        H5Gclose(MOPITTroot);
-        H5Gclose(geolocationGroup);
-        H5Tclose(stringType);
-        H5Aclose(attrID);
-        H5Dclose(radianceDataset);
-        return EXIT_FAILURE;
+        goto cleanupFail;
+    }
+
+    if ( 0 )
+    {  
+        cleanupFail:
+        fail = 1;
     }
     
-    H5Aclose( attrID );
-    H5Gclose(geolocationGroup);
-    H5Tclose(stringType);
-    H5Gclose(MOPITTroot);
-    H5Fclose(file);
-    H5Dclose(radianceDataset);  
+    if ( attrID )           H5Aclose( attrID );
+    if ( inputAttrID )      H5Aclose(inputAttrID);
+    if ( latitudeDataset )  H5Dclose(latitudeDataset);
+    if ( longitudeDataset ) H5Dclose(longitudeDataset);
+    if ( radianceDataset )  H5Dclose(radianceDataset);
+    if ( timeDataset )      H5Dclose(timeDataset);
+    if ( file )             H5Fclose(file);
+    if ( MOPITTroot )       H5Gclose(MOPITTroot);
+    if ( geolocationGroup ) H5Gclose(geolocationGroup);
+    if ( radianceGroup )    H5Gclose(radianceGroup);
+    if ( tempGroupID )      H5Gclose(tempGroupID);
+    if ( tempSapce )        H5Sclose(tempSpace);
+    if ( datatypeID )       H5Tclose(datatypeID);
+    if ( stringType )       H5Tclose(stringType);
+    if ( dims )             free(dims);
+
+    if ( fail )
+        return EXIT_FAILURE;
+
+    return EXIT_SUCCESS;
     
-    return 0;
 
 }

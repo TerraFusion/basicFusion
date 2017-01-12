@@ -11,13 +11,12 @@
 #   expected and that there are no unknown errors in the output file.
 
 if [ "$#" -ne 1 ]; then
-	printf "Usage:\n\t$0 [relative/absolute path to all 5 instruments]\n\n"
-	printf "Example: $0 /path/to/instrument/directories\nDo not provide path to individual instruments.\n"
+	printf "Usage:\n\t$0 [relative/absolute path to all 5 instruments] [output directory]\n\n"
 	exit 1
 fi
 
 INPATH=$1
-OUTFILE=/u/sciteam/clipp/basicFusion/exe/inputFiles.txt
+OUTFILE=$2
 CURDIR=$(pwd)
 FAIL=0
 MOPITTNUM=0
