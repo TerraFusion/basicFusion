@@ -448,7 +448,7 @@ int MOPITT( char* argv[] )
     if ( geolocationGroup ) H5Gclose(geolocationGroup);
     if ( radianceGroup )    H5Gclose(radianceGroup);
     if ( tempGroupID )      H5Gclose(tempGroupID);
-    if ( tempSapce )        H5Sclose(tempSpace);
+    if ( tempSpace )        H5Sclose(tempSpace);
     if ( datatypeID )       H5Tclose(datatypeID);
     if ( stringType )       H5Tclose(stringType);
     if ( dims )             free(dims);
