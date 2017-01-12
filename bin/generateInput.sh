@@ -11,7 +11,7 @@
 #   expected and that there are no unknown errors in the output file.
 
 if [ "$#" -ne 2 ]; then
-	printf "Usage:\n\t$0 [relative/absolute path to all 5 instruments] [output directory]\n\n"
+	printf "Usage:\n\t$0 [relative/absolute path to all 5 instruments] [output file]\n\n"
 	exit 1
 fi
 
