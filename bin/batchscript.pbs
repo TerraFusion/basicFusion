@@ -22,14 +22,14 @@ OUTFILENAME=$PBS_JOBID.h5
 FILELISTNAME=inputFiles.txt
 STD_OUTFILENAME=$PBS_JOBID.out.txt
 
-#HLIBPATH=/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/lib
-#if [[ $LD_LIBRARY_PATH != *"hdflib/lib"* ]]; then
-#    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH":"$HLIBPATH"
-#fi
+##HLIBPATH=/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/lib
+##if [[ $LD_LIBRARY_PATH != *"hdflib/lib"* ]]; then
+##    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH":"$HLIBPATH"
+##fi
 ### COMMENT OUT THIS SETTING BEFORE FULL OPERATION OF PROGRAM!!!
 ### A COMMENT IS TWO POUND SYMBOLS
 ### Set the job to be submitted to the debug queue
-##PBS -q debug
+#PBS -q high
 
 # NOTE: lines that begin with "#PBS" are not interpreted by the shell but ARE
 # used by the batch system, wheras lines that begin with multiple # signs,

@@ -1823,3 +1823,198 @@ herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* b
     return EXIT_SUCCESS;
 }
 
+/*                              getTime
+    DESCRIPTION:
+        This function takes a path (relative or absolute) to one of the instrument files
+        and returns a string containing the date information contained in the file name.
+        The string returned is allocated on the heap. IT IS THE DUTY OF THE CALLER 
+        to free this memory when done to avoid memory leaks.
+        The instrument argument is defined as follows:
+        0 = MOPITT
+        1 = CERES
+        2 = MODIS
+        3 = ASTER
+        4 = MISR
+    ARGUMENTS:
+        char* pathname -- the pathname to the hdf file
+        int instrument -- an identifier specifying which instrument pathname refers to
+    EFFECTS:
+        Allocates a string on the heap and returns that string
+    RETURN:
+        A valid string upon success.
+        NULL upon failure.
+ */
+char* getTime( char* pathname, int instrument )
+{
+    char* retString = NULL;
+    char* start = NULL;
+    char* end = NULL;
+    char* temp = NULL;
+    int len = 0;
+    
+    /**********
+     * MOPITT *
+     **********/
+    if ( instrument == 0 )
+    {
+        start = strstr ( pathname, "MOP01-" );
+        if ( start == NULL ){
+            fprintf(stderr, "[%s][%s][%d]: Error: Expected MOPITT path.\n\tReceived \"%s\"\n",
+            __FILE__, __func__, __LINE__, pathname);
+            return NULL;
+        }
+        
+        /* start is now pointing to the 'M'. We need to offset it to
+         * point to the beginning of the date in the filename. char is
+         * size 1, so we can simply offset it by 6
+         */
+        start += 6;
+        end = strstr( pathname, ".he5" );
+        if ( end == NULL ){
+            fprintf(stderr, "[%s][%s][%d]: Error in reading the pathname for %s.\n",
+            __FILE__, __func__, __LINE__, "MOPITT");
+            return NULL;
+        }
+        
+        /* end points to the '.'. Offset it by -1 */
+        end += -1;
+        
+        /* add 2 to length: (end - start) will give a value that is 1 smaller
+         * than the amount of space actually needed to store string. Add
+         * another 1 for the null terminator
+         */
+        len = end - start + 2;
+        retString = malloc ( len );
+        strncpy( retString, start, len-1 );
+        /* add null terminator */
+        retString[len-1] = '\0';
+        
+        return retString;
+    }
+    
+    /* repeat the same general process for each instrument */
+    
+    /*********
+     * CERES *
+     *********/
+    else if ( instrument == 1 )
+    {
+        start = strstr( pathname, "Edition3_" );
+        if ( start == NULL ){
+            fprintf(stderr, "[%s][%s][%d]: Error: Expected CERES path.\n\tReceived \"%s\"\n",
+            __FILE__, __func__, __LINE__, pathname );
+            return NULL;
+        }
+        start += 10;
+        
+        end = pathname + strlen( pathname ) - 1;
+        
+        /* end should be pointing to a number. Do a check to make sure this is true. */
+        if ( *end < '0' || *end > '9' ){
+            fprintf(stderr, "[%s][%s][%d]: Error in reading the pathname for %s.\n",
+            __FILE__, __func__, __LINE__, "CERES" );
+            return NULL;
+        }
+        
+        len = end - start + 2;
+        retString = malloc(len);
+        strncpy( retString, start, len-1 );
+        retString[len-1] = '\0';
+        return retString;
+        
+    }
+    
+    /*********
+     * MODIS *
+     *********/
+    else if ( instrument == 2 )
+    {
+        /* this do-while loop isn't actually a loop. I just want to be able to make use
+         * of "break" to avoid unecessary checks. It was either this or the use of
+         * goto. Couldn't think of an elegant way to do the following code using else-if
+         * statements.
+         */
+        do
+        {
+            start = strstr( pathname, "MOD021KM.A" );
+            if ( start != NULL )
+            {
+                start += 10; break;
+            }
+            
+            start = strstr( pathname, "MOD03.A" );
+            if ( start != NULL )
+            {
+                start += 7; break;
+            } 
+            
+            start = strstr( pathname, "MOD02HKM.A" );
+            if ( start != NULL )
+            {
+                start += 10; break;
+            }
+            
+            start = strstr( pathname, "MOD02QKM.A" );
+            if ( start != NULL )
+            {
+                start += 10; break;
+            }
+            
+            fprintf(stderr, "[%s][%s][%d]: Error: Expected MODIS path.\n\tReceived \"%s\"\n",
+            __FILE__, __func__, __LINE__, pathname );
+            return NULL;
+            
+        } while ( 0 );
+        
+        len = 17;
+        
+        retString = malloc(len);
+        strncpy( retString, start, len-1 );
+        retString[len-1] = '\0';
+        return retString;
+    }
+    
+    /*********
+     * ASTER *
+     *********/
+    else if ( instrument == 3 )
+    {
+        start = strstr( pathname, "L1T_" );
+        if ( start == NULL ){
+            fprintf(stderr, "[%s][%s][%d]: Error: Expected ASTER path.\n\tReceived \"%s\"\n",
+            __FILE__, __func__, __LINE__, pathname );
+            return NULL;
+        }
+        
+        start += 4;
+        len = 18;
+        retString = malloc(len);
+        strncpy( retString, start, len-1 );
+        retString[len-1] = '\0';
+        return retString;
+    }
+    
+    /********
+     * MISR *
+     ********/
+    else if ( instrument == 4 )
+    {
+        start = strstr( pathname, "P022_" );
+        if ( start == NULL ){
+            fprintf(stderr, "[%s][%s][%d]: Error: Expected MISR path.\n\tReceived \"%s\"\n",
+            __FILE__, __func__, __LINE__, pathname );
+            return NULL;
+        }
+        
+        start += 5;
+        len = 8;
+        retString = malloc(len);
+        strncpy( retString, start, len-1 );
+        retString[len-1] = '\0';
+        return retString;
+    }
+    
+    fprintf(stderr, "[%s][%s][%d]: Error: Incorrect instrument argument.\n");
+    
+    return NULL;
+}
