@@ -431,10 +431,11 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
         EXIT_SUCCESS on success
 */
 
-herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroupName)
+herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* groupName)
 {
 
-    newGroupName = correct_name(newGroupName);
+    char* newGroupName = correct_name(groupName);
+
     *newGroup = H5Gcreate( *referenceGroup, newGroupName, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
     if ( *newGroup < 0 )
     {
@@ -891,7 +892,7 @@ char *correct_name(const char* oldname){
 
     char* newname = NULL;
     short offset = 0;
-
+    short neededCorrect = 0;
 #define IS_DIGIT(c)  ('0' <= (c) && (c) <= '9')
 #define IS_ALPHA(c)  (('a' <= (c) && (c) <= 'z') || ('A' <= (c) && (c) <= 'Z'))
 #define IS_OTHER(c)  ((c) == '_')
@@ -908,6 +909,7 @@ char *correct_name(const char* oldname){
     if ( IS_DIGIT(oldname[0]) )
     {
         offset = 1;
+        neededCorrect = 1;
     }
     
     newname = malloc(strlen(oldname)+1+offset);
@@ -922,13 +924,22 @@ char *correct_name(const char* oldname){
     if ( offset ) newname[0] = '_';
 
     size_t i;
-    for ( i = 0; i < strlen(oldname)+1; i++ )
+    for ( i = 0; i < strlen(oldname); i++ )
     {
         if ( IS_DIGIT(oldname[i]) || IS_ALPHA(oldname[i]) )
             newname[i+offset] = oldname[i];
-        else
+        else{
             newname[i+offset] = '_';
+            neededCorrect = 1;
+        }
     }
+
+    #if DEBUG
+    if ( neededCorrect ){
+        fprintf(stderr, "DEBUG INFO: Output object name differs from input object name.\n");
+        fprintf(stderr, "Old name: %s\nNew name: %s\n", oldname, newname);
+    }
+    #endif
 
     return newname;
 }

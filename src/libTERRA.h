@@ -4,7 +4,7 @@
 #include <mfhdf.h>
 #include <hdf5.h>
 #include <hdf5_hl.h>
-
+#define DEBUG 0
 #define DIM_MAX 10
 #define FATAL_MSG( ... ) \
 do { \

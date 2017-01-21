@@ -43,6 +43,7 @@ int MISR( char* argv[],int unpack )
     herr_t errStat = 0;
     float tempFloat = 0.0;
     double tempDouble = 0.0;
+    char* correctedName = NULL;
     /******************
      * geo data files *
      ******************/
@@ -185,7 +186,8 @@ int MISR( char* argv[],int unpack )
             }
             
             tempFloat = -999.0;
-            errStat = H5LTset_attribute_float( h5DataGroupID, radiance_name[j],"_Fillvalue",&tempFloat,1);
+            correctedName = correct_name(radiance_name[j]);
+            errStat = H5LTset_attribute_float( h5DataGroupID, correctedName,"_FillValue",&tempFloat,1);
             if ( errStat < 0 )
             {
                 FATAL_MSG("Failed to write an HDF5 attribute.\n");
@@ -194,6 +196,7 @@ int MISR( char* argv[],int unpack )
             
                         
             H5Dclose(h5DataFieldID); h5DataFieldID = 0;
+            free(correctedName); correctedName = NULL;
         } // End for (first inner j loop)
 
         createGroup(&h5GroupID,&h5SensorGeomGroupID,sensor_geom_gname);
@@ -216,7 +219,8 @@ int MISR( char* argv[],int unpack )
             }
 
             tempDouble = -555.0;
-            errStat = H5LTset_attribute_double( h5SensorGeomGroupID, band_geom_name[i*4+j],"_Fillvalue",&tempDouble,1);
+            correctedName = correct_name(band_geom_name[i*4+j]);
+            errStat = H5LTset_attribute_double( h5SensorGeomGroupID, correctedName,"_Fillvalue",&tempDouble,1);
             if ( errStat < 0 )
             {
                 FATAL_MSG("Failed to write an HDF5 attribute.\n");
@@ -224,6 +228,7 @@ int MISR( char* argv[],int unpack )
             }        
             status = H5Dclose(h5SensorGeomFieldID); h5SensorGeomFieldID = 0;
             if ( status ) WARN_MSG("H5Dclose\n");
+            free(correctedName); correctedName = NULL;
         } // End for (second inner j loop)
 
         statusn = SDend(h4FileID); h4FileID = 0;
@@ -257,12 +262,16 @@ int MISR( char* argv[],int unpack )
         latitudeID = 0;
         goto cleanupFail;
     }
-    errStat = H5LTset_attribute_string(geoGroupID,geo_name[0],"units","degrees_north");
+
+    correctedName = correct_name(geo_name[0]);
+    errStat = H5LTset_attribute_string(geoGroupID,correctedName,"units","degrees_north");
     if ( errStat < 0 )
     {
         FATAL_MSG("Failed to create HDF5 attribute.\n");
         goto cleanupFail;
     }
+
+    free(correctedName); correctedName = NULL;
 
     longitudeID = readThenWrite(geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
     if ( longitudeID == EXIT_FAILURE )
@@ -272,7 +281,8 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
 
-    errStat = H5LTset_attribute_string(geoGroupID,geo_name[1],"units","degrees_east");
+    correctedName = correct_name(geo_name[1]);
+    errStat = H5LTset_attribute_string(geoGroupID,correct_name,"units","degrees_east");
     if ( errStat < 0 )
     {
         FATAL_MSG("Failed to create HDF5 attribute.\n");
@@ -303,15 +313,18 @@ int MISR( char* argv[],int unpack )
         FATAL_MSG("Failed to read HDF4 attribute.\n");
         goto cleanupFail;
     }
+
+    correctedName = correct_name(solar_geom_name[0]);
     // write this to the corresponding HDF5 dataset as an attribute
-    errStat = H5LTset_attribute_double( gmpSolarGeoGroupID, solar_geom_name[0],"_Fillvalue",&tempDouble,1);
+    errStat = H5LTset_attribute_double( gmpSolarGeoGroupID, correctedName,"_Fillvalue",&tempDouble,1);
     if ( errStat < 0 )
     {
         FATAL_MSG("Failed to write an HDF5 attribute.\n");
         goto cleanupFail;
     }
 
-    
+    free(correctedName); correctedName = NULL;
+
     solarZenithID = readThenWrite(gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
     if ( solarZenithID == EXIT_FAILURE )
     {
@@ -320,13 +333,16 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
 
+    correctedName = correct_name(solar_geom_name[1]);
     // write the same tempDouble value into the solarZenith dataset
-    errStat = H5LTset_attribute_double( gmpSolarGeoGroupID, solar_geom_name[1],"_Fillvalue",&tempDouble,1);
+    errStat = H5LTset_attribute_double( gmpSolarGeoGroupID, correctedName,"_Fillvalue",&tempDouble,1);
     if ( errStat < 0 )
     {
         FATAL_MSG("Failed to write an HDF5 attribute.\n");
         goto cleanupFail;
     }
+
+    free(correctedName); correctedName = NULL;
 
     if ( 0 )
     {
@@ -352,7 +368,7 @@ int MISR( char* argv[],int unpack )
     if ( gmpSolarGeoGroupID ) status = H5Gclose(gmpSolarGeoGroupID);
     if ( solarAzimuthID ) status = H5Dclose(solarAzimuthID);
     if ( solarZenithID ) status = H5Dclose(solarZenithID);
-    
+    if ( correctedName ) free(correctedName);    
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;

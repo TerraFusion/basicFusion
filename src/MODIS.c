@@ -34,6 +34,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     herr_t status = EXIT_SUCCESS;
     float fltTemp = 0.0;
     intn statusn = 0;
+    int fail = 0;
+    char* correctedName = NULL;
     /**********************
      * 1KM data variables *
      **********************/
@@ -720,12 +722,15 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     }
     
     // ATTRIBUTES
-    status = H5LTset_attribute_string(MODISgranuleGroupID,"SD Sun zenith","units","radians");
+    correctedName = correct_name("SD Sun zenith");
+    status = H5LTset_attribute_string(MODISgranuleGroupID,correctedName,"units","radians");
     if ( status < 0 )
     {
         FATAL_MSG("Failed to add SD Sun zenith units attribute.\n");
         goto cleanupFail;
     }
+
+
     // get the attribute "_FillValue" value from SD Sun zenith
     {
         int32 dsetIndex = SDnametoindex(MOD03FileID,"SD Sun zenith");
@@ -753,7 +758,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             FATAL_MSG("Failed to read attribute.\n");
             goto cleanupFail;
         }
-        status = H5LTset_attribute_float(MODISgranuleGroupID,"SD Sun zenith","_FillValue",&tempfloat,1);
+        status = H5LTset_attribute_float(MODISgranuleGroupID,correctedName, "_FillValue",&tempfloat,1);
         if ( status < 0 )
         {
             FATAL_MSG("Failed to add SD Sun zenith _FillValue attribute.\n");
@@ -761,6 +766,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         }
     }
 
+    free(correctedName); correctedName = NULL;
     if ( SDSunzenithDatasetID) status = H5Dclose(SDSunzenithDatasetID); 
     SDSunzenithDatasetID = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
@@ -775,12 +781,15 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     }
     
     // ATTRIBUTES
-    status = H5LTset_attribute_string(MODISgranuleGroupID,"SD Sun azimuth","units","radians");
+
+    correctedName = correct_name("SD Sun azimuth");
+    status = H5LTset_attribute_string(MODISgranuleGroupID,correctedName,"units","radians");
     if ( status < 0 )
     {                                        
         FATAL_MSG("Failed to add SD Sun azimuth units attribute.\n");
         goto cleanupFail;
-    }   
+    }
+
     // get the attribute "_FillValue" value from SD Sun zenith
     {   
         int32 dsetIndex = SDnametoindex(MOD03FileID,"SD Sun azimuth");
@@ -808,7 +817,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             FATAL_MSG("Failed to read attribute.\n");
             goto cleanupFail;
         }
-        status = H5LTset_attribute_float(MODISgranuleGroupID,"SD Sun azimuth","_FillValue",&tempfloat,1);
+        status = H5LTset_attribute_float(MODISgranuleGroupID,correctedName,"_FillValue",&tempfloat,1);
         if ( status < 0 )
         {
             FATAL_MSG("Failed to add SD Sun zenith _FillValue attribute.\n");
@@ -817,6 +826,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     }
 
 
+    free(correctedName); correctedName = NULL;   
     if( SDSunazimuthDatasetID) status = H5Dclose(SDSunazimuthDatasetID); 
     SDSunazimuthDatasetID = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");               
@@ -1140,71 +1150,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     if ( 0 )
     {
         cleanupFail: 
-        if(latitudeAttrID !=0 ) status = H5Aclose(latitudeAttrID); 
-        if ( status < 0 ) WARN_MSG("H5Aclose\n");
-        if(latitudeDatasetID  !=0 ) status = H5Dclose( latitudeDatasetID ); 
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(longitudeAttrID !=0 ) status = H5Aclose(longitudeAttrID);
-        if ( status < 0 ) WARN_MSG("HADclose\n");
-        if(longitudeDatasetID !=0 ) status = H5Dclose( longitudeDatasetID);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(MOD03FileID !=0 ) statusn = SDend(MOD03FileID);
-        if(MODIS1KMdataFieldsGroupID !=0 ) status = H5Gclose(MODIS1KMdataFieldsGroupID);
-        if ( status < 0 ) WARN_MSG("H5Gclose\n");
-        if(MODIS1KMgeolocationGroupID !=0 ) status = H5Gclose(MODIS1KMgeolocationGroupID);
-        if ( status < 0 ) WARN_MSG("H5Gclose\n");
-        if(MODIS1KMGroupID !=0 ) status = H5Gclose(MODIS1KMGroupID);
-        if ( status < 0 ) WARN_MSG("H5Gclose\n");
-        if(MODIS250mdataFieldsGroupID !=0 ) status = H5Gclose(MODIS250mdataFieldsGroupID);
-        if ( status < 0 ) WARN_MSG("H5Gclose\n");
-        if(MODIS250mGroupID !=0 ) status = H5Gclose(MODIS250mGroupID);
-        if ( status < 0 ) WARN_MSG("H5Gclose\n");
-        if(MODIS500mdataFieldsGroupID !=0 ) status = H5Gclose(MODIS500mdataFieldsGroupID);
-        if ( status < 0 ) WARN_MSG("H5Gclose\n");
-        if(MODIS500mGroupID !=0 ) status = H5Gclose(MODIS500mGroupID);
-        if ( status < 0 ) WARN_MSG("H5Gclose\n");
-        if(MODISgranuleGroupID !=0 ) status = H5Gclose(MODISgranuleGroupID);
-        if ( status < 0 ) WARN_MSG("H5Gclose\n");
-        if(MODISrootGroupID !=0 ) status = H5Gclose(MODISrootGroupID);
-        if ( status < 0 ) WARN_MSG("H5Gclose\n");
-        if(SDSunazimuthDatasetID !=0 ) status = H5Dclose(SDSunazimuthDatasetID);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(SDSunzenithDatasetID !=0 ) status = H5Dclose(SDSunzenithDatasetID);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_1KMAttrID !=0 ) status = H5Aclose(_1KMAttrID);
-        if ( status < 0 ) WARN_MSG("H5Aclose\n");
-        if(_1KMDatasetID !=0 ) status = H5Dclose(_1KMDatasetID);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_1KMEmissive !=0 ) status = H5Dclose(_1KMEmissive);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_1KMEmissiveUncert !=0 ) status = H5Dclose(_1KMEmissiveUncert);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_1KMFileID !=0 ) statusn = SDend(_1KMFileID);
-        if(_1KMUncertID !=0 ) status = H5Dclose(_1KMUncertID);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_250Aggr1km !=0 ) status = H5Dclose(_250Aggr1km);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_250Aggr1kmUncert !=0 ) status = H5Dclose(_250Aggr1kmUncert);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_250Aggr500 !=0 ) status = H5Dclose(_250Aggr500);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_250Aggr500Uncert !=0 ) status = H5Dclose(_250Aggr500Uncert);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_250mFileID !=0 ) statusn = SDend(_250mFileID);
-        if(_250RefSB !=0 ) status = H5Dclose(_250RefSB);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_250RefSBUncert !=0 ) status = H5Dclose(_250RefSBUncert);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_500Aggr1km !=0 ) status = H5Dclose(_500Aggr1km);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_500Aggr1kmUncert !=0 ) status = H5Dclose(_500Aggr1kmUncert);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_500mFileID !=0 ) statusn = SDend(_500mFileID);
-        if(_500RefSB !=0 ) status = H5Dclose(_500RefSB);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        if(_500RefSBUncert !=0 ) status = H5Dclose(_500RefSBUncert);
-        if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        return EXIT_FAILURE;
+        fail = 1;
     }
     
     /* TODO
@@ -1275,6 +1221,11 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
     if(_500RefSBUncert !=0 ) status = H5Dclose(_500RefSBUncert);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
+    if ( correctedName != NULL ) free(correctedName);
+    if ( status ) WARN_MSG("free\n");
+
+    if ( fail ) return EXIT_FAILURE;
+
     return EXIT_SUCCESS;
     
 }

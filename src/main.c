@@ -548,7 +548,7 @@ int main( int argc, char* argv[] )
     status = MISR( MISRargs,unpack);
     if ( status == EXIT_FAILURE )
     {
-        FATAL_MSG("ASTER failed data transfer.\nExiting program.\n");
+        FATAL_MSG("MISR failed data transfer.\nExiting program.\n");
         H5Fclose(outputFile);
         fclose(inputFile);
         for ( int i = 1; i <= 11; i++ ) free( MISRargs[i] );

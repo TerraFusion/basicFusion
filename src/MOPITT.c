@@ -52,18 +52,21 @@ int MOPITT( char* argv[] )
     }
     
     // create the root group
-    if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) )
+    if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT root group.\n", __FILE__,__func__,__LINE__);
         MOPITTroot = 0;
         goto cleanupFail;
     }
     
-    if(H5LTset_attribute_string(file,"/MOPITT","GranuleTime",argv[1])<0)
+
+    #if 0
+    if(H5LTset_attribute_string(outputFile,"MOPITT","GranuleTime",argv[1])<0)
     {
         fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
         goto cleanupFail;
     }
+    #endif
 
     // create the radiance group
     if ( createGroup ( &MOPITTroot, &radianceGroup, "Data Fields" ) )
