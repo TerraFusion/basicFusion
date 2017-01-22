@@ -3,7 +3,7 @@
 ### set the number of PEs per node
 #PBS -l nodes=1:ppn=1:xe
 ### set the wallclock time
-#PBS -l walltime=00:30:00
+#PBS -l walltime=02:00:00
 ### set the job name
 #PBS -N TERRAFusion
 ### set the job stdout and stderr
@@ -18,18 +18,18 @@
 ##PBS -W umask=0027
 PROJDIR=/u/sciteam/clipp/basicFusion/
 EXENAME=TERRArepackage
-OUTFILENAME=out.h5
+OUTFILENAME=$PBS_JOBID.h5
 FILELISTNAME=inputFiles.txt
-STD_OUTFILENAME=out.txt
+STD_OUTFILENAME=$PBS_JOBID.out.txt
 
-#HLIBPATH=/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/lib
-#if [[ $LD_LIBRARY_PATH != *"hdflib/lib"* ]]; then
-#    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH":"$HLIBPATH"
-#fi
+##HLIBPATH=/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/lib
+##if [[ $LD_LIBRARY_PATH != *"hdflib/lib"* ]]; then
+##    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH":"$HLIBPATH"
+##fi
 ### COMMENT OUT THIS SETTING BEFORE FULL OPERATION OF PROGRAM!!!
 ### A COMMENT IS TWO POUND SYMBOLS
 ### Set the job to be submitted to the debug queue
-##PBS -q debug
+#PBS -q high
 
 # NOTE: lines that begin with "#PBS" are not interpreted by the shell but ARE
 # used by the batch system, wheras lines that begin with multiple # signs,
@@ -65,3 +65,6 @@ aprun -n 1 "$PROJDIR"/exe/"$EXENAME" "$PROJDIR"/jobOutput/"$OUTFILENAME" "$PROJD
 
 
 ### For more information see the man page for aprun
+#module load valgrind/3.12.0
+#aprun -n 1 valgrind --leak-check=full --track-origins=yes "$PROJDIR"/exe/"$EXENAME" "$PROJDIR"/jobOutput/"$OUTFILENAME" "$PROJDIR"/exe/"$FILELISTNAME" &> "$PROJDIR"/jobOutput/"$STD_OUTFILENAME"
+

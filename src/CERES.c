@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <mfhdf.h>	
-#include <hdf.h>	// hdf4
-#include <hdf5.h>	// hdf5
+#include <mfhdf.h>  
+#include <hdf.h>    // hdf4
+#include <hdf5.h>   // hdf5
 #include "libTERRA.h"
 #define XMAX 2
 #define YMAX 720
@@ -12,29 +12,29 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
 
 int CERES( char* argv[],int index )
 {
-	/*************
-	 * VARIABLES *
-	 *************/
-	int32 fileID = 0;
-	hid_t timeDatasetID = 0;
-	hid_t SWFilteredDatasetID = 0;
-	hid_t WNFilteredDatasetID = 0;
-	hid_t TOTFilteredDatasetID = 0;
-	hid_t colatitudeDatasetID = 0;
-	hid_t longitudeDatasetID = 0;
-	hid_t CERESrootID = 0;
+    /*************
+     * VARIABLES *
+     *************/
+    int32 fileID = 0;
+    hid_t timeDatasetID = 0;
+    hid_t SWFilteredDatasetID = 0;
+    hid_t WNFilteredDatasetID = 0;
+    hid_t TOTFilteredDatasetID = 0;
+    hid_t colatitudeDatasetID = 0;
+    hid_t longitudeDatasetID = 0;
+    hid_t CERESrootID = 0;
     hid_t CERESgranuleID = 0;
-	hid_t CERESdataFieldsID = 0;
-	hid_t CERESgeolocationID = 0;
-	herr_t status = EXIT_SUCCESS;
-	
-	
-	/*****************
-	 * END VARIABLES *
-	 *****************/
-	
-	/* open the input file */
-	fileID = SDstart( argv[1], DFACC_READ );
+    hid_t CERESdataFieldsID = 0;
+    hid_t CERESgeolocationID = 0;
+    herr_t status = EXIT_SUCCESS;
+    char* fileTime = NULL;
+    
+    /*****************
+     * END VARIABLES *
+     *****************/
+    
+    /* open the input file */
+    fileID = SDstart( argv[1], DFACC_READ );
     if ( fileID < 0 )
     {
         FATAL_MSG("Unable to open CERES file.\n");
@@ -52,12 +52,22 @@ int CERES( char* argv[],int index )
         }
 
 
-        if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",argv[1])<0) {
+        if(H5LTset_attribute_string(outputFile,"CERES","FilePath",argv[1])<0) {
             FATAL_MSG("Failed to add CERES time stamp.\n");
             SDend(fileID);
             H5Gclose(CERESrootID);
             return EXIT_FAILURE;
         }
+
+        fileTime = getTime( argv[1], 1 );
+
+        if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",fileTime)<0) {
+            FATAL_MSG("Failed to add CERES time stamp.\n");
+            SDend(fileID);
+            H5Gclose(CERESrootID);
+            return EXIT_FAILURE;
+        }
+        free(fileTime); fileTime = NULL;
 
         if ( createGroup( &CERESrootID, &CERESgranuleID, "FM1" ) )
         {
@@ -128,7 +138,7 @@ int CERES( char* argv[],int index )
         H5Gclose(CERESdataFieldsID);
         H5Gclose(CERESgeolocationID);
         return EXIT_FAILURE;
-    }	
+    }   
     H5Dclose(timeDatasetID);
 
 
@@ -137,7 +147,7 @@ int CERES( char* argv[],int index )
      ***************************************/
     SWFilteredDatasetID = readThenWrite( CERESdataFieldsID, "CERES SW Filtered Radiances Upwards", DFNT_FLOAT32, H5T_NATIVE_FLOAT,
                             fileID );
-	if ( SWFilteredDatasetID == EXIT_FAILURE )
+    if ( SWFilteredDatasetID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to insert CERES SW Filtered Radiances Upwards dataset.\n");
         SDend(fileID);
@@ -148,7 +158,7 @@ int CERES( char* argv[],int index )
         return EXIT_FAILURE;
     }
  
-	status = CERESinsertAttrs( SWFilteredDatasetID, "CERES SW Filtered Radiance, Upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
+    status = CERESinsertAttrs( SWFilteredDatasetID, "CERES SW Filtered Radiance, Upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert attributes for SW Filtered Radiances Upwards.\n");
@@ -209,7 +219,7 @@ int CERES( char* argv[],int index )
         H5Gclose(CERESgeolocationID);
         return EXIT_FAILURE;
     }
-	
+    
     status = CERESinsertAttrs( WNFilteredDatasetID, "CERES TOT Filtered Radiance, Upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
@@ -240,8 +250,8 @@ int CERES( char* argv[],int index )
         H5Gclose(CERESgeolocationID);
         return EXIT_FAILURE;
     }
-	
-	status = CERESinsertAttrs( colatitudeDatasetID, "CERES SW Filtered Radiance, Upwards", "deg", 0.0f, 180.0f );
+    
+    status = CERESinsertAttrs( colatitudeDatasetID, "CERES SW Filtered Radiance, Upwards", "deg", 0.0f, 180.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert CERES Colatitude of CERES FOV at TOA attributes.\n");
@@ -270,8 +280,8 @@ int CERES( char* argv[],int index )
         H5Gclose(CERESgeolocationID);
         return EXIT_FAILURE;
     }
-	
-	status = CERESinsertAttrs( longitudeDatasetID, "CERES SW Filtered Radiance, Upwards", "deg", 0.0f, 180.0f );
+    
+    status = CERESinsertAttrs( longitudeDatasetID, "CERES SW Filtered Radiance, Upwards", "deg", 0.0f, 180.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert CERES Longitude of CERES FOV at TOA attributes.\n");
@@ -291,30 +301,30 @@ int CERES( char* argv[],int index )
     H5Gclose(CERESdataFieldsID);
     H5Gclose(CERESgeolocationID);
 
-	SDend(fileID);
-	
-	return EXIT_SUCCESS;
-	
+    SDend(fileID);
+    
+    return EXIT_SUCCESS;
+    
 }
 
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax )
 {
-	
-	hsize_t dimSize = 0;
-	hid_t attrID = 0;
-	hid_t dataspaceID = 0;
-	float floatBuff2[2] = {0.0};
+    
+    hsize_t dimSize = 0;
+    hid_t attrID = 0;
+    hid_t dataspaceID = 0;
+    float floatBuff2[2] = {0.0};
     herr_t status = 0;
-	/********************* long_name*****************************/
-	attrID = attrCreateString( objectID, "long_name", long_nameVal );
+    /********************* long_name*****************************/
+    attrID = attrCreateString( objectID, "long_name", long_nameVal );
     if ( attrID == EXIT_FAILURE )
     {
         FATAL_MSG("Cannot create CERES \"long_name\" attribute.\n");
         return EXIT_FAILURE;
     }
     H5Aclose(attrID);
-	/********************* units ********************************/
-	attrID = attrCreateString( objectID, "units", unitsVal );
+    /********************* units ********************************/
+    attrID = attrCreateString( objectID, "units", unitsVal );
     if ( attrID == EXIT_FAILURE )
     {
         FATAL_MSG("Cannot create CERES \"units\" attribute.\n");
@@ -322,8 +332,8 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
     }
 
     H5Aclose(attrID);
-	/********************* format *******************************/
-	attrID = attrCreateString( objectID, "format", "32-BitFloat" );
+    /********************* format *******************************/
+    attrID = attrCreateString( objectID, "format", "32-BitFloat" );
     if ( attrID == EXIT_FAILURE )
     {
         FATAL_MSG("Cannot create CERES \"format\" attribute.\n");
@@ -331,8 +341,8 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
     }
 
     H5Aclose(attrID);
-	/********************* coordsys *****************************/
-	attrID = attrCreateString( objectID, "coordsys", "not used" );
+    /********************* coordsys *****************************/
+    attrID = attrCreateString( objectID, "coordsys", "not used" );
     if ( attrID == EXIT_FAILURE )
     {
         FATAL_MSG("Cannot create CERES \"coordsys\" attribute.\n");
@@ -341,24 +351,24 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
 
     H5Aclose(attrID);
     /********************* valid_range **************************/
-	dimSize = 2;
-	dataspaceID = H5Screate_simple( 1, &dimSize, NULL );
-	if ( dataspaceID < 0 )
+    dimSize = 2;
+    dataspaceID = H5Screate_simple( 1, &dimSize, NULL );
+    if ( dataspaceID < 0 )
     {
         FATAL_MSG("Failed to create simple dataspace.\n");
         return EXIT_FAILURE;
-    }					
-	attrID = H5Acreate(objectID, "valid_range", H5T_NATIVE_FLOAT, dataspaceID, H5P_DEFAULT, H5P_DEFAULT );
-	if ( attrID < 0 )
+    }                   
+    attrID = H5Acreate(objectID, "valid_range", H5T_NATIVE_FLOAT, dataspaceID, H5P_DEFAULT, H5P_DEFAULT );
+    if ( attrID < 0 )
     {
         FATAL_MSG("Failed to create CERES \"valid_range\" attribute\n");
         H5Sclose(dataspaceID);
         return EXIT_FAILURE;
     }
 
-	floatBuff2[0] = valid_rangeMin;
-	floatBuff2[1] = valid_rangeMax;
-	status = H5Awrite( attrID, H5T_NATIVE_FLOAT, floatBuff2 );
+    floatBuff2[0] = valid_rangeMin;
+    floatBuff2[1] = valid_rangeMax;
+    status = H5Awrite( attrID, H5T_NATIVE_FLOAT, floatBuff2 );
     if ( status < 0 )
     {
         FATAL_MSG("Failed to write to CERES attribute.\n");
@@ -367,18 +377,18 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
         return EXIT_FAILURE;
     }
 
-	H5Aclose( attrID );
-	H5Sclose(dataspaceID);
-	/********************* _FillValue****************************/
-	dimSize = 1;
-	dataspaceID = H5Screate_simple( 1, &dimSize, NULL );
+    H5Aclose( attrID );
+    H5Sclose(dataspaceID);
+    /********************* _FillValue****************************/
+    dimSize = 1;
+    dataspaceID = H5Screate_simple( 1, &dimSize, NULL );
     if ( dataspaceID < 0 )
     {
         FATAL_MSG("Failed to create simple dataspace.\n");
         return EXIT_FAILURE;
     }
-	attrID = H5Acreate( objectID, "_FillValue", H5T_NATIVE_FLOAT,
-		dataspaceID, H5P_DEFAULT, H5P_DEFAULT );
+    attrID = H5Acreate( objectID, "_FillValue", H5T_NATIVE_FLOAT,
+        dataspaceID, H5P_DEFAULT, H5P_DEFAULT );
     if ( attrID < 0 )
     {
         FATAL_MSG("Failed to create CERES \"valid_range\" attribute\n");
@@ -386,9 +396,9 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
         return EXIT_FAILURE;
     }
 
-	floatBuff2[0] = 3.4028235e38;
-	status = H5Awrite( attrID, H5T_NATIVE_FLOAT, floatBuff2 );
-	if ( status < 0 )
+    floatBuff2[0] = 3.4028235e38;
+    status = H5Awrite( attrID, H5T_NATIVE_FLOAT, floatBuff2 );
+    if ( status < 0 )
     {
         FATAL_MSG("Failed to write to CERES attribute.\n");
         H5Sclose(dataspaceID);
@@ -396,7 +406,7 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
         return EXIT_FAILURE;
     }
     H5Aclose( attrID );
-	H5Sclose(dataspaceID);
-	
-	return EXIT_SUCCESS;
+    H5Sclose(dataspaceID);
+    
+    return EXIT_SUCCESS;
 }
