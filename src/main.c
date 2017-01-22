@@ -17,6 +17,7 @@ int main( int argc, char* argv[] )
      * If it is, shame on you!
      */
 
+    #if 0
     {
         const char* hostname = getenv("HOSTNAME");
         printf("%s", hostname );
@@ -31,6 +32,7 @@ int main( int argc, char* argv[] )
         }
 
     }   
+    #endif
 
     if ( argc != 3 )
     {
