@@ -123,7 +123,8 @@ int main( int argc, char* argv[] )
         fclose(inputFile);
         return EXIT_FAILURE;
     }
-    
+   
+
     /**********
      * MOPITT *
      **********/
@@ -166,7 +167,6 @@ int main( int argc, char* argv[] )
     free(MOPITTargs[1]);
 
     printf("MOPITT done.\nTransferring CERES..."); fflush(stdout);
-    
     
     /*********
      * CERES *
@@ -237,7 +237,8 @@ int main( int argc, char* argv[] )
 
     printf("CERES done.\nTransferring MODIS..."); fflush(stdout);
 
-        
+
+
     /*********
      * MODIS *
      *********/
@@ -486,7 +487,6 @@ int main( int argc, char* argv[] )
 
     printf("ASTER done.\nTransferring MISR..."); fflush(stdout);
 
-    
     /********
      * MISR *
      ********/
