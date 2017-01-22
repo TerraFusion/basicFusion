@@ -208,7 +208,11 @@ int main( int argc, char* argv[] )
 // UNCOMMENT When the FM2 is avaliable
 #if 1
     getNextLine( string, inputFile);
-    assert( strstr( string, CEREScheck2 ) != NULL );
+    if ( strstr( string, CEREScheck2 ) == NULL ) 
+    {
+        FATAL_MSG("Failed to get CERES line.\nExpected: %s\nRecieved: %s\n", CEREScheck2, string);
+        return EXIT_FAILURE;
+    }
     
     CERESargs[0] = argv[0];
     /* allocate memory for the argument */
