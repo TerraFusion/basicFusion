@@ -42,7 +42,9 @@ int MOPITT( char* argv[] )
     int fail = 0;
 
     float tempFloat = 0.0f;
-    
+    char* correctName = NULL;
+    char* fileTime = NULL;
+
     // open the input file
     if ( openFile( &file, argv[1], H5F_ACC_RDONLY ) )
     {
@@ -60,13 +62,24 @@ int MOPITT( char* argv[] )
     }
     
 
-    #if 0
-    if(H5LTset_attribute_string(outputFile,"MOPITT","GranuleTime",argv[1])<0)
+    #if 1
+
+    correctName = correct_name("MOPITT");    
+    if(H5LTset_attribute_string(outputFile,correctName,"GranuleTime",argv[1])<0)
     {
         fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
         goto cleanupFail;
     }
     #endif
+
+    fileTime = getTime( argv[1], 0 );
+    if(H5LTset_attribute_string(outputFile,correctName,"GranuleTime",fileTime)<0)
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
+        goto cleanupFail;
+    }
+    free(fileTime); fileTime = NULL;
+    free(correctName); correctName = NULL;
 
     // create the radiance group
     if ( createGroup ( &MOPITTroot, &radianceGroup, "Data Fields" ) )
@@ -455,7 +468,8 @@ int MOPITT( char* argv[] )
     if ( datatypeID )       H5Tclose(datatypeID);
     if ( stringType )       H5Tclose(stringType);
     if ( dims )             free(dims);
-
+    if ( correctName )      free(correctName);
+    if ( fileTime )         free(fileTime);
     if ( fail )
         return EXIT_FAILURE;
 

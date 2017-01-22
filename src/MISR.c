@@ -44,6 +44,7 @@ int MISR( char* argv[],int unpack )
     float tempFloat = 0.0;
     double tempDouble = 0.0;
     char* correctedName = NULL;
+    char* fileTime = NULL;
     /******************
      * geo data files *
      ******************/
@@ -81,10 +82,18 @@ int MISR( char* argv[],int unpack )
         return EXIT_FAILURE;
     }
 
-    if(H5LTset_attribute_string(outputFile,"MISR","GranuleTime",argv[1])<0) {
+    if(H5LTset_attribute_string(outputFile,"MISR","FilePath",argv[1])<0) {
         FATAL_MSG("Cannot add the time stamp\n");
         goto cleanupFail;
     }
+
+    // Extract the time substring from the file path
+    fileTime = getTime( argv[1], 4 );
+    if(H5LTset_attribute_string(outputFile,"MISR","GranuleTime",fileTime)<0) {
+        FATAL_MSG("Cannot add the time stamp\n");
+        goto cleanupFail;
+    }
+    free(fileTime); fileTime = NULL;
 
     geoFileID = SDstart( argv[10], DFACC_READ );
     if ( geoFileID == -1 )
@@ -369,6 +378,7 @@ int MISR( char* argv[],int unpack )
     if ( solarAzimuthID ) status = H5Dclose(solarAzimuthID);
     if ( solarZenithID ) status = H5Dclose(solarZenithID);
     if ( correctedName ) free(correctedName);    
+    if ( fileTime ) free(fileTime);
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;

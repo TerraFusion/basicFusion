@@ -36,6 +36,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     intn statusn = 0;
     int fail = 0;
     char* correctedName = NULL;
+    char* fileTime = NULL;
     /**********************
      * 1KM data variables *
      **********************/
@@ -196,10 +197,18 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         
     if(H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleTime",argv[1])<0) 
     {
-        fprintf(stderr, "[%s:%s:%d] Cannot add the time stamp.\n",__FILE__,__func__,__LINE__);
-        
+        fprintf(stderr, "[%s:%s:%d] Cannot add the file path attribute.\n",__FILE__,__func__,__LINE__);
         goto cleanupFail;
     }
+
+    // Extract the time substring from the file path
+    fileTime = getTime( argv[1], 2 );
+    if(H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleTime",fileTime)<0)
+    {
+        fprintf(stderr, "[%s:%s:%d] Cannot add the time stamp.\n",__FILE__,__func__,__LINE__);
+        goto cleanupFail;
+    }
+    free(fileTime); fileTime = NULL;
 
     /* create the 1 kilometer product group */
     if ( createGroup ( &MODISgranuleGroupID, &MODIS1KMGroupID, "1KM" ) )
@@ -1223,7 +1232,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
     if ( correctedName != NULL ) free(correctedName);
     if ( status ) WARN_MSG("free\n");
-
+    if ( fileTime ) free(fileTime);
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;

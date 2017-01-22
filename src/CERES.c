@@ -27,7 +27,7 @@ int CERES( char* argv[],int index )
     hid_t CERESdataFieldsID = 0;
     hid_t CERESgeolocationID = 0;
     herr_t status = EXIT_SUCCESS;
-    
+    char* fileTime = NULL;
     
     /*****************
      * END VARIABLES *
@@ -52,12 +52,22 @@ int CERES( char* argv[],int index )
         }
 
 
-        if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",argv[1])<0) {
+        if(H5LTset_attribute_string(outputFile,"CERES","FilePath",argv[1])<0) {
             FATAL_MSG("Failed to add CERES time stamp.\n");
             SDend(fileID);
             H5Gclose(CERESrootID);
             return EXIT_FAILURE;
         }
+
+        fileTime = getTime( argv[1], 1 );
+
+        if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",fileTime)<0) {
+            FATAL_MSG("Failed to add CERES time stamp.\n");
+            SDend(fileID);
+            H5Gclose(CERESrootID);
+            return EXIT_FAILURE;
+        }
+        free(fileTime); fileTime = NULL;
 
         if ( createGroup( &CERESrootID, &CERESgranuleID, "FM1" ) )
         {

@@ -192,9 +192,9 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         goto cleanupFail;
     }
 
-    fileTime = getTime( argv[2], 3 );
+    fileTime = getTime( argv[1], 3 );
     /* Landon 2017-1-21: Extract the time information from file name and add as attribute */
-    if(H5LTset_attribute_string(ASTERrootGroupID,fileTime,"GranuleTime",argv[1])<0)
+    if(H5LTset_attribute_string(ASTERrootGroupID,argv[2],"GranuleTime",fileTime)<0)
     {
         FATAL_MSG("Failed to add ASTER string attribute.\n");
         goto cleanupFail;
@@ -648,7 +648,9 @@ float unc[5][15] =
     if ( imageData3BID ) H5Dclose(imageData3BID);
     if ( latDataID ) H5Dclose(latDataID);
     if ( lonDataID ) H5Dclose(lonDataID);
-    
+   
+    if ( fail ) return EXIT_FAILURE;
+ 
     return EXIT_SUCCESS;
     
 }
