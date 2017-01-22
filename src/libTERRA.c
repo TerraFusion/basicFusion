@@ -1122,11 +1122,18 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
                              directory).
         2. datasetName    -- A string containing the name of the dataset in the input HDF4
                              file. The output dataset will have the same name.
-        3. inputDataType  -- An HDF4 datatype identifier. Must match the data type of the
+        3. retDatasetName -- The actual output dataset name. The output name cannot be 
+                             guaranteed to be the same as the input name (argument datasetName).
+                             Function will modify the char* pointed to by this argument to point
+                             to the output dataset name.
+
+                             CALLER MUST FREE THIS VARIABLE!!!! It is allocated by malloc!
+
+        4. inputDataType  -- An HDF4 datatype identifier. Must match the data type of the
                              input dataset. Please reference Section 3 of the HDF4
                              Reference Manual for a list of HDF types.
-        4. inputFileID    -- The HDF4 input file identifier
-        5. scale_factor   -- Value of "scale" in the unpacking equation
+        5. inputFileID    -- The HDF4 input file identifier
+        6. scale_factor   -- Value of "scale" in the unpacking equation
     
     EFFECTS:
         Reads the input file dataset and then writes to the HDF5 output file. Returns
@@ -1139,7 +1146,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
         any errors.
 */
 /* MY-2016-12-20 Routine to unpack MISR data */
-hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
+hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** retDatasetName, int32 inputDataType, 
                   int32 inputFileID,float scale_factor )
 {
     int32 dataRank = 0;
@@ -1149,6 +1156,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 i
     hid_t datasetID = 0;
     hid_t outputDataType = 0;   
     intn status = 0;
+    char* newdatasetName = NULL;
     
     if(scale_factor < 0) {
         fprintf( stderr, "[%s:%s:%d] The scale_factor of %s is less than 0.\n", __FILE__, __func__,__LINE__,  datasetName );
@@ -1165,12 +1173,19 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 i
     }
 
     /* Before unpacking the data, we want to re-arrange the name */
-    char* newdatasetName = NULL;
     char* RDQIName = "/RDQI";
     char* temp_sub_dsetname = strstr(datasetName,RDQIName);
-        
-    if(temp_sub_dsetname!=NULL && strncmp(RDQIName,temp_sub_dsetname,strlen(temp_sub_dsetname)) == 0){ 
-        newdatasetName = malloc(strlen(datasetName)-strlen(RDQIName)+1);
+       
+
+    /* Landon 21/1/2017 -- I am commenting this out for now. This code gets rid of the "RDQI" at the end of the name,
+     * for now I am going to keep the RDQI and simply get the name that correct_name returns.
+     */
+
+
+    #if 0 
+    if(temp_sub_dsetname!=NULL && strncmp(RDQIName,temp_sub_dsetname,strlen(temp_sub_dsetname)) == 0)
+    { 
+        newdatasetName = malloc( strlen(datasetName) - strlen(RDQIName) + 1 );
         memset(newdatasetName,'\0',strlen(datasetName)-strlen(RDQIName)+1);
 
         strncpy(newdatasetName,datasetName,strlen(datasetName)-strlen(RDQIName));
@@ -1179,6 +1194,9 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 i
         fprintf( stderr, "[%s:%s:%d] Error: The dataset name doesn't end with /RDQI\n", __FILE__, __func__,__LINE__);
         return EXIT_FAILURE;
     }
+    #endif
+
+    newdatasetName = correct_name(datasetName);
 
 
     /* Data Unpack */
@@ -1322,8 +1340,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 i
         return (EXIT_FAILURE);
     }
     
-    
-    free(newdatasetName);
+    *retDatasetName = newdatasetName;
     free(input_dataBuffer);
     free(output_dataBuffer);
     
