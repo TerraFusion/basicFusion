@@ -282,7 +282,7 @@ int MISR( char* argv[],int unpack )
     }
 
     correctedName = correct_name(geo_name[1]);
-    errStat = H5LTset_attribute_string(geoGroupID,correct_name,"units","degrees_east");
+    errStat = H5LTset_attribute_string(geoGroupID,(const char*) correct_name,"units","degrees_east");
     if ( errStat < 0 )
     {
         FATAL_MSG("Failed to create HDF5 attribute.\n");

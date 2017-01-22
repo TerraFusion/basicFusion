@@ -192,7 +192,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         goto cleanupFail;
     }
 
-    fileTime = char* getTime( argv[2], 3 )
+    fileTime = getTime( argv[2], 3 );
     /* Landon 2017-1-21: Extract the time information from file name and add as attribute */
     if(H5LTset_attribute_string(ASTERrootGroupID,fileTime,"GranuleTime",argv[1])<0)
     {

@@ -1849,7 +1849,6 @@ char* getTime( char* pathname, int instrument )
     char* retString = NULL;
     char* start = NULL;
     char* end = NULL;
-    char* temp = NULL;
     int len = 0;
     
     /**********
@@ -1859,8 +1858,7 @@ char* getTime( char* pathname, int instrument )
     {
         start = strstr ( pathname, "MOP01-" );
         if ( start == NULL ){
-            fprintf(stderr, "[%s][%s][%d]: Error: Expected MOPITT path.\n\tReceived \"%s\"\n",
-            __FILE__, __func__, __LINE__, pathname);
+            FATAL_MSG("Expected MOPITT path.\n\tReceived \"%s\"\n", pathname);
             return NULL;
         }
         
@@ -1871,8 +1869,7 @@ char* getTime( char* pathname, int instrument )
         start += 6;
         end = strstr( pathname, ".he5" );
         if ( end == NULL ){
-            fprintf(stderr, "[%s][%s][%d]: Error in reading the pathname for %s.\n",
-            __FILE__, __func__, __LINE__, "MOPITT");
+            FATAL_MSG("Error in reading the pathname for %s.\n","MOPITT");
             return NULL;
         }
         
@@ -1901,8 +1898,7 @@ char* getTime( char* pathname, int instrument )
     {
         start = strstr( pathname, "Edition3_" );
         if ( start == NULL ){
-            fprintf(stderr, "[%s][%s][%d]: Error: Expected CERES path.\n\tReceived \"%s\"\n",
-            __FILE__, __func__, __LINE__, pathname );
+            FATAL_MSG("Expected CERES path.\n\tReceived \"%s\"\n",pathname );
             return NULL;
         }
         start += 10;
@@ -1911,8 +1907,7 @@ char* getTime( char* pathname, int instrument )
         
         /* end should be pointing to a number. Do a check to make sure this is true. */
         if ( *end < '0' || *end > '9' ){
-            fprintf(stderr, "[%s][%s][%d]: Error in reading the pathname for %s.\n",
-            __FILE__, __func__, __LINE__, "CERES" );
+            FATAL_MSG("Error in reading the pathname for %s.\n", "CERES" );
             return NULL;
         }
         
@@ -1960,8 +1955,7 @@ char* getTime( char* pathname, int instrument )
                 start += 10; break;
             }
             
-            fprintf(stderr, "[%s][%s][%d]: Error: Expected MODIS path.\n\tReceived \"%s\"\n",
-            __FILE__, __func__, __LINE__, pathname );
+            FATAL_MSG("Expected MODIS path.\n\tReceived \"%s\"\n", pathname );
             return NULL;
             
         } while ( 0 );
@@ -1981,8 +1975,7 @@ char* getTime( char* pathname, int instrument )
     {
         start = strstr( pathname, "L1T_" );
         if ( start == NULL ){
-            fprintf(stderr, "[%s][%s][%d]: Error: Expected ASTER path.\n\tReceived \"%s\"\n",
-            __FILE__, __func__, __LINE__, pathname );
+            FATAL_MSG("Expected ASTER path.\n\tReceived \"%s\"\n", pathname );
             return NULL;
         }
         
@@ -2001,8 +1994,7 @@ char* getTime( char* pathname, int instrument )
     {
         start = strstr( pathname, "P022_" );
         if ( start == NULL ){
-            fprintf(stderr, "[%s][%s][%d]: Error: Expected MISR path.\n\tReceived \"%s\"\n",
-            __FILE__, __func__, __LINE__, pathname );
+            FATAL_MSG("Expected MISR path.\n\tReceived \"%s\"\n",pathname );
             return NULL;
         }
         
@@ -2014,7 +2006,7 @@ char* getTime( char* pathname, int instrument )
         return retString;
     }
     
-    fprintf(stderr, "[%s][%s][%d]: Error: Incorrect instrument argument.\n");
+    FATAL_MSG("Incorrect instrument argument.\n");
     
     return NULL;
 }
