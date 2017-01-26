@@ -57,7 +57,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
                                            int32 inputFile, float unc);
 
 /* MISR funcions */
-hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
+hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** retDatasetName, int32 inputDataType,
                                            int32 inputFile, float scale_factor);
 
 hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,

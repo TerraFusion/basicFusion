@@ -172,7 +172,7 @@ int MISR( char* argv[],int unpack )
                     FATAL_MSG("Failed to obtain scale factor for MISR.\n)");
                     goto cleanupFail;
                 }
-                h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j],DFNT_UINT16,
+                h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j], &correctedName, DFNT_UINT16,
                                                 h4FileID,scale_factor);
                 if ( h5DataFieldID == EXIT_FAILURE )
                 {
@@ -184,7 +184,9 @@ int MISR( char* argv[],int unpack )
 
             }
             else {
-                h5DataFieldID =  readThenWrite( h5DataGroupID, radiance_name[j],DFNT_UINT16,
+                correctedName = correct_name(radiance_name[j]);
+
+                h5DataFieldID =  readThenWrite( h5DataGroupID, correctedName, DFNT_UINT16,
                                                 H5T_NATIVE_USHORT,h4FileID);
                 if ( h5DataFieldID == EXIT_FAILURE )
                 {
@@ -195,8 +197,9 @@ int MISR( char* argv[],int unpack )
             }
             
             tempFloat = -999.0;
-            correctedName = correct_name(radiance_name[j]);
+
             errStat = H5LTset_attribute_float( h5DataGroupID, correctedName,"_FillValue",&tempFloat,1);
+
             if ( errStat < 0 )
             {
                 FATAL_MSG("Failed to write an HDF5 attribute.\n");
