@@ -172,7 +172,7 @@ int MISR( char* argv[],int unpack )
                     FATAL_MSG("Failed to obtain scale factor for MISR.\n)");
                     goto cleanupFail;
                 }
-                h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j], &correctedName, DFNT_UINT16,
+                h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j],  &correctedName,DFNT_UINT16,
                                                 h4FileID,scale_factor);
                 if ( h5DataFieldID == EXIT_FAILURE )
                 {
@@ -180,13 +180,23 @@ int MISR( char* argv[],int unpack )
                     h5DataFieldID = 0;
                     goto cleanupFail;
                 }
+             tempFloat = -999.0;
+
+printf("correctedName is %s\n",correctedName);
+            errStat = H5LTset_attribute_float( h5DataGroupID, correctedName,"_FillValue",&tempFloat,1);
+
+            if ( errStat < 0 )
+            {
+                FATAL_MSG("Failed to write an HDF5 attribute.\n");
+                goto cleanupFail;
+            }
                 
 
             }
             else {
-                correctedName = correct_name(radiance_name[j]);
+                //correctedName = correct_name(radiance_name[j]);
 
-                h5DataFieldID =  readThenWrite( h5DataGroupID, correctedName, DFNT_UINT16,
+                h5DataFieldID =  readThenWrite( h5DataGroupID, radiance_name[j], DFNT_UINT16,
                                                 H5T_NATIVE_USHORT,h4FileID);
                 if ( h5DataFieldID == EXIT_FAILURE )
                 {
@@ -196,6 +206,8 @@ int MISR( char* argv[],int unpack )
                 }
             }
             
+
+#if 0
             tempFloat = -999.0;
 
             errStat = H5LTset_attribute_float( h5DataGroupID, correctedName,"_FillValue",&tempFloat,1);
@@ -206,9 +218,12 @@ int MISR( char* argv[],int unpack )
                 goto cleanupFail;
             }
             
+#endif
                         
             H5Dclose(h5DataFieldID); h5DataFieldID = 0;
-            free(correctedName); correctedName = NULL;
+            if(correctedName!=NULL) 
+               free(correctedName); 
+            correctedName = NULL;
         } // End for (first inner j loop)
 
         createGroup(&h5GroupID,&h5SensorGeomGroupID,sensor_geom_gname);

@@ -118,6 +118,32 @@ int MOPITT( char* argv[] )
         goto cleanupFail;
     }
 
+    // MY 2017-01-26: Add the CF longitude units here 
+    if(H5LTset_attribute_string(geolocationGroup,"Longitude","units","degrees_east")<0) {
+
+        fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT longitude units attribute.\n", __FILE__,__func__,__LINE__);
+        goto cleanupFail;
+
+    }
+    {
+        float temp_fvalue = -9999.0;
+        // MY 2017-01-26: Add the CF _FillValue attribure here, I found -9999.0 inside the Latitude field for file MOP01-20070703-L1V3.50.0.he5
+        if(H5LTset_attribute_float(geolocationGroup,"Longitude","_FillValue",&temp_fvalue,1)<0) {
+
+            fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT longitude _FillValue attribute.\n", __FILE__,__func__,__LINE__);
+            goto cleanupFail;
+        }
+
+         // MY 2017-01-26: Add the CF valid_range attribure here. According to CF, longitude should always be from -180 to 180.
+        float temp_lon_valid_range[2] = {-180.0,180.0};
+        if(H5LTset_attribute_float(geolocationGroup,"Longitude","valid_range",temp_lon_valid_range,2)<0) {
+
+            fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT longitude valid_range attribute.\n", __FILE__,__func__,__LINE__);
+            goto cleanupFail;
+        }
+
+    }
+    
     H5Dclose(longitudeDataset); longitudeDataset = 0;
 
     // insert the latitude dataset
@@ -128,7 +154,34 @@ int MOPITT( char* argv[] )
         latitudeDataset = 0;
         goto cleanupFail;
     }
+
+     // MY 2017-01-26: Add the CF longitude units here 
+    if(H5LTset_attribute_string(geolocationGroup,"Latitude","units","degrees_north")<0) {
+
+        fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT latitude units attribute.\n", __FILE__,__func__,__LINE__);
+        goto cleanupFail;
+
+    }
+    {
+        float temp_fvalue = -9999.0;
+        // MY 2017-01-26: Add the CF _FillValue attribure here, I found -9999.0 inside the Latitude field for file MOP01-20070703-L1V3.50.0.he5
+        if(H5LTset_attribute_float(geolocationGroup,"Latitude","_FillValue",&temp_fvalue,1)<0) {
+
+            fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT latitude _FillValue attribute.\n", __FILE__,__func__,__LINE__);
+            goto cleanupFail;
+        }
+
+         // MY 2017-01-26: Add the CF valid_range attribure here. According to CF, longitude should always be from -180 to 180.
+        float temp_lat_valid_range[2] = {-90.0,90.0};
+        if(H5LTset_attribute_float(geolocationGroup,"Latitude","valid_range",temp_lat_valid_range,2)<0) {
+
+            fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT latitude valid_range attribute.\n", __FILE__,__func__,__LINE__);
+            goto cleanupFail;
+        }
+
+    }
     
+
     H5Dclose(latitudeDataset); latitudeDataset = 0;
 
     // insert the time dataset
@@ -364,6 +417,9 @@ int MOPITT( char* argv[] )
     /* Latitude_unit */
     // to store a string in HDF5, we need to create our own special datatype from a character type.
     // Our "base type" is H5T_C_S1, a single byte null terminated string
+    // MY 2017-01-26: The following attributes are not needed. Don't know why they are added at first place.
+    //
+#if 0
     stringType = H5Tcopy(H5T_C_S1);
     if ( stringType < 0 )
     {
@@ -416,6 +472,7 @@ int MOPITT( char* argv[] )
 
     H5Aclose( attrID ); attrID = 0;
     H5Tclose(stringType); stringType = 0;
+#endif
     /* Time_unit */
     stringType = H5Tcopy(H5T_C_S1);
     if ( stringType < 0 )

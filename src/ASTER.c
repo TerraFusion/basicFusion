@@ -605,6 +605,12 @@ float unc[5][15] =
         goto cleanupFail;
     }
     
+    // MY 2016-01-26: add latitude units.
+    if(H5LTset_attribute_string(geoGroupID,"Latitude","units","degrees_north")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        goto cleanupFail;
+    }
+    
     lonDataID = readThenWrite( geoGroupID, "Longitude",
                     DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID ); 
     if ( lonDataID == EXIT_FAILURE )
@@ -614,6 +620,11 @@ float unc[5][15] =
         goto cleanupFail;
     }
     
+    if(H5LTset_attribute_string(geoGroupID,"Longitude","units","degrees_east")<0) {
+        FATAL_MSG("Unable to insert ASTER longitude units attribute.\n");
+        goto cleanupFail;
+    }
+  
     /* release identifiers */
     if ( 0 )
     {

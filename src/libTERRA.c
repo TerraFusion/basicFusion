@@ -628,6 +628,7 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *retRank, 
     int32 start[DIM_MAX] = {0};
     int32 stride[DIM_MAX] = {0};
     
+printf("datasetName is %s\n",datasetName);
     /* get the index of the dataset from the dataset's name */
     sds_index = SDnametoindex( fileID, datasetName );
     if( sds_index < 0 )
@@ -1146,7 +1147,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
         any errors.
 */
 /* MY-2016-12-20 Routine to unpack MISR data */
-hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** retDatasetName, int32 inputDataType, 
+hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** retDatasetNamePtr,int32 inputDataType, 
                   int32 inputFileID,float scale_factor )
 {
     int32 dataRank = 0;
@@ -1177,12 +1178,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
     char* temp_sub_dsetname = strstr(datasetName,RDQIName);
        
 
-    /* Landon 21/1/2017 -- I am commenting this out for now. This code gets rid of the "RDQI" at the end of the name,
-     * for now I am going to keep the RDQI and simply get the name that correct_name returns.
-     */
 
-
-    #if 0 
     if(temp_sub_dsetname!=NULL && strncmp(RDQIName,temp_sub_dsetname,strlen(temp_sub_dsetname)) == 0)
     { 
         newdatasetName = malloc( strlen(datasetName) - strlen(RDQIName) + 1 );
@@ -1194,9 +1190,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
         fprintf( stderr, "[%s:%s:%d] Error: The dataset name doesn't end with /RDQI\n", __FILE__, __func__,__LINE__);
         return EXIT_FAILURE;
     }
-    #endif
 
-    newdatasetName = correct_name(datasetName);
 
 
     /* Data Unpack */
@@ -1340,9 +1334,24 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
         return (EXIT_FAILURE);
     }
     
-    *retDatasetName = newdatasetName;
+    *retDatasetNamePtr= correct_name(newdatasetName);
+ /*
+    tempFloat = -999.0;
+    if(H5LTset_attribute_float( datasetID, correctedName,"_FillValue",&tempFloat,1)<0) {
+        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset's fillvalue attributes.\n", __FILE__, __func__,__LINE__, datasetName );
+        if(newdatasetName) free(newdatasetName);
+        if( input_dataBuffer) free(input_dataBuffer);
+        if( output_dataBuffer) free(output_dataBuffer);
+        return (EXIT_FAILURE);
+
+    }
+*/
+
+
+
     free(input_dataBuffer);
     free(output_dataBuffer);
+    if(newdatasetName) free(newdatasetName);
     
     return datasetID;
 }

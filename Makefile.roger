@@ -1,13 +1,12 @@
-# All variables suffixed with 1 denote HDF4, 2 HDF5
-# This makefile is currently set up to be run on the 
-# Blue Waters computer.
-CC=gcc
+# DON'T DELETE THIS FILE. 
+# This is a template for roger.
+CC=/sw/hdf5-1.8.16/bin/h5cc
 CFLAGS=-c -g -O0 -Wall -std=c99
-LINKFLAGS= -g -std=c99 -Wl,-rpath,/u/sciteam/clipp/basicFusion/hdflib/lib
-INCLUDE1=/u/sciteam/clipp/basicFusion/hdflib/include
-INCLUDE2=${INCLUDE1}
-LIB1=/u/sciteam/clipp/basicFusion/hdflib/lib
-LIB2=${LIB2}
+LINKFLAGS= -g -std=c99 
+INCLUDE1=/sw/hdf-4.2.12/include
+INCLUDE2=
+LIB1=/sw/hdf-4.2.12/lib
+LIB2=
 TARGET=./exe/TERRArepackage
 SRCDIR=./src
 OBJDIR=./obj
