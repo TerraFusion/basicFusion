@@ -5,7 +5,7 @@
 #include <assert.h>
 #include "libTERRA.h"
 
-
+/* Auther: MuQun Yang myang6@hdfgroup.org*/
 /* MY 2016-12-20, KEEP the following  comments for the time being since these are how we need to unpack ASTER data. 
 float unc[5][15] =
 {
@@ -245,23 +245,23 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     /* MY 2016-12-20: The following if-block will unpack the ASTER radiance data. I would like to clean up the code a little bit later.*/
     if(unpack == 1) {
 
-/* table 2-3 at https://lpdaac.usgs.gov/sites/default/files/public/product_documentation/aster_l1t_users_guide.pdf
- * row 0: high gain(HGH)
- * row 1: normal gain(NOR)
- * row 2: low gain 1(LO1)
- * row 3: low gain 2(LO2)
- * row 4: off(OFF) (not used just for mapping the off information at productmetada.0)
- * Since 3B and 3N share the same Unit conversion coefficient(UNC), we just use oen coeffieent for these two bands)
- * -1 is assigned to N/A and off case.
- *  */
-float unc[5][15] =
-{
-{0.676,0.708,0.423,0.423,0.1087,0.0348,0.0313,0.0299,0.0209,0.0159,-1,-1,-1,-1,-1},
-{1.688,1.415,0.862,0.862,0.2174,0.0696,0.0625,0.0597,0.0417,0.0318,0.006822,0.006780,0.006590,0.005693,0.005225},
-{2.25,1.89,1.15,1.15,0.290,0.0925,0.0830,0.0795,0.0556,0.0424,-1,-1,-1,-1,-1},
-{-1,-1,-1,-1,0.290,0.409,0.390,0.332,0.245,0.265,-1,-1,-1,-1,-1},
-{-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-};
+        /* table 2-3 at https://lpdaac.usgs.gov/sites/default/files/public/product_documentation/aster_l1t_users_guide.pdf
+         * row 0: high gain(HGH)
+         * row 1: normal gain(NOR)
+         * row 2: low gain 1(LO1)
+         * row 3: low gain 2(LO2)
+         * row 4: off(OFF) (not used just for mapping the off information at productmetada.0)
+         * Since 3B and 3N share the same Unit conversion coefficient(UNC), we just use oen coeffieent for these two bands)
+         * -1 is assigned to N/A and off case.
+         *  */
+        float unc[5][15] =
+        {
+        {0.676,0.708,0.423,0.423,0.1087,0.0348,0.0313,0.0299,0.0209,0.0159,-1,-1,-1,-1,-1},
+        {1.688,1.415,0.862,0.862,0.2174,0.0696,0.0625,0.0597,0.0417,0.0318,0.006822,0.006780,0.006590,0.005693,0.005225},
+        {2.25,1.89,1.15,1.15,0.290,0.0925,0.0830,0.0795,0.0556,0.0424,-1,-1,-1,-1,-1},
+        {-1,-1,-1,-1,0.290,0.409,0.390,0.332,0.245,0.265,-1,-1,-1,-1,-1},
+        {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+        };
 
        
         /* Mapping from name ImageData? to band index
@@ -284,313 +284,315 @@ float unc[5][15] =
         */
 
       
-    short gain_index[15];
-    float band_unc = 0;
+        short gain_index[15];
+        float band_unc = 0;
 
         /* Obtain the index of the gain */
-    obtain_gain_index(inFileID,gain_index);
-           
+        if(obtain_gain_index(inFileID,gain_index)==-1) {
+            FATAL_MSG("Cannot obtain gain index.\n");
+            goto cleanupFail;
+        }
         /* obtain the Unit conversion coefficient */
-    band_unc  = unc[gain_index[4]][4];
+        band_unc  = unc[gain_index[4]][4];
 
         /* SWIR */
-        
-    imageData4ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData4",
+        imageData4ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData4",
                     DFNT_UINT8, inFileID,unc[gain_index[4]][4] ); 
-    if ( imageData4ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
-        imageData4ID = 0;
-        goto cleanupFail;
-    }
+        if ( imageData4ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
+            imageData4ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData5ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData5",
-                    DFNT_UINT8, inFileID, unc[gain_index[5]][5] ); 
-    if ( imageData5ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
-        imageData5ID = 0;
-        goto cleanupFail;
-    }
+        imageData5ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData5",
+                        DFNT_UINT8, inFileID, unc[gain_index[5]][5] ); 
+        if ( imageData5ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
+            imageData5ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData6ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData6",
-                    DFNT_UINT8, inFileID , unc[gain_index[6]][6]); 
-    if ( imageData6ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
-        imageData6ID = 0;
-        goto cleanupFail;
-    }
+        imageData6ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData6",
+                        DFNT_UINT8, inFileID , unc[gain_index[6]][6]); 
+        if ( imageData6ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
+            imageData6ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData7ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData7",
-                    DFNT_UINT8, inFileID, unc[gain_index[7]][7] ); 
-    if ( imageData7ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
-        imageData7ID = 0;
-        goto cleanupFail;
-    }
+        imageData7ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData7",
+                        DFNT_UINT8, inFileID, unc[gain_index[7]][7] ); 
+        if ( imageData7ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
+            imageData7ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData8ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData8",
-                    DFNT_UINT8, inFileID , unc[gain_index[8]][8]); 
-    if ( imageData8ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
-        imageData8ID = 0;
-        goto cleanupFail;
-    }
+        imageData8ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData8",
+                        DFNT_UINT8, inFileID , unc[gain_index[8]][8]); 
+        if ( imageData8ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
+            imageData8ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData9ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData9",
-                    DFNT_UINT8, inFileID ,unc[gain_index[9]][9]); 
-    if ( imageData9ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
-        imageData9ID = 0;
-        goto cleanupFail;
-    }
+        imageData9ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData9",
+                        DFNT_UINT8, inFileID ,unc[gain_index[9]][9]); 
+        if ( imageData9ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
+            imageData9ID = 0;
+            goto cleanupFail;
+        }
     
         /* VNIR */
-    if(vnir_grp_ref >0) {
-        imageData1ID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData1",
-                    DFNT_UINT8, inFileID,unc[gain_index[0]][0] ); 
-        if ( imageData1ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData1 dataset.\n");
-            imageData1ID = 0;
-            goto cleanupFail;
-        }
-    
-        imageData2ID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData2",
-                    DFNT_UINT8, inFileID,unc[gain_index[1]][1] ); 
-        if ( imageData2ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData2 dataset.\n");
-            imageData2ID = 0;
-            goto cleanupFail;
-        }
-    
-        imageData3NID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3N",
-                    DFNT_UINT8, inFileID,unc[gain_index[2]][2] ); 
-        if ( imageData3NID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData3N dataset.\n");
-            imageData3NID = 0;
-            goto cleanupFail;
-        }
-
-    /* We don't see ImageData3B in the current orbit, however, the table indeed indicates the 3B band.
-       So here we check if there is an SDS with the name "ImangeData3B" and then do the conversation. 
-    */
-
-        imageData3Bindex = SDnametoindex(inFileID,"ImageData3B");
-        if(imageData3Bindex != FAIL) {
-            imageData3BID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3B",
-                                        DFNT_UINT8, inFileID,unc[gain_index[3]][3] );
-            if ( imageData3BID == EXIT_FAILURE )
+        if(vnir_grp_ref >0) {
+            imageData1ID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData1",
+                        DFNT_UINT8, inFileID,unc[gain_index[0]][0] ); 
+            if ( imageData1ID == EXIT_FAILURE )
             {
-                FATAL_MSG("Failed to transfer ASTER ImageData3B dataset.\n");
-                imageData3BID = 0;
+                FATAL_MSG("Failed to transfer ASTER ImageData1 dataset.\n");
+                imageData1ID = 0;
                 goto cleanupFail;
             }
-        }
-    }// end if(vnir_grp_ref)
+    
+            imageData2ID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData2",
+                        DFNT_UINT8, inFileID,unc[gain_index[1]][1] ); 
+            if ( imageData2ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData2 dataset.\n");
+                imageData2ID = 0;
+                goto cleanupFail;
+            }
+    
+            imageData3NID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3N",
+                        DFNT_UINT8, inFileID,unc[gain_index[2]][2] ); 
+            if ( imageData3NID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData3N dataset.\n");
+                imageData3NID = 0;
+                goto cleanupFail;
+            }
+
+            /* We don't see ImageData3B in the current orbit, however, the table indeed indicates the 3B band.
+               So here we check if there is an SDS with the name "ImangeData3B" and then do the conversation. 
+            */
+
+            imageData3Bindex = SDnametoindex(inFileID,"ImageData3B");
+            if(imageData3Bindex != FAIL) {
+                imageData3BID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3B",
+                                            DFNT_UINT8, inFileID,unc[gain_index[3]][3] );
+                if ( imageData3BID == EXIT_FAILURE )
+                {
+                    FATAL_MSG("Failed to transfer ASTER ImageData3B dataset.\n");
+                    imageData3BID = 0;
+                    goto cleanupFail;
+                }
+            }
+        }// end if(vnir_grp_ref)
     
         /* TIR */
-    imageData10ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData10",
-                    DFNT_UINT16, inFileID,unc[gain_index[10]][10] ); 
-    if ( imageData10ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
-        imageData10ID = 0;
-        goto cleanupFail;
-    }
+        imageData10ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData10",
+                        DFNT_UINT16, inFileID,unc[gain_index[10]][10] ); 
+        if ( imageData10ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
+            imageData10ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData11ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData11",
-                    DFNT_UINT16, inFileID, unc[gain_index[11]][11] ); 
-    if ( imageData11ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
-        imageData11ID = 0;
-        goto cleanupFail;
-    }
+        imageData11ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData11",
+                        DFNT_UINT16, inFileID, unc[gain_index[11]][11] ); 
+        if ( imageData11ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
+            imageData11ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData12ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData12",
+        imageData12ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData12",
                     DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
-    if ( imageData12ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
-        imageData12ID = 0;
-        goto cleanupFail;
-    }
+        if ( imageData12ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
+            imageData12ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData13ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData13",
-                    DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
-    if ( imageData13ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
-        imageData13ID = 0;
-        goto cleanupFail;
-    }
+        imageData13ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData13",
+                        DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
+        if ( imageData13ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
+            imageData13ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData14ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData14",
-                    DFNT_UINT16, inFileID,unc[gain_index[13]][13] ); 
-    if ( imageData14ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
-        imageData14ID = 0;
-        goto cleanupFail;
-    }
+        imageData14ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData14",
+                        DFNT_UINT16, inFileID,unc[gain_index[13]][13] ); 
+        if ( imageData14ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
+            imageData14ID = 0;
+            goto cleanupFail;
+        }
     } // end if(unpacked =1)
 
     else {
-    imageData4ID = readThenWrite( SWIRgroupID, "ImageData4",
-                    DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-    if ( imageData4ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
-        imageData4ID = 0;
-        goto cleanupFail;
-    }
+        imageData4ID = readThenWrite( SWIRgroupID, "ImageData4",
+                        DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
+        if ( imageData4ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
+            imageData4ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData5ID = readThenWrite( SWIRgroupID, "ImageData5",
-                    DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-    if ( imageData5ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
-        imageData5ID = 0;
-        goto cleanupFail;
-    }
+        imageData5ID = readThenWrite( SWIRgroupID, "ImageData5",
+                        DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
+        if ( imageData5ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
+            imageData5ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData6ID = readThenWrite( SWIRgroupID, "ImageData6",
-                    DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-    if ( imageData6ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
-        imageData6ID = 0;
-        goto cleanupFail;
-    }
+        imageData6ID = readThenWrite( SWIRgroupID, "ImageData6",
+                        DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
+        if ( imageData6ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
+            imageData6ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData7ID = readThenWrite( SWIRgroupID, "ImageData7",
-                    DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-    if ( imageData7ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
-        imageData7ID = 0;
-        goto cleanupFail;
-    }
+        imageData7ID = readThenWrite( SWIRgroupID, "ImageData7",
+                        DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
+        if ( imageData7ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
+            imageData7ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData8ID = readThenWrite( SWIRgroupID, "ImageData8",
-                    DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-    if ( imageData8ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
-        imageData8ID = 0;
-        goto cleanupFail;
-    }
+        imageData8ID = readThenWrite( SWIRgroupID, "ImageData8",
+                        DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
+        if ( imageData8ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
+            imageData8ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData9ID = readThenWrite( SWIRgroupID, "ImageData9",
-                    DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-    if ( imageData9ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
-        imageData9ID = 0;
-        goto cleanupFail;
-    }
+        imageData9ID = readThenWrite( SWIRgroupID, "ImageData9",
+                        DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
+        if ( imageData9ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
+            imageData9ID = 0;
+            goto cleanupFail;
+        }
     
         /* VNIR */
-    if(vnir_grp_ref >0) {
-    imageData1ID = readThenWrite( VNIRgroupID, "ImageData1",
-                    DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-    if ( imageData1ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData1 dataset.\n");
-        imageData1ID = 0;
-        goto cleanupFail;
-    }
-    
-    imageData2ID = readThenWrite( VNIRgroupID, "ImageData2",
-                    DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-    if ( imageData2ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData2 dataset.\n");
-        imageData2ID = 0;
-        goto cleanupFail;
-    }
-    
-    imageData3NID = readThenWrite( VNIRgroupID, "ImageData3N",
-                    DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
-    if ( imageData3NID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData3N dataset.\n");
-        imageData3NID = 0;
-        goto cleanupFail;
-    }
-
-         /* We don't see ImageData3B in the current orbit, however, the table indeed indicates the 3B band.
-           So here we check if there is an SDS with the name "ImangeData3B" and then do the conversation. 
-        */
-
-        imageData3Bindex = SDnametoindex(inFileID,"ImageData3B");
-        if(imageData3Bindex != FAIL) {
-
-            imageData3BID = readThenWrite( VNIRgroupID, "ImageData3B",
-                                        DFNT_UINT8, H5T_STD_U8LE, inFileID);
-            if ( imageData3BID == EXIT_FAILURE )
+        if(vnir_grp_ref >0) {
+            imageData1ID = readThenWrite( VNIRgroupID, "ImageData1",
+                            DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
+            if ( imageData1ID == EXIT_FAILURE )
             {
-                FATAL_MSG("Failed to transfer ASTER ImageData3B dataset.\n");
-                imageData3BID = 0;
+                FATAL_MSG("Failed to transfer ASTER ImageData1 dataset.\n");
+                imageData1ID = 0;
+                goto cleanupFail;
+
+            }
+    
+            imageData2ID = readThenWrite( VNIRgroupID, "ImageData2",
+                            DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
+            if ( imageData2ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData2 dataset.\n");
+                imageData2ID = 0;
+                goto cleanupFail;
+            }
+    
+            imageData3NID = readThenWrite( VNIRgroupID, "ImageData3N",
+                            DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
+            if ( imageData3NID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData3N dataset.\n");
+                imageData3NID = 0;
                 goto cleanupFail;
             }
 
-        }
+            /* We don't see ImageData3B in the current orbit, however, the table indeed indicates the 3B band.
+               So here we check if there is an SDS with the name "ImangeData3B" and then do the conversation. 
+           */
+
+            imageData3Bindex = SDnametoindex(inFileID,"ImageData3B");
+            if(imageData3Bindex != FAIL) {
+
+                imageData3BID = readThenWrite( VNIRgroupID, "ImageData3B",
+                                            DFNT_UINT8, H5T_STD_U8LE, inFileID);
+                if ( imageData3BID == EXIT_FAILURE )
+                {
+                    FATAL_MSG("Failed to transfer ASTER ImageData3B dataset.\n");
+                    imageData3BID = 0;
+                    goto cleanupFail;
+                }
+
+            }
 
        } // end if(vnir_grp_ref >0) 
     
         /* TIR */
-    imageData10ID = readThenWrite( TIRgroupID, "ImageData10",
-                    DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
-    if ( imageData10ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
-        imageData10ID = 0;
-        goto cleanupFail;
-    }
+        imageData10ID = readThenWrite( TIRgroupID, "ImageData10",
+                        DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
+        if ( imageData10ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
+            imageData10ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData11ID = readThenWrite( TIRgroupID, "ImageData11",
-                    DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
-    if ( imageData11ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
-        imageData11ID = 0;
-        goto cleanupFail;
-    }
+        imageData11ID = readThenWrite( TIRgroupID, "ImageData11",
+                        DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
+        if ( imageData11ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
+            imageData11ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData12ID = readThenWrite( TIRgroupID, "ImageData12",
-                    DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
-    if ( imageData12ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
-        imageData12ID = 0;
-        goto cleanupFail;
-    }
+        imageData12ID = readThenWrite( TIRgroupID, "ImageData12",
+                        DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
+        if ( imageData12ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
+            imageData12ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData13ID = readThenWrite( TIRgroupID, "ImageData13",
-                    DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
-    if ( imageData13ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
-        imageData13ID = 0;
-        goto cleanupFail;
-    }
+        imageData13ID = readThenWrite( TIRgroupID, "ImageData13",
+                        DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
+        if ( imageData13ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
+            imageData13ID = 0;
+            goto cleanupFail;
+        }
     
-    imageData14ID = readThenWrite( TIRgroupID, "ImageData14",
-                    DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
-    if ( imageData14ID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
-        imageData14ID = 0;
-        goto cleanupFail;
-    }
+        imageData14ID = readThenWrite( TIRgroupID, "ImageData14",
+                        DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
+        if ( imageData14ID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
+            imageData14ID = 0;
+            goto cleanupFail;
+        }
 
 
     }// else (packed)
@@ -710,49 +712,72 @@ short get_gain_stat(char *gain_stat_str) {
 int obtain_gain_index(int32 sd_id,short gain_index[15]) {
 
     const char* metadata_gain="productmetadata.0";
-    intn    status;
-   int32   attr_index, data_type, n_values;
-   char    attr_name[H4_MAX_NC_NAME];
-   int     i = 0;
-   int     band_index = -1;
-   int     temp_gain_index = -1;
-
+    intn    status = 0;
+    int32   attr_index = -1;
+    int32   data_type = -1;
+    int32   n_values = -1;
+    char    attr_name[H4_MAX_NC_NAME];
+    int     i = 0;
+    int     band_index = -1;
+    int     temp_gain_index = -1;
 
     int ret_value = 0;
    /*
    * Find the file attribute defined by FILE_ATTR_NAME.
    */
    attr_index = SDfindattr (sd_id, metadata_gain);
+   if(attr_index == FAIL) {
+        FATAL_MSG("SDfindattr failed for the attribute <productmetadata.0>.\n");
+        ret_value = -1;
+        return ret_value;
+   }
 
    /*
    * Get information about the file attribute. Note that the first
    * parameter is an SD interface identifier.
    */
    status = SDattrinfo (sd_id, attr_index, attr_name, &data_type, &n_values);
+   if(status == FAIL) {
+        FATAL_MSG("SDattrinfo failed for the attribute <productmetadata.0>.\n");
+        ret_value = -1;
+        return ret_value;
+   }
+
 
    /* The data type should be DFNT_CHAR, from SD_set_attr.c */
    if (data_type == DFNT_CHAR)
    {
-      char *fileattr_data= NULL;
-      char * string_gaininfo = NULL;
-      char * string_nogaininfo = NULL;
-      char* gain_string = NULL;
-      size_t gain_string_len = 0;
-      char*  tp= NULL;
-      char* band_index_str = NULL;
-      char* gain_stat_str = NULL;
-      int  gain[15] = {0};
+        char *fileattr_data= NULL;
+        char * string_gaininfo = NULL;
+        char * string_nogaininfo = NULL;
+        char* gain_string = NULL;
+        size_t gain_string_len = 0;
+        char*  tp= NULL;
+        char* band_index_str = NULL;
+        char* gain_stat_str = NULL;
+        int  gain[15] = {0};
 
 
-      /*
-      * Allocate a buffer to hold the attribute data.
-      */
-      fileattr_data = (char *)HDmalloc (n_values * sizeof(char));
+        /*
+        * Allocate a buffer to hold the attribute data.
+        */
+        fileattr_data = (char *)HDmalloc (n_values * sizeof(char));
+        if(fileattr_data == NULL) {
+            FATAL_MSG("Cannot allocate the buffer for fileattr_data.\n");
+            ret_value = -1;
+            return ret_value;
+        }
 
-      /*
-      * Read the file attribute data.
-      */
-      status = SDreadattr (sd_id, attr_index, fileattr_data);
+        /*
+         * Read the file attribute data.
+         */
+        status = SDreadattr (sd_id, attr_index, fileattr_data);
+        if(status == FAIL) {
+            FATAL_MSG("SDreadattr failed for attribute <productmetadata.0>\n");
+            if(fileattr_data) free(fileattr_data);
+            ret_value = -1;
+            return ret_value;
+        }
 
       /*
       * Print out file attribute value and free buffer.
@@ -767,15 +792,43 @@ int obtain_gain_index(int32 sd_id,short gain_index[15]) {
       // Somehow valgrind complains. Need to check why.
       gain_string_len = strlen(string_gaininfo)-strlen(string_nogaininfo);
       gain_string=malloc(gain_string_len+1);
+      if(gain_string == NULL) {
+            FATAL_MSG("Cannot allocate the buffer for gain_string.\n");
+            if(fileattr_data) free(fileattr_data);
+            ret_value = -1;
+            return ret_value;
+      }
+
+
+      
       strncpy(gain_string,string_gaininfo,gain_string_len);
 
       gain_string[gain_string_len]='\0';
       tp = gain_string;
 
       band_index_str = malloc(3);
+      if(band_index_str == NULL) {
+            FATAL_MSG("Cannot allocate the buffer for band_index_str.\n");
+            if(fileattr_data) free(fileattr_data);
+            if(gain_string) free(gain_string);
+            ret_value = -1;
+            return ret_value;
+      }
+
 
       memset(band_index_str,0,3);
       gain_stat_str  = malloc(4);
+      if(gain_stat_str == NULL) {
+            FATAL_MSG("Cannot allocate the buffer for gain_stat_str.\n");
+            if(fileattr_data) free(fileattr_data);
+            if(gain_string) free(gain_string);
+            if(band_index_str) free(band_index_str);
+            ret_value = -1;
+            return ret_value;
+      }
+
+
+
       memset(gain_stat_str,0,4);
 
 
@@ -808,10 +861,10 @@ int obtain_gain_index(int32 sd_id,short gain_index[15]) {
       for(i = 0; i <15;i++)
           gain_index[i] = gain[i];
             
-      free(gain_string);
-      free(band_index_str);
-      free(gain_stat_str);
-      free (fileattr_data);
+      if(gain_string) free(gain_string);
+      if(band_index_str) free(band_index_str);
+      if(gain_stat_str) free(gain_stat_str);
+      if(fileattr_data) free (fileattr_data);
    }
 
    return ret_value;
