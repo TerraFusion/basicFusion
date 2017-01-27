@@ -1022,7 +1022,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
         if ( vsir_dataBuffer != NULL ) free(vsir_dataBuffer);
-        if ( tir_dataBuffer != NULL ) free(vsir_dataBuffer);
+        if ( tir_dataBuffer != NULL ) free(tir_dataBuffer);
         return (EXIT_FAILURE);
     }
     
@@ -1090,14 +1090,14 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
     {
         fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
         if ( vsir_dataBuffer != NULL ) free(vsir_dataBuffer);
-        if ( tir_dataBuffer != NULL ) free(vsir_dataBuffer);
+        if ( tir_dataBuffer != NULL ) free(tir_dataBuffer);
         if ( output_dataBuffer != NULL ) free(output_dataBuffer);
         return (EXIT_FAILURE);
     }
     
 
     if ( vsir_dataBuffer != NULL ) free(vsir_dataBuffer);
-    if ( tir_dataBuffer != NULL ) free(vsir_dataBuffer);
+    if ( tir_dataBuffer != NULL ) free(tir_dataBuffer);
     if ( output_dataBuffer != NULL ) free(output_dataBuffer);
     return datasetID;
 }
