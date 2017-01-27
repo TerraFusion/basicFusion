@@ -628,7 +628,7 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *retRank, 
     int32 start[DIM_MAX] = {0};
     int32 stride[DIM_MAX] = {0};
     
-printf("datasetName is %s\n",datasetName);
+//printf("datasetName is %s\n",datasetName);
     /* get the index of the dataset from the dataset's name */
     sds_index = SDnametoindex( fileID, datasetName );
     if( sds_index < 0 )

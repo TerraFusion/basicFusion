@@ -69,7 +69,7 @@ int main( int argc, char* argv[] )
     char MOPITTcheck[] = "MOP01";
     char CEREScheck1[] = "CER_BDS_Terra-FM1";
 
-    /*MY 2016-12-20: add FM2 based on GZ's request. FM2 file is not available yet. */
+    /*MY 2016-12-20: add FM2 based on GZ's request.  */
     char CEREScheck2[] = "CER_BDS_Terra-FM2";
     char MODIScheck1[] = "MOD021KM";
     char MODIScheck2[] = "MOD02HKM";
@@ -98,8 +98,9 @@ int main( int argc, char* argv[] )
     /*MY 2016-12-21: GZ also requests to unpack the MODIS,ASTER and MISR data, this is the flag for this */
     int unpack      = 0;
 
-    /*MY 2016-12-21: Currently an environment variable TERRA_DATA_UNPACK should be set to run the program to generate the unpacked data,
-         *               Without setting this environment variable, the program will just write the packed data */
+    /*MY 2016-12-21: Currently an environment variable TERRA_DATA_UNPACK should be set 
+     *to run the program to generate the unpacked data,
+     *without setting this environment variable, the program will just write the packed data */
         
     {
         const char *s;
@@ -117,6 +118,10 @@ int main( int argc, char* argv[] )
     /* remove output file if it already exists. Note that no conditional statements are used. If file does not exist,
      * this function will throw an error but we do not care.
      */
+    /* MY 2017-01-27: remove is not necessary. The HDF5 file create operation will handle this 
+                      Correction: leave it for the time being since the createOutputFile uses the EXCL flag.
+                      TODO: Will turn this off in the operation.
+    */
     remove( argv[1] );
 
     /* create the output file or open it if it exists */
@@ -146,9 +151,11 @@ int main( int argc, char* argv[] )
     }
     
     MOPITTargs[0] = argv[0];
+
     /* allocate space for the argument */
     MOPITTargs[1] = malloc( strlen(string)+1 );
     memset(MOPITTargs[1],0,strlen(string)+1);
+
     /* copy the data over */
     strncpy( MOPITTargs[1], string, strlen(string) );
     MOPITTargs[2] = argv[1];
@@ -167,7 +174,7 @@ int main( int argc, char* argv[] )
     /*********
      * CERES *
      *********/
-    /* get the CERES input files */
+    /* Get the CERES FM1 */
     status = getNextLine( string, inputFile);
     if ( status == EXIT_FAILURE )
     {
@@ -183,7 +190,8 @@ int main( int argc, char* argv[] )
     }
     
     CERESargs[0] = argv[0];
-    /* allocate memory for the argument */
+
+    /* Allocate memory for the argument */
     CERESargs[1] = malloc( strlen(string )+1);
     memset(CERESargs[1],0,strlen(string)+1);
     strncpy( CERESargs[1], string, strlen(string) );
@@ -198,8 +206,7 @@ int main( int argc, char* argv[] )
     
     free(CERESargs[1]); CERESargs[1] = NULL;
 
-// UNCOMMENT When the FM2 is avaliable
-#if 1
+    // Handler CERES FM2
     getNextLine( string, inputFile);
     if ( strstr( string, CEREScheck2 ) == NULL ) 
     {
@@ -208,7 +215,8 @@ int main( int argc, char* argv[] )
     }
     
     CERESargs[0] = argv[0];
-    /* allocate memory for the argument */
+
+    /* Allocate memory for the argument */
     CERESargs[1] = malloc( strlen(string )+1);
     memset(CERESargs[1],0,strlen(string)+1);
     strncpy( CERESargs[1], string, strlen(string) );
@@ -220,7 +228,6 @@ int main( int argc, char* argv[] )
         goto cleanupFail;
     }
     free(CERESargs[1]); CERESargs[1] = NULL;
-#endif
 
 
     printf("CERES done.\nTransferring MODIS..."); fflush(stdout);
@@ -236,7 +243,8 @@ int main( int argc, char* argv[] )
     MODISargs[6] = argv[1];
 
     /* MY 2016-12-21: Need to form a loop to read various number of MODIS files 
-    *  A pre-processing check of the inputFile should be provided to make sure the processing will not exit prematurely */
+    *  A pre-processing check of the inputFile should be provided to make sure the processing 
+    *  will not exit prematurely */
     while(modis_count != 0) {
 
         /* get the MODIS 1KM file */
@@ -253,9 +261,7 @@ int main( int argc, char* argv[] )
             continue;
         }
 
-
- 
-            /* should be 1 km */
+        /* Should be 1 km */
         if ( strstr( string, MODIScheck1 ) == NULL )
         {
             FATAL_MSG("Received an unexpected input line for MODIS.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MODIScheck1);
@@ -263,7 +269,7 @@ int main( int argc, char* argv[] )
         }
 
 
-        /* allocate memory for the argument */
+        /* Allocate memory for the argument */
         MODISargs[1] = malloc ( strlen(string )+1 );
         memset(MODISargs[1],0,strlen(string)+1);
         strncpy( MODISargs[1], string, strlen(string));
@@ -278,12 +284,12 @@ int main( int argc, char* argv[] )
         /*This may be MOD02HKM or MOD03, so need to check */
         if(strstr(string,MODIScheck2) !=NULL) {/*Has MOD02HKM*/
 
-            /* allocate memory */
+            /* Allocate memory */
             MODISargs[2] = malloc( strlen(string)+1 );
             memset(MODISargs[2],0,strlen(string)+1);
             strncpy( MODISargs[2], string, strlen(string));
     
-            /* get the MODIS 250m file */
+            /* Get the MODIS 250m file */
             status = getNextLine( string, inputFile );
             if ( status == EXIT_FAILURE )
             {
@@ -302,7 +308,7 @@ int main( int argc, char* argv[] )
             memset(MODISargs[3],0,strlen(string)+1);
             strncpy( MODISargs[3], string, strlen(string) );
     
-            /* get the MODIS MOD03 file */
+            /* Get the MODIS MOD03 file */
             status = getNextLine( string, inputFile );
             if ( status == EXIT_FAILURE )
             {
@@ -320,7 +326,7 @@ int main( int argc, char* argv[] )
             MODISargs[4] = malloc( strlen( string )+1 );
             memset(MODISargs[4],0,strlen(string)+1);
 
-            /* remember the granule number */
+            /* Remember the granule number */
             strncpy( MODISargs[4], string, strlen(string) );
             sprintf(modis_granule_suffix,"%d",modis_count);
             MODISargs[5] = malloc(strlen(granule)+strlen(modis_granule_suffix)+1);
@@ -338,11 +344,13 @@ int main( int argc, char* argv[] )
 
         }
 
-        else if(strstr(string,MODIScheck4)!=NULL) {
-            /* allocate memory */
+        else if(strstr(string,MODIScheck4)!=NULL) {/* No 500m and 250m */
+
+            /*Set 500m and 250m arguments to NULL */
             MODISargs[2] = NULL;
             MODISargs[3] = NULL;
     
+            /* Allocate memory */
             MODISargs[4] = malloc( strlen( string )+1 );
             memset(MODISargs[4],0,strlen(string)+1);
             strncpy( MODISargs[4], string, strlen(string) );
@@ -386,18 +394,18 @@ int main( int argc, char* argv[] )
     ASTERargs[0] = argv[0];
     ASTERargs[3] = argv[1];
 
-    /* get the ASTER input files */
+    /* Get the ASTER input files */
     /* MY 2016-12-20, Need to loop ASTER files since the number of granules may be different for each orbit */
     while(aster_count != 0) {
             
         if(strstr( string, ASTERcheck ) != NULL ){
     
-            /* allocate memory for the argument */
+            /* Allocate memory for the argument */
             ASTERargs[1] = malloc( strlen(string )+1);
             memset(ASTERargs[1],0,strlen(string)+1);
             strncpy( ASTERargs[1], string, strlen(string) );
             
-            /* remember granule number */
+            /* Remember granule number */
             sprintf(aster_granule_suffix,"%d",aster_count);
             ASTERargs[2] = malloc(strlen(granule)+strlen(aster_granule_suffix)+1);
             memset(ASTERargs[2],0,strlen(granule)+strlen(aster_granule_suffix)+1);
@@ -405,7 +413,7 @@ int main( int argc, char* argv[] )
             strncpy(ASTERargs[2],granule,strlen(granule));
             strncat(ASTERargs[2],aster_granule_suffix,strlen(aster_granule_suffix));
  
-            // EXECUTE ASTER DATA TRANSFER
+            /* EXECUTE ASTER DATA TRANSFER */
             status = ASTER( ASTERargs,aster_count,unpack);
             
             if ( status == EXIT_FAILURE )

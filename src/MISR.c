@@ -182,7 +182,7 @@ int MISR( char* argv[],int unpack )
                 }
              tempFloat = -999.0;
 
-printf("correctedName is %s\n",correctedName);
+//printf("correctedName is %s\n",correctedName);
             errStat = H5LTset_attribute_float( h5DataGroupID, correctedName,"_FillValue",&tempFloat,1);
 
             if ( errStat < 0 )

@@ -1,6 +1,6 @@
 TerraFusion
 Terra Data Fusion Project - University of Illinois  
-Author: Landon Clipp  
+Author: Landon Clipp MuQun Yang 
 
 This file outlines the structure of the combined TERRA Fusion code, how to compile it on a local machine, and how to add
 additional code to the program. This file may not be up to date during development.
@@ -55,6 +55,30 @@ HDF4 libraries.
 The HDF5 (or HDF4) libraries might want access to JPEG libraries, so if you get 
 errors about JPEG libraries, try updating or installing those.
 
+---ROGER---
+
+To build the code at roger(ncsa cyberGIS clustor), do the following:
+
+1) Copy Makefile.roger to Makefile
+2) Load necessary modules
+   module load zlib libjpeg hdf4/4.2.12
+   module load zlib hdf5
+3) Run make under the package root directory
+   make
+4) Run the program for the sample orbit data at roger
+   (1) Copy the file that includes the input HDF4 files 
+       Two files are provided. They are under /inputFileDebug.
+       roger_small_input.txt is a subset of all the needed HDF4 files in one bit.
+       It is good for the debugging purpose.
+       roger_large_input.txt includes all the needed HDF4 files in one orbit.
+       Under the package root,
+       cd exe
+       cp ../inputFileDebug/roger_large_input.txt .
+       cp ../inputFileDebug/roger_small_input.txt .
+   (2) Run the unpacked option, set the environment variable TERRA_DATA_UNPACK=1 first
+       otherwise, just run the following:
+       ./TERRArepackage <your_output_fused_HDF5_file> roger_large_input.txt
+       
 ---BLUE WATERS---
 
 Steps to compile and run on Blue Waters:

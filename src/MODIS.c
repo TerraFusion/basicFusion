@@ -117,7 +117,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
      * END VARIABLES *
      *****************/
      
-    
+// JUST FOR DEBUGGING
+//unpack = 0;    
     
     /* open the input files */
     _1KMFileID = SDstart( argv[1], DFACC_READ );

@@ -106,7 +106,8 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     */
     char *vnir_grp_name ="VNIR";
     int32 vnir_grp_ref = -1;
-
+// JUST FOR DEBUGGING
+//unpack=0;
 
          /*
           *    * Open the HDF file for reading.
