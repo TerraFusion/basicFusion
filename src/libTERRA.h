@@ -31,6 +31,10 @@ int MISR( char* argv[],int unpack );
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, 
                      int returnDatasetID, int rank, hsize_t* datasetDims, 
                      hid_t dataType, char* datasetName, void* data_out);
+
+hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID,
+                          int returnDatasetID, int rank, hsize_t* datasetDims,
+                          hid_t dataType, char* datasetName, void* data_out);
                      
 hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
                             char * inDatasetPath, char* outDatasetPath, hid_t dataType, int returnDatasetID);

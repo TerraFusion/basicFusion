@@ -17,6 +17,7 @@
 #include "libTERRA.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <math.h>
 #include <string.h>
 #include <hdf5.h>
@@ -124,6 +125,106 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
     
     
 }
+
+hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID, 
+					 int rank, hsize_t* datasetDims, hid_t dataType, char* datasetName, void* data_out) 
+{
+    hid_t memspace;
+    hid_t dataset;
+    herr_t status;
+    char *correct_dsetname;
+
+    //hsize_t chunk_dims[DIM_MAX];
+    hid_t plist_id = H5Pcreate(H5P_DATASET_CREATE);
+
+    if(plist_id <0) {
+        FATAL_MSG("Cannot create the HDF5 dataset creation property list.\n");
+        return(EXIT_FAILURE);
+    }
+    // The chunk size is the same as the array size
+    if(H5Pset_chunk(plist_id,rank,datasetDims)<0){
+        FATAL_MSG("Cannot set chunk for the HDF5 dataset creation property list.\n");
+        H5Pclose(plist_id);
+        return(EXIT_FAILURE);
+    }
+
+    short gzip_comp_level = 0;
+
+    //Set compression level,USE_GZIP must be a number
+    {
+        const char *s;
+        s = getenv("USE_GZIP");
+        if(s && isdigit((int)*s))
+            if((unsigned int)strtol(s,NULL,0) >0)
+                gzip_comp_level= (unsigned int)strtol(s,NULL,0);
+    }
+        
+    // GZIP is only valid when the level is between 1 and 9
+    if(gzip_comp_level >0 && gzip_comp_level <10) {
+        if(H5Pset_deflate(plist_id,gzip_comp_level)<0) {
+            FATAL_MSG("Cannot set deflate for the HDF5 dataset creation property list.\n");
+            H5Pclose(plist_id);
+            return(EXIT_FAILURE);
+        }
+    }
+	
+    memspace = H5Screate_simple( rank, datasetDims, NULL );
+    if(memspace <0) {
+        FATAL_MSG("Cannot create the memory space.\n");
+        H5Pclose(plist_id);
+        return(EXIT_FAILURE);
+    }
+	
+    /* This is necessary since "/" is a reserved character in HDF5,we have to change it "_". MY 2016-12-20 */
+    correct_dsetname = correct_name(datasetName);
+    /*
+	dataset = H5Dcreate( *datasetGroup_ID, correct_dsetname, dataType, memspace, 
+						 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+    */
+
+    dataset = H5Dcreate( *datasetGroup_ID, correct_dsetname, dataType, memspace, 
+						 H5P_DEFAULT, plist_id, H5P_DEFAULT );
+    if(dataset<0) {
+        fprintf(stderr,"[%s:%s:%d] H5Dcreate -- Unable to create dataset \"%s\".\n", __FILE__,__func__ ,__LINE__ , datasetName );
+        H5Pclose(plist_id);
+        H5Sclose(memspace);
+        free(correct_dsetname);
+	return (EXIT_FAILURE);
+    }
+						 
+    status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, (VOIDP)data_out );
+    if ( status < 0 )
+    {
+	fprintf( stderr, "[%s:%s:%d] H5DWrite -- Unable to write to dataset \"%s\".\n", __FILE__,__func__ ,__LINE__ , datasetName );
+        H5Pclose(plist_id);
+	H5Dclose(dataset);
+        H5Sclose(memspace);
+        free(correct_dsetname);
+	return (EXIT_FAILURE);
+    }
+	
+	/* Free all remaining memory */
+    free(correct_dsetname);
+    H5Pclose(plist_id);
+    H5Sclose(memspace);
+	
+	/*
+	 * Check to see if caller wants the dataset ID returned. If not, go ahead and close the ID.
+	 */
+	 
+    if ( returnDatasetID == 0 )
+    {	
+	H5Dclose(dataset);
+	return EXIT_SUCCESS;
+    }
+	
+	
+    return dataset;
+	
+	
+}
+
+
 
 /*
                     MOPITTinsertDataset
@@ -1082,8 +1183,27 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
         temp[i] = (hsize_t) dataDimSizes[i];
         
     outputDataType = H5T_NATIVE_FLOAT;
-    datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+
+    short use_chunk = 0;
+
+    /* If using chunk */
+    {
+        const char *s;
+        s = getenv("USE_CHUNK");
+
+        if(s && isdigit((int)*s))
+            if((unsigned int)strtol(s,NULL,0) == 1)
+                use_chunk = 1;
+    }
+        
+    if(use_chunk == 1) {
+	datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank ,
                 temp, outputDataType, datasetName, output_dataBuffer );
+    }
+    else {
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+                temp, outputDataType, datasetName, output_dataBuffer );
+    }
 
         
     if ( datasetID == EXIT_FAILURE )
@@ -1094,7 +1214,6 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
         if ( output_dataBuffer != NULL ) free(output_dataBuffer);
         return (EXIT_FAILURE);
     }
-    
 
     if ( vsir_dataBuffer != NULL ) free(vsir_dataBuffer);
     if ( tir_dataBuffer != NULL ) free(tir_dataBuffer);
@@ -1176,7 +1295,6 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
     /* Before unpacking the data, we want to re-arrange the name */
     char* RDQIName = "/RDQI";
     char* temp_sub_dsetname = strstr(datasetName,RDQIName);
-       
 
 
     if(temp_sub_dsetname!=NULL && strncmp(RDQIName,temp_sub_dsetname,strlen(temp_sub_dsetname)) == 0)
@@ -1322,8 +1440,30 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
         
 
     outputDataType = H5T_NATIVE_FLOAT;
-    datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
-        temp, outputDataType, newdatasetName, output_dataBuffer );
+
+    short use_chunk = 0;
+
+    /* If using chunk */
+    {
+        const char *s;
+        s = getenv("USE_CHUNK");
+
+        if(s && isdigit((int)*s))
+            if((unsigned int)strtol(s,NULL,0) == 1)
+                use_chunk = 1;
+    }
+        
+    if(use_chunk == 1) {
+	datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank ,
+                temp, outputDataType, newdatasetName, output_dataBuffer );
+    }
+    else {
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+                temp, outputDataType, newdatasetName, output_dataBuffer );
+    }
+
+    //datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+    //    temp, outputDataType, newdatasetName, output_dataBuffer );
         
     if ( datasetID == EXIT_FAILURE )
     {
@@ -1346,8 +1486,6 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
 
     }
 */
-
-
 
     free(input_dataBuffer);
     free(output_dataBuffer);
@@ -1585,9 +1723,32 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
     hsize_t temp[DIM_MAX];
     for ( int i = 0; i < DIM_MAX; i++ )
         temp[i] = (hsize_t) dataDimSizes[i];
-        
 
     outputDataType = H5T_NATIVE_FLOAT;
+#if 0
+    short use_chunk = 0;
+
+    /* If using chunk */
+    {
+        const char *s;
+        s = getenv("USE_CHUNK");
+
+        if(s && isdigit((int)*s))
+            if((unsigned int)strtol(s,NULL,0) == 1)
+                use_chunk = 1;
+    }
+        
+    if(use_chunk == 1) {
+	datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank ,
+                temp, outputDataType, datasetName, output_dataBuffer );
+    }
+    else {
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+                temp, outputDataType, datasetName, output_dataBuffer );
+    }
+#endif
+
+
     datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
          temp, outputDataType, datasetName, output_dataBuffer );
         
@@ -1797,10 +1958,31 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
     for ( int i = 0; i < DIM_MAX; i++ )
         temp[i] = (hsize_t) dataDimSizes[i];
         
-
     outputDataType = H5T_NATIVE_FLOAT;
-    datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
-         temp, outputDataType, datasetName, output_dataBuffer );
+    short use_chunk = 0;
+
+    /* If using chunk */
+    {
+        const char *s;
+        s = getenv("USE_CHUNK");
+
+        if(s && isdigit((int)*s))
+            if((unsigned int)strtol(s,NULL,0) == 1)
+                use_chunk = 1;
+    }
+        
+    if(use_chunk == 1) {
+	datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank ,
+                temp, outputDataType, datasetName, output_dataBuffer );
+    }
+    else {
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+                temp, outputDataType, datasetName, output_dataBuffer );
+    }
+
+
+    //datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+    //     temp, outputDataType, datasetName, output_dataBuffer );
         
     if ( datasetID == EXIT_FAILURE )
     {
