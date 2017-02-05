@@ -59,16 +59,20 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
 /* MISR funcions */
 hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** correctedNameptr,int32 inputDataType,
                                            int32 inputFile, float scale_factor);
-
 hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
                                   int32 inputFileID);
-
 hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
                                   int32 inputFileID);
-
 herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* buffer );
 
+/* general utility functions */
 char* getTime( char* pathname, int instrument );
+
+int  h4type_to_h5type(
+              const int32 h4type, 
+              hid_t* h5memtype);
+
+
 #if 0
 float unc[5][15] =
 {
