@@ -45,6 +45,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     char* dimName = NULL;
     void* dimBuffer = NULL;
     hid_t dimID = 0;
+    //char netCDF_pureDim_NAME_val[] = "This is a netCDF dimension but not a netCDF variable.";
 
     /**********************
      * 1KM data variables *
@@ -400,7 +401,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     {
         hsize_t tempInt = 0;
         char* correct_dsetname = NULL;
-
+        int32 ntype = 0;
         /* Get dataset index */
         sds_index = SDnametoindex(_1KMFileID, "EV_1KM_RefSB");
         if ( sds_index == FAIL )
@@ -425,14 +426,12 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             goto cleanupFail;
         }
 
-        printf("%d\n", rank);
 
         int32 dim_index;
 
         // COPY OVER DIMENSION SCALES TO HDF5 OBJECT
         dimName = calloc(500, 1);
         int32 size = 0;
-        int32 ntype = 0;
         int32 num_attrs = 0;
         hid_t h5type = 0;
         
@@ -453,11 +452,11 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 FATAL_MSG("Failed to get dimension info.\n");
                 goto cleanupFail;
             }
-            printf("%s\n", dimName);
 
-            /* SDdiminfo will return 0 for ntype if the dimension has no scale information. In that case,
-               we must also create the pure dimension in HDF5 (the dimension in HDF5 will just be represented
-               as an empty dataset)
+
+                
+            /* SDdiminfo will return 0 for ntype if the dimension has no scale information. This is also the
+               case when isPureDim == 1. We need two separate cases for when it is and is not a pure dim
             */
 
             if ( ntype != 0 )
@@ -469,6 +468,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                     FATAL_MSG("Failed to convert HDF4 to HDF5 datatype.\n");
                     goto cleanupFail;
                 }
+
                 /* read the dimension scale into a buffer */
                 dimBuffer = malloc(size);
                 statusn = SDgetdimscale(dim_id, dimBuffer);
@@ -479,6 +479,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 }
 
                 /* make a new dataset for our dimension scale */
+                
                 tempInt = size;
                 dimID = insertDataset(&outputFile, &MODISrootGroupID, 1, 1, &tempInt, h5type, dimName, dimBuffer);
                 if ( dimID == EXIT_FAILURE )
@@ -493,25 +494,22 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
             else
             {
-                #if 0 
-                dimID = insertDataset(&outputFile, &MODISrootGroupID, 1, 1, &tempInt, H5T_NATIVE_INT, "tempDkim", &tempInt);
-                if ( dimID == EXIT_FAILURE )
-                {
-                    dimID = 0;
-                    FATAL_MSG("Failed to insert dataset.\n");
-                    goto cleanupFail;
-                }
-                #endif
-                hsize_t tempSize = 0;
-
+                hsize_t tempSize2 = 0;
                 hid_t memspace = 0;
-                memspace = H5Screate_simple( 1, &tempSize, NULL );
+
+                tempSize2 = (hsize_t) size;
+                memspace = H5Screate_simple( 1, &tempSize2, NULL );
 
 
                 correct_dsetname = correct_name(dimName);
-                //printf("%s\n", correct_dsetname );
                 dimID = H5Dcreate( MODIS1KMdataFieldsGroupID, correct_dsetname, H5T_NATIVE_INT, memspace,
                                      H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+                if ( dimID < 0 )
+                {
+                    FATAL_MSG("Failed to create dataset.\n");
+                    goto cleanupFail;
+                }
+
                 H5Sclose(memspace); memspace = 0;
 
                 if ( dimID < 0 )
@@ -532,6 +530,19 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             }
 
             free(correct_dsetname); correct_dsetname = NULL;
+
+            /* Correct the NAME attribute of the pure dimension to conform with netCDF
+               standards.
+            */
+            if ( ntype == 0 )
+            {
+                statusn = change_dim_attr_NAME_value(dimID); 
+                if ( statusn == FAIL )
+                {
+                    FATAL_MSG("Failed to change the NAME attribute of a dimension.\n");
+                    goto cleanupFail;
+                }
+            }
 
             errStatus = H5DSattach_scale(_1KMDatasetID, dimID, dim_index);
             if ( errStatus != 0 )

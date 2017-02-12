@@ -2647,3 +2647,86 @@ int  h4type_to_h5type(
   }
   return SUCCEED;
 }
+
+/****************change_dim_attr_NAME_value*******************************
+*
+* Source: h4h5tools
+    https://bitbucket.hdfgroup.org/projects/HDFEOS/repos/h4h5tools/browse/lib/src/h4toh5sds.c
+*
+* Function:     change_dim_attr_NAME_value
+* Purpose:      change dimension NAME attribute value to follow the netCDF-4 data model
+*           
+* Return:       FAIL if failed, SUCCEED if successful.
+* 
+* In :         
+*
+                h5dset_id:         HDF5 dataset ID this attribute is attached.
+*-------------------------------------------------------------------------
+*/ 
+
+
+int change_dim_attr_NAME_value(hid_t h5dset_id) {
+
+    hid_t tid = -1;
+    hid_t sid = -1;
+    hid_t aid = -1;
+
+    /* Assign the attribute value for NAME to follow netCDF-4 data model. */
+    char attr_value[] = "This is a netCDF dimension but not a netCDF variable.";
+
+
+    /* Delete the original attribute. */
+    if(H5Adelete(h5dset_id,"NAME") <0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME\n");
+        return FAIL;
+    }
+
+    if((tid = H5Tcopy(H5T_C_S1)) <0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME\n");
+        return FAIL;
+    }
+
+    if (H5Tset_size(tid, strlen(attr_value) + 1) <0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME\n");
+        H5Tclose(tid);
+        return FAIL;
+    }
+
+    if (H5Tset_strpad(tid, H5T_STR_NULLTERM) <0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME\n");
+        H5Tclose(tid);
+        return FAIL;
+    }
+    if((sid = H5Screate(H5S_SCALAR))<0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME\n");
+        H5Tclose(tid);
+        return FAIL;
+    }
+
+    /* Create and write a new attribute. */
+    if ((aid = H5Acreate(h5dset_id, "NAME", tid, sid, H5P_DEFAULT, H5P_DEFAULT)) < 0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME");
+        H5Tclose(tid);
+        H5Sclose(sid);
+        return FAIL;
+    }
+
+    if (H5Awrite(aid, tid, (void*)attr_value) <0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME");
+        H5Tclose(tid);
+        H5Sclose(sid);
+        H5Aclose(aid);
+        return FAIL;
+    }
+
+
+    if (aid != -1) 
+       H5Aclose(aid);
+    if (sid != -1) 
+       H5Sclose(sid);
+    if (tid != -1)
+       H5Tclose(tid);
+
+    return SUCCEED;
+
+}
