@@ -1,0 +1,97 @@
+#!/usr/bin/python
+#
+"""buildDB - Build the timespan database from orbits data-file and instrument-file-names data-files
+
+Usage:
+    buildDB [-oh] DB_FILE ORBIT_FILE INSTRUMENT_FILE
+    buildDB -h | --help
+
+Arguments:
+    DB_FILE     Path the the database
+    ORBIT_FILE  Path to the orbit data file
+    INSTRUMENT_FILE Path to a file with a list of all instrument files
+
+Options:
+    -h --help   Show help
+    -o  Overwrite existing database
+
+"""
+
+from __future__ import print_function
+import sqlite3
+import gzip
+import sys
+from datetime import datetime
+import logging
+import os
+from docopt import docopt
+import time
+
+def usage():
+    print (__doc__)
+    return
+
+matchFmt = {\
+    'cer': '',
+    'mod':
+    'mop':
+    'ast':
+    }
+
+def createDB(dbfile): # create the orbits table and instrument file tables
+    conn = sqlite3.connect(dbfile)
+    cursor = conn.cursor()
+    tstrs = {'CREATE TABLE orbits (stime integer PRIMARY KEY, etime integer, orbit integer)'}
+    for inst in {"modis", "moppit", "aster", "ceres"}:
+        tstrs.add('CREATE TABLE {} (stime integer PRIMARY KEY, etime integer, filename string)'.format(inst))
+    for table in tstrs:
+        cursor = cursor.execute(table)
+    return cursor
+
+def addOrbits(cursor, orbitsfile):
+    istr = 'INSERT OR IGNORE INTO orbits (stime, etime, orbit) VALUES ({},{},{})'
+    timeFmt = '%Y-%m-%dT%H:%M:%SZ'
+    with gzip.open(orbitsfile, 'r') as infile:
+        for line in infile:
+            line = line.decode("utf-8-sig")
+            orbitnum, starttime, endtime = line.split()
+            stime = time.mktime(datetime.strptime(starttime, timeFmt).timetuple())
+            etime = time.mktime(datetime.strptime(endtime, timeFmt).timetuple())
+            cursor.execute(istr.format(stime, etime, orbitnum))
+    return cursor
+
+def addInstruments(cursor, instfile):
+    istr = 'INSERT OR IGNORE INTO {} (stime, etime, filename) VALUES ({},{},{})'
+    # get line
+    with gzip.open(orbitsfile, 'r') as infile:
+        for line in infile:
+            line = line.decode("utf-8-sig")
+            inst = which_inst(line)
+            stime, etime, fname = maketimes['inst'](line)
+            cursor = cursor.execute(istr.format(inst, stime, etime, line))
+
+    return cursor
+
+def main():
+    args = docopt(__doc__)
+    if args['-o']:
+        os.remove(args['DB_FILE'])
+    cursor = createDB(args['DB_FILE'])
+    cursor = addOrbits(cursor, args['ORBIT_FILE'])
+    print ('end')
+    return
+
+
+if __name__ == '__main__':
+    logLevel = logging.NOTSET
+    if 'LOGLEVEL' in os.environ:
+        logLevel = getattr(logging, os.environ['LOGLEVEL'])
+    logging.basicConfig(level=logLevel, stream=sys.stdout, 
+	format=sys.argv[0].split('/')[-1]+': %(message)s')
+    main()
+    sys.exit(0)
+
+
+
+
+
