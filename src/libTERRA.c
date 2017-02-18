@@ -2730,3 +2730,207 @@ int change_dim_attr_NAME_value(hid_t h5dset_id) {
     return SUCCEED;
 
 }
+
+/*
+        setDimScales
+
+    DESCRIPTION:
+        This function copies all of the dimension scales from the HDF4 dataset
+        given by "h4DsetName" to the HDF5 dataset given by h5DsetID.
+
+    ARGUMENTS:
+        In:
+            h4FileID -- The file ID under which "h4DsetName" resides.
+            h4DsetName -- The name of the dataset whose dimensions are to be copied
+            h5DsetID -- THe HDF5 dataset identifier to attach the dimensions to
+            outGroup -- The location where the dimension datasets will be stored in the 
+                        object tree.
+    EFFECTS:
+        Modifies HDF5 object to contain the proper dimensions.
+
+    RETURN:
+        FAIL upon failure.
+        SUCCESS upon success.
+
+*/
+
+herr_t setDimScales( int32 h4FileID, char* h4DsetName, hid_t h5DsetID, hid_t outGroup )
+{
+    hsize_t tempInt = 0;
+    char* correct_dsetname = NULL;
+    int32 ntype = 0;
+    int32 dsetID = 0;
+    intn statusn = 0;
+    int32 dim_id;
+    char* dimBuffer = NULL;
+    short fail = 0;
+
+    /* Get dataset index */
+    sds_index = SDnametoindex(h4FileID, h4DsetName );
+    if ( sds_index == FAIL )
+    {
+        FATAL_MSG("Failed to get SD index.\n");
+        goto cleanupFail;
+    }
+    /* select the dataset */
+    dsetID = SDselect(h4FileID, sds_index);
+    if ( dsetID == FAIL )
+    {
+        dsetID = 0;
+        FATAL_MSG("Failed to select the HDF4 dataset.\n");
+        goto cleanupFail;
+    }
+
+    /* get the rank of the dataset */
+    statusn = SDgetinfo(dsetID, NULL, &rank, NULL, NULL, NULL );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to get SD info.\n");
+        goto cleanupFail;
+    }
+
+
+    int32 dim_index;
+
+    // COPY OVER DIMENSION SCALES TO HDF5 OBJECT
+    dimName = calloc(500, 1);i
+    int32 size = 0;
+    int32 num_attrs = 0;
+    hid_t h5type = 0;
+    
+    for ( dim_index = 0; dim_index < rank; dim_index++ )
+    {
+        dim_id = SDgetdimid ( dsetID, dim_index );
+        if ( dim_id == FAIL )
+        {
+            FATAL_MSG("Failed to get dimension ID.\n");
+            goto cleanupFail;
+        }
+
+
+        /* get various useful info about this dimension */
+        statusn = SDdiminfo( dim_id, dimName, &size, &ntype, &num_attrs );
+        if ( statusn == FAIL )
+        {
+            FATAL_MSG("Failed to get dimension info.\n");
+            goto cleanupFail;
+        }
+
+
+            
+        /* SDdiminfo will return 0 for ntype if the dimension has no scale information. This is also the
+           case when isPureDim == 1. We need two separate cases for when it is and is not a pure dim
+        */
+
+        if ( ntype != 0 )
+        {
+            /* get the correct HDF5 datatype from ntype */
+            status = h4type_to_h5type( ntype, &h5type );
+            if ( status != 0 )
+            {
+                FATAL_MSG("Failed to convert HDF4 to HDF5 datatype.\n");
+                goto cleanupFail;
+            }
+
+            /* read the dimension scale into a buffer */
+            dimBuffer = malloc(size);
+            statusn = SDgetdimscale(dim_id, dimBuffer);
+            if ( statusn != 0 )
+            {
+                FATAL_MSG("Failed to get dimension scale.\n");
+                goto cleanupFail;
+            }
+
+            /* make a new dataset for our dimension scale */
+            
+            tempInt = size;
+            dimID = insertDataset(&outputFile, &outGroup, 1, 1, &tempInt, h5type, dimName, dimBuffer);
+            if ( dimID == EXIT_FAILURE )
+            {
+                dimID = 0;
+                FATAL_MSG("Failed to insert dataset.\n");
+                goto cleanupFail;
+            }
+
+            free(dimBuffer); dimBuffer = NULL;
+        }
+
+        else
+        {
+            hsize_t tempSize2 = 0;
+            hid_t memspace = 0;
+
+            tempSize2 = (hsize_t) size;
+            memspace = H5Screate_simple( 1, &tempSize2, NULL );
+
+
+            correct_dsetname = correct_name(dimName);
+            dimID = H5Dcreate( outGroup, correct_dsetname, H5T_NATIVE_INT, memspace,
+                                 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+            if ( dimID < 0 )
+            {
+                FATAL_MSG("Failed to create dataset.\n");
+                goto cleanupFail;
+            }
+
+            H5Sclose(memspace); memspace = 0;
+
+            if ( dimID < 0 )
+            {
+                dimID = 0;
+                FATAL_MSG("H5Dcreate failed.\n");
+                goto cleanupFail;
+            }
+
+            
+        }
+
+        errStatus = H5DSset_scale(dimID, correct_dsetname);
+        if ( errStatus != 0 )
+        {
+            FATAL_MSG("Failed to set dataset as a dimension scale.\n");
+            goto cleanupFail;
+        }
+
+        free(correct_dsetname); correct_dsetname = NULL;
+
+        /* Correct the NAME attribute of the pure dimension to conform with netCDF
+           standards.
+        */
+        if ( ntype == 0 )
+        {
+            statusn = change_dim_attr_NAME_value(dimID); 
+            if ( statusn == FAIL )
+            {
+                FATAL_MSG("Failed to change the NAME attribute of a dimension.\n");
+                goto cleanupFail;
+            }
+        }
+
+        errStatus = H5DSattach_scale(h5DsetID, dimID, dim_index);
+        if ( errStatus != 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+
+        H5Dclose(dimID); dimID = 0;
+    }
+
+    if ( 0 )
+    {
+        cleanupFail:
+        fail = 1;
+    }
+
+    if ( dimName ) free(dimName);
+    if ( dimBuffer ) free(dimBuffer);
+    if ( dimID ) H5Dclose(dimID);
+    if ( memspace ) H5Sclose(memspace);
+    if ( correct_dsetname ) free(correct_dsetname);
+
+    if ( fail == 1 )
+        return FAIL;
+
+    return SUCCESS;    
+}
