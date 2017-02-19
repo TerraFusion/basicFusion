@@ -350,57 +350,58 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
     }
 
-    
-    // ATTRIBUTES
-    status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","units","Watts/m^2/micrometer/steradian");
-    if ( status < 0 )
+    if ( unpack == 0 || argv[2] != NULL )
     {
-        FATAL_MSG("Failed to add EV_1KM_RefSB units attribute.\n");
-        goto cleanupFail;
-    }
-    fltTemp = -999.0;
-    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","_FillValue",&fltTemp, 1 );
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_1KM_RefSB _FillValue attribute.\n");
-        goto cleanupFail;
-    }
-    fltTemp = 0.0;
-    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","valid_min",&fltTemp, 1 );
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_1KM_RefSB valid_min attribute.\n");
-        goto cleanupFail;
-    }
-    status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","units","percent");
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes units attribute.\n");
-        goto cleanupFail;
-    }
-    fltTemp = -999.0;
-    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes _FillValue attribute.\n");
-        goto cleanupFail;
-    }
+        // ATTRIBUTES
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","units","Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB valid_min attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","units","percent");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes _FillValue attribute.\n");
+            goto cleanupFail;
+        }
 
 
-    // Copy the dimensions over
-    errStatus = copyDimension( _1KMFileID, "EV_1KM_RefSB", MODISrootGroupID, _1KMDatasetID );
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimension.\n");
-        goto cleanupFail;
+        // Copy the dimensions over
+        errStatus = copyDimension( _1KMFileID, "EV_1KM_RefSB", MODISrootGroupID, _1KMDatasetID );
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( _1KMFileID, "EV_1KM_RefSB_Uncert_Indexes", MODISrootGroupID, _1KMUncertID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
     }
-    errStatus = copyDimension( _1KMFileID, "EV_1KM_RefSB_Uncert_Indexes", MODISrootGroupID, _1KMUncertID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimension.\n");
-        goto cleanupFail;
-    }
-
 
 
 
@@ -576,57 +577,59 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
            
     }
-    // ATTRIBUTES 
-    status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
-    if ( status < 0 )
+    if ( unpack == 0 || argv[2] != NULL )
     {
-        FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB units attribute.\n");
-        goto cleanupFail;
-    }
-    fltTemp = -999.0;
-    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB _FillValue attribute.\n");
-        goto cleanupFail;
-    }
+        // ATTRIBUTES 
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB _FillValue attribute.\n");
+            goto cleanupFail;
+        }
 
-    fltTemp = 0.0;
-    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB valid_min attribute.\n");
-        goto cleanupFail;
-    }
-    status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","units","percent");
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB_Uncert_Indexes units attribute.\n");
-        goto cleanupFail;
-    }
-    fltTemp = -999.0;
-    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
-        goto cleanupFail;
-    }
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB valid_min attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","units","percent");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB_Uncert_Indexes units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
+            goto cleanupFail;
+        }
 
 
-    // Copy the dimensions over
-    errStatus = copyDimension( _1KMFileID, "EV_250_Aggr1km_RefSB", MODISrootGroupID, _250Aggr1km );
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimension.\n");
-        goto cleanupFail;
+        // Copy the dimensions over
+        errStatus = copyDimension( _1KMFileID, "EV_250_Aggr1km_RefSB", MODISrootGroupID, _250Aggr1km );
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( _1KMFileID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", MODISrootGroupID, _250Aggr1kmUncert);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
     }
-    errStatus = copyDimension( _1KMFileID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", MODISrootGroupID, _250Aggr1kmUncert);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimension.\n");
-        goto cleanupFail;
-    }
-
     // Close the identifiers related to these datasets
     if ( _250Aggr1km) status = H5Dclose(_250Aggr1km); 
     _250Aggr1km = 0;
@@ -688,56 +691,56 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         }   
     }
 
+    if ( unpack == 0 || argv[2] != NULL ) {
+        // ATTRIBUTES
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB valid_min attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","units","percent");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
+            goto cleanupFail;
+        }
 
-    // ATTRIBUTES
-    status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB units attribute.\n");
-        goto cleanupFail;
+        // Copy the dimensions over
+        errStatus = copyDimension( _1KMFileID, "EV_500_Aggr1km_RefSB", MODISrootGroupID, _500Aggr1km );
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( _1KMFileID, "EV_500_Aggr1km_RefSB_Uncert_Indexes", MODISrootGroupID, _500Aggr1kmUncert);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
     }
-    fltTemp = -999.0;
-    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB _FillValue attribute.\n");
-        goto cleanupFail;
-    }
-    fltTemp = 0.0;
-    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB valid_min attribute.\n");
-        goto cleanupFail;
-    }
-    status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","units","percent");
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes units attribute.\n");
-        goto cleanupFail;
-    }
-    fltTemp = -999.0;
-    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
-        goto cleanupFail;
-    }
-
-    // Copy the dimensions over
-    errStatus = copyDimension( _1KMFileID, "EV_500_Aggr1km_RefSB", MODISrootGroupID, _500Aggr1km );
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimension.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension( _1KMFileID, "EV_500_Aggr1km_RefSB_Uncert_Indexes", MODISrootGroupID, _500Aggr1kmUncert);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimension.\n");
-        goto cleanupFail;
-    }
-
     
     // Release identifiers associated with these datasets
     if ( _500Aggr1km) status = H5Dclose(_500Aggr1km); 
@@ -1001,6 +1004,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 goto cleanupFail;
             }
 
+        
         }
         
         // ATTRIBUTES 
