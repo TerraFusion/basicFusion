@@ -69,6 +69,7 @@ herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* b
 char* getTime( char* pathname, int instrument );
 int  h4type_to_h5type( const int32 h4type, hid_t* h5memtype);
 int change_dim_attr_NAME_value(hid_t h5dset_id);
+herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID );
 
 #if 0
 float unc[5][15] =
