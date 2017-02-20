@@ -1,4 +1,4 @@
-#!/usr/bin/python
+    #!/usr/bin/python
 #
 """buildDB - Build the timespan database from orbits data-file and instrument-file-names data-files
 
@@ -23,27 +23,22 @@ import gzip
 import sys
 from datetime import datetime
 import logging
+from logging import *
 import os
 from docopt import docopt
 import time
+from time import mktime, strptime
 
 def usage():
     print (__doc__)
     return
 
-matchFmt = {\
-    'cer': '',
-    'mod':
-    'mop':
-    'ast':
-    }
-
-def createDB(dbfile): # create the orbits table and instrument file tables
-    conn = sqlite3.connect(dbfile)
-    cursor = conn.cursor()
+def createDB(dbfile):
+    dbconnection = sqlite3.connect(dbfile)
+    cursor = dbconnection.cursor()
     tstrs = {'CREATE TABLE orbits (stime integer PRIMARY KEY, etime integer, orbit integer)'}
     for inst in {"modis", "moppit", "aster", "ceres"}:
-        tstrs.add('CREATE TABLE {} (stime integer PRIMARY KEY, etime integer, filename string)'.format(inst))
+        tstrs.add('CREATE TABLE {} (stime integer PRIMARY KEY, etime integer, fname text)'.format(inst))
     for table in tstrs:
         cursor = cursor.execute(table)
     return cursor
@@ -60,7 +55,51 @@ def addOrbits(cursor, orbitsfile):
             cursor.execute(istr.format(stime, etime, orbitnum))
     return cursor
 
-def addInstruments(cursor, instfile):
+def addmod(cursor, directory, fname):
+    istr = 'INSERT OR IGNORE INTO modis (stime, etime, fname) VALUES ({},{},"{}")'
+    sformat = '%Y%j%H%M'
+    eformat = '%Y%j%H%M%S'
+    ss = fname.split('.')
+    sstr = ss[1][1:]+ss[2]
+    estr = ss[4]
+    stime = int(mktime(strptime(sstr, sformat)))
+    etime = int(mktime(strptime(estr, eformat)))
+    debug("add modus %d %d %s", stime, etime, directory+'/'+fname)
+    qs = istr.format(stime, etime, directory+'/'+fname)
+    cursor.execute(qs)
+    return cursor
+
+def addast(cursor, directory, fname):
+    istr = 'INSERT OR IGNORE INTO aster (stime, etime, "fname") VALUES ({}, {},"{}")'
+    sformat = '003%d%m%Y%H%M%S'
+    ss = fname.split('_')
+    startstring = ss[2]
+    stime = int(mktime(strptime(startstring, sformat)))
+    etime = stime+9
+    debug("add aster %d %d %s", stime, etime, directory+'/'+fname)
+    cursor.execute(istr.format(stime, etime, directory+'/'+fname))
+    return cursor
+
+def addInstrumentFile(cursor, instFile):
+    debug("addInstrumentFile(%s)", instFile)
+    match_list = {"MOD": addmod, "AST": addast}
+
+    with gzip.open(instFile, 'r') as infile:
+        for line in infile:
+            line = line.decode("utf-8-sig").rstrip('\n')
+            directory, _, fname = line.rpartition('/')
+
+            # Cycle through the matches from the last position, warn if not found
+            addFunc = match_list.get(fname[0:3])
+            if addFunc is None:
+                warn("addInstrumentFile: no match for line %s", line)
+            else:
+                addFunc(cursor, directory, fname)
+    return cursor
+
+
+
+'''def addInstruments(cursor, instfile):
     istr = 'INSERT OR IGNORE INTO {} (stime, etime, filename) VALUES ({},{},{})'
     # get line
     with gzip.open(orbitsfile, 'r') as infile:
@@ -70,7 +109,7 @@ def addInstruments(cursor, instfile):
             stime, etime, fname = maketimes['inst'](line)
             cursor = cursor.execute(istr.format(inst, stime, etime, line))
 
-    return cursor
+    return cursor'''
 
 def main():
     args = docopt(__doc__)
@@ -78,6 +117,7 @@ def main():
         os.remove(args['DB_FILE'])
     cursor = createDB(args['DB_FILE'])
     cursor = addOrbits(cursor, args['ORBIT_FILE'])
+    addInstrumentFile(cursor, args['INSTRUMENT_FILE'])
     print ('end')
     return
 
