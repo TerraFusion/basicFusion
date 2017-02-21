@@ -24,3 +24,7 @@ File formats and encodings:
 
  * MOPPIT: MOP01-20070703-L1V3.50.0.he5
  * start:        YYYYMMDD
+
+
+ Error matches:
+  MISBR.A2000153.0109.005.2007305154609.AN.24.hdf
