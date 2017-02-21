@@ -1,0 +1,69 @@
+#!/usr/bin/python
+
+"""fusionQuery - Queries on the timespan database
+
+Usage:
+    fusionQuery DB_FILE START_TIME END_TIME
+    fusionQuery DB_FILE ORBIT_NUM
+    fusionQuery -h | --help
+
+Arguments:
+    START_TIME  Start of range date/time string of form yyyy/mm/dd/hh/mm/ss
+    END_TIME    End of range date/time string of form yyyy/mm/dd/hh/mm/ss
+    DB_FILE     Path to database populated with buildDB
+
+Options:
+    -h --help   Show help and args
+
+"""
+
+import sqlite3
+import sys
+from datetime import datetime
+import logging
+from logging import *
+import os
+from docopt import docopt
+import time
+from time import mktime, strptime
+
+# execute the DB query string
+def dbexec(cursor, qstring):
+    cursor = cursor.execute(qstring)
+    return cursor
+
+def openDB(dbfile):
+    dbconnection = sqlite3.connect(dbfile)
+    cursor = dbconnection.cursor()
+    return cursor
+
+def main():
+    args = docopt(__doc__)
+    cursor = openDB(args['DB_FILE'])
+    stime = makeTime(args['START_TIME'])
+    etime = makeTime(args['END_TIME'])
+    info("fusionQuery: start %s, end %s", stime, etime)
+    qtemplate = "SELECT fname FROM {} WHERE stime BETWEEN {} AND {} OR etime BETWEEN {} AND {}"
+    qresults = dict()
+    for instrument in ['modis', 'moppit', 'aster', 'ceres', 'miser']:
+        qstr = qtemplate.format(instrument, stime, etime, stime, etime)
+        cursor = dbexec(cursor, qstr)
+        qresults.update(cursor.fetchall())
+    for file in qresults:
+        print file
+    return
+
+
+if __name__ == '__main__':
+    logLevel = logging.NOTSET
+    if 'LOGLEVEL' in os.environ:
+        logLevel = getattr(logging, os.environ['LOGLEVEL'])
+    logging.basicConfig(level=logLevel, stream=sys.stdout, 
+	format=sys.argv[0].split('/')[-1]+': %(message)s')
+    main()
+    sys.exit(0)
+
+
+
+
+
