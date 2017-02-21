@@ -14,8 +14,9 @@ File formats and encodings:
  * start:   = time(orbit, nnnnnn)
  * end:     = time(orbit, nnnnnn+1) ????
 
- * ASTER: AST_L1T_003YYMMDDHHMMSS_YYYYMMDD.hdf
- * start:            YYMMDDHHMMSS
+ * ASTER: AST_L1T_003DDMMYYYYhhmmss_YYYYMMDD.hdf
+ 
+ * start:            ddmmyyyyhhmmss
  * end:      ????
 
  * CERES: CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070317
