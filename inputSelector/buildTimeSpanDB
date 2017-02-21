@@ -1,9 +1,9 @@
-    #!/usr/bin/python
+#!/usr/bin/python
 #
 """buildDB - Build the timespan database from orbits data-file and instrument-file-names data-files
 
 Usage:
-    buildDB [-oh] DB_FILE ORBIT_FILE INSTRUMENT_FILE
+    buildDB [-ohq] DB_FILE ORBIT_FILE INSTRUMENT_FILE
     buildDB -h | --help
 
 Arguments:
@@ -14,6 +14,7 @@ Arguments:
 Options:
     -h --help   Show help
     -o  Overwrite existing database
+    -q  Quiet mode - omit warnings
 
 """
 
@@ -33,23 +34,43 @@ def usage():
     print (__doc__)
     return
 
+def nolog(msg, *args, **kwargs):
+    return
+
 # execute the DB query string
 def dbexec(cursor, qstring):
     cursor = cursor.execute(qstring)
     return cursor
 
+def db_optimize(cursor):
+    cursor.execute('PRAGMA synchronous = OFF;')
+    cursor.execute('PRAGMA journal_mode = OFF;')
+    cursor.execute('PRAGMA locking_mode = EXCLUSIVE;')
+    cursor.execute('PRAGMA temp_store = MEMORY;')
+    cursor.execute('PRAGMA count_changes = OFF;')
+    cursor.execute('PRAGMA PAGE_SIZE = 4096;')
+    cursor.execute('PRAGMA default_cache_size=1000000; ')
+    cursor.execute('PRAGMA cache_size=1000000;')
+    cursor.execute('PRAGMA auto_vacuum=0;')
+    cursor.execute('PRAGMA mmap_size=2147483648;')
+    cursor.execute('PRAGMA compile_options;')
+    return cursor
+
 def createDB(dbfile):
     dbconnection = sqlite3.connect(dbfile)
     cursor = dbconnection.cursor()
-    tstrs = {'CREATE TABLE orbits (stime integer PRIMARY KEY, etime integer, orbit integer)'}
+    cursor = db_optimize(cursor)
+
+    tstrs = {'CREATE TABLE orbits (stime integer, etime integer, orbit integer)'}
+    tstrs.add('CREATE TABLE directories (id integer NOT NULL, dir text)')
     for inst in {"modis", "moppit", "aster", "ceres", "miser"}:
-        tstrs.add('CREATE TABLE {} (stime integer KEY, etime integer KEY, fname text KEY)'.format(inst))
+        tstrs.add('CREATE TABLE {} (stime integer, etime integer, \
+            directory integer, fname text, FOREIGN KEY(directory) REFERENCES directories(id))'.format(inst))
     for query in tstrs:
         cursor = dbexec(cursor, query)
     return dbconnection, cursor
 
 def addOrbits(cursor, orbitsfile):
-    istr = 'INSERT INTO orbits (stime, etime, orbit) VALUES ({},{},{})'
     timeFmt = '%Y-%m-%dT%H:%M:%SZ'
     with gzip.open(orbitsfile, 'r') as infile:
         for line in infile:
@@ -57,19 +78,24 @@ def addOrbits(cursor, orbitsfile):
             orbitnum, starttime, endtime = line.split()
             stime = time.mktime(datetime.strptime(starttime, timeFmt).timetuple())
             etime = time.mktime(datetime.strptime(endtime, timeFmt).timetuple())
-            cursor = dbexec(cursor, istr.format(stime, etime, orbitnum))
+            cursor = dbexec(cursor, \
+                'INSERT INTO orbits (stime, etime, orbit) VALUES ({},{},{})'.\
+                format(stime, etime, orbitnum))
+        cursor = dbexec(cursor, 'CREATE INDEX stime ON orbits (stime);')
+        cursor = dbexec(cursor, 'CREATE INDEX etime ON orbits (etime);')
+        #cursor = dbexec(cursor, 'CREATE INDEX fname ON orbits (fname);')
     return cursor
 
 def addmop(cursor, directory, fname):
     try:
-        istr = 'INSERT INTO moppit VALUES ({},{},"{}")'
+        istr = 'INSERT INTO moppit VALUES ({},{},(SELECT id from directories WHERE dir = "{}"), "{}")'
         sformat = '%Y%m%d'
         ss = fname.split('-')
         sstr = ss[1]
         stime = int(mktime(strptime(sstr, sformat)))
         etime = stime + 60*60*24
-        debug("add modus %d %d %s", stime, etime, directory+'/'+fname)
-        qs = istr.format(stime, etime, directory+'/'+fname)
+        #debug("add moppit %d %d %s", stime, etime, directory, fname)
+        qs = istr.format(stime, etime, directory, fname)
         cursor = dbexec(cursor, qs)
     except Exception as e:
         error("add moppit %s failed", directory+'/'+fname)
@@ -77,7 +103,7 @@ def addmop(cursor, directory, fname):
     
 def addmod(cursor, directory, fname):
     try:
-        istr = 'INSERT INTO modis (stime, etime, fname) VALUES ({},{},"{}")'
+        istr = 'INSERT INTO modis (stime, etime, directory, fname) VALUES ({},{},(SELECT id from directories WHERE dir = "{}"),"{}")'
         sformat = '%Y%j%H%M'
         eformat = '%Y%j%H%M%S'
         ss = fname.split('.')
@@ -85,8 +111,8 @@ def addmod(cursor, directory, fname):
         estr = ss[4]
         stime = int(mktime(strptime(sstr, sformat)))
         etime = int(mktime(strptime(estr, eformat)))
-        debug("add modus %d %d %s", stime, etime, directory+'/'+fname)
-        qs = istr.format(stime, etime, directory+'/'+fname)
+        #debug("add modus %d %d %s", stime, etime, directory+'/'+fname)
+        qs = istr.format(stime, etime, directory, fname)
         cursor = dbexec(cursor, qs)
     except Exception as e:
         error("add modis %s failed", directory+'/'+fname)
@@ -95,7 +121,7 @@ def addmod(cursor, directory, fname):
 def addcer(cursor, directory, fname):
     warn("CERES input not implemented: %s", directory+"/"+fname)
     return
-    istr = 'INSERT INTO ceres (stime, etime, fname) VALUES ({},{},"{}")'
+    istr = 'INSERT INTO ceres (stime, etime, directory, fname) VALUES ({},{},(SELECT id from directories WHERE dir = "{}")"{}")'
     sformat = '%Y%j%H%M'
     eformat = '%Y%j%H%M%S'
     ss = fname.split('.')
@@ -103,42 +129,42 @@ def addcer(cursor, directory, fname):
     estr = ss[4]
     stime = int(mktime(strptime(sstr, sformat)))
     etime = int(mktime(strptime(estr, eformat)))
-    debug("add ceres %d %d %s", stime, etime, directory+'/'+fname)
-    qs = istr.format(stime, etime, directory+'/'+fname)
+    #debug("add ceres %d %d %s", stime, etime, directory+'/'+fname)
+    qs = istr.format(stime, etime, directory, fname)
     cursor = dbexec(cursor, qs)
     return cursor
 
 def addast(cursor, directory, fname):
     try:
-        istr = 'INSERT INTO aster (stime, etime, "fname") VALUES ({}, {},"{}")'
+        istr = 'INSERT INTO aster (stime, etime, directory, fname) VALUES ({}, {},(SELECT id from directories WHERE dir = "{}")"{}")'
         sformat = '003%d%m%Y%H%M%S'
         ss = fname.split('_')
         startstring = ss[2]
         stime = int(mktime(strptime(startstring, sformat)))
         etime = stime+9
-        debug("add aster %d %d %s", stime, etime, directory+'/'+fname)
-        cursor = dbexec(cursor, istr.format(stime, etime, directory+'/'+fname))
+        #debug("add aster %d %d %s", stime, etime, directory+'/'+fname)
+        cursor = dbexec(cursor, istr.format(stime, etime, directory, fname))
     except Exception as e:
         error("add aster %s failed", directory+'/'+fname)
     return cursor
 
 def addmisr(cursor, directory, fname):
     try:
-        istr = 'INSERT INTO miser (stime, etime, "fname") VALUES ({}, {},"{}")'
+        istr = 'INSERT INTO miser (stime, etime, directory, fname) VALUES ({}, {}, (SELECT id from directories WHERE dir = "{}"), "{}")'
         ss = fname.split('_')
         startstring = ss[6]
         orbit = int(startstring[1:])
         # find the orbit time
         qstr = 'SELECT * from orbits WHERE orbit = {}'.format(orbit)
         qcurs = dbexec(cursor, qstr)
-        rows = qcurs.fetchall()
-        if len(rows) == 0:
+        rows = qcurs.fetchone()
+        if rows is None or len(rows) == 0:
             warn("Orbit %d times unavailable: can't add %s", orbit, directory+'/'+fname)
-        return cursor
-        stime, etime = qcurs[0], qcurs[1]
-        debug("get orbit %d: start %d end %d", orbit, stime, etime)
-        debug("add miser %d %d %s", stime, etime, directory+'/'+fname)
-        cursor = dbexec(cursor, istr.format(stime, etime, directory+'/'+fname))
+            return cursor
+        stime, etime = rows[0], rows[1]
+        #debug("get orbit %d: start %d end %d", orbit, stime, etime)
+        #debug("add miser %d %d %s", stime, etime, directory+'/'+fname)
+        cursor = dbexec(cursor, istr.format(stime, etime, directory, fname))
     except Exception as e:
         error("add misr %s failed", directory+'/'+fname)
     return cursor
@@ -151,7 +177,8 @@ def addInstrumentFile(connection, cursor, instFile):
 
     with gzip.open(instFile, 'r') as infile:
         count = 0
-        commit_rate = 1000
+        timeprev = time.time()
+        commit_every = 10000
         for line in infile:
             line = line.decode("utf-8-sig").rstrip('\n').rstrip('\r')
             directory, _, fname = line.rpartition('/')
@@ -161,20 +188,25 @@ def addInstrumentFile(connection, cursor, instFile):
                 warn("addInstrumentFile: no match for line %s", line)
                 if line.startswith('/'):
                     warn("addInstrumentFile: assume directory %s for following files", line)
-                    last_directory = line
+                    last_directory = line.rstrip(':')
             elif fname.find('.') == -1:
                 warn("skipping input %s", line)
             elif len(directory) == 0:
+                istr = 'INSERT OR IGNORE INTO directories (dir) VALUES ("{}")'.format(last_directory)
+                cursor = dbexec(cursor, istr)
                 addFunc(cursor, last_directory, fname)
+                count += 1
             else:
                 addFunc(cursor, directory, fname)
-            count += 1
-            if (count % commit_rate) == 0:
+                count += 1
+            if (count % commit_every) == 0:
                 connection.commit()
+                timenow = time.time()
+                print('{} in {} sec'.format(count, int(timenow-timeprev)), end='')
+                timeprev = timenow
     return cursor
 
 def main():
-    args = docopt(__doc__)
     if args['-o']:
         os.remove(args['DB_FILE'])
     connection, cursor = createDB(args['DB_FILE'])
@@ -186,6 +218,9 @@ def main():
     print ('end')
     return
 
+args = docopt(__doc__)
+if args['-q']:
+    warn = nolog
 
 if __name__ == '__main__':
     logLevel = logging.NOTSET
@@ -195,8 +230,3 @@ if __name__ == '__main__':
 	format=sys.argv[0].split('/')[-1]+': %(message)s')
     main()
     sys.exit(0)
-
-
-
-
-
