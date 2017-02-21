@@ -6,7 +6,7 @@
       "name": "Python",
       "type": "python",
       "request": "launch",
-      "stopOnEntry": true,
+      "stopOnEntry": false,
       "pythonPath": "${config.python.pythonPath}",
       "program": "${file}",
       "cwd": "${workspaceRoot}",
@@ -17,10 +17,11 @@
       ],
       "args": [
         "-o",
+        "-q",
         "test.sqlite",
-        "testdata/orbit-test.txt.gz",
-        "testdata/one-orbit-files.txt.gz"
-      ],
+        "data/orbits.txt.gz",
+        "data/accesslist.txt.gz"
+      ]
     },
     {
       "name": "PySpark",
