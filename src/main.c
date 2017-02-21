@@ -37,6 +37,7 @@ int main( int argc, char* argv[] )
     if ( argc != 3 )
     {
         fprintf( stderr, "Usage: %s [outputFile] [inputFiles.txt] \n", argv[0] );
+        fprintf( stderr, "Set environment variable TERRA_DATA_UNPACK to non-zero for unpacking.\n");
         return EXIT_FAILURE;
     }
     

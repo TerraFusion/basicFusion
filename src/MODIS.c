@@ -37,6 +37,12 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     int fail = 0;
     char* correctedName = NULL;
     char* fileTime = NULL;
+    int32 dsetID = 0;
+    herr_t errStatus = 0;
+    char* dimName = NULL;
+    void* dimBuffer = NULL;
+    //char netCDF_pureDim_NAME_val[] = "This is a netCDF dimension but not a netCDF variable.";
+
     /**********************
      * 1KM data variables *
      **********************/
@@ -129,7 +135,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         return (EXIT_FAILURE);
     }
     
-    if(argv[2]!= NULL) {
+    if (argv[2]!= NULL) {
         _500mFileID = SDstart( argv[2], DFACC_READ );
         if ( _500mFileID < 0 )
         {
@@ -140,7 +146,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         }
     }
     
-    if(argv[3]!= NULL) {
+    if (argv[3]!= NULL) {
         _250mFileID = SDstart( argv[3], DFACC_READ );
         if ( _250mFileID < 0 )
         {
@@ -168,7 +174,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     /* outputfile already exists (created by main). Create the group directories */
     //create root MODIS group
     
-    if(modis_count == 1) {
+    if (modis_count == 1) {
         if ( createGroup( &outputFile, &MODISrootGroupID, "MODIS" ) == EXIT_FAILURE )
         {
             fprintf( stderr, "[%s:%s:%d] Failed to create MODIS root group.\n",__FILE__,__func__,__LINE__);
@@ -179,7 +185,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     else {
         MODISrootGroupID = H5Gopen2(outputFile, "/MODIS",H5P_DEFAULT);
 
-        if(MODISrootGroupID <0) {
+        if (MODISrootGroupID <0) {
             fprintf( stderr, "[%s:%s:%d] Failed to open MODIS root group.\n",__FILE__,__func__,__LINE__);
             MODISrootGroupID = 0;
             goto cleanupFail;
@@ -196,7 +202,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     }
 
         
-    if(H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleTime",argv[1])<0) 
+    if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleTime",argv[1])<0) 
     {
         fprintf(stderr, "[%s:%s:%d] Cannot add the file path attribute.\n",__FILE__,__func__,__LINE__);
         goto cleanupFail;
@@ -204,7 +210,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
     // Extract the time substring from the file path
     fileTime = getTime( argv[1], 2 );
-    if(H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleTime",fileTime)<0)
+    if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleTime",fileTime)<0)
     {
         fprintf(stderr, "[%s:%s:%d] Cannot add the time stamp.\n",__FILE__,__func__,__LINE__);
         goto cleanupFail;
@@ -254,7 +260,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     
     }
 
-    if(argv[3] !=NULL) {
+    if (argv[3] !=NULL) {
         /* create the 250m product group */
         if ( createGroup ( &MODISgranuleGroupID, &MODIS250mGroupID, "250m" ) )
         {
@@ -291,8 +297,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     /*_______________EV_1KM_RefSB data_______________*/
 
     // IF WE ARE UNPACKING DATA
-    if(unpack == 1) {
-        if(argv[2]!=NULL) {
+    if (unpack == 1) {
+        if (argv[2]!=NULL) {
 
             /* Forgive me oh mighty programming gods for using the insidious goto.
              * I believe if you look carefully, goto makes a lot of sense in this context.
@@ -302,7 +308,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                  _1KMFileID);
             if ( _1KMDatasetID == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_RefSB data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_1KM_RefSB data.\n");
                 _1KMDatasetID = 0; // Done to prevent program from trying to close this ID erroneously
                 goto cleanupFail;
             }
@@ -316,40 +322,6 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 goto cleanupFail;
             }
             
-            // ATTRIBUTES
-            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","units","Watts/m^2/micrometer/steradian");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_1KM_RefSB units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_1KM_RefSB _FillValue attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = 0.0;
-            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","valid_min",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_1KM_RefSB valid_min attribute.\n");
-                goto cleanupFail;
-            }
-            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","units","percent");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes _FillValue attribute.\n");
-                goto cleanupFail;
-            }
 
         }
     }
@@ -378,8 +350,63 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
     }
 
+    if ( unpack == 0 || argv[2] != NULL )
+    {
+        // ATTRIBUTES
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","units","Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB valid_min attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","units","percent");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+
+        // Copy the dimensions over
+        errStatus = copyDimension( _1KMFileID, "EV_1KM_RefSB", MODISrootGroupID, _1KMDatasetID );
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( _1KMFileID, "EV_1KM_RefSB_Uncert_Indexes", MODISrootGroupID, _1KMUncertID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+    }
+
+
+
     // Close the identifiers related to these datasets
-    if( _1KMDatasetID ) status = H5Dclose(_1KMDatasetID); 
+    if ( _1KMDatasetID ) status = H5Dclose(_1KMDatasetID); 
     _1KMDatasetID = 0;
     if ( status < 0 ) { WARN_MSG("H5Dclose\n");}
 
@@ -390,7 +417,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 
 /*___________EV_1KM_Emissive___________*/
 
-    if(1==unpack) {
+    if (1==unpack) {
 
         _1KMEmissive = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive",
                 DFNT_UINT16, _1KMFileID);
@@ -413,40 +440,6 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             goto cleanupFail;
         }
         
-        // ATTRIBUTES
-        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","units","Watts/m^2/micrometer/steradian");
-        if ( status < 0 )
-        {
-            FATAL_MSG("Failed to add EV_1KM_Emissive units attribute.\n");
-            goto cleanupFail;
-        }
-        fltTemp = -999.0;
-        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","_FillValue",&fltTemp, 1 );
-        if ( status < 0 )
-        {
-            FATAL_MSG("Failed to add EV_1KM_Emissive _FillValue attribute.\n");
-            goto cleanupFail;
-        }
-        fltTemp = 0.0;
-        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","valid_min",&fltTemp, 1 );
-        if ( status < 0 )
-        {
-            FATAL_MSG("Failed to add EV_1KM_Emissive valid_min attribute.\n");
-            goto cleanupFail;
-        }
-        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive_Uncert_Indexes","units","percent");
-        if ( status < 0 )
-        {
-            FATAL_MSG("Failed to add EV_1KM_Emissive_Uncert_Indexes units attribute.\n");
-            goto cleanupFail;
-        }
-        fltTemp = -999.0;
-        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive_Uncert_Indexes","_FillValue",&fltTemp, 1 );
-        if ( status < 0 )
-        {
-            FATAL_MSG("Failed to add EV_1KM_Emissive_Uncert_Indexes _FillValue attribute.\n");
-            goto cleanupFail;
-        }
 
     }
     else {
@@ -471,21 +464,70 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     }
 
      
+    // ATTRIBUTES
+    status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","units","Watts/m^2/micrometer/steradian");
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to add EV_1KM_Emissive units attribute.\n");
+        goto cleanupFail;
+    }
+    fltTemp = -999.0;
+    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","_FillValue",&fltTemp, 1 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to add EV_1KM_Emissive _FillValue attribute.\n");
+        goto cleanupFail;
+    }
+    fltTemp = 0.0;
+    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","valid_min",&fltTemp, 1 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to add EV_1KM_Emissive valid_min attribute.\n");
+        goto cleanupFail;
+    }
+    status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive_Uncert_Indexes","units","percent");
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to add EV_1KM_Emissive_Uncert_Indexes units attribute.\n");
+        goto cleanupFail;
+    }
+    fltTemp = -999.0;
+    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to add EV_1KM_Emissive_Uncert_Indexes _FillValue attribute.\n");
+        goto cleanupFail;
+    }
+
+    // Copy the dimensions over
+    errStatus = copyDimension( _1KMFileID, "EV_1KM_Emissive", MODISrootGroupID, _1KMEmissive );
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( _1KMFileID, "EV_1KM_Emissive_Uncert_Indexes", MODISrootGroupID, _1KMEmissiveUncert);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        goto cleanupFail;
+    }
+
     // Close the identifiers related to these datasets
     if ( _1KMEmissive) status = H5Dclose(_1KMEmissive);
     _1KMEmissive = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
-    if( _1KMEmissiveUncert) status = H5Dclose(_1KMEmissiveUncert); 
+    if ( _1KMEmissiveUncert) status = H5Dclose(_1KMEmissiveUncert); 
     _1KMEmissiveUncert = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
                           
     /*__________EV_250_Aggr1km_RefSB_______________*/
 
-    if(unpack == 1) {
+    if (unpack == 1) {
 
-        if(argv[2]!=NULL) {
+        if (argv[2]!=NULL) {
 
             _250Aggr1km = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB",
                 DFNT_UINT16, _1KMFileID);
@@ -507,42 +549,6 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 goto cleanupFail;
             }
         
-            // ATTRIBUTES 
-            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB _FillValue attribute.\n");
-                goto cleanupFail;
-            }
-
-            fltTemp = 0.0;
-            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB valid_min attribute.\n");
-                goto cleanupFail;
-            }
-            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","units","percent");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB_Uncert_Indexes units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
-                goto cleanupFail;
-            }
-
         }
     }
 
@@ -569,23 +575,74 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             goto cleanupFail;
         }
 
-                
+           
     }
+    if ( unpack == 0 || argv[2] != NULL )
+    {
+        // ATTRIBUTES 
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB _FillValue attribute.\n");
+            goto cleanupFail;
+        }
 
-        
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB valid_min attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","units","percent");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB_Uncert_Indexes units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+
+        // Copy the dimensions over
+        errStatus = copyDimension( _1KMFileID, "EV_250_Aggr1km_RefSB", MODISrootGroupID, _250Aggr1km );
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( _1KMFileID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", MODISrootGroupID, _250Aggr1kmUncert);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+    }
     // Close the identifiers related to these datasets
-    if( _250Aggr1km) status = H5Dclose(_250Aggr1km); 
+    if ( _250Aggr1km) status = H5Dclose(_250Aggr1km); 
     _250Aggr1km = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
-    if( _250Aggr1kmUncert) status = H5Dclose(_250Aggr1kmUncert); 
+    if ( _250Aggr1kmUncert) status = H5Dclose(_250Aggr1kmUncert); 
     _250Aggr1kmUncert = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
    
     /*__________EV_500_Aggr1km_RefSB____________*/
-    if(unpack == 1) {
+    if (unpack == 1) {
     
-        if(argv[2]!=NULL) {
+        if (argv[2]!=NULL) {
     
             _500Aggr1km = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB",
                   DFNT_UINT16, _1KMFileID );
@@ -608,40 +665,6 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 goto cleanupFail;
             }
                   
-            // ATTRIBUTES
-            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB _FillValue attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = 0.0;
-            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB valid_min attribute.\n");
-                goto cleanupFail;
-            }
-            status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","units","percent");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
-                goto cleanupFail;
-            }
 
         }
 
@@ -668,13 +691,63 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         }   
     }
 
+    if ( unpack == 0 || argv[2] != NULL ) {
+        // ATTRIBUTES
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","units","Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB valid_min attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","units","percent");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
+            goto cleanupFail;
+        }
 
+        // Copy the dimensions over
+        errStatus = copyDimension( _1KMFileID, "EV_500_Aggr1km_RefSB", MODISrootGroupID, _500Aggr1km );
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( _1KMFileID, "EV_500_Aggr1km_RefSB_Uncert_Indexes", MODISrootGroupID, _500Aggr1kmUncert);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+    }
+    
     // Release identifiers associated with these datasets
-    if( _500Aggr1km) status = H5Dclose(_500Aggr1km); 
+    if ( _500Aggr1km) status = H5Dclose(_500Aggr1km); 
     _500Aggr1km = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
-    if( _500Aggr1kmUncert) status = H5Dclose(_500Aggr1kmUncert); 
+    if ( _500Aggr1kmUncert) status = H5Dclose(_500Aggr1kmUncert); 
     _500Aggr1kmUncert = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
                             
@@ -695,9 +768,21 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         FATAL_MSG("Failed to set latitude units attribute.\n");
         goto cleanupFail;
     }
+    
+    // copy dimensions over
+    errStatus = copyDimension( MOD03FileID, "Latitude", MODISrootGroupID, latitudeDatasetID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        
+        goto cleanupFail;
+    }
+
     if ( latitudeDatasetID) status = H5Dclose( latitudeDatasetID ); 
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
     latitudeDatasetID = 0;
+
+
     
     /*_______________longitude data under geolocation______________*/
     longitudeDatasetID = readThenWrite( MODIS1KMgeolocationGroupID,
@@ -716,9 +801,17 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    if( longitudeDatasetID) status = H5Dclose( longitudeDatasetID); 
+    // Copy dimensions over
+    errStatus = copyDimension( MOD03FileID, "Longitude", MODISrootGroupID, longitudeDatasetID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        goto cleanupFail;
+    }
+    if ( longitudeDatasetID) status = H5Dclose( longitudeDatasetID); 
     longitudeDatasetID = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
+
 
 
     /*_______________Sun angle under the granule group______________*/
@@ -740,6 +833,12 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         goto cleanupFail;
     }
 
+    errStatus = copyDimension( MOD03FileID, "SD Sun zenith", MODISrootGroupID, SDSunzenithDatasetID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        goto cleanupFail;
+    }
 
     // get the attribute "_FillValue" value from SD Sun zenith
     {
@@ -800,7 +899,13 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    // get the attribute "_FillValue" value from SD Sun zenith
+    errStatus = copyDimension( MOD03FileID, "SD Sun azimuth", MODISrootGroupID, SDSunazimuthDatasetID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        goto cleanupFail;
+    }
+    // get the attribute "_FillValue" value from SD Sun azimuth
     {   
         int32 dsetIndex = SDnametoindex(MOD03FileID,"SD Sun azimuth");
         if ( dsetIndex < 0 )
@@ -837,7 +942,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
 
     free(correctedName); correctedName = NULL;   
-    if( SDSunazimuthDatasetID) status = H5Dclose(SDSunazimuthDatasetID); 
+    if ( SDSunazimuthDatasetID) status = H5Dclose(SDSunazimuthDatasetID); 
     SDSunazimuthDatasetID = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");               
                         
@@ -850,9 +955,9 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                   
     /*_____________EV_250_Aggr500_RefSB____________*/
     
-    if(argv[2] !=NULL) {
+    if (argv[2] !=NULL) {
 
-        if(unpack == 1) {
+        if (unpack == 1) {
             _250Aggr500 = readThenWrite_MODIS_Unpack( MODIS500mdataFieldsGroupID, 
                         "EV_250_Aggr500_RefSB",
                         DFNT_UINT16, _500mFileID );
@@ -874,42 +979,6 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 goto cleanupFail;
             }
            
-            // ATTRIBUTES 
-            status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","units","Watts/m^2/micrometer/steradian");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_Aggr500_RefSB units attribute.\n");
-                
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_Aggr500_RefSB _FillValue attribute.\n");
-                goto cleanupFail;
-            }
-
-            fltTemp = 0.0;
-            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","valid_min",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_Aggr500_RefSB valid_min attribute.\n");
-                goto cleanupFail;
-            }
-            status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB_Uncert_Indexes","units","percent");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_Aggr500_RefSB_Uncert_Indexes units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_Aggr500_RefSB_Uncert_Indexes _FillValue attribute.\n");
-                goto cleanupFail;
-            }
 
         }
         else {
@@ -935,11 +1004,63 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 goto cleanupFail;
             }
 
+        
+        }
+        
+        // ATTRIBUTES 
+        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","units","Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr500_RefSB units attribute.\n");
+            
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr500_RefSB _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr500_RefSB valid_min attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB_Uncert_Indexes","units","percent");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr500_RefSB_Uncert_Indexes units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr500_RefSB_Uncert_Indexes _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        // Copy the dimensions over
+        errStatus = copyDimension( _500mFileID, "EV_250_Aggr500_RefSB", MODISrootGroupID, _250Aggr500);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( _500mFileID, "EV_250_Aggr500_RefSB_Uncert_Indexes", MODISrootGroupID, _250Aggr500Uncert);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
         }
 
 
         // close identifiers associated with these datasets
-        if( _250Aggr500) status = H5Dclose(_250Aggr500); 
+        if ( _250Aggr500) status = H5Dclose(_250Aggr500); 
         _250Aggr500 = 0;
         if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
@@ -947,7 +1068,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         _250Aggr500Uncert = 0;
         if ( status < 0 ) WARN_MSG("H5Dclose\n");                    
                             
-        if(unpack == 1) {
+        if (unpack == 1) {
             /*____________EV_500_RefSB_____________*/
         
             _500RefSB = readThenWrite_MODIS_Unpack( MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
@@ -969,40 +1090,6 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 goto cleanupFail;
             }
 
-            // ATTRIBUTES
-            status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB","units","Watts/m^2/micrometer/steradian");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_RefSB units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_500_RefSB","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_RefSB _FillValue attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = 0.0;
-            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_500_RefSB","valid_min",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_RefSB valid_min attribute.\n");
-                goto cleanupFail;
-            }
-            status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB_Uncert_Indexes","units","percent");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_500_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes _FillValue attribute.\n");
-                goto cleanupFail;
-            }
         }
         else {
             _500RefSB = readThenWrite( MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
@@ -1024,6 +1111,56 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             }
         }
         
+        // ATTRIBUTES
+        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB","units","Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_RefSB units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_500_RefSB","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_RefSB _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_500_RefSB","valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_RefSB valid_min attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB_Uncert_Indexes","units","percent");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_500_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        // Copy the dimensions over
+        errStatus = copyDimension( _500mFileID, "EV_500_RefSB", MODISrootGroupID, _500RefSB);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( _500mFileID, "EV_500_RefSB_Uncert_Indexes", MODISrootGroupID, _500RefSBUncert);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+
+        // Release the identifiers
         if ( _500RefSB) status = H5Dclose(_500RefSB); 
         _500RefSB = 0;
         if ( status < 0 ) WARN_MSG("H5Dclose\n");
@@ -1032,7 +1169,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         _500RefSBUncert = 0;
         if ( status < 0 ) WARN_MSG("H5Dclose\n");
                 
-    }
+    } // end if ( argv[2] != NULL )
                       
     
                 /*-------------------------------------
@@ -1042,8 +1179,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                   
     /*____________EV_250_RefSB_____________*/
     
-    if(argv[3] != NULL) {
-        if(unpack == 1) {
+    if (argv[3] != NULL) {
+        if (unpack == 1) {
             _250RefSB = readThenWrite_MODIS_Unpack( MODIS250mdataFieldsGroupID, "EV_250_RefSB", DFNT_UINT16,
              _250mFileID );
             if ( _250RefSB == EXIT_FAILURE )
@@ -1062,43 +1199,6 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 _250RefSBUncert = 0;
                 goto cleanupFail;
             }
-    
-            // ATTRIBUTES
-            status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB","units","Watts/m^2/micrometer/steradian");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_RefSB units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB","_FillValue",&fltTemp, 1 );
-            if ( status < 0  )
-            {
-                FATAL_MSG("Failed to add EV_250_RefSB _FillValue attribute.\n");
-                goto cleanupFail;
-            }
-
-            fltTemp = 0.0;
-            status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB","valid_min",&fltTemp, 1 );
-            if ( status < 0  )
-            {
-                FATAL_MSG("Failed to add EV_250_RefSB valid_min attribute.\n");
-                goto cleanupFail;
-            }
-            status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB_Uncert_Indexes","units","percent");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_250_RefSB_Uncert_Indexes units attribute.\n");
-                goto cleanupFail;
-            }
-            fltTemp = -999.0;
-            status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes _FillValue attribute.\n");
-                goto cleanupFail;
-            }
-
 
         }
         else {
@@ -1121,6 +1221,57 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 goto cleanupFail;
             }
         }
+
+        // ATTRIBUTES
+        status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB","units","Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_RefSB units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB","_FillValue",&fltTemp, 1 );
+        if ( status < 0  )
+        {
+            FATAL_MSG("Failed to add EV_250_RefSB _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB","valid_min",&fltTemp, 1 );
+        if ( status < 0  )
+        {
+            FATAL_MSG("Failed to add EV_250_RefSB valid_min attribute.\n");
+            goto cleanupFail;
+        }
+        status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB_Uncert_Indexes","units","percent");
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_RefSB_Uncert_Indexes units attribute.\n");
+            goto cleanupFail;
+        }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB_Uncert_Indexes","_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        // Copy the dimensions over
+        errStatus = copyDimension( _250mFileID, "EV_250_RefSB", MODISrootGroupID, _250RefSB);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( _250mFileID, "EV_250_RefSB_Uncert_Indexes", MODISrootGroupID, _250RefSBUncert);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }        
+
         if ( _250RefSB) status = H5Dclose(_250RefSB); 
         _250RefSB = 0;
         if ( status < 0 ) WARN_MSG("H5Dclose\n");
@@ -1163,77 +1314,77 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         fail = 1;
     }
     
-    /* TODO
-        H5Dclose is failing on multiple datasets. Need to figure out why.
-    */
     /* release associated identifiers */
-    if(latitudeAttrID !=0 ) status = H5Aclose(latitudeAttrID); 
+    if (latitudeAttrID !=0 ) status = H5Aclose(latitudeAttrID); 
     if ( status < 0 ) WARN_MSG("H5Aclose\n");
-    if(latitudeDatasetID  !=0 ) status = H5Dclose( latitudeDatasetID ); 
+    if (latitudeDatasetID  !=0 ) status = H5Dclose( latitudeDatasetID ); 
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(longitudeAttrID !=0 ) status = H5Aclose(longitudeAttrID);
+    if (longitudeAttrID !=0 ) status = H5Aclose(longitudeAttrID);
     if ( status < 0 ) WARN_MSG("HADclose\n");
-    if(longitudeDatasetID !=0 ) status = H5Dclose( longitudeDatasetID);
+    if (longitudeDatasetID !=0 ) status = H5Dclose( longitudeDatasetID);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(MOD03FileID !=0 ) statusn = SDend(MOD03FileID);
-    if(MODIS1KMdataFieldsGroupID !=0 ) status = H5Gclose(MODIS1KMdataFieldsGroupID);
+    if (MOD03FileID !=0 ) statusn = SDend(MOD03FileID);
+    if (MODIS1KMdataFieldsGroupID !=0 ) status = H5Gclose(MODIS1KMdataFieldsGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
-    if(MODIS1KMgeolocationGroupID !=0 ) status = H5Gclose(MODIS1KMgeolocationGroupID);
+    if (MODIS1KMgeolocationGroupID !=0 ) status = H5Gclose(MODIS1KMgeolocationGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
-    if(MODIS1KMGroupID !=0 ) status = H5Gclose(MODIS1KMGroupID);
+    if (MODIS1KMGroupID !=0 ) status = H5Gclose(MODIS1KMGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
-    if(MODIS250mdataFieldsGroupID !=0 ) status = H5Gclose(MODIS250mdataFieldsGroupID);
+    if (MODIS250mdataFieldsGroupID !=0 ) status = H5Gclose(MODIS250mdataFieldsGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
-    if(MODIS250mGroupID !=0 ) status = H5Gclose(MODIS250mGroupID);
+    if (MODIS250mGroupID !=0 ) status = H5Gclose(MODIS250mGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
-    if(MODIS500mdataFieldsGroupID !=0 ) status = H5Gclose(MODIS500mdataFieldsGroupID);
+    if (MODIS500mdataFieldsGroupID !=0 ) status = H5Gclose(MODIS500mdataFieldsGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
-    if(MODIS500mGroupID !=0 ) status = H5Gclose(MODIS500mGroupID);
+    if (MODIS500mGroupID !=0 ) status = H5Gclose(MODIS500mGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
-    if(MODISgranuleGroupID !=0 ) status = H5Gclose(MODISgranuleGroupID);
+    if (MODISgranuleGroupID !=0 ) status = H5Gclose(MODISgranuleGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
-    if(MODISrootGroupID !=0 ) status = H5Gclose(MODISrootGroupID);
+    if (MODISrootGroupID !=0 ) status = H5Gclose(MODISrootGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
-    if(SDSunazimuthDatasetID !=0 ) status = H5Dclose(SDSunazimuthDatasetID);
+    if (SDSunazimuthDatasetID !=0 ) status = H5Dclose(SDSunazimuthDatasetID);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(SDSunzenithDatasetID !=0 ) status = H5Dclose(SDSunzenithDatasetID);
+    if (SDSunzenithDatasetID !=0 ) status = H5Dclose(SDSunzenithDatasetID);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_1KMAttrID !=0 ) status = H5Aclose(_1KMAttrID);
+    if (_1KMAttrID !=0 ) status = H5Aclose(_1KMAttrID);
     if ( status < 0 ) WARN_MSG("H5Aclose\n");
-    if(_1KMDatasetID !=0 ) status = H5Dclose(_1KMDatasetID);
+    if (_1KMDatasetID !=0 ) status = H5Dclose(_1KMDatasetID);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_1KMEmissive !=0 ) status = H5Dclose(_1KMEmissive);
+    if (_1KMEmissive !=0 ) status = H5Dclose(_1KMEmissive);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_1KMEmissiveUncert !=0 ) status = H5Dclose(_1KMEmissiveUncert);
+    if (_1KMEmissiveUncert !=0 ) status = H5Dclose(_1KMEmissiveUncert);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_1KMFileID !=0 ) statusn = SDend(_1KMFileID);
-    if(_1KMUncertID !=0 ) status = H5Dclose(_1KMUncertID);
+    if (_1KMFileID !=0 ) statusn = SDend(_1KMFileID);
+    if (_1KMUncertID !=0 ) status = H5Dclose(_1KMUncertID);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_250Aggr1km !=0 ) status = H5Dclose(_250Aggr1km);
+    if (_250Aggr1km !=0 ) status = H5Dclose(_250Aggr1km);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_250Aggr1kmUncert !=0 ) status = H5Dclose(_250Aggr1kmUncert);
+    if (_250Aggr1kmUncert !=0 ) status = H5Dclose(_250Aggr1kmUncert);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_250Aggr500 !=0 ) status = H5Dclose(_250Aggr500);
+    if (_250Aggr500 !=0 ) status = H5Dclose(_250Aggr500);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_250Aggr500Uncert !=0 ) status = H5Dclose(_250Aggr500Uncert);
+    if (_250Aggr500Uncert !=0 ) status = H5Dclose(_250Aggr500Uncert);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_250mFileID !=0 ) statusn = SDend(_250mFileID);
-    if(_250RefSB !=0 ) status = H5Dclose(_250RefSB);
+    if (_250mFileID !=0 ) statusn = SDend(_250mFileID);
+    if (_250RefSB !=0 ) status = H5Dclose(_250RefSB);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_250RefSBUncert !=0 ) status = H5Dclose(_250RefSBUncert);
+    if (_250RefSBUncert !=0 ) status = H5Dclose(_250RefSBUncert);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_500Aggr1km !=0 ) status = H5Dclose(_500Aggr1km);
+    if (_500Aggr1km !=0 ) status = H5Dclose(_500Aggr1km);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_500Aggr1kmUncert !=0 ) status = H5Dclose(_500Aggr1kmUncert);
+    if (_500Aggr1kmUncert !=0 ) status = H5Dclose(_500Aggr1kmUncert);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_500mFileID !=0 ) statusn = SDend(_500mFileID);
-    if(_500RefSB !=0 ) status = H5Dclose(_500RefSB);
+    if (_500mFileID !=0 ) statusn = SDend(_500mFileID);
+    if (_500RefSB !=0 ) status = H5Dclose(_500RefSB);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    if(_500RefSBUncert !=0 ) status = H5Dclose(_500RefSBUncert);
+    if (_500RefSBUncert !=0 ) status = H5Dclose(_500RefSBUncert);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
     if ( correctedName != NULL ) free(correctedName);
     if ( status ) WARN_MSG("free\n");
     if ( fileTime ) free(fileTime);
+    if ( dsetID ) SDendaccess(dsetID);
+    if ( dimName != NULL ) free(dimName);
+    if ( dimBuffer ) free(dimBuffer);
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;

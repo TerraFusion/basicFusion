@@ -8,9 +8,6 @@
     EMAIL:
         clipp2@illinois.edu
         
-    NOTE:
-        I recommend you set your text editor to represent tabs as 4 columns. It'll make
-        everything look a lot neater.
         
 */
 
@@ -2218,3 +2215,933 @@ char* getTime( char* pathname, int instrument )
     
     return NULL;
 }
+
+/*-------------------------------------------------------------------
+ * The following function has been copied from the H4toH5 library.
+ * https://bitbucket.hdfgroup.org/projects/HDFEOS/repos/h4h5tools/browse/lib/src/h4toh5util.c
+ *
+    Function:    h4type_to_h5type
+    
+    DESCRIPTION:
+        This function converts the given HDF4 datatype to an HDF5 datatype.
+    ARGUMENTS:
+        In:
+            const int32 h4type -- The input hdf4 datatype
+        Out:
+            hid_t* h5memtype -- The corresponding HDF5 datatype
+    EFFECTS:
+        Updates caller variable to contain correct HDF5 datatype
+    RETURN:
+        FAIL upon failure
+        SUCCEED upon success
+
+ */
+int  h4type_to_h5type(
+              const int32 h4type, 
+              hid_t* h5memtype)
+{
+
+    size_t h4memsize = 0;
+    size_t h4size = 0;
+  switch (h4type) {
+
+  case DFNT_CHAR8:
+
+    h4size = 1;
+    h4memsize = sizeof(int8);
+    /* assume DFNT_CHAR8 C type character. */
+    *h5memtype = H5T_STRING;
+    //if(h5type) *h5type =  H5T_STRING;
+    break;
+
+  case DFNT_UCHAR8:
+
+    h4size = 1;
+    h4memsize = sizeof(int8);
+    *h5memtype = H5T_STRING;
+    //if(h5type) *h5type = H5T_STRING;
+    break;
+
+  case DFNT_INT8:
+
+    h4size = 1;
+    //if(h5type) *h5type = H5T_STD_I8BE;
+    h4memsize = sizeof(int8);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype = H5T_NATIVE_SCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else {
+       FATAL_MSG("cannot convert signed INT8\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_UINT8:
+
+    h4size =1;
+    //if(h5type) *h5type = H5T_STD_U8BE;
+    h4memsize = sizeof(int8);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+    else {
+       FATAL_MSG("cannot convert unsigned INT8\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_NINT8:
+    /*printf("warning, Native HDF datatype is encountered");
+    printf(" the converting result may not be correct.\n");*/
+    h4size = 1;
+    //if(h5type) *h5type = H5T_NATIVE_SCHAR;
+    h4memsize = sizeof(int8);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_SCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else {
+       FATAL_MSG("cannot convert native INT8\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_NUINT8:
+    /*printf("warning, Native HDF datatype is encountered");
+    printf(" the converting result may not be correct.\n");*/
+    h4size = 1;
+    //if(h5type) *h5type = H5T_NATIVE_UCHAR;
+    h4memsize = sizeof(int8);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else {
+       FATAL_MSG("cannot convert unsighed naive INT8\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_LINT8:
+    h4size = 1;
+    //if(h5type) *h5type = H5T_STD_I8LE;
+    h4memsize = sizeof(int8);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else {
+      
+       FATAL_MSG("cannot convert little-endian INT8\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_LUINT8:
+    h4size = 1;
+    //if(h5type) *h5type = H5T_STD_U8LE;
+    h4memsize = sizeof(int8);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+    else {
+       FATAL_MSG("cannot convert little-endian unsigned INT\n8");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_INT16:
+    h4size = 2;
+    //if(h5type) *h5type = H5T_STD_I16BE;
+    h4memsize = sizeof(int16);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_CHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else {
+      FATAL_MSG("cannot convert signed int16\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_UINT16:
+    h4size = 2;
+    //if(h5type) *h5type = H5T_STD_U16BE;
+    h4memsize = sizeof(int16);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+    else {
+      FATAL_MSG("cannot convert unsigned int16\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_NINT16:
+    /*printf("warning, Native HDF datatype is encountered");
+    printf(" the converting result may not be correct.\n");*/
+    h4size = 2;
+    //if(h5type) *h5type = H5T_NATIVE_SHORT;
+    h4memsize = sizeof(int16);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_CHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else {
+      FATAL_MSG("cannot convert native int16\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_NUINT16:
+    /*printf("warning, Native HDF datatype is encountered");
+    printf(" the converting result may not be correct.\n");*/
+    h4size = 2;
+    //if(h5type) *h5type = H5T_NATIVE_USHORT;
+    h4memsize = sizeof(int16);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+    else {
+      FATAL_MSG("cannot convert unsigned native int16\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_LINT16:
+    h4size = 2;
+    //if(h5type) *h5type = H5T_STD_I16LE;
+    h4memsize = sizeof(int16);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else {
+      FATAL_MSG("cannot convert little-endian int16\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_LUINT16:
+    h4size = 2;
+    //if(h5type) *h5type = H5T_STD_U16LE;
+    h4memsize = sizeof(int16);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+    else {
+      FATAL_MSG("cannot convert little-endian unsigned int16\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_INT32:
+    h4size = 4;
+    //if(h5type) *h5type = H5T_STD_I32BE;
+    h4memsize = sizeof(int32);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_CHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else {
+      FATAL_MSG("cannot convert signed int32\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_UINT32:
+    h4size = 4;
+    //if(h5type) *h5type = H5T_STD_U32BE;
+    h4memsize = sizeof(int32);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+    else {
+       FATAL_MSG("cannot convert unsigned int32\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_NINT32:
+    /*printf("warning, Native HDF datatype is encountered");
+    printf(" the converting result may not be correct.\n");*/
+    h4size = 4;
+    //if(h5type) *h5type = H5T_NATIVE_INT;
+    h4memsize = sizeof(int32);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_CHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else {
+       FATAL_MSG("cannot convert native signed int32\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_NUINT32:
+    /*printf("warning, Native HDF datatype is encountered");
+    printf(" the converting results may not be correct.\n");*/
+    h4size =4;
+    //if(h5type) *h5type = H5T_NATIVE_UINT;
+    h4memsize = sizeof(int32);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+    else {
+       FATAL_MSG("cannot convert signed int32\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_LINT32:
+    h4size =4;
+    //if(h5type) *h5type = H5T_STD_I32LE;
+    h4memsize = sizeof(int32);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_CHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else {
+       FATAL_MSG("cannot convert little-endian signed int32\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_LUINT32:
+    h4size =4;
+    //if(h5type) *h5type = H5T_STD_U32LE;
+    h4memsize = sizeof(int32);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+    else {
+      FATAL_MSG("cannot convert little-endian unsigned int32\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_INT64:
+    h4size = 8;
+    //if(h5type) *h5type = H5T_STD_I64BE;
+    h4memsize = sizeof(long);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_CHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LLONG))
+      *h5memtype = H5T_NATIVE_LLONG;
+    else {
+      FATAL_MSG("cannot convert signed int64\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_UINT64:
+    h4size = 8;
+    //if(h5type) *h5type = H5T_STD_U64BE;
+    h4memsize = sizeof(long);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LLONG))
+      *h5memtype = H5T_NATIVE_ULLONG;
+    else {
+       FATAL_MSG("cannot convert unsigned int64\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_NINT64:
+    /*printf("warning, Native HDF datatype is encountered");
+    printf(" the converting result may not be correct.\n");*/
+    h4size = 8;
+    //if(h5type) *h5type = H5T_NATIVE_INT;
+    h4memsize = sizeof(long);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_CHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LLONG))
+      *h5memtype = H5T_NATIVE_LLONG;
+    else {
+       FATAL_MSG("cannot convert native signed int64");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_NUINT64:
+    /*printf("warning, Native HDF datatype is encountered");
+    printf(" the converting results may not be correct.\n");*/
+    h4size =8;
+    //if(h5type) *h5type = H5T_NATIVE_UINT;
+    h4memsize = sizeof(long);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LLONG))
+      *h5memtype = H5T_NATIVE_ULLONG;
+    else {
+       FATAL_MSG("cannot convert signed int64\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_LINT64:
+    h4size =8;
+    //if(h5type) *h5type = H5T_STD_I64LE;
+    h4memsize = sizeof(long);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_CHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_SHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_INT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_LONG;
+     else if(h4memsize == H5Tget_size(H5T_NATIVE_LLONG))
+      *h5memtype = H5T_NATIVE_LLONG;
+    else {
+       FATAL_MSG("cannot convert little-endian signed int64\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_LUINT64:
+    h4size =8;
+    //if(h5type) *h5type = H5T_STD_U64LE;
+    h4memsize = sizeof(long);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
+      *h5memtype =  H5T_NATIVE_UCHAR;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_SHORT))
+      *h5memtype = H5T_NATIVE_USHORT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_INT))
+      *h5memtype = H5T_NATIVE_UINT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LONG))
+      *h5memtype = H5T_NATIVE_ULONG;
+     else if(h4memsize == H5Tget_size(H5T_NATIVE_LLONG))
+      *h5memtype = H5T_NATIVE_ULLONG;
+    else {
+      FATAL_MSG("cannot convert little-endian unsigned int64\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_FLOAT32:
+    h4size =4;
+    //if(h5type) *h5type = H5T_IEEE_F32BE;
+    h4memsize = sizeof(float32);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
+      *h5memtype = H5T_NATIVE_FLOAT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_DOUBLE))
+      *h5memtype = H5T_NATIVE_DOUBLE;
+    else {
+      FATAL_MSG("cannot convert float32\n");
+      return FAIL;
+    }
+    break;
+  
+  case DFNT_FLOAT64:
+    h4size = 8;
+    //if(h5type) *h5type = H5T_IEEE_F64BE;
+    h4memsize = sizeof(float64);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
+      *h5memtype = H5T_NATIVE_FLOAT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_DOUBLE))
+      *h5memtype = H5T_NATIVE_DOUBLE;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LDOUBLE))
+      *h5memtype = H5T_NATIVE_LDOUBLE;
+    else {
+      FATAL_MSG("cannot convert float64\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_NFLOAT32:
+    /*printf("warning, Native HDF datatype is encountered");
+    printf(" the converting results may not be correct.\n");*/
+    h4size = 4;
+    //if(h5type) *h5type = H5T_NATIVE_FLOAT;
+    h4memsize = sizeof(float32);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
+      *h5memtype = H5T_NATIVE_FLOAT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_DOUBLE))
+      *h5memtype = H5T_NATIVE_DOUBLE;
+    else {
+       FATAL_MSG("cannot convert native float32\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_NFLOAT64:
+/*    printf("warning, Native HDF datatype is encountered");
+    printf(" the converting result may not be correct.\n");*/
+    h4size = 8;
+    //if(h5type) *h5type = H5T_NATIVE_DOUBLE;
+    h4memsize = sizeof(float64);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
+      *h5memtype = H5T_NATIVE_FLOAT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_DOUBLE))
+      *h5memtype = H5T_NATIVE_DOUBLE;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LDOUBLE))
+      *h5memtype = H5T_NATIVE_LDOUBLE;
+    else {
+       FATAL_MSG("cannot convert native float64\n");
+      return FAIL;  
+    }
+    break;
+
+  case DFNT_LFLOAT32:
+    h4size = 4;
+    //if(h5type) *h5type = H5T_IEEE_F32LE;
+    h4memsize = sizeof(float32);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
+      *h5memtype = H5T_NATIVE_FLOAT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_DOUBLE))
+      *h5memtype = H5T_NATIVE_DOUBLE;
+    else {
+       FATAL_MSG("cannot convert little-endian float32\n");
+      return FAIL;
+    }
+    break;
+
+  case DFNT_LFLOAT64:
+    h4size = 8;
+    //if(h5type) *h5type = H5T_IEEE_F64LE;
+    h4memsize = sizeof(float64);
+    if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
+      *h5memtype = H5T_NATIVE_FLOAT;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_DOUBLE))
+      *h5memtype = H5T_NATIVE_DOUBLE;
+    else if(h4memsize == H5Tget_size(H5T_NATIVE_LDOUBLE))
+      *h5memtype = H5T_NATIVE_LDOUBLE;
+    else {
+      FATAL_MSG("cannot convert little-endian float64\n");
+      return FAIL;
+    }
+    break;
+
+    default: {
+       FATAL_MSG("cannot find the corresponding datatype in HDF5.\nReceived type was: %d\n", h4type); 
+    return FAIL;
+    }
+  }
+  return SUCCEED;
+}
+
+/****************change_dim_attr_NAME_value*******************************
+*
+* Source: h4h5tools
+    https://bitbucket.hdfgroup.org/projects/HDFEOS/repos/h4h5tools/browse/lib/src/h4toh5sds.c
+*
+* Function:     change_dim_attr_NAME_value
+* Purpose:      change dimension NAME attribute value to follow the netCDF-4 data model
+*           
+* Return:       FAIL if failed, SUCCEED if successful.
+* 
+* In :         
+*
+                h5dset_id:         HDF5 dataset ID this attribute is attached.
+*-------------------------------------------------------------------------
+*/ 
+
+
+int change_dim_attr_NAME_value(hid_t h5dset_id) {
+
+    hid_t tid = -1;
+    hid_t sid = -1;
+    hid_t aid = -1;
+
+    /* Assign the attribute value for NAME to follow netCDF-4 data model. */
+    char attr_value[] = "This is a netCDF dimension but not a netCDF variable.";
+
+
+    /* Delete the original attribute. */
+    if(H5Adelete(h5dset_id,"NAME") <0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME\n");
+        return FAIL;
+    }
+
+    if((tid = H5Tcopy(H5T_C_S1)) <0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME\n");
+        return FAIL;
+    }
+
+    if (H5Tset_size(tid, strlen(attr_value) + 1) <0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME\n");
+        H5Tclose(tid);
+        return FAIL;
+    }
+
+    if (H5Tset_strpad(tid, H5T_STR_NULLTERM) <0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME\n");
+        H5Tclose(tid);
+        return FAIL;
+    }
+    if((sid = H5Screate(H5S_SCALAR))<0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME\n");
+        H5Tclose(tid);
+        return FAIL;
+    }
+
+    /* Create and write a new attribute. */
+    if ((aid = H5Acreate(h5dset_id, "NAME", tid, sid, H5P_DEFAULT, H5P_DEFAULT)) < 0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME");
+        H5Tclose(tid);
+        H5Sclose(sid);
+        return FAIL;
+    }
+
+    if (H5Awrite(aid, tid, (void*)attr_value) <0) {
+        FATAL_MSG("cannot delete HDF5 attribute NAME");
+        H5Tclose(tid);
+        H5Sclose(sid);
+        H5Aclose(aid);
+        return FAIL;
+    }
+
+
+    if (aid != -1) 
+       H5Aclose(aid);
+    if (sid != -1) 
+       H5Sclose(sid);
+    if (tid != -1)
+       H5Tclose(tid);
+
+    return SUCCEED;
+
+}
+
+
+
+/*
+            copyDimension
+
+    DESCRIPTION:
+        This function copies the dimension scales from the HDF4 object to the HDF5 object.
+        If the dimension scale does not yet exist in the HDF5 file, it is created. If it does exist, the 
+        HDF5 object will have its dimensions attached to the appropriate scale.
+
+    ARGUMENTS:
+        IN
+            int32 h4fileID        -- The HDF4 file ID returned by SDstart
+            char* h4datasetName   -- The name of the HDF4 dataset from which to copy from
+            hid_t h5dimGroupID    -- The HDF5 group ID in which to store and/or find the dimension scales
+            hid_t h5dsetID        -- The HDF5 dataset ID in which to attach dimension scales
+
+    EFFECTS:
+        Creates dimension scale if it doesn't exist under the h5dimGroupID group. Attaches the dimension scale
+        to the h5dsetID dataset.
+
+    RETURN:
+        FAIL upon failure.
+        SUCCEED upon success.
+
+*/
+
+herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID )
+{
+    hsize_t tempInt = 0;
+    char* correct_dsetname = NULL;
+    char* dimName = NULL;
+    herr_t errStatus = 0;
+    int32 ntype = 0;
+    int32 h4dsetID = 0;
+    intn statusn = 0;
+    int rank = 0;
+    int status = 0;
+    hid_t h5dimID = 0;
+    void *dimBuffer = NULL;
+    short fail = 0;
+    hid_t memspace = 0;
+    htri_t dsetExists = 0;
+
+    /* Get dataset index */
+    int32 sds_index = SDnametoindex(h4fileID, h4datasetName );
+    if ( sds_index == FAIL )
+    {
+        FATAL_MSG("Failed to get SD index.\n");
+        goto cleanupFail;
+    }
+    /* select the dataset */
+    h4dsetID = SDselect(h4fileID, sds_index);
+    if ( h4dsetID == FAIL )
+    {
+        h4dsetID = 0;
+        FATAL_MSG("Failed to select the HDF4 dataset.\n");
+        goto cleanupFail;
+    }
+
+    /* get the rank of the dataset so we know how many dimensions to copy */
+    statusn = SDgetinfo(h4dsetID, NULL, &rank, NULL, NULL, NULL );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to get SD info.\n");
+        goto cleanupFail;
+    }
+
+
+    int32 dim_index;
+
+    // COPY OVER DIMENSION SCALES TO HDF5 OBJECT
+    dimName = calloc(500, 1);
+    int32 size = 0;
+    int32 num_attrs = 0;
+    hid_t h5type = 0;
+    int32 h4dimID = 0;
+
+    for ( dim_index = 0; dim_index < rank; dim_index++ )
+    {
+        // Get the dimension ID
+        h4dimID = SDgetdimid ( h4dsetID, dim_index );
+        if ( h4dimID == FAIL )
+        {
+            FATAL_MSG("Failed to get dimension ID.\n");
+            h4dimID = 0;
+            goto cleanupFail;
+        }
+
+
+        /* get various useful info about this dimension */
+        statusn = SDdiminfo( h4dimID, dimName, &size, &ntype, &num_attrs );
+        //int32 dimRank = 0;
+        //int32 dimSizes = 0;
+        //statusn = SDgetinfo( h4dimID, dimName, &dimRank, &dimSizes, &ntype, &num_attrs);
+        if ( statusn == FAIL )
+        {
+            FATAL_MSG("Failed to get dimension info.\n");
+            goto cleanupFail;
+        }
+
+        /* Since dimension scales are shared, it is possible this dimension already exists in HDF5 file (previous
+           call to this function created it). Check to see if it does. If so, use the dimension that eixsts.
+        */
+
+        correct_dsetname = correct_name(dimName);
+        dsetExists = H5Lexists(h5dimGroupID, correct_dsetname, H5P_DEFAULT);
+        // if dsetExists is <= 0, then dimension does not yet exist.
+        if ( dsetExists <= 0 )
+        {
+            
+            /* SDdiminfo will return 0 for ntype if the dimension has no scale information. This is the case when
+               it is a pure dimension.  We need two separate cases for when it is and is not a pure dim
+            */
+
+            if ( ntype != 0 )
+            {
+                /* get the correct HDF5 datatype from ntype */
+                status = h4type_to_h5type( ntype, &h5type );
+                if ( status != 0 )
+                {
+                    FATAL_MSG("Failed to convert HDF4 to HDF5 datatype.\n");
+                    goto cleanupFail;
+                }
+
+                /* read the dimension scale into a buffer */
+                dimBuffer = malloc(size);
+                //int32 start[1] = {0};
+                //int32 stride[1] = {1};
+                //statusn = SDreaddata( h4dimID, start, stride, &dimSizes, dimBuffer );
+                statusn = SDgetdimscale(h4dimID, dimBuffer);
+                if ( statusn != 0 )
+                {
+                    FATAL_MSG("Failed to get dimension scale.\n");
+                    goto cleanupFail;
+                }
+
+                /* make a new dataset for our dimension scale */
+                
+                tempInt = size;
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, h5type, dimName, dimBuffer);
+                if ( h5dimID == EXIT_FAILURE )
+                {
+                    h5dimID = 0;
+                    FATAL_MSG("Failed to insert dataset.\n");
+                    goto cleanupFail;
+                }
+
+                free(dimBuffer); dimBuffer = NULL;
+            }
+
+            else
+            {
+                hsize_t tempSize2 = 0;
+
+                tempSize2 = (hsize_t) size;
+                memspace = H5Screate_simple( 1, &tempSize2, NULL );
+
+                h5dimID = H5Dcreate( h5dimGroupID, correct_dsetname, H5T_NATIVE_INT, memspace,
+                                     H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+                if ( h5dimID < 0 )
+                {
+                    FATAL_MSG("Failed to create dataset.\n");
+                    h5dimID = 0;
+                    goto cleanupFail;
+                }
+
+                H5Sclose(memspace); memspace = 0;
+                
+            }
+
+            errStatus = H5DSset_scale(h5dimID, correct_dsetname);
+            if ( errStatus != 0 )
+            {
+                FATAL_MSG("Failed to set dataset as a dimension scale.\n");
+                goto cleanupFail;
+            }
+
+
+            /* Correct the NAME attribute of the pure dimension to conform with netCDF
+               standards.
+            */
+            if ( ntype == 0 )
+            {
+                statusn = change_dim_attr_NAME_value(h5dimID); 
+                if ( statusn == FAIL )
+                {
+                    FATAL_MSG("Failed to change the NAME attribute of a dimension.\n");
+                    goto cleanupFail;
+                }
+            }
+        } // end if ( dsetExists <= 0 )
+
+        else 
+        {    
+            h5dimID = H5Dopen2(h5dimGroupID, correct_dsetname, H5P_DEFAULT);
+            if ( h5dimID < 0 )
+            {
+                h5dimID = 0;
+                FATAL_MSG("Failed to open dataset.\n");
+                goto cleanupFail;
+            }
+        }
+
+        
+        errStatus = H5DSattach_scale(h5dsetID, h5dimID, dim_index);
+        if ( errStatus != 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+
+        free(correct_dsetname); correct_dsetname = NULL;
+        H5Dclose(h5dimID); h5dimID = 0;
+    }   // end for loop
+
+    if ( 0 )
+    {
+        cleanupFail:
+        fail = 1;
+    }
+
+    if ( dimName ) free ( dimName );
+    if ( h5dimID ) H5Dclose(h5dimID);
+    if ( dimBuffer ) free(dimBuffer);
+    if ( correct_dsetname ) free(correct_dsetname);
+    if ( memspace ) H5Sclose(memspace);
+    
+    if ( fail ) return FAIL;
+
+    return SUCCEED;
+
+}
+
+
