@@ -65,7 +65,7 @@ int MOPITT( char* argv[] )
     #if 1
 
     correctName = correct_name("MOPITT");    
-    if(H5LTset_attribute_string(outputFile,correctName,"GranuleTime",argv[1])<0)
+    if(H5LTset_attribute_string(outputFile,correctName,"FilePath",argv[1])<0)
     {
         fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
         goto cleanupFail;
