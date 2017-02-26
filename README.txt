@@ -18,18 +18,11 @@ The code is written in C using the following HDF libraries:
 ***********************
 
 This program will contain 5 basic segments. Each segment will handle reading the datasets from one single instrument and
-writing the data into the output HDF5 file. Currently, the MOPITT portion of the code handles creating the new HDF5 output
-file and a program-wide global variable has been declared "hid_t outputFile" that contains the file identifier required by
-HDF5 functions to handle writing information into the file. This is an HDF5 only identifier, it is not valid for HDF4.
+writing the data into the output HDF5 file. Currently, main handles creating the new HDF5 output file and a program-wide global variable has been declared "hid_t outputFile" that contains the file identifier required by HDF5 functions to handle writing information into the file. This is an HDF5 only identifier, it is not valid for HDF4.
 
-Each segment of the code is to be written as if it is its own standalone program. It will have a main function (named by the
-convention of MOPITT(), CERES(), etc ) where all of the appropriate function calling relevant for that instrument will
-go. Any functions that could conceivably be reused across the instruments should be declared in the "libTERRA.h" and 
-defined in the "libTERRA.c" files. This allows code reusability so that a function is available to any segment of the 
-code if need be.
+Each segment of the code is to be written as if it is its own standalone program. It will have a main function (named by the convention of MOPITT(), CERES(), etc ) where all of the appropriate function calling relevant for that instrument will go. Any functions that could conceivably be reused across the instruments should be declared in the "libTERRA.h" and defined in the "libTERRA.c" files. This allows code reusability so that a function is available to any segment of the code if need be.
 
-Every instrument's function should receive the normal main arguments, int argc and char* argv[] (aka char** argv). The
-main function (main.c) will pass in the appropriate arguments to each instrument function.
+Every instrument's function should receive the normal main arguments, int argc and char* argv[] (aka char** argv). The main function (main.c) will pass in the appropriate arguments to each instrument function.
 
 
 
