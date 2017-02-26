@@ -40,7 +40,7 @@ int MISR( char* argv[],int unpack )
     hid_t status = 0;
     int32 statusn = 0;
     int fail = 0;
-    herr_t errStat = 0;
+    herr_t errStatus = 0;
     float tempFloat = 0.0;
     double tempDouble = 0.0;
     char* correctedName = NULL;
@@ -181,16 +181,7 @@ int MISR( char* argv[],int unpack )
                     goto cleanupFail;
                 }
              tempFloat = -999.0;
-
-//printf("correctedName is %s\n",correctedName);
-            errStat = H5LTset_attribute_float( h5DataGroupID, correctedName,"_FillValue",&tempFloat,1);
-
-            if ( errStat < 0 )
-            {
-                FATAL_MSG("Failed to write an HDF5 attribute.\n");
-                goto cleanupFail;
-            }
-                
+ 
 
             }
             else {
@@ -205,21 +196,28 @@ int MISR( char* argv[],int unpack )
                     goto cleanupFail;
                 }
             }
-            
+ 
 
-#if 0
-            tempFloat = -999.0;
+            tempFloat = -999.0f;
+            if ( correctedName == NULL )
+                correctedName = correct_name(radiance_name[j]);
 
-            errStat = H5LTset_attribute_float( h5DataGroupID, correctedName,"_FillValue",&tempFloat,1);
+            errStatus = H5LTset_attribute_float( h5DataGroupID, correctedName,"_FillValue",&tempFloat,1);
 
-            if ( errStat < 0 )
+            if ( errStatus < 0 )
             {
                 FATAL_MSG("Failed to write an HDF5 attribute.\n");
                 goto cleanupFail;
             }
             
-#endif
-                        
+            // Copy over the dimensions
+            errStatus = copyDimension( h4FileID, radiance_name[j], outputFile, h5DataFieldID);
+            if ( errStatus == FAIL )
+            {
+                FATAL_MSG("Failed to copy dimensions.\n");
+                goto cleanupFail;
+            }
+           
             H5Dclose(h5DataFieldID); h5DataFieldID = 0;
             if(correctedName!=NULL) 
                free(correctedName); 
@@ -245,10 +243,18 @@ int MISR( char* argv[],int unpack )
                 goto cleanupFail;
             }
 
+            // Copy over the dimensions
+            errStatus = copyDimension( gmpFileID, band_geom_name[i*4+j], outputFile, h5SensorGeomFieldID);
+            if ( errStatus == FAIL )
+            {
+                FATAL_MSG("Failed to copy dimensions.\n");
+                goto cleanupFail;
+            }
+
             tempDouble = -555.0;
             correctedName = correct_name(band_geom_name[i*4+j]);
-            errStat = H5LTset_attribute_double( h5SensorGeomGroupID, correctedName,"_Fillvalue",&tempDouble,1);
-            if ( errStat < 0 )
+            errStatus = H5LTset_attribute_double( h5SensorGeomGroupID, correctedName,"_Fillvalue",&tempDouble,1);
+            if ( errStatus < 0 )
             {
                 FATAL_MSG("Failed to write an HDF5 attribute.\n");
                 goto cleanupFail;
@@ -256,6 +262,8 @@ int MISR( char* argv[],int unpack )
             status = H5Dclose(h5SensorGeomFieldID); h5SensorGeomFieldID = 0;
             if ( status ) WARN_MSG("H5Dclose\n");
             free(correctedName); correctedName = NULL;
+
+
         } // End for (second inner j loop)
 
         statusn = SDend(h4FileID); h4FileID = 0;
@@ -291,12 +299,21 @@ int MISR( char* argv[],int unpack )
     }
 
     correctedName = correct_name(geo_name[0]);
-    errStat = H5LTset_attribute_string(geoGroupID,correctedName,"units","degrees_north");
-    if ( errStat < 0 )
+    errStatus = H5LTset_attribute_string(geoGroupID,correctedName,"units","degrees_north");
+    if ( errStatus < 0 )
     {
         FATAL_MSG("Failed to create HDF5 attribute.\n");
         goto cleanupFail;
     }
+
+    // Copy over the dimensions
+    errStatus = copyDimension( geoFileID, geo_name[0], outputFile, latitudeID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
 
     free(correctedName); correctedName = NULL;
 
@@ -309,12 +326,21 @@ int MISR( char* argv[],int unpack )
     }
 
     correctedName = correct_name(geo_name[1]);
-    errStat = H5LTset_attribute_string(geoGroupID,(const char*) correctedName,"units","degrees_east");
-    if ( errStat < 0 )
+    errStatus = H5LTset_attribute_string(geoGroupID,(const char*) correctedName,"units","degrees_east");
+    if ( errStatus < 0 )
     {
         FATAL_MSG("Failed to create HDF5 attribute.\n");
         goto cleanupFail;
     }
+
+    // Copy over the dimensions
+    errStatus = copyDimension( geoFileID, geo_name[1], outputFile, longitudeID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
     free(correctedName); correctedName = NULL;
 
     createGroup( &MISRrootGroupID, &gmpSolarGeoGroupID, solar_geom_gname );
@@ -333,10 +359,18 @@ int MISR( char* argv[],int unpack )
         solarAzimuthID = 0;
         goto cleanupFail;
     }
+    // Copy over the dimensions
+    errStatus = copyDimension( gmpFileID, solar_geom_name[0], outputFile, solarAzimuthID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
     // Read the value of the _FillValue attribute in the SolarAzimuth dataset
     tempDouble = 0.0;
-    errStat = H4readSDSAttr( gmpFileID, solar_geom_name[0], "_FillValue", (void*) &tempDouble );
-    if ( errStat != EXIT_SUCCESS )
+    errStatus = H4readSDSAttr( gmpFileID, solar_geom_name[0], "_FillValue", (void*) &tempDouble );
+    if ( errStatus != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to read HDF4 attribute.\n");
         goto cleanupFail;
@@ -344,8 +378,8 @@ int MISR( char* argv[],int unpack )
 
     correctedName = correct_name(solar_geom_name[0]);
     // write this to the corresponding HDF5 dataset as an attribute
-    errStat = H5LTset_attribute_double( gmpSolarGeoGroupID, correctedName,"_Fillvalue",&tempDouble,1);
-    if ( errStat < 0 )
+    errStatus = H5LTset_attribute_double( gmpSolarGeoGroupID, correctedName,"_Fillvalue",&tempDouble,1);
+    if ( errStatus < 0 )
     {
         FATAL_MSG("Failed to write an HDF5 attribute.\n");
         goto cleanupFail;
@@ -361,10 +395,18 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
 
+    // Copy over the dimensions
+    errStatus = copyDimension( gmpFileID, solar_geom_name[1], outputFile, latitudeID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
     correctedName = correct_name(solar_geom_name[1]);
     // write the same tempDouble value into the solarZenith dataset
-    errStat = H5LTset_attribute_double( gmpSolarGeoGroupID, correctedName,"_Fillvalue",&tempDouble,1);
-    if ( errStat < 0 )
+    errStatus = H5LTset_attribute_double( gmpSolarGeoGroupID, correctedName,"_Fillvalue",&tempDouble,1);
+    if ( errStatus < 0 )
     {
         FATAL_MSG("Failed to write an HDF5 attribute.\n");
         goto cleanupFail;

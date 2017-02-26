@@ -1330,8 +1330,11 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
         if( output_dataBuffer) free(output_dataBuffer);
         return (EXIT_FAILURE);
     }
+   
+    if ( retDatasetNamePtr ) 
+        *retDatasetNamePtr= correct_name(newdatasetName);
     
-    *retDatasetNamePtr= correct_name(newdatasetName);
+
  /*
     tempFloat = -999.0;
     if(H5LTset_attribute_float( datasetID, correctedName,"_FillValue",&tempFloat,1)<0) {
@@ -3011,6 +3014,7 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
         H5Dclose(h5dimID); h5dimID = 0;
     }   // end for loop
 
+    fail = 0;
     if ( 0 )
     {
         cleanupFail:

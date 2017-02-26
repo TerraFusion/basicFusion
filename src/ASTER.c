@@ -5,7 +5,7 @@
 #include <assert.h>
 #include "libTERRA.h"
 
-/* Auther: MuQun Yang myang6@hdfgroup.org*/
+/* Author: MuQun Yang myang6@hdfgroup.org*/
 /* MY 2016-12-20, KEEP the following  comments for the time being since these are how we need to unpack ASTER data. 
 float unc[5][15] =
 {
@@ -51,6 +51,8 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     char* fileTime = NULL;
     int fail = 0;
  
+    herr_t errStatus = 0;
+
     /*********************** 
      * SWIR data variables *
      ***********************/
@@ -314,6 +316,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData5ID = 0;
             goto cleanupFail;
         }
+
     
         imageData6ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData6",
                         DFNT_UINT8, inFileID , unc[gain_index[6]][6]); 
@@ -332,6 +335,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData7ID = 0;
             goto cleanupFail;
         }
+
     
         imageData8ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData8",
                         DFNT_UINT8, inFileID , unc[gain_index[8]][8]); 
@@ -341,6 +345,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData8ID = 0;
             goto cleanupFail;
         }
+
     
         imageData9ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData9",
                         DFNT_UINT8, inFileID ,unc[gain_index[9]][9]); 
@@ -350,6 +355,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData9ID = 0;
             goto cleanupFail;
         }
+
     
         /* VNIR */
         if(vnir_grp_ref >0) {
@@ -370,6 +376,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
                 imageData2ID = 0;
                 goto cleanupFail;
             }
+
     
             imageData3NID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3N",
                         DFNT_UINT8, inFileID,unc[gain_index[2]][2] ); 
@@ -379,6 +386,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
                 imageData3NID = 0;
                 goto cleanupFail;
             }
+
 
             /* We don't see ImageData3B in the current orbit, however, the table indeed indicates the 3B band.
                So here we check if there is an SDS with the name "ImangeData3B" and then do the conversation. 
@@ -394,6 +402,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
                     imageData3BID = 0;
                     goto cleanupFail;
                 }
+
             }
         }// end if(vnir_grp_ref)
     
@@ -406,6 +415,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData10ID = 0;
             goto cleanupFail;
         }
+
     
         imageData11ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData11",
                         DFNT_UINT16, inFileID, unc[gain_index[11]][11] ); 
@@ -415,6 +425,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData11ID = 0;
             goto cleanupFail;
         }
+
     
         imageData12ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData12",
                     DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
@@ -424,6 +435,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData12ID = 0;
             goto cleanupFail;
         }
+
     
         imageData13ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData13",
                         DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
@@ -433,6 +445,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData13ID = 0;
             goto cleanupFail;
         }
+
     
         imageData14ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData14",
                         DFNT_UINT16, inFileID,unc[gain_index[13]][13] ); 
@@ -597,6 +610,107 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
 
 
     }// else (packed)
+
+    // Copy the dimensions
+    if(vnir_grp_ref >0)
+    {
+        errStatus = copyDimension( inFileID, "ImageData1", outputFile, imageData1ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( inFileID, "ImageData2", outputFile, imageData2ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( inFileID, "ImageData3N", outputFile, imageData3NID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        if ( imageData3BID)
+        {
+            errStatus = copyDimension( inFileID, "ImageData3B", outputFile, imageData3BID);
+            if ( errStatus == FAIL )
+            {
+                FATAL_MSG("Failed to copy dimensions.\n");
+                goto cleanupFail;
+            }
+        }
+    }
+
+    errStatus = copyDimension( inFileID, "ImageData4", outputFile, imageData4ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData5", outputFile, imageData5ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData6", outputFile, imageData6ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData7", outputFile, imageData7ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData8", outputFile, imageData8ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData9", outputFile, imageData9ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData10", outputFile, imageData10ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData11", outputFile, imageData11ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData12", outputFile, imageData12ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData13", outputFile, imageData13ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData14", outputFile, imageData14ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
+
     
         /* geolocation */
     latDataID = readThenWrite( geoGroupID, "Latitude",
@@ -607,6 +721,13 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         latDataID = 0;
         goto cleanupFail;
     }
+    errStatus = copyDimension( inFileID, "Latitude", outputFile, latDataID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
     
     // MY 2016-01-26: add latitude units.
     if(H5LTset_attribute_string(geoGroupID,"Latitude","units","degrees_north")<0) {
@@ -622,6 +743,13 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         lonDataID = 0;
         goto cleanupFail;
     }
+    errStatus = copyDimension( inFileID, "Longitude", outputFile, lonDataID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
     
     if(H5LTset_attribute_string(geoGroupID,"Longitude","units","degrees_east")<0) {
         FATAL_MSG("Unable to insert ASTER longitude units attribute.\n");

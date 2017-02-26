@@ -28,6 +28,7 @@ int CERES( char* argv[],int index )
     hid_t CERESgeolocationID = 0;
     herr_t status = EXIT_SUCCESS;
     char* fileTime = NULL;
+    short fail = 0;
     
     /*****************
      * END VARIABLES *
@@ -47,34 +48,29 @@ int CERES( char* argv[],int index )
         if ( createGroup( &outputFile, &CERESrootID, "CERES" ) )
         {
             FATAL_MSG("Failed to create CERES root group.\n");
-            SDend(fileID);
-            return EXIT_FAILURE;
+            CERESrootID = 0;
+            goto cleanupFail;
         }
 
 
         if(H5LTset_attribute_string(outputFile,"CERES","FilePath",argv[1])<0) {
             FATAL_MSG("Failed to add CERES time stamp.\n");
-            SDend(fileID);
-            H5Gclose(CERESrootID);
-            return EXIT_FAILURE;
+            goto cleanupFail;
         }
 
         fileTime = getTime( argv[1], 1 );
 
         if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",fileTime)<0) {
             FATAL_MSG("Failed to add CERES time stamp.\n");
-            SDend(fileID);
-            H5Gclose(CERESrootID);
-            return EXIT_FAILURE;
+            goto cleanupFail;
         }
         free(fileTime); fileTime = NULL;
 
         if ( createGroup( &CERESrootID, &CERESgranuleID, "FM1" ) )
         {
             FATAL_MSG("CERES create granule group failure.\n");
-            SDend(fileID);
-            H5Gclose(CERESrootID);
-            return EXIT_FAILURE;
+            CERESgranuleID = 0;
+            goto cleanupFail;
         }
     }   
     else if(index == 2) {
@@ -82,23 +78,19 @@ int CERES( char* argv[],int index )
         if ( CERESrootID < 0 )
         {
             FATAL_MSG("Unable to open CERES root group.\n");
-            SDend(fileID);
-            return EXIT_FAILURE;
+            CERESrootID = 0;
+            goto cleanupFail;
         }
         if ( createGroup( &CERESrootID, &CERESgranuleID, "FM2" ) )
         {
             FATAL_MSG("CERES create granule group failure.\n");
-            SDend(fileID);
-            H5Gclose(CERESrootID);
-            return EXIT_FAILURE;
+            goto cleanupFail;
         }
     }   
 
     else {
         FATAL_MSG("The CERES granule index should be either 1 or 2.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }   
 
 
@@ -106,21 +98,16 @@ int CERES( char* argv[],int index )
     if ( createGroup ( &CERESgranuleID, &CERESdataFieldsID, "Data Fields" ) )
     {
         FATAL_MSG("CERES create data fields group failure.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        return EXIT_FAILURE;
+        CERESdataFieldsID = 0;
+        goto cleanupFail;
     }
     
     // create geolocation fields
     if ( createGroup( &CERESgranuleID, &CERESgeolocationID, "Geolocation" ) )
     {
         FATAL_MSG("Failed to create CERES geolocation group.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        return EXIT_FAILURE;
+        CERESgeolocationID = 0;
+        goto cleanupFail;
     }
 
     /************************
@@ -132,14 +119,17 @@ int CERES( char* argv[],int index )
     if ( timeDatasetID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to insert CERES time dataset.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        return EXIT_FAILURE;
-    }   
-    H5Dclose(timeDatasetID);
+        timeDatasetID = 0;
+        goto cleanupFail;
+    }
+    // copy the dimension scales
+    status = copyDimension( fileID, "Julian Date and Time", outputFile, timeDatasetID );
+    if ( status == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    H5Dclose(timeDatasetID); timeDatasetID = 0;
 
 
     /***************************************
@@ -150,27 +140,25 @@ int CERES( char* argv[],int index )
     if ( SWFilteredDatasetID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to insert CERES SW Filtered Radiances Upwards dataset.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        return EXIT_FAILURE;
+        SWFilteredDatasetID = 0;
+        goto cleanupFail;
     }
  
     status = CERESinsertAttrs( SWFilteredDatasetID, "CERES SW Filtered Radiance, Upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert attributes for SW Filtered Radiances Upwards.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        H5Dclose(SWFilteredDatasetID);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
-    H5Dclose(SWFilteredDatasetID);
+    // copy the dimension scales
+    status = copyDimension( fileID, "CERES SW Filtered Radiances Upwards", outputFile, SWFilteredDatasetID );
+    if ( status == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
+    H5Dclose(SWFilteredDatasetID); SWFilteredDatasetID = 0;
 
 
     /*********************************
@@ -181,27 +169,25 @@ int CERES( char* argv[],int index )
     if ( WNFilteredDatasetID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to insert CERES WN Filtered Radiances Upwards dataset.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        return EXIT_FAILURE;
+        WNFilteredDatasetID = 0;
+        goto cleanupFail;
     }
 
     status = CERESinsertAttrs( WNFilteredDatasetID, "CERES WN Filtered Radiance, Upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert CERES WN Filtered Radiances Upwards attributes.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        H5Dclose(WNFilteredDatasetID);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
-    H5Dclose(WNFilteredDatasetID);
+
+    status = copyDimension( fileID, "CERES WN Filtered Radiances Upwards", outputFile, WNFilteredDatasetID );
+    if ( status == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
+    H5Dclose(WNFilteredDatasetID); WNFilteredDatasetID = 0;
 
 
     /**********************************
@@ -212,28 +198,24 @@ int CERES( char* argv[],int index )
     if ( TOTFilteredDatasetID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to insert CERES TOT Filtered Radiances Upwards dataset.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        return EXIT_FAILURE;
+        TOTFilteredDatasetID = 0;
+        goto cleanupFail;
     }
     
-    status = CERESinsertAttrs( WNFilteredDatasetID, "CERES TOT Filtered Radiance, Upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
+    status = CERESinsertAttrs( TOTFilteredDatasetID, "CERES TOT Filtered Radiance, Upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert CERES TOT Filtered Radiances Upwards attributes.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        H5Dclose(TOTFilteredDatasetID);
-        return EXIT_FAILURE;
+        goto cleanupFail;
+    }
+    status = copyDimension( fileID, "CERES TOT Filtered Radiances Upwards", outputFile, TOTFilteredDatasetID );
+    if ( status == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
     }
 
-    H5Dclose(TOTFilteredDatasetID);
+    H5Dclose(TOTFilteredDatasetID); TOTFilteredDatasetID = 0;
 
     /**************
      * colatitude *
@@ -243,27 +225,24 @@ int CERES( char* argv[],int index )
     if ( colatitudeDatasetID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to insert CERES Colatitude of CERES FOV at TOA dataset.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        return EXIT_FAILURE;
+        colatitudeDatasetID = 0;
+        goto cleanupFail;
     }
     
     status = CERESinsertAttrs( colatitudeDatasetID, "CERES SW Filtered Radiance, Upwards", "deg", 0.0f, 180.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert CERES Colatitude of CERES FOV at TOA attributes.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        H5Dclose(colatitudeDatasetID);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
-    H5Dclose(colatitudeDatasetID);
+    status = copyDimension( fileID, "Colatitude of CERES FOV at TOA", outputFile, colatitudeDatasetID );
+    if ( status == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
+    H5Dclose(colatitudeDatasetID); colatitudeDatasetID = 0;
 
     /*************
      * longitude *
@@ -273,36 +252,44 @@ int CERES( char* argv[],int index )
     if ( longitudeDatasetID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to insert CERES Longitude of CERES FOV at TOA dataset.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        return EXIT_FAILURE;
+        longitudeDatasetID = 0;
+        goto cleanupFail;
     }
     
     status = CERESinsertAttrs( longitudeDatasetID, "CERES SW Filtered Radiance, Upwards", "deg", 0.0f, 180.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert CERES Longitude of CERES FOV at TOA attributes.\n");
-        SDend(fileID);
-        H5Gclose(CERESrootID);
-        H5Gclose(CERESgranuleID);
-        H5Gclose(CERESdataFieldsID);
-        H5Gclose(CERESgeolocationID);
-        H5Dclose(longitudeDatasetID);
-        return EXIT_FAILURE;
+        goto cleanupFail;
     }
-    H5Dclose(longitudeDatasetID);
 
-    // Close the groups, we don't need them anymore
-    H5Gclose(CERESrootID);
-    H5Gclose(CERESgranuleID);
-    H5Gclose(CERESdataFieldsID);
-    H5Gclose(CERESgeolocationID);
+    status = copyDimension( fileID, "Longitude of CERES FOV at TOA", outputFile, longitudeDatasetID );
+    if ( status == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
 
-    SDend(fileID);
-    
+
+    if ( 0 )
+    {
+        cleanupFail:
+        fail = 1;
+    }
+    if ( fileID ) SDend(fileID);
+    if ( CERESrootID ) H5Gclose(CERESrootID);
+    if ( CERESgranuleID ) H5Gclose(CERESgranuleID);
+    if ( CERESdataFieldsID ) H5Gclose(CERESdataFieldsID);
+    if ( CERESgeolocationID ) H5Gclose(CERESgeolocationID);
+    if ( timeDatasetID ) H5Dclose(timeDatasetID);
+    if ( SWFilteredDatasetID ) H5Dclose(SWFilteredDatasetID);
+    if ( WNFilteredDatasetID ) H5Dclose(WNFilteredDatasetID);
+    if ( TOTFilteredDatasetID ) H5Dclose(TOTFilteredDatasetID);
+    if ( colatitudeDatasetID ) H5Dclose(colatitudeDatasetID);
+    if ( longitudeDatasetID ) H5Dclose(longitudeDatasetID);
+
+    if ( fail ) return EXIT_FAILURE;
+
     return EXIT_SUCCESS;
     
 }
@@ -409,4 +396,5 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
     H5Sclose(dataspaceID);
     
     return EXIT_SUCCESS;
+    
 }
