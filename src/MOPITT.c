@@ -35,11 +35,21 @@ int MOPITT( char* argv[] )
     hid_t tempGroupID = 0;
     hid_t datatypeID = 0;
     hid_t tempSpace = 0;
+    hid_t ntrackID = 0;
+    hid_t nstareID = 0;
+    hid_t npixelsID = 0;
+    hid_t nchanID = 0;
+    hid_t nstateID = 0;
+
     herr_t status = 0;
     
     hsize_t* dims = NULL;
+    hsize_t dimSize = 0;
+
+
     int tempInt = 0;
     int fail = 0;
+    int* intArray = NULL;
 
     float tempFloat = 0.0f;
     char* correctName = NULL;
@@ -97,8 +107,12 @@ int MOPITT( char* argv[] )
         geolocationGroup = 0;
         goto cleanupFail;
     }
-
     
+   
+                            /********************
+                             * RADIANCE DATASET *
+                             ********************/
+ 
     // insert the radiance dataset
     radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "MOPITTRadiances", H5T_NATIVE_FLOAT, 1 );
     if ( radianceDataset == EXIT_FAILURE )
@@ -108,6 +122,129 @@ int MOPITT( char* argv[] )
         goto cleanupFail;
     }
 
+    /* Add dimensions to this dataset 
+
+       Based on StructMetadata.0 in the input MOPITT file, the radiance dataset has the dimensions:
+       ntrack, nstare, npixels, nchan, nstate.
+
+       These must be hard copied over. The input HDF5 file does not have the dimensions attached to the objects.
+    */
+
+    // Add the necessary dimensions to the output file
+    intArray = calloc ( 29, sizeof(int) );
+    dimSize = 2;
+    ntrackID = MOPITTaddDimension( outputFile, "ntrack", dimSize, intArray, H5T_NATIVE_INT );
+    if ( ntrackID == FAIL )
+    {
+        ntrackID = 0;
+        FATAL_MSG("Failed to add MOPITT dimension.\n");
+        goto cleanupFail;
+    }
+    /* Change the NAME attribute for this dimension */
+    if ( change_dim_attr_NAME_value(ntrackID) == FAIL )
+    {
+        FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+        goto cleanupFail;
+    }
+
+    dimSize = 29;
+    nstareID = MOPITTaddDimension( outputFile, "nstare", dimSize, intArray, H5T_NATIVE_INT );
+    if ( nstareID == FAIL )
+    {
+        nstareID = 0;
+        FATAL_MSG("Failed to add MOPITT dimension.\n");
+        goto cleanupFail;
+    }
+    if ( change_dim_attr_NAME_value(nstareID) == FAIL )
+    {
+        FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+        goto cleanupFail;
+    }
+
+
+    dimSize = 4;
+    npixelsID = MOPITTaddDimension( outputFile, "npixels", dimSize, intArray, H5T_NATIVE_INT );
+    if ( npixelsID == FAIL )
+    {
+        npixelsID = 0;
+        FATAL_MSG("Failed to add MOPITT dimension.\n");
+        goto cleanupFail;
+    }
+    if ( change_dim_attr_NAME_value(npixelsID) == FAIL )
+    {
+        FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+        goto cleanupFail;
+    }
+
+
+    dimSize = 8;
+    nchanID = MOPITTaddDimension( outputFile, "nchan", dimSize, intArray, H5T_NATIVE_INT );
+    if ( nchanID == FAIL )
+    {
+        nchanID = 0;
+        FATAL_MSG("Failed to add MOPITT dimension.\n");
+        goto cleanupFail;
+    }
+    if ( change_dim_attr_NAME_value(nchanID) == FAIL )
+    {
+        FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+        goto cleanupFail;
+    }
+
+
+    dimSize = 2;
+    nstateID = MOPITTaddDimension( outputFile, "nstate", dimSize, intArray, H5T_NATIVE_INT );
+    if ( nstateID == FAIL )
+    {
+        nstateID = 0;
+        FATAL_MSG("Failed to add MOPITT dimension.\n");
+        goto cleanupFail;
+    }
+    if ( change_dim_attr_NAME_value(nstateID) == FAIL )
+    {
+        FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+        goto cleanupFail;
+    }
+
+
+    /* Attach these dimensions to the dataset */
+    status = H5DSattach_scale( radianceDataset, ntrackID, 0 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+    status = H5DSattach_scale( radianceDataset, nstareID, 1 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+    status = H5DSattach_scale( radianceDataset, npixelsID, 2 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+    status = H5DSattach_scale( radianceDataset, nchanID, 3 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+    status = H5DSattach_scale( radianceDataset, nstateID, 4 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+
+
+
+
+                            /*********************
+                             * LONGITUDE DATASET *
+                             *********************/
 
     // insert the longitude dataset
     longitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude", H5T_NATIVE_FLOAT, 1 );
@@ -143,8 +280,37 @@ int MOPITT( char* argv[] )
         }
 
     }
-    
+
+    /* Add the following dimension scales to the dataset:
+        ntrack, nstare, npixels
+    */
+
+    status = H5DSattach_scale( longitudeDataset, ntrackID, 0 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+    status = H5DSattach_scale( longitudeDataset, nstareID, 1 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+    status = H5DSattach_scale( longitudeDataset, npixelsID, 2 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+
+        
     H5Dclose(longitudeDataset); longitudeDataset = 0;
+
+
+                        /********************
+                         * LATITUDE DATASET *
+                         ********************/
 
     // insert the latitude dataset
     latitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude", H5T_NATIVE_FLOAT, 1 );
@@ -181,8 +347,38 @@ int MOPITT( char* argv[] )
 
     }
     
+    /* Add the following dimension scales to the dataset:
+        ntrack, nstare, npixels
+    */
+
+    status = H5DSattach_scale( latitudeDataset, ntrackID, 0 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+    status = H5DSattach_scale( latitudeDataset, nstareID, 1 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+    status = H5DSattach_scale( latitudeDataset, npixelsID, 2 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+
 
     H5Dclose(latitudeDataset); latitudeDataset = 0;
+
+
+
+                        /****************
+                         * TIME DATASET *
+                         ****************/
+
 
     // insert the time dataset
     timeDataset = MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time", H5T_NATIVE_DOUBLE, 1);
@@ -193,7 +389,16 @@ int MOPITT( char* argv[] )
         goto cleanupFail;
     }
 
+    status = H5DSattach_scale( timeDataset, ntrackID, 0 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension scale.\n");
+        goto cleanupFail;
+    }
+
     H5Dclose(timeDataset); timeDataset = 0;  
+
+
     /***************************************************************
      * Add the appropriate attributes to the groups we just created*
      ***************************************************************/
@@ -527,6 +732,13 @@ int MOPITT( char* argv[] )
     if ( dims )             free(dims);
     if ( correctName )      free(correctName);
     if ( fileTime )         free(fileTime);
+    if ( intArray != NULL ) free(intArray);
+    if ( ntrackID)          H5Dclose(ntrackID);
+    if ( nstareID )         H5Dclose(nstareID);
+    if ( npixelsID )        H5Dclose( npixelsID );
+    if ( nchanID )          H5Dclose(nchanID);
+    if ( nstateID )         H5Dclose(nstateID);
+
     if ( fail )
         return EXIT_FAILURE;
 

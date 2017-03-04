@@ -3032,4 +3032,56 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
 
 }
 
+/*
+            MOPITTaddDimension
+
+    DESCRIPTION:
+        This function adds a dimension scale to the output HDF5 file. It writes the data stored in scaleBuffer to the dimension.
+        The dimension is created under the HDF5 group/file ID given by h5dimGroupID. It does not attach the dimension to any
+        dataset.
+
+    EFFECTS:
+        A new dimension scale is added to the output HDF5 file.
+
+        IT IS THE DUTY OF THE CALLER to close the returned identifier with H5Dclose() once finished.
+
+    ARGUMENTS:
+            INPUT
+        1. hid_t h5dimGroupID      -- The file or group identifier under which to store the dimension
+        2. const char* dimName     -- The name to be given to the dimension
+        3. hsize_t dimSize         -- The integer size of the dimension
+        4. const void* scaleBuffer -- The data to be written to the scale
+        5. hid_t dimScaleNumType   -- The HDF5 number type of scaleBuffer
+
+    RETURN:
+        Returns the identifier of the dimension upon success.
+        Else, it returns FAIL.
+
+*/
+
+hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimSize, const void* scaleBuffer, hid_t dimScaleNumType )
+{
+    hid_t dsetID = 0;
+    herr_t status = 0;
+
+    dsetID = insertDataset ( &outputFile, &h5dimGroupID, 1, 1, &dimSize, dimScaleNumType, dimName, scaleBuffer);
+    if ( dsetID == EXIT_FAILURE )
+    {
+        dsetID = 0;
+        FATAL_MSG("Failed to insert dataset.\n");
+        return FAIL;
+    }
+
+    status = H5DSset_scale( dsetID, dimName );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set dataset as a dimension scale.\n");
+        return FAIL;        
+    }
+
+    return dsetID;
+    
+}
+
+
 

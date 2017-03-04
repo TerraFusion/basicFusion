@@ -51,6 +51,9 @@ hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType
 
 char *correct_name(const char* oldname);
 
+/* MOPITT functions */
+hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimSize, const void* scaleBuffer, hid_t dimScaleNumType );
+
 /* ASTER functions */
 
 hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
