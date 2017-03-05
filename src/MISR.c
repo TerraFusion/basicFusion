@@ -35,6 +35,7 @@ int MISR( char* argv[],int unpack )
 
     char *solar_geom_gname="Solar_Geometry";
     char *geo_gname="Geolocation";
+    char *hgeo_gname="HRGeolocation";
     char *data_gname="Data Fields";
     char *sensor_geom_gname ="Sensor_Geometry";
     hid_t status = 0;
@@ -359,7 +360,7 @@ int MISR( char* argv[],int unpack )
     free(correctedName); correctedName = NULL;
 
     //HR latlon
-    createGroup( &MISRrootGroupID, &hr_geoGroupID, geo_gname );
+    createGroup( &MISRrootGroupID, &hr_geoGroupID, hgeo_gname );
     if ( hr_geoGroupID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to create HDF5 group.\n");
@@ -368,7 +369,7 @@ int MISR( char* argv[],int unpack )
     }
 
 
-    hr_latitudeID  = readThenWrite(hr_geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
+    hr_latitudeID  = readThenWrite(hr_geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
     if ( hr_latitudeID == EXIT_FAILURE )
     {
         FATAL_MSG("MISR readThenWrite function failed (latitude dataset).\n");

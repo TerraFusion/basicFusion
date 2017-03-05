@@ -84,7 +84,7 @@ int main( int argc, char* argv[] )
     char MISRcheck3[] = "MISR_AM1_GP";
 
      /* MY 2017-03-04: Add high-resolution Lat/lon  */
-    char MISRcheck4[] = "MISR_HL";
+    char MISRcheck4[] = "MISR_HRLL";
         
     /* MY 2016-12-21: granule is added on GZ's request. Basically per time per granule for ASTER and MODIS.*/
         
