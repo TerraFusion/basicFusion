@@ -3083,5 +3083,85 @@ hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimS
     
 }
 
+/*
+            TAItoUTCconvert
 
+    DESCRIPTION:
+        This function takes an array of double floats representing a TAI93 time format and converts to UTC time format. 
+        TAI93 is the International Atomic Time since UTC 00:00:00 1-1-1993. UTC is periodically incremented or decremented
+        from TAI due to variations in the Earth's orbit and rotational period. These increments are called Leap Seconds.
+        The leap seconds do not occur at regular intervals, they are calculated based on the current discrepancies between
+        solar time and atomic time.
 
+        For each element in the array, it calculates the daysSinceEpoch by dividing the array element by the number of
+        seconds in a day. Then, based on what day it is, it adds to the element the appropriate offset required to convert
+        to UTC.
+
+        This function was written 2017 when the last known offset to be applied was in June 30th 2017. Future 
+
+    EFFECTS:
+        Changes values in the array passed to it.
+
+    ARGUMENTS:
+            INPUT
+        1. int size       -- The number of elements in the array
+
+            IN/OUT
+        1. double* buffer -- A single dimensional array consisting of TAI93 double-precision floating point numbers.
+
+    RETURN:
+        Returns FAIL upon failure.
+        SUCCEED otherwise
+
+*/
+
+herr_t TAItoUTCconvert ( double* buffer, int size )
+{
+    /* this function assumes that buffer is one dimensional */
+
+    int daysSinceEpoch = 0;
+
+    for ( int i = 0; i < size; i++ )
+    {
+        /* Divide buffer value by 86400 (number of seconds in day) to get a floating point
+           number for the day, then truncate this value to get daysSinceEpoch.
+        */
+
+        daysSinceEpoch = (int) ( buffer[i] / 86400.0 );
+
+        if ( daysSinceEpoch <= 181 )        // Jan 1993 -> June 1993
+            continue;
+        else if ( daysSinceEpoch > 181 && daysSinceEpoch <= 546 ) // July 1993 -> June 1994
+            buffer[i] += 1.0;
+        else if ( daysSinceEpoch > 546 && daysSinceEpoch <= 1095 ) // July 1994 -> Dec 1995
+            buffer[i] += 2.0;
+        else if ( daysSinceEpoch > 1095 && daysSinceEpoch <= 1642 ) // Jan 1996 -> June 1997
+            buffer[i] += 3.0;
+        else if ( daysSinceEpoch > 1642 && daysSinceEpoch <= 2191 ) // July 1997 -> Dec 1998
+            buffer[i] += 4.0;
+        else if ( daysSinceEpoch > 2191 && daysSinceEpoch <= 4748 ) // Jan 1999 -> Dec 2005
+            buffer[i] += 5.0;
+        else if ( daysSinceEpoch > 4748 && daysSinceEpoch <= 5845 ) // Jan 2006 -> Dec 2008
+            buffer[i] += 6.0;
+        else if ( daysSinceEpoch > 5845 && daysSinceEpoch <= 7210 ) // Jan 2009 -> June 2012
+            buffer[i] += 7.0;
+        else if ( daysSinceEpoch > 7210 && daysSinceEpoch <= 8215 ) // July 2012 -> June 2015
+            buffer[i] += 8.0;
+        else if ( daysSinceEpoch > 8215 && daysSinceEpoch <= 8767 ) // July 2015 -> Dec 2016
+            buffer[i] += 9.0;
+        else if ( daysSinceEpoch > 8767 && daysSinceEpoch <= 8946 ) // Jan 2017 -> June 2017
+            buffer[i] += 9.0;
+        else if ( daysSinceEpoch > 8946 )                           // Currently, value not known past June 30th 2017
+        {
+            WARN_MSG("Major Warning: MOPITT time values converted using out of date UTC-TAI93 offset.\n\tConverted time values may be incorrect! Please update the else-if tree in the function listed in the preamble of this message.\n" );
+            buffer[i] += 9.0;
+        }
+        else        // something bad happened
+        {
+            FATAL_MSG("Failed to convert MOPITT time values to UTC.\n");
+            return FAIL;
+        }
+    }
+
+    return SUCCEED;
+}
