@@ -3115,6 +3115,8 @@ hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimS
 
 */
 
+unsigned short badTimeValues = 0;
+
 herr_t TAItoUTCconvert ( double* buffer, int size )
 {
     /* this function assumes that buffer is one dimensional */
@@ -3153,7 +3155,11 @@ herr_t TAItoUTCconvert ( double* buffer, int size )
             buffer[i] += 9.0;
         else if ( daysSinceEpoch > 8946 )                           // Currently, value not known past June 30th 2017
         {
-            WARN_MSG("Major Warning: MOPITT time values converted using out of date UTC-TAI93 offset.\n\tConverted time values may be incorrect! Please update the else-if tree in the function listed in the preamble of this message.\n" );
+            if ( badTimeValues == 0 )
+                WARN_MSG("Major Warning: MOPITT time values converted using out of date UTC-TAI93 offset.\n\tConverted time values may be incorrect! Please update the else-if tree in the function listed in the preamble of this message.\n" );
+            
+            badTimeValues = 1;
+
             buffer[i] += 9.0;
         }
         else        // something bad happened
