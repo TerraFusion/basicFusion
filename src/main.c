@@ -56,7 +56,7 @@ int main( int argc, char* argv[] )
     char* CERESargs[3] = {NULL};
     char* MODISargs[7] = {NULL};
     char* ASTERargs[4] = {NULL};
-    char* MISRargs[11] = {NULL};
+    char* MISRargs[12] = {NULL};
     
     int status = EXIT_SUCCESS;
     int fail = 0;
@@ -82,7 +82,10 @@ int main( int argc, char* argv[] )
 
     /* MY 2016-12-21: this is added on GZ's requet. This is for solar geometry */
     char MISRcheck3[] = "MISR_AM1_GP";
-         
+
+     /* MY 2017-03-04: Add high-resolution Lat/lon  */
+    char MISRcheck4[] = "MISR_HL";
+        
     /* MY 2016-12-21: granule is added on GZ's request. Basically per time per granule for ASTER and MODIS.*/
         
     char granule[] ="granule";
@@ -497,6 +500,23 @@ int main( int argc, char* argv[] )
     memset(MISRargs[11],0,strlen(string)+1);
     strncpy( MISRargs[11], string, strlen(string) );
 
+    status = getNextLine( string, inputFile );
+    if ( status == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to get MISR line. Exiting program.\n");
+        goto cleanupFail;
+    }
+
+    if ( strstr( string, MISRcheck4 ) == NULL )
+    {
+        FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MISRcheck4);
+        goto cleanupFail;
+    }
+
+    MISRargs[12] = malloc ( strlen( string ) +1);
+    memset(MISRargs[12],0,strlen(string)+1);
+    strncpy( MISRargs[12], string, strlen(string) );
+
     // EXECUTE MISR DATA TRANSFER
     status = MISR( MISRargs,unpack);
     if ( status == EXIT_FAILURE )
@@ -526,7 +546,7 @@ int main( int argc, char* argv[] )
     if ( MODISargs[5] ) free( MODISargs[5] );
     if ( ASTERargs[1] ) free ( ASTERargs[1] );
     if ( ASTERargs[2] ) free ( ASTERargs[2] );
-    for ( int j = 1; j <= 11; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
+    for ( int j = 1; j <= 12; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
 
     if ( fail ) return -1;
     

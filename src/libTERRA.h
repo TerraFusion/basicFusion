@@ -67,6 +67,8 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
                                   int32 inputFileID);
 hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
                                   int32 inputFileID);
+hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
+                   int32 inputFileID);
 herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* buffer );
 
 /* general utility functions */
