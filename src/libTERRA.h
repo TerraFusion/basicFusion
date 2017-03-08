@@ -22,8 +22,37 @@ do { \
  *********************/
 extern hid_t outputFile;
 
+typedef struct OInfo {
+        unsigned int orbit_number;
+        unsigned short start_year;
+        unsigned char  start_month;
+        unsigned char start_day;
+        unsigned char start_hour;
+        unsigned char start_minute;
+        unsigned char start_second;
+        unsigned short end_year;
+        unsigned char  end_month;
+        unsigned char end_day;
+        unsigned char end_hour;
+        unsigned char end_minute;
+        unsigned char end_second;
+
+} OInfo_t;
+
+typedef struct GDateInfo {
+        unsigned short year;
+        unsigned char  month;
+        unsigned char day;
+        unsigned char hour;
+        unsigned char minute;
+        double second;
+
+} GDateInfo_t;
+
+
 int MOPITT( char* argv[] );
 int CERES( char* argv[] ,int index);
+int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 int MODIS( char* argv[],int modis_count,int unpack );
 int ASTER( char* argv[],int aster_count,int unpack );
 int MISR( char* argv[],int unpack );
@@ -76,6 +105,11 @@ char* getTime( char* pathname, int instrument );
 int  h4type_to_h5type( const int32 h4type, hid_t* h5memtype);
 int change_dim_attr_NAME_value(hid_t h5dset_id);
 herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID );
+
+int comp_grep(GDateInfo_t j1, GDateInfo_t j2);
+int get_greg(double julian, int*yearp,int*monthp,int*dayp,int*hourp,int*mmp,double*ssp);
+
+
 
 #if 0
 float unc[5][15] =
