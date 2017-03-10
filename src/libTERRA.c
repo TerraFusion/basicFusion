@@ -70,7 +70,7 @@ i       8. data_out        -- A single dimensional array containing information 
             Returns EXIT_FAILURE upon an error.
             Returns the identifier to the newly created dataset upon success.
 */
-
+/* OutputFileID is not used. NO need to have this parameter. MY 2017-03-03 */
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID, 
                      int rank, hsize_t* datasetDims, hid_t dataType, const char *datasetName, const void* data_out) 
 {
@@ -2014,6 +2014,202 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
 
     return datasetID;
 }
+/*
+                    readThenWrite_MODIS_GeoMetry_Unpack
+    DESCRIPTION:
+        This function is a specific readThenWrite function for MODIS. This function does the
+        same thing as the general readThenWrite except it performs data unpacking. Essentially,
+        unpacking the data means converting the radiance datasets from an integer type to
+        a floating point type. Doing this greatly increases the size of the data however.
+        On an abstracted level, this is what unpacking looks like:
+
+        unpackedElement = scale * packedElement + offset
+
+        The packedElement is an integer type, and the unpackedElement is a single precision
+        float type.
+        
+    ARGUMENTS:
+        1. outputGroupID  -- The HDF5 group/directory identifier for where the data is to
+                             be written. Can either be an actual group ID or can be the
+                             file ID (in the latter case, data will be written to the root
+                             directory).
+        2. datasetName    -- A string containing the name of the dataset in the input HDF4
+                             file. The output dataset will have the same name.
+        3. inputDataType  -- An HDF4 datatype identifier. Must match the data type of the
+                             input dataset. Please reference Section 3 of the HDF4
+                             Reference Manual for a list of HDF types.
+        4. inputFileID    -- The HDF4 input file identifier
+    
+    EFFECTS:
+        Reads the input file dataset and then writes to the HDF5 output file. Returns
+        a dataset identifier for the new dataset created in the output file. It is the
+        responsibility of the caller to close the dataset ID when finished using
+        H5Dclose().
+    
+    RETURN:
+        Returns the dataset identifier if successful. Else returns EXIT_FAILURE upon
+        any errors.
+*/
+
+/* MY 2017-03-03 Unpack MODIS Geometry data */
+hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
+                   int32 inputFileID)
+{
+
+    int32 dataRank = 0;
+    int32 dataDimSizes[DIM_MAX] = {0};
+    short* input_dataBuffer = NULL;
+    float* output_dataBuffer = NULL;
+    hid_t datasetID = 0;
+    hid_t outputDataType = 0;
+    
+    intn status = -1;
+
+    status = H4readData( inputFileID, datasetName,
+        (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType );
+    if ( status < 0 )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+        if ( input_dataBuffer ) free(input_dataBuffer);
+        return (EXIT_FAILURE);
+    }
+
+
+    /* Data Unpack */
+    {
+        /*TODO 
+          We need to obtain scale_factor,units, _FillValue, valid_range and then 
+             unpack them to floating-point data.
+
+             _FillValue = -32767 to _FillValue = -999.0
+             valid_range  to valid_range*scale_factor
+             units keep
+             value * scale_factor, check _FillValue and change the value to -999.0.
+             because of time contraint and information from the user's guide.
+             scale_factor is always 0.01. We just multiple the value *0.01.
+              */
+          
+        /* get the index of the dataset from the dataset's name */
+        /* The following if 0 block may be useful for the future implementation. */
+#if 0
+        sds_index = SDnametoindex( inputFileID, datasetName );
+        if( sds_index < 0 )
+        {
+            fprintf( stderr, "[%s:%s:%d] -- SDnametoindex -- Failed to get index of dataset.\n", __FILE__, __func__, __LINE__);
+            free(input_dataBuffer);
+            return EXIT_FAILURE;
+        }
+    
+        sds_id = SDselect( inputFileID, sds_index );
+        if ( sds_id < 0 )
+        {
+            fprintf( stderr, "[%s:%s:%d] SDselect -- Failed to get the ID of the dataset.\n", __FILE__, __func__, __LINE__);
+            free(input_dataBuffer);
+            return EXIT_FAILURE;
+        }
+
+        radi_sc_index = SDfindattr(sds_id,radi_scales);
+        if(radi_sc_index < 0) {
+            fprintf( stderr, "[%s:%s:%d] Cannot find attribute %s of variable %s\n", __FILE__, __func__, __LINE__,radi_scales,datasetName);
+            SDendaccess(sds_id);
+            free(input_dataBuffer);
+            return EXIT_FAILURE;
+        }
+
+        if(SDattrinfo (sds_id, radi_sc_index, temp_attr_name, &radi_sc_type, &num_radi_sc_values)<0) {
+            fprintf( stderr, "[%s:%s:%d] Cannot obtain SDS attribute %s of variable %s\n", __FILE__, __func__, __LINE__,radi_scales,datasetName);
+            SDendaccess(sds_id);
+            free(input_dataBuffer);
+            return EXIT_FAILURE;
+        }
+#endif
+
+        
+
+        float* temp_float_pointer = NULL;
+        short* temp_int16_pointer = input_dataBuffer;
+        size_t buffer_size = 1;
+
+        for(int i = 0; i <dataRank;i++)
+            buffer_size *=dataDimSizes[i];
+
+        output_dataBuffer = malloc(sizeof output_dataBuffer *buffer_size);
+
+        temp_float_pointer = output_dataBuffer;
+        short scaled_fillvalue = -32767;
+        float _fillvalue = -999.0;
+        float scale_factor = 0.01;
+
+        for(int i = 0; i<buffer_size;i++){
+            /* Check fill values, need to retrieve instead of hard-code. No resources, follow the user's guide.*/
+            if((*temp_int16_pointer)==scaled_fillvalue)
+                *temp_float_pointer = _fillvalue;
+            else 
+                *temp_float_pointer = scale_factor*(*temp_int16_pointer);
+          
+            temp_int16_pointer++;
+            temp_float_pointer++;
+        }
+
+    }
+         
+
+    /* END READ DATA. BEGIN INSERTION OF DATA */ 
+     
+    /* Because we are converting from HDF4 to HDF5, there are a few type mismatches
+     * that need to be resolved. Thus, we need to take the DimSizes array, which is
+     * of type int32 (an HDF4 type) and put it into an array of type hsize_t.
+     * A simple casting might work, but that is dangerous considering hsize_t and int32
+     * are not simply two different names for the same type. They are two different types.
+     */
+    hsize_t temp[DIM_MAX];
+    for ( int i = 0; i < DIM_MAX; i++ )
+        temp[i] = (hsize_t) dataDimSizes[i];
+
+    outputDataType = H5T_NATIVE_FLOAT;
+#if 0
+    short use_chunk = 0;
+
+    /* If using chunk */
+    {
+        const char *s;
+        s = getenv("USE_CHUNK");
+
+        if(s && isdigit((int)*s))
+            if((unsigned int)strtol(s,NULL,0) == 1)
+                use_chunk = 1;
+    }
+        
+    if(use_chunk == 1) {
+	datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank ,
+                temp, outputDataType, datasetName, output_dataBuffer );
+    }
+    else {
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+                temp, outputDataType, datasetName, output_dataBuffer );
+    }
+#endif
+
+
+    datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+         temp, outputDataType, datasetName, output_dataBuffer );
+        
+    if ( datasetID == EXIT_FAILURE )
+    {
+        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+        free(input_dataBuffer);
+        free(output_dataBuffer);
+        return (EXIT_FAILURE);
+    }
+    
+    
+    free(input_dataBuffer);
+    free(output_dataBuffer);
+    
+
+    return datasetID;
+}
+
 
 herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* buffer )
 {

@@ -35,6 +35,7 @@ int MISR( char* argv[],int unpack )
 
     char *solar_geom_gname="Solar_Geometry";
     char *geo_gname="Geolocation";
+    char *hgeo_gname="HRGeolocation";
     char *data_gname="Data Fields";
     char *sensor_geom_gname ="Sensor_Geometry";
     hid_t status = 0;
@@ -54,13 +55,18 @@ int MISR( char* argv[],int unpack )
     int32 h4_status = 0;
     int32 geoFileID = 0;
     int32 gmpFileID = 0;
+    int32 hgeoFileID = 0;
 
         /* Group IDs */
     hid_t MISRrootGroupID = 0;
     hid_t geoGroupID = 0;
+    hid_t hr_geoGroupID = 0;
         /* Dataset IDs */
     hid_t latitudeID = 0;
     hid_t longitudeID = 0;
+    hid_t hr_latitudeID = 0;
+    hid_t hr_longitudeID = 0;
+
 
         /* Group IDs */
     hid_t gmpSolarGeoGroupID = 0;
@@ -110,6 +116,14 @@ int MISR( char* argv[],int unpack )
     {
         FATAL_MSG("Failed to open the SD interface.\n");
         gmpFileID = 0;
+        goto cleanupFail;
+    }
+
+    hgeoFileID = SDstart( argv[12], DFACC_READ );
+    if ( hgeoFileID == -1 )
+    {
+        FATAL_MSG("Failed to open the SD interface.\n");
+        hgeoFileID = 0;
         goto cleanupFail;
     }
 
@@ -345,6 +359,69 @@ int MISR( char* argv[],int unpack )
 
     free(correctedName); correctedName = NULL;
 
+    //HR latlon
+    createGroup( &MISRrootGroupID, &hr_geoGroupID, hgeo_gname );
+    if ( hr_geoGroupID == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to create HDF5 group.\n");
+        hr_geoGroupID = 0;
+        goto cleanupFail;
+    }
+
+
+    hr_latitudeID  = readThenWrite(hr_geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
+    if ( hr_latitudeID == EXIT_FAILURE )
+    {
+        FATAL_MSG("MISR readThenWrite function failed (latitude dataset).\n");
+        hr_latitudeID = 0;
+        goto cleanupFail;
+    }
+
+    correctedName = correct_name(geo_name[0]);
+    errStatus = H5LTset_attribute_string(hr_geoGroupID,correctedName,"units","degrees_north");
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to create HDF5 attribute.\n");
+        goto cleanupFail;
+    }
+
+    // Copy over the dimensions
+    errStatus = copyDimension( hgeoFileID, geo_name[0], outputFile, hr_latitudeID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
+
+    free(correctedName); correctedName = NULL;
+
+    hr_longitudeID = readThenWrite(hr_geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
+    if ( hr_longitudeID == EXIT_FAILURE )
+    {
+        FATAL_MSG("MISR readThenWrite function failed (longitude dataset).\n");
+        hr_longitudeID = 0;
+        goto cleanupFail;
+    }
+
+    correctedName = correct_name(geo_name[1]);
+    errStatus = H5LTset_attribute_string(geoGroupID,(const char*) correctedName,"units","degrees_east");
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to create HDF5 attribute.\n");
+        goto cleanupFail;
+    }
+
+    // Copy over the dimensions
+    errStatus = copyDimension( hgeoFileID, geo_name[1], outputFile, hr_longitudeID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
+    free(correctedName); correctedName = NULL;
+
     createGroup( &MISRrootGroupID, &gmpSolarGeoGroupID, solar_geom_gname );
     if ( gmpSolarGeoGroupID == EXIT_FAILURE )
     {
@@ -425,6 +502,7 @@ int MISR( char* argv[],int unpack )
     
     if (MISRrootGroupID) status = H5Gclose(MISRrootGroupID);
     if ( geoFileID ) statusn = SDend(geoFileID);
+    if ( hgeoFileID ) statusn = SDend(hgeoFileID);
     if ( gmpFileID ) statusn = SDend(gmpFileID);
     if ( h4FileID ) statusn = SDend(h4FileID);
     statusn = Vend(inHFileID);
@@ -437,6 +515,9 @@ int MISR( char* argv[],int unpack )
     if ( geoGroupID ) status = H5Gclose(geoGroupID);
     if ( latitudeID ) status = H5Dclose(latitudeID);
     if ( longitudeID ) status = H5Dclose(longitudeID);
+    if ( hr_geoGroupID ) status = H5Gclose(hr_geoGroupID);
+    if ( hr_latitudeID ) status = H5Dclose(hr_latitudeID);
+    if ( hr_longitudeID ) status = H5Dclose(hr_longitudeID);
     if ( gmpSolarGeoGroupID ) status = H5Gclose(gmpSolarGeoGroupID);
     if ( solarAzimuthID ) status = H5Dclose(solarAzimuthID);
     if ( solarZenithID ) status = H5Dclose(solarZenithID);

@@ -1,11 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <mfhdf.h>  // hdf4 SD interface (includes hdf.h by default)
 #include <hdf5.h>   // hdf5
 #include "libTERRA.h"
 #ifndef DIM_MAX
 #define DIM_MAX 10
 #endif
+#ifndef M_PI
+#    define M_PI 3.14159265358979323846
+#endif
+
 
 /*
     [0] = main program name
@@ -19,6 +24,8 @@
 
 /* MY 2016-12-20, handling the MODIS files with and without MOD02HKM and MOD02QKM. */
 
+void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol, int scanSize, double * newLat, double * newLon);
+int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID);
 int MODIS( char* argv[] ,int modis_count, int unpack)
 {
     /*************
@@ -31,6 +38,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     hid_t MODIS500mdataFieldsGroupID = 0;
     hid_t MODIS250mdataFieldsGroupID = 0;
     hid_t MODIS1KMgeolocationGroupID = 0;
+    hid_t MODIS500mgeolocationGroupID = 0;
+    hid_t MODIS250mgeolocationGroupID = 0;
     herr_t status = EXIT_SUCCESS;
     float fltTemp = 0.0;
     intn statusn = 0;
@@ -118,6 +127,12 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
     hid_t SDSunzenithDatasetID = 0;
     hid_t SDSunazimuthDatasetID = 0;
+
+    /* Geometry */
+    hid_t SensorZenithDatasetID = 0;
+    hid_t SensorAzimuthDatasetID = 0;
+    hid_t SolarAzimuthDatasetID = 0;
+    hid_t SolarZenithDatasetID = 0;
     
     /*****************
      * END VARIABLES *
@@ -813,6 +828,134 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
 
+     // We add the high-resolution lat/lon only when the data is unpacked, This is actually an advanced basic-fusion version.
+     if(unpack == 1) {
+        if(argv[2]!=NULL) {
+            // Add MODIS interpolation data
+            if ( createGroup( &MODIS500mGroupID, &MODIS500mgeolocationGroupID, "Geolocation" ) )
+            {
+                fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 500m geolocation group.\n",__FILE__,__func__,__LINE__);
+                MODIS500mgeolocationGroupID = 0;
+                goto cleanupFail;
+            }
+            // Add MODIS interpolation data
+            if ( createGroup( &MODIS250mGroupID, &MODIS250mgeolocationGroupID, "Geolocation" ) )
+            {
+                fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 250m geolocation group.\n",__FILE__,__func__,__LINE__);
+                MODIS250mgeolocationGroupID = 0;
+                goto cleanupFail;
+            }
+
+            if(-1 == readThenWrite_MODIS_HR_LatLon(MODIS500mgeolocationGroupID, MODIS250mgeolocationGroupID,"Latitude","Longitude",DFNT_FLOAT32,H5T_NATIVE_FLOAT,MOD03FileID)){
+                fprintf( stderr, "[%s:%s:%d] Failed to generate MODIS 250m and 500m geolocation fields.\n",__FILE__,__func__,__LINE__);
+                goto cleanupFail;
+
+            }
+        }
+    }
+
+    /*_______________Sensor Zenith under the granule group______________*/
+    SensorZenithDatasetID = readThenWrite_MODIS_GeoMetry_Unpack(MODISgranuleGroupID,"SensorZenith",
+                                             DFNT_FLOAT32,  MOD03FileID);
+    if ( SensorZenithDatasetID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Failed to transfer Sensor zenith data.\n",__FILE__,__func__,__LINE__);
+        SensorZenithDatasetID = 0;
+        goto cleanupFail;
+    }
+
+    errStatus = copyDimension( MOD03FileID, "SensorZenith", outputFile, SensorZenithDatasetID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        goto cleanupFail;
+    }
+
+    // Kind of hard-coded value(from user's guide) because of not enough working hours MY 2017-03-04
+    status = H5LTset_attribute_string(MODISgranuleGroupID,"SensorZenith","units","degree");
+    if ( status < 0 )
+    {
+            FATAL_MSG("Failed to add SensorZenith units attribute.\n");
+            goto cleanupFail;
+    }
+
+
+     /*_______________Sensor Azimuth under the granule group______________*/
+    SensorAzimuthDatasetID = readThenWrite_MODIS_GeoMetry_Unpack(MODISgranuleGroupID,"SensorAzimuth",
+                                             DFNT_FLOAT32,  MOD03FileID);
+    if ( SensorAzimuthDatasetID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Failed to transfer Sensor zenith data.\n",__FILE__,__func__,__LINE__);
+        SensorAzimuthDatasetID = 0;
+        goto cleanupFail;
+    }
+
+    errStatus = copyDimension( MOD03FileID, "SensorAzimuth", outputFile, SensorAzimuthDatasetID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        goto cleanupFail;
+    }
+   
+    // Kind of hard-coded value(from user's guide) because of not enough working hours MY 2017-03-04
+    status = H5LTset_attribute_string(MODISgranuleGroupID,"SensorAzimuth","units","degree");
+    if ( status < 0 )
+    {
+            FATAL_MSG("Failed to add SensorAzimuth units attribute.\n");
+            goto cleanupFail;
+    }
+
+    /*_______________Solar Zenith under the granule group______________*/
+    SolarZenithDatasetID = readThenWrite_MODIS_GeoMetry_Unpack(MODISgranuleGroupID,"SolarZenith",
+                                             DFNT_FLOAT32,  MOD03FileID);
+    if ( SolarZenithDatasetID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Failed to transfer Solar zenith data.\n",__FILE__,__func__,__LINE__);
+        SolarZenithDatasetID = 0;
+        goto cleanupFail;
+    }
+
+    errStatus = copyDimension( MOD03FileID, "SolarZenith", outputFile, SolarZenithDatasetID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        goto cleanupFail;
+    }
+
+    // Kind of hard-coded value(from user's guide) because of not enough working hours MY 2017-03-04
+    status = H5LTset_attribute_string(MODISgranuleGroupID,"SolarZenith","units","degree");
+    if ( status < 0 )
+    {
+            FATAL_MSG("Failed to add SolarZenith units attribute.\n");
+            goto cleanupFail;
+    }
+
+
+     /*_______________Solar Azimuth under the granule group______________*/
+    SolarAzimuthDatasetID = readThenWrite_MODIS_GeoMetry_Unpack(MODISgranuleGroupID,"SolarAzimuth",
+                                             DFNT_FLOAT32,  MOD03FileID);
+    if ( SolarAzimuthDatasetID == EXIT_FAILURE )
+    {
+        fprintf( stderr, "[%s:%s:%d] Failed to transfer Solar zenith data.\n",__FILE__,__func__,__LINE__);
+        SolarAzimuthDatasetID = 0;
+        goto cleanupFail;
+    }
+
+    errStatus = copyDimension( MOD03FileID, "SolarAzimuth", outputFile, SolarAzimuthDatasetID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        goto cleanupFail;
+    }
+   
+    // Kind of hard-coded value(from user's guide) because of not enough working hours MY 2017-03-04
+    status = H5LTset_attribute_string(MODISgranuleGroupID,"SolarAzimuth","units","degree");
+    if ( status < 0 )
+    {
+            FATAL_MSG("Failed to add SolarAzimuth units attribute.\n");
+            goto cleanupFail;
+    }
+
 
     /*_______________Sun angle under the granule group______________*/
     SDSunzenithDatasetID = readThenWrite(MODISgranuleGroupID,"SD Sun zenith",
@@ -946,6 +1089,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     SDSunazimuthDatasetID = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");               
                         
+
+    
                 /*-------------------------------------
                   ------------- 500m File -------------
                   -------------------------------------*/
@@ -1332,9 +1477,13 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
     if (MODIS250mdataFieldsGroupID !=0 ) status = H5Gclose(MODIS250mdataFieldsGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
+    if (MODIS250mgeolocationGroupID !=0 ) status = H5Gclose(MODIS250mgeolocationGroupID);
+    if ( status < 0 ) WARN_MSG("H5Gclose\n");
     if (MODIS250mGroupID !=0 ) status = H5Gclose(MODIS250mGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
     if (MODIS500mdataFieldsGroupID !=0 ) status = H5Gclose(MODIS500mdataFieldsGroupID);
+    if ( status < 0 ) WARN_MSG("H5Gclose\n");
+    if (MODIS500mgeolocationGroupID !=0 ) status = H5Gclose(MODIS500mgeolocationGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
     if (MODIS500mGroupID !=0 ) status = H5Gclose(MODIS500mGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
@@ -1342,6 +1491,15 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
     if (MODISrootGroupID !=0 ) status = H5Gclose(MODISrootGroupID);
     if ( status < 0 ) WARN_MSG("H5Gclose\n");
+    if(SensorZenithDatasetID != 0) status = H5Dclose(SensorZenithDatasetID);
+    if ( status < 0 ) WARN_MSG("H5Dclose\n");
+    if(SensorAzimuthDatasetID != 0) status = H5Dclose(SensorAzimuthDatasetID);
+    if ( status < 0 ) WARN_MSG("H5Dclose\n");
+    if(SolarAzimuthDatasetID != 0) status = H5Dclose(SolarAzimuthDatasetID);
+    if ( status < 0 ) WARN_MSG("H5Dclose\n");
+    if(SolarZenithDatasetID != 0) status = H5Dclose(SolarZenithDatasetID);
+    if ( status < 0 ) WARN_MSG("H5Dclose\n");
+  
     if (SDSunazimuthDatasetID !=0 ) status = H5Dclose(SDSunazimuthDatasetID);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
     if (SDSunzenithDatasetID !=0 ) status = H5Dclose(SDSunzenithDatasetID);
@@ -1390,3 +1548,716 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     return EXIT_SUCCESS;
     
 }
+
+int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID) {
+
+    hid_t dummy_output_file_id = 0;
+    int32 latRank,lonRank;
+    int32 latDimSizes[DIM_MAX];
+    int32 lonDimSizes[DIM_MAX];
+    float* latBuffer = NULL;
+    float* lonBuffer = NULL;
+    hid_t datasetID;
+    herr_t status;
+
+    int i = 0;
+    int nRow_1km = 0;
+    int nCol_1km = 0;
+    int nRow_500m = 0;
+    int nCol_500m = 0;
+    int scanSize  = 10;
+    int nRow_250m = 0;
+    int nCol_250m = 0;
+
+    double* lat_1km_buffer = NULL;
+    double* lon_1km_buffer = NULL;
+    double* lat_500m_buffer = NULL;
+    double* lon_500m_buffer = NULL;
+    double* lat_250m_buffer = NULL;
+    double* lon_250m_buffer = NULL;
+
+
+    float* lat_output_500m_buffer = NULL;
+    float* lon_output_500m_buffer = NULL;
+    float* lat_output_250m_buffer = NULL;
+    float* lon_output_250m_buffer = NULL;
+    
+
+    status = H4readData( MOD03FileID, latname,
+        (void**)&latBuffer, &latRank, latDimSizes, h4_type );
+    if ( status < 0 )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  latname );
+        if ( latBuffer != NULL ) free(latBuffer);
+        return -1;
+    }
+
+    status = H4readData( MOD03FileID, lonname,
+        (void**)&lonBuffer, &lonRank, lonDimSizes, h4_type );
+    if ( status < 0 )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  lonname );
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    if(latRank !=2 || lonRank!=2) {
+        fprintf( stderr, "[%s:%s:%d] The latitude and longitude array rank must be 2.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    if(latDimSizes[0]!=lonDimSizes[0] || latDimSizes[1]!=lonDimSizes[1]) {
+        fprintf( stderr, "[%s:%s:%d] The latitude and longitude array rank must share the same dimension sizes.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+   
+    /* END READ DATA. BEGIN Computing DATA */
+    /* first 500 m */
+    nRow_1km = latDimSizes[0];
+    nCol_1km = latDimSizes[1];
+
+    lat_1km_buffer = (double*)malloc(sizeof(double)*nRow_1km*nCol_1km);
+    if(lat_1km_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_1km_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    
+    
+    lon_1km_buffer = (double*)malloc(sizeof(double)*nRow_1km*nCol_1km);
+    if(lon_1km_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_1km_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        if (lat_1km_buffer !=NULL) free(lat_1km_buffer);
+        return -1;
+    }
+
+    nRow_500m = 2*nRow_1km;
+    nCol_500m = 2*nCol_1km;
+    lat_500m_buffer = (double*)malloc(sizeof(double)*nRow_500m*nCol_500m);
+    if(lat_500m_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_500m_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        if (lat_1km_buffer !=NULL) free(lat_1km_buffer);
+        if (lon_1km_buffer !=NULL) free(lon_1km_buffer);
+        return -1;
+    }
+    
+    
+    lon_500m_buffer = (double*)malloc(sizeof(double)*4*nRow_500m*nCol_500m);
+    if(lon_500m_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_500m_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        if (lat_1km_buffer !=NULL) free(lat_1km_buffer);
+        if (lon_1km_buffer !=NULL) free(lon_1km_buffer);
+        if (lat_500m_buffer !=NULL) free(lat_500m_buffer);
+        return -1;
+    }
+
+    // Float to double
+    for (i = 0; i <nRow_1km*nCol_1km;i++){
+        lat_1km_buffer[i] = (double)latBuffer[i];
+        lon_1km_buffer[i] = (double)lonBuffer[i];
+    }
+    upscaleLatLonSpherical(lat_1km_buffer, lon_1km_buffer, nRow_1km, nCol_1km, scanSize, lat_500m_buffer, lon_500m_buffer);
+
+
+    lat_output_500m_buffer = (float*)malloc(sizeof(float)*nRow_500m*nCol_500m);
+    if(lat_output_500m_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_500m_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        if (lat_1km_buffer !=NULL) free(lat_1km_buffer);
+        if (lon_1km_buffer !=NULL) free(lon_1km_buffer);
+        if (lat_500m_buffer !=NULL) free(lat_500m_buffer);
+        if (lon_500m_buffer !=NULL) free(lon_500m_buffer);
+        return -1;
+    }
+    for (i = 0; i <nRow_500m*nCol_500m;i++)
+        lat_output_500m_buffer[i] = (float)lat_500m_buffer[i];
+
+    hsize_t temp[DIM_MAX];
+    for ( i = 0; i < DIM_MAX; i++ )
+        temp[i] = (hsize_t) (2*latDimSizes[i]);
+
+    datasetID = insertDataset( &dummy_output_file_id, &MODIS500mgeoGroupID, 1, latRank ,
+         temp, h5_type, latname, lat_output_500m_buffer );
+
+    if ( datasetID == EXIT_FAILURE )
+    {
+        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, latname );
+        free(latBuffer);
+        free(lonBuffer);
+        free(lat_1km_buffer);
+        free(lon_1km_buffer);
+        free(lat_500m_buffer);
+        free(lat_output_500m_buffer);
+        return -1;
+    }
+    H5Dclose(datasetID);
+
+    
+    lon_output_500m_buffer = (float*)malloc(sizeof(float)*nRow_500m*nCol_500m);
+    if(lon_output_500m_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_500m_buffer.\n", __FILE__, __func__,__LINE__);
+        free(latBuffer);
+        free(lonBuffer);
+        free(lat_1km_buffer);
+        free(lon_1km_buffer);
+        free(lat_500m_buffer);
+        free(lon_500m_buffer);
+        free(lat_output_500m_buffer);
+        return -1;
+    }
+    for (i = 0; i <nRow_500m*nCol_500m;i++)
+        lon_output_500m_buffer[i] = (float)lon_500m_buffer[i];
+
+   
+    datasetID = insertDataset( &dummy_output_file_id, &MODIS500mgeoGroupID, 1, lonRank ,
+         temp, h5_type, lonname, lon_output_500m_buffer );
+
+    if ( datasetID == EXIT_FAILURE )
+    {
+        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, lonname );
+        free(latBuffer);
+        free(lonBuffer);
+        free(lat_1km_buffer);
+        free(lon_1km_buffer);
+        free(lat_500m_buffer);
+        free(lon_500m_buffer);
+        free(lat_output_500m_buffer);
+        free(lon_output_500m_buffer);
+        return -1;
+    }
+    H5Dclose(datasetID);
+    
+    // Nor used anymore, free.
+    free(latBuffer);
+    free(lonBuffer);
+    free(lat_1km_buffer);
+    free(lon_1km_buffer);
+    free(lat_output_500m_buffer);
+    free(lon_output_500m_buffer);
+
+ 
+    nRow_250m = 2*nRow_500m;
+    nCol_250m = 2*nCol_500m;
+    lat_250m_buffer = (double*)malloc(sizeof(double)*nRow_250m*nCol_250m);
+    if(lat_250m_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_250m_buffer.\n", __FILE__, __func__,__LINE__);
+        free(lat_500m_buffer);
+        free(lon_500m_buffer);
+        return -1;
+    }
+ 
+    lon_250m_buffer = (double*)malloc(sizeof(double)*nRow_250m*nCol_250m);
+    if(lon_250m_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_250m_buffer.\n", __FILE__, __func__,__LINE__);
+        free(lat_500m_buffer);
+        free(lon_500m_buffer);
+        free(lat_250m_buffer);
+        return -1;
+    }
+ 
+    upscaleLatLonSpherical(lat_500m_buffer, lon_500m_buffer, nRow_500m, nCol_500m, scanSize, lat_250m_buffer, lon_250m_buffer);
+
+    free(lat_500m_buffer);
+    free(lon_500m_buffer);
+    lat_output_250m_buffer = (float*)malloc(sizeof(float)*nRow_250m*nCol_250m);
+    if(lat_output_250m_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_output_250m_buffer.\n", __FILE__, __func__,__LINE__);
+        free(lat_250m_buffer);
+        free(lon_250m_buffer);
+        return -1;
+    }
+
+    lon_output_250m_buffer = (float*)malloc(sizeof(float)*nRow_250m*nCol_250m);
+    if(lon_output_500m_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_output_250m_buffer.\n", __FILE__, __func__,__LINE__);
+        free(lat_250m_buffer);
+        free(lon_250m_buffer);
+        free(lat_output_250m_buffer);
+        return -1;
+    }
+
+    for (i = 0; i <nRow_250m*nCol_250m;i++){
+        lon_output_250m_buffer[i] = (float)lon_250m_buffer[i];
+        lat_output_250m_buffer[i] = (float)lat_250m_buffer[i];
+    }
+
+    free(lat_250m_buffer);
+    free(lon_250m_buffer);
+
+    for ( i = 0; i < DIM_MAX; i++ )
+        temp[i] = (hsize_t) (4*latDimSizes[i]);
+
+    datasetID = insertDataset( &dummy_output_file_id, &MODIS250mgeoGroupID, 1, latRank ,
+         temp, h5_type, latname, lat_output_250m_buffer );
+
+    if ( datasetID == EXIT_FAILURE )
+    {
+        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, latname );
+        free(lat_output_250m_buffer);
+        free(lon_output_250m_buffer);
+        return -1;
+    }
+    H5Dclose(datasetID);
+
+    free(lat_output_250m_buffer);
+    datasetID = insertDataset( &dummy_output_file_id, &MODIS250mgeoGroupID, 1, lonRank ,
+         temp, h5_type, lonname, lon_output_250m_buffer );
+
+    if ( datasetID == EXIT_FAILURE )
+    {
+        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, latname );
+        free(lon_output_250m_buffer);
+        return -1;
+    }
+    
+    free(lon_output_250m_buffer);
+ 
+    
+    H5Dclose(datasetID);
+ 
+   return 0;
+
+}
+
+/** The following two routines were written by Yizhao Gao <ygao29@illinois.edu>. */
+#if 0
+/*
+ * NAME:	upscaleLatLonPlanar
+ * DESCRIPTION:	calculate the latitude and longitude of MODIS cell centers at finner resolution based on coarser resolution cell locations, using a planer cooridnate system
+ * PARAMETERS:
+ * 	double * oriLat:	the latitudes of input cells at coarser resolution
+ * 	double * oriLon:	the longitudes of input cells at coarser resolution
+ * 	int nRow:		the number of rows of input raster
+ * 	int nRol:		the number of columns of input raster
+ * 	int scanSize:		the number of cells in a scan
+ * 	double * newLat:	the latitudes of output cells at finer resolution (the number of rows and columns will be doubled)
+ * 	double * newLon:	the longitudes of output cells at finer resolution (the number of rows and columns will be doubled)
+ * RETURN:
+ * 	TYPE:	float *
+ * 	VALUE:	An array of density value at each cell
+ */
+
+void upscaleLatLonPlanar(double * oriLat, double * oriLon, int nRow, int nCol, int scanSize, double * newLat, double * newLon) {
+
+	if(0 != nRow % scanSize) {
+		printf("nRows:%d is not a multiple of scanSize: %d\n", nRow, scanSize);
+		exit(1);
+	}
+
+	double * step1Lat;
+	double * step1Lon;
+
+	if(NULL == (step1Lat = (double *)malloc(sizeof(double) * 2 * nRow * nCol))) {
+		printf("Out of memeory for step1Lat\n");
+		exit(1);
+	}
+
+	if(NULL == (step1Lon = (double *)malloc(sizeof(double) * 2 * nRow * nCol))) {
+		printf("Out of memeory for step1Lon\n");
+		exit(1);
+	}
+
+	int i, j;
+
+	// First step for bilinear interpolation
+	for(i = 0; i < nRow; i++) {
+		for(j = 0; j < nCol; j++) {
+
+			step1Lat[i * 2 * nCol + 2 * j] = oriLat[i * nCol + j];
+			step1Lon[i * 2 * nCol + 2 * j] = oriLon[i * nCol + j];
+
+			if(j == nCol - 1) {
+				step1Lat[i * 2 * nCol + 2 * j + 1] = 1.5 * oriLat[i * nCol + j] - 0.5 * oriLat[i * nCol + j - 1];
+
+				if(oriLon[i * nCol + j] > 90 && oriLon[i * nCol + j - 1] < -90) {
+					step1Lon[i * 2 * nCol + 2 * j + 1] = 1.5 * oriLon[i * nCol + j] - 0.5 * (oriLon[i * nCol + j - 1] + 360);
+				}
+				else if(oriLon[i * nCol + j] < -90 && oriLon[i * nCol + j - 1] > 90) {
+					step1Lon[i * 2 * nCol + 2 * j + 1] = 1.5 * (oriLon[i * nCol + j] + 360) - 0.5 * oriLon[i * nCol + j - 1];
+				}
+				else{
+					step1Lon[i * 2 * nCol + 2 * j + 1] = 1.5 * oriLon[i * nCol + j] - 0.5 * oriLon[i * nCol + j - 1];
+				}
+				if(step1Lon[i * 2 * nCol + 2 * j + 1] > 180) {
+					step1Lon[i * 2 * nCol + 2 * j + 1] -= 360;
+				}
+				else if(step1Lon[i * 2 * nCol + 2 * j + 1] < -180) {
+					step1Lon[i * 2 * nCol + 2 * j + 1] += 360;
+				}
+			}
+			else {
+				step1Lat[i * 2 * nCol + 2 * j + 1] = (oriLat[i * nCol + j] + oriLat[i * nCol + j + 1]) / 2;
+
+				if(oriLon[i * nCol + j] > 90 && oriLon[i * nCol + j + 1] < -90) {
+					step1Lon[i * 2 * nCol + 2 * j + 1] = (oriLon[i * nCol + j] + oriLon[i * nCol + j + 1] + 360) / 2;
+				}
+				else if(oriLon[i * nCol + j] < -90 && oriLon[i * nCol + j + 1] > 90) {
+					step1Lon[i * 2 * nCol + 2 * j + 1] = (oriLon[i * nCol + j] + oriLon[i * nCol + j + 1] + 360) / 2;
+				}
+				else {
+					step1Lon[i * 2 * nCol + 2 * j + 1] = (oriLon[i * nCol + j] + oriLon[i * nCol + j + 1]) / 2;
+				}
+				if(step1Lon[i * 2 * nCol + 2 * j + 1] > 180) {
+					step1Lon[i * 2 * nCol + 2 * j + 1] -= 360;
+				}
+				else if(step1Lon[i * 2 * nCol + 2 * j + 1] < -180) {
+					step1Lon[i * 2 * nCol + 2 * j + 1] += 360;
+				}
+			}
+		}
+	}	
+
+	// Second step for bilinear interpolation
+	
+	int k = 0;
+	for(k = 0; k < nRow; k += scanSize) {
+
+		//  Processing the first row in a scan
+		i = k;
+		for(j = 0; j < 2 * nCol; j++) {
+			newLat[(i * 2) * 2 * nCol + j] = 1.25 * step1Lat[i * 2 * nCol + j] - 0.25 * step1Lat[(i + 1) * 2 * nCol + j];
+		
+			if(step1Lon[i * 2 * nCol + j] > 90 && step1Lon[(i + 1) * 2 * nCol + j] < -90) {
+				newLon[(i * 2) * 2 * nCol + j] = 1.25 * step1Lon[(i + 1) * 2 * nCol + j] - 0.25 * (step1Lon[(i + 1) * 2 * nCol + j] + 360);
+			}
+			else if(step1Lon[i * 2 * nCol + j] < -90 && step1Lon[2 * nCol + j] > 90) {
+				newLon[(i * 2) * 2 * nCol + j] = 1.25 * (step1Lon[i * 2 * nCol + j] + 360) - 0.25 * step1Lon[(i + 1) * 2 * nCol + j];
+			}
+			else {
+				newLon[(i * 2) * 2 * nCol + j] = 1.25 * step1Lon[i * 2 * nCol + j] - 0.25 * step1Lon[(i + 1) * 2 * nCol + j];
+			}
+			if(newLon[j] > 180) {
+				newLon[(i * 2) * 2 * nCol + j] -= 360;
+			}
+			else if(newLon[(i * 2) * 2 * nCol + j] < -180) {
+				newLon[(i * 2) * 2 * nCol + j] += 360;
+			}
+		}
+
+		//  Processing intermediate rows in a scan
+		for(i = k; i < k + scanSize - 1; i ++) {
+			for(j = 0; j < 2 * nCol; j++) {
+				newLat[(i * 2 + 1) * 2 * nCol + j] = 0.75 * step1Lat[i * 2 * nCol + j] + 0.25 * step1Lat[(i + 1) * 2 * nCol + j];
+				newLat[(i * 2 + 2) * 2 * nCol + j] = 0.25 * step1Lat[i * 2 * nCol + j] + 0.75 * step1Lat[(i + 1) * 2 * nCol + j];
+	
+				if(step1Lon[i * 2 * nCol + j] > 90 && step1Lon[(i + 1) * 2 * nCol + j] < -90) {
+					newLon[(i * 2 + 1) * 2 * nCol + j] = 0.75 * step1Lon[i * 2 * nCol + j] + 0.25 * (step1Lon[(i + 1) * 2 * nCol + j] + 360);
+					newLon[(i * 2 + 2) * 2 * nCol + j] = 0.25 * step1Lon[i * 2 * nCol + j] + 0.75 * (step1Lon[(i + 1) * 2 * nCol + j] + 360);
+				}
+				else if(step1Lon[i * 2 * nCol + j] < -90 && step1Lon[(i + 1) * 2 * nCol + j] > 90) {
+					newLon[(i * 2 + 1) * 2 * nCol + j] = 0.75 * (step1Lon[i * 2 * nCol + j] + 360) + 0.25 * step1Lon[(i + 1) * 2 * nCol + j];
+					newLon[(i * 2 + 2) * 2 * nCol + j] = 0.25 * (step1Lon[i * 2 * nCol + j] + 360) + 0.75 * step1Lon[(i + 1) * 2 * nCol + j];
+				}
+				else{
+					newLon[(i * 2 + 1) * 2 * nCol + j] = 0.75 * step1Lon[i * 2 * nCol + j] + 0.25 * step1Lon[(i + 1) * 2 * nCol + j];
+					newLon[(i * 2 + 2) * 2 * nCol + j] = 0.25 * step1Lon[i * 2 * nCol + j] + 0.75 * step1Lon[(i + 1) * 2 * nCol + j];
+				}
+
+				if(newLon[(i * 2 + 1) * 2 * nCol + j] > 180) {
+					newLon[(i * 2 + 1) * 2 * nCol + j] -= 360;
+				}
+				else if(newLon[(i * 2 + 1) * 2 * nCol + j] < -180) {
+					newLon[(i * 2 + 1) * 2 * nCol + j] += 360;
+				}
+				if(newLon[(i * 2 + 2) * 2 * nCol + j] > 180) {
+					newLon[(i * 2 + 2) * 2 * nCol + j] -= 360;
+				}
+				else if(newLon[(i * 2 + 2) * 2 * nCol + j] < -180) {
+					newLon[(i * 2 + 2) * 2 * nCol + j] += 360;
+				}
+			}
+		}	
+
+		//  Processing the last row in a scan
+		i = k + scanSize - 1;
+		for(j = 0; j < 2 * nCol; j++) {
+			newLat[(2 * i + 1) * 2 * nCol + j] = 1.25 * step1Lat[(nRow - 1) * 2 * nCol + j] - 0.25 * step1Lat[(nRow - 2) * 2 * nCol + j];
+
+			if(step1Lon[i * 2 * nCol + j] > 90 && step1Lon[(i - 1) * 2 * nCol + j] < -90) {
+				newLon[(2 * i + 1) * 2 * nCol + j] = 1.25 * step1Lon[i * 2 * nCol + j] - 0.25 * (step1Lon[(i - 1) * 2 * nCol + j] + 360);
+			}
+			else if(step1Lon[i * 2 * nCol + j] < -90 && step1Lon[(i - 1) * 2 * nCol + j] > 90) {
+				newLon[(2 * i + 1) * 2 * nCol + j] = 1.25 * (step1Lon[i * 2 * nCol + j] + 360) - 0.25 * step1Lon[(i - 1) * 2 * nCol + j];
+			}
+			else {
+				newLon[(2 * i + 1) * 2 * nCol + j] = 1.25 * step1Lon[i * 2 * nCol + j] - 0.25 * step1Lon[(i - 1) * 2 * nCol + j];
+			}
+			if(newLon[(2 * i + 1) * 2 * nCol + j] > 180) {
+				newLon[(2 * i + 1) * 2 * nCol + j] -= 360;
+			}
+			else if(newLon[(2 * i + 1) * 2 * nCol + j] < -180) {
+				newLon[(2 * i + 1) * 2 * nCol + j] += 360;
+			}
+		}
+	}
+/*
+	for(i = 0; i < nRow; i++) {
+		for(j = 0; j < 2 * nCol; j++) {
+			printf("%lf,%lf\n", step1Lat[i * 2 * nCol + j], step1Lon[i * 2 * nCol + j]);
+		}
+	}
+*/
+	free(step1Lat);
+	free(step1Lon);	
+
+	
+	return;
+}
+#endif
+
+/**
+ * NAME:	upscaleLatLonSpherical
+ * DESCRIPTION:	calculate the latitude and longitude of MODIS cell centers at finner resolution based on coarser resolution cell locations, using a planer cooridnate system
+ * PARAMETERS:
+ * 	double * oriLat:	the latitudes of input cells at coarser resolution
+ * 	double * oriLon:	the longitudes of input cells at coarser resolution
+ * 	int nRow:		the number of rows of input raster
+ * 	int nRol:		the number of columns of input raster
+ * 	int scanSize:		the number of cells in a scan
+ * 	double * newLat:	the latitudes of output cells at finer resolution (the number of rows and columns will be doubled)
+ * 	double * newLon:	the longitudes of output cells at finer resolution (the number of rows and columns will be doubled)
+ * RETURN:
+ * 	TYPE:	float *
+ * 	VALUE:	An array of density value at each cell
+ */
+
+void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol, int scanSize, double * newLat, double * newLon) {
+
+	if(0 != nRow % scanSize) {
+		printf("nRows:%d is not a multiple of scanSize: %d\n", nRow, scanSize);
+		exit(1);
+	}
+
+	double * step1Lat;
+	double * step1Lon;
+
+	if(NULL == (step1Lat = (double *)malloc(sizeof(double) * 2 * nRow * nCol))) {
+		printf("Out of memeory for step1Lat\n");
+		exit(1);
+	}
+
+	if(NULL == (step1Lon = (double *)malloc(sizeof(double) * 2 * nRow * nCol))) {
+		printf("Out of memeory for step1Lon\n");
+		exit(1);
+	}
+
+	int i, j;
+
+
+	// Convert oriLat and oriLon to radians
+	for(i = 0; i < nRow; i++) {
+		for(j = 0; j < nCol; j++) {
+			oriLat[i * nCol + j] = oriLat[i * nCol + j] * M_PI / 180; 
+			oriLon[i * nCol + j] = oriLon[i * nCol + j] * M_PI / 180; 
+		}
+	}
+
+	double phi1, phi2, phi3, lambda1, lambda2, lambda3, bX, bY;
+	double dPhi, dLambda;
+	double a, b, x, y, z, f, delta;
+	double f1, f2;
+
+
+	// First step for bilinear interpolation
+	f = 1.5;
+	for(i = 0; i < nRow; i++) {
+		for(j = 0; j < nCol; j++) {
+
+			step1Lat[i * 2 * nCol + 2 * j] = oriLat[i * nCol + j];
+			step1Lon[i * 2 * nCol + 2 * j] = oriLon[i * nCol + j];
+
+			if(j == nCol - 1) {
+	
+				phi1 = oriLat[i * nCol + j - 1];
+				phi2 = oriLat[i * nCol + j];
+				lambda1 = oriLon[i * nCol + j - 1];
+				lambda2 = oriLon[i * nCol + j];
+
+				dPhi = (phi2 - phi1);
+				dLambda = (lambda2 - lambda1);
+
+				a = sin(dPhi/2) * sin(dPhi/2) + cos(phi1) * cos(phi2) * sin(dLambda/2) * sin(dLambda/2);
+				delta = 2 * atan2(sqrt(a), sqrt(1-a));
+
+				a = sin((1-f) * delta) / sin(delta);
+				b = sin(f * delta) / sin(delta);
+
+				x = a * cos(phi1) * cos(lambda1) + b * cos(phi2) * cos(lambda2);
+				y = a * cos(phi1) * sin(lambda1) + b * cos(phi2) * sin(lambda2);
+				z = a * sin(phi1) + b * sin(phi2);
+
+				phi3 = atan2(z, sqrt(x * x + y * y));
+				lambda3 = atan2(y, x);
+
+				step1Lat[i * 2 * nCol + 2 * j + 1] = phi3;
+				step1Lon[i * 2 * nCol + 2 * j + 1] = lambda3;
+			}
+
+			else {
+
+				phi1 = oriLat[i * nCol + j];
+				phi2 = oriLat[i * nCol + j + 1];
+				lambda1 = oriLon[i * nCol + j];
+				lambda2 = oriLon[i * nCol + j + 1];
+
+				bX = cos(phi2) * cos(lambda2 - lambda1);
+				bY = cos(phi2) * sin(lambda2 - lambda1);
+
+				phi3 = atan2(sin(phi1) + sin(phi2), sqrt((cos(phi1) + bX) * (cos(phi1) + bX) + bY * bY));
+				step1Lat[i * 2 * nCol + 2 * j + 1] = phi3;
+
+				lambda3 = lambda1 + atan2(bY, cos(phi1) + bX) + 3 * M_PI;
+				lambda3 = lambda3 - (int)(lambda3 / (2 * M_PI)) * 2 * M_PI - M_PI;
+
+				step1Lon[i * 2 * nCol + 2 * j + 1] = lambda3;	
+			}
+		}
+	}	
+
+	// Second step for bilinear interpolation
+	f = 1.25;
+	f1 = 0.25;
+	f2 = 0.75;
+
+	int k = 0;
+	for(k = 0; k < nRow; k += scanSize) {
+
+		//  Processing the first row in a scan
+		i = k;
+		for(j = 0; j < 2 * nCol; j++) {
+			phi1 = step1Lat[(i + 1) * 2 * nCol + j];
+			phi2 = step1Lat[i * 2 * nCol + j];
+			lambda1 = step1Lon[(i + 1) * 2 * nCol + j];
+			lambda2 = step1Lon[i * 2 * nCol + j];
+	
+			dPhi = (phi2 - phi1);
+			dLambda = (lambda2 - lambda1);
+
+			a = sin(dPhi/2) * sin(dPhi/2) + cos(phi1) * cos(phi2) * sin(dLambda/2) * sin(dLambda/2);
+			delta = 2 * atan2(sqrt(a), sqrt(1-a));
+	
+			a = sin((1-f) * delta) / sin(delta);
+			b = sin(f * delta) / sin(delta);
+
+			x = a * cos(phi1) * cos(lambda1) + b * cos(phi2) * cos(lambda2);
+			y = a * cos(phi1) * sin(lambda1) + b * cos(phi2) * sin(lambda2);
+			z = a * sin(phi1) + b * sin(phi2);
+
+			phi3 = atan2(z, sqrt(x * x + y * y));
+			lambda3 = atan2(y, x);
+
+			newLat[(i * 2) * 2 * nCol + j] = phi3;
+			newLon[(i * 2) * 2 * nCol + j] = lambda3;
+		}
+
+		//  Processing intermediate rows in a scan
+		for(i = k; i < k + scanSize - 1; i ++) {
+			for(j = 0; j < 2 * nCol; j++) {
+				
+				phi1 = step1Lat[i * 2 * nCol + j];
+				phi2 = step1Lat[(i + 1) * 2 * nCol + j];
+				lambda1 = step1Lon[i * 2 * nCol + j];
+				lambda2 = step1Lon[(i + 1) * 2 * nCol + j];
+			
+				dPhi = (phi2 - phi1);
+				dLambda = (lambda2 - lambda1);
+
+				a = sin(dPhi/2) * sin(dPhi/2) + cos(phi1) * cos(phi2) * sin(dLambda/2) * sin(dLambda/2);
+				delta = 2 * atan2(sqrt(a), sqrt(1-a));
+
+				//Interpolate the first intermediate point
+				a = sin((1-f1) * delta) / sin(delta);
+				b = sin(f1 * delta) / sin(delta);
+			
+				x = a * cos(phi1) * cos(lambda1) + b * cos(phi2) * cos(lambda2);
+				y = a * cos(phi1) * sin(lambda1) + b * cos(phi2) * sin(lambda2);
+				z = a * sin(phi1) + b * sin(phi2);
+
+				phi3 = atan2(z, sqrt(x * x + y * y));
+				lambda3 = atan2(y, x);
+
+				newLat[(i * 2 + 1) * 2 * nCol + j] = phi3;
+				newLon[(i * 2 + 1) * 2 * nCol + j] = lambda3;
+
+				//Interpolate the second intermediate point
+				a = sin((1-f2) * delta) / sin(delta);
+				b = sin(f2 * delta) / sin(delta);
+
+				x = a * cos(phi1) * cos(lambda1) + b * cos(phi2) * cos(lambda2);
+				y = a * cos(phi1) * sin(lambda1) + b * cos(phi2) * sin(lambda2);
+				z = a * sin(phi1) + b * sin(phi2);
+	
+				phi3 = atan2(z, sqrt(x * x + y * y));
+				lambda3 = atan2(y, x);
+
+				newLat[(i * 2 + 2) * 2 * nCol + j] = phi3;
+				newLon[(i * 2 + 2) * 2 * nCol + j] = lambda3;
+			}
+		}
+
+		//  Processing the last row in a scan
+		i = k + scanSize - 1;
+		for(j = 0; j < 2 * nCol; j++) {
+			phi1 = step1Lat[(i - 1) * 2 * nCol + j];
+			phi2 = step1Lat[i * 2 * nCol + j];
+			lambda1 = step1Lon[(i - 1) * 2 * nCol + j];
+			lambda2 = step1Lon[i * 2 * nCol + j];
+
+			dPhi = (phi2 - phi1);
+			dLambda = (lambda2 - lambda1);
+
+			a = sin(dPhi/2) * sin(dPhi/2) + cos(phi1) * cos(phi2) * sin(dLambda/2) * sin(dLambda/2);
+			delta = 2 * atan2(sqrt(a), sqrt(1-a));
+
+			a = sin((1-f) * delta) / sin(delta);
+			b = sin(f * delta) / sin(delta);
+
+			x = a * cos(phi1) * cos(lambda1) + b * cos(phi2) * cos(lambda2);
+			y = a * cos(phi1) * sin(lambda1) + b * cos(phi2) * sin(lambda2);
+			z = a * sin(phi1) + b * sin(phi2);
+
+			phi3 = atan2(z, sqrt(x * x + y * y));
+			lambda3 = atan2(y, x);
+
+			newLat[(2 * i + 1) * 2 * nCol + j] = phi3;
+			newLon[(2 * i + 1) * 2 * nCol + j] = lambda3;
+		}
+	}
+
+/*
+	for(i = 0; i < nRow; i++) {
+		for(j = 0; j < 2 * nCol; j++) {
+			printf("%lf,%lf\n", step1Lat[i * 2 * nCol + j], step1Lon[i * 2 * nCol + j]);
+		}
+	}
+*/
+
+	// Convert newLat and newLon to degrees
+	for(i = 0; i < 2 * nRow; i++) {
+		for(j = 0; j < 2 * nCol; j++) {
+			newLat[i * 2 * nCol + j] = newLat[i * 2 * nCol + j] * 180 / M_PI;			
+			newLon[i * 2 * nCol + j] = newLon[i * 2 * nCol + j] * 180 / M_PI;
+		}
+	}
+
+	free(step1Lat);
+	free(step1Lon);	
+
+	
+	return;
+
+
+
+}
+
