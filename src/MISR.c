@@ -75,6 +75,8 @@ int MISR( char* argv[],int unpack )
     hid_t h5DataFieldID = 0;
     hid_t h5SensorGeomFieldID = 0;
         
+// Just for debugging purpose
+//unpack = 0;
     createGroup( &outputFile, &MISRrootGroupID, "MISR" );
     if ( MISRrootGroupID == EXIT_FAILURE )
     {
@@ -469,39 +471,50 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
     band_group_ref = H4ObtainLoneVgroupRef(h4_file_id,band_name);
     assert(band_group_ref >0);
 
+    
     band_group_id = Vattach(h4_file_id, band_group_ref, "r");
     num_gobjects = Vntagrefs(band_group_id);
     assert(num_gobjects >0);
 
+
     for (int i = 0; i < num_gobjects; i++) {
 
-
         if (Vgettagref (band_group_id, i, &sub_group_tag, &sub_group_ref) == FAIL) {
+            FATAL_MSG("Vgetagref failed.\n");
             Vdetach (band_group_id);
             return -1.0;
         }
 
-
         if (Visvg (band_group_id, sub_group_ref) == TRUE) {
 
-            sub_group_id = Vattach (h4_file_id, sub_group_ref, "r");
+            sub_group_id = Vattach(h4_file_id, sub_group_ref, "r");
             status = Vgetnamelen(sub_group_id, &name_len);
             sub_group_name = (char *) HDmalloc(sizeof(char *) * (name_len+1));
             if (sub_group_name == NULL)
             {
                 FATAL_MSG("Not enough memory for vgroup_name!\n");
+                Vdetach(band_group_id);
                 return -1.0;
             }
             status = Vgetname (sub_group_id, sub_group_name);
+            if(status == FAIL) {
+                FATAL_MSG("Vgetname failed !\n");
+                Vdetach(sub_group_id);
+                Vdetach(band_group_id);
+                free(sub_group_name);
+                return -1.0;
+            }
             if(strncmp(sub_group_name,grid_attr_group_name,strlen(grid_attr_group_name))==0) {
                 
                  int num_sgobjects = Vntagrefs(sub_group_id);
                  assert(num_sgobjects >0);
+
                  for(int j = 0; j<num_sgobjects;j++) {
                     if (Vgettagref (sub_group_id, j, &sub_group_obj_tag, &sub_group_obj_ref) == FAIL) {
+                          FATAL_MSG("Vgetagref failed.\n");
                           Vdetach (sub_group_id);
                           Vdetach(band_group_id);
-                          FATAL_MSG("Vgetagref failed.\n");
+                          free(sub_group_name);
                           return -1.0;
                     }
 
@@ -513,14 +526,20 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                         vdata_id = VSattach (h4_file_id, sub_group_obj_ref, "r");
                         if (vdata_id == FAIL){ 
                             FATAL_MSG("VSattach failed.\n");
-                            return -1.0;
-                        }
-                        if (VSgetname (vdata_id, vdata_name) == FAIL) {
-                            VSdetach (vdata_id);
-                            FATAL_MSG("VSgetname failed.\n");
+                            Vdetach (sub_group_id);
+                            Vdetach(band_group_id);
+                            free(sub_group_name);
                             return -1.0;
                         }
 
+                        if (VSgetname (vdata_id, vdata_name) == FAIL) {
+                            VSdetach (vdata_id);
+                            Vdetach (sub_group_id);
+                            Vdetach(band_group_id);
+                            free(sub_group_name);
+                            FATAL_MSG("VSgetname failed.\n");
+                            return -1.0;
+                        }
 
                         if(strncmp(scale_factor_name,vdata_name,strlen(scale_factor_name)) == 0){
 
@@ -532,23 +551,39 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                             fieldsize = VFfieldesize (vdata_id, 0);
                             if (fieldsize == FAIL) {
                                 VSdetach (vdata_id);
+                                Vdetach (sub_group_id);
+                                Vdetach(band_group_id);
+                                free(sub_group_name);
                                 FATAL_MSG("VFfieldesize failed.\n");
                                 return -1.0;
                             }
                             fieldtype = VFfieldtype(vdata_id,0);
+                            if(fieldtype == FAIL) {
+                                VSdetach (vdata_id);
+                                Vdetach (sub_group_id);
+                                Vdetach(band_group_id);
+                                free(sub_group_name);
+                                FATAL_MSG("VFfieldesize failed.\n");
+                                return -1.0;
+                            }
 
                             // Obtain number of elements
                             nelms = VSelts (vdata_id);
                             if (nelms == FAIL) {
                                 VSdetach (vdata_id);
+                                Vdetach (sub_group_id);
+                                Vdetach(band_group_id);
+                                free(sub_group_name);
                                 FATAL_MSG("VSelts failed.\n");
                                  return -1.0;
                             }
 
-
                             // Initialize the seeking process
                             if (VSseek (vdata_id, 0) == FAIL) {
                                 VSdetach (vdata_id);
+                                Vdetach (sub_group_id);
+                                Vdetach(band_group_id);
+                                free(sub_group_name);
                                 FATAL_MSG("VSseek failed.\n");
                                 return -1.0;
                             }
@@ -556,6 +591,9 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
  // The field to seek is CERE_META_FIELD_NAME
                             if (VSsetfields (vdata_id, "AttrValues") == FAIL) {
                                 VSdetach (vdata_id);
+                                Vdetach (sub_group_id);
+                                Vdetach(band_group_id);
+                                free(sub_group_name);
                                 FATAL_MSG("VSsetfields failed.\n");
                                 return -1.0;
                             }
@@ -564,21 +602,22 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                             if (VSread(vdata_id, (uint8 *) &sc, 1,FULL_INTERLACE)
                                 == FAIL) {
                                 VSdetach (vdata_id);
+                                Vdetach (sub_group_id);
+                                Vdetach(band_group_id);
+                                free(sub_group_name);
                                 FATAL_MSG("VSread failed.\n");
                                 return -1.0;
                             }
-
-
 
                         } // end if
                         VSdetach(vdata_id);
 
                     } // end if
 
-                 } // end for
-
+                } // end for
 
                 free(sub_group_name);
+                Vdetach(sub_group_id);
                 break;
             } // end if
 
