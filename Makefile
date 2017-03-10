@@ -1,13 +1,13 @@
 # All variables suffixed with 1 denote HDF4, 2 HDF5
 # This makefile is currently set up to be run on the 
 # Blue Waters computer.
-CC=cc
+CC=gcc
 CFLAGS=-c -g -O0 -Wall -std=c99
-LINKFLAGS= -g -std=c99
-INCLUDE1=.
-INCLUDE2=
-LIB1=.
-LIB2=
+INCLUDE1=/u/sciteam/clipp/basicFusion/hdflib/include
+INCLUDE2=${INCLUDE1}
+LIB1=/u/sciteam/clipp/basicFusion/hdflib/lib
+LIB2=${LIB2}
+LINKFLAGS= -g -std=c99 -Wl,-rpath,$(LIB1)
 TARGET=./exe/TERRArepackage
 SRCDIR=./src
 OBJDIR=./obj
@@ -16,7 +16,7 @@ DEPS=$(OBJDIR)/main.o $(OBJDIR)/libTERRA.o $(OBJDIR)/MOPITT.o $(OBJDIR)/CERES.o 
 all: $(TARGET)
 
 $(TARGET): $(DEPS)
-	$(CC) $(LINKFLAGS) $(DEPS) -L$(LIB1) -I$(INCLUDE1) -lmfhdf -ldf -lz -ljpeg -o $(TARGET)
+	$(CC) $(LINKFLAGS) $(DEPS) -L$(LIB1) -I$(INCLUDE1) -lhdf5 -lhdf5_hl -lmfhdf -ldf -lz -ljpeg -o $(TARGET)
 	
 $(OBJDIR)/main.o: $(SRCDIR)/main.c
 	$(CC) $(CFLAGS) -L$(LIB1) -I$(INCLUDE1) $(SRCDIR)/main.c -o $(OBJDIR)/main.o

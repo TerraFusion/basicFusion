@@ -378,9 +378,8 @@ int MOPITT( char* argv[] )
                         /****************
                          * TIME DATASET *
                          ****************/
-
-
     // insert the time dataset
+    // Note that the time dataset is converted from TAI93 time to UTC time in this function.
     timeDataset = MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time", H5T_NATIVE_DOUBLE, 1);
     if ( timeDataset < 0 )
     {
@@ -397,7 +396,7 @@ int MOPITT( char* argv[] )
     }
 
     H5Dclose(timeDataset); timeDataset = 0;  
-
+    
 
     /***************************************************************
      * Add the appropriate attributes to the groups we just created*

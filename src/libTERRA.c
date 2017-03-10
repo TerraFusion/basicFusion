@@ -72,7 +72,7 @@ i       8. data_out        -- A single dimensional array containing information 
 */
 
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID, 
-                     int rank, hsize_t* datasetDims, hid_t dataType, char* datasetName, void* data_out) 
+                     int rank, hsize_t* datasetDims, hid_t dataType, const char *datasetName, const void* data_out) 
 {
     hid_t memspace;
     hid_t dataset;
@@ -391,7 +391,22 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
      *Reading the dataset is now complete. We have freed all related memory for the input data *
      *(except of course the data_out array) and can now work on writing this data to a new file*
      *******************************************************************************************/
-    
+   
+
+    /*
+     * Need to convert TAI93 times contained in the data_out buffer to UTC time.
+     */
+
+    if ( strncmp( outDatasetName, "Time", 4 ) == 0 )
+    {
+        status = TAItoUTCconvert( data_out, datasetDims[0] );
+        if ( status == FAIL )
+        {
+            FATAL_MSG("Failed to convert from TAI to UTC.\n");
+            goto cleanupFail;
+        }
+    } 
+     
     memspace = H5Screate_simple( rank, datasetDims, NULL );
     
     dataset = H5Dcreate( *datasetGroup_ID, outDatasetName, dataType, memspace, 
@@ -3269,39 +3284,83 @@ hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimS
             TAItoUTCconvert
 
     DESCRIPTION:
-        This function takes an array of double floats representing a TAI93 time format and converts to UTC time format. 
-        TAI93 is the International Atomic Time since UTC 00:00:00 1-1-1993. UTC is periodically incremented or decremented
-        from TAI due to variations in the Earth's orbit and rotational period. These increments are called Leap Seconds.
-        The leap seconds do not occur at regular intervals, they are calculated based on the current discrepancies between
-        solar time and atomic time.
+        This function converts an array with TAI93 times (International Atomic Time - 1993) to UTC (Universal Coordinated Time).
+        A single dimensional array of double values must be passed to the function along with the number of elements in the array.
+        The function will modify the array to contain the converted UTC times. 
 
-        For each element in the array, it calculates the daysSinceEpoch by dividing the array element by the number of
-        seconds in a day. Then, based on what day it is, it adds to the element the appropriate offset required to convert
-        to UTC.
+        UTC time is an offset version of Atomic Time. The amount of offset from TAI is periodically incremented or decremented
+        depending on the amount of fluctuation in the Earth's orbit and rotation so that the times remain roughly congruent
+        with solar time. These offsets are not applied according to a formula, but rather by the current astronomical conditions.
+        Therefore it is impossible to predict future offset values -- this function is only valid for previous dates and 
+        DOES NOT ACCOUNT FOR FUTURE OFFSETS. This implies that this function must be periodically updated to contain the new
+        offset information.
 
-        This function was written 2017 when the last known offset to be applied was in June 30th 2017. Future 
+        TAI93 time is defined to be exactly equal to UTC time on Jan 1, 1993 00:00:00.
+
+        Directions to update this function:
+            To add additional offsets to the offsetArray, one needs to inquire the exact dates the offsets were added.
+            Convert these dates to "days since epoch" (epoch being Jan 1, 1993), being careful to account for leap years.
+            You can use the fact that at the end of June 30th 2017, 8946 full days have passed since epoch. Then:
+
+            1. Update NUM_DAYS to be equal to the number of days since epoch since the last known offset was added.
+            2. Add the additional necessary for loops to initialize the offsetArray with the RUNNING TOTAL offset
+            3. Modify the line underneath the WARN_MSG that increments buffer to the last known offset value so that
+               the buffer is incremented to the NEW last known offset value. This line is made highly visible for your
+               convenience :)
+
+            Note that offsets are applied either at the end of June 30th and/or December 31st. i.e. The offsets are applied
+            not during the month of June or December, but AT THE END.
 
     EFFECTS:
-        Changes values in the array passed to it.
+        Modifies array passed to it with the converted UTC values. Temporarily allocates offset array on heap, frees before
+        return.
 
-    ARGUMENTS:
-            INPUT
-        1. int size       -- The number of elements in the array
-
-            IN/OUT
-        1. double* buffer -- A single dimensional array consisting of TAI93 double-precision floating point numbers.
-
+    INPUTS:
+        IN
+            int size       -- Number of elements in buffer.
+        IN/OUT
+            double* buffer -- One dimensional array containing the TAI93 values (units given in seconds)
+    
     RETURN:
-        Returns FAIL upon failure.
-        SUCCEED otherwise
+        Returns FAIL upon failure. Otherwise, SUCCEED.
 
 */
+
 
 unsigned short badTimeValues = 0;
 
 herr_t TAItoUTCconvert ( double* buffer, int size )
 {
     /* this function assumes that buffer is one dimensional */
+
+    #define NUM_DAYS 8946
+
+    double* offsetArray = malloc(sizeof(double) * NUM_DAYS) ;
+
+    /* Initialize the offset Array */
+    for ( int i = 0; i <= 181; i++ )            // Jan 1993 -> June 1993
+        offsetArray[i] = 0.0;
+    for ( int i = 182; i <= 546; i++ )          // July 1993 -> June 1994
+        offsetArray[i] = 1.0;
+    for ( int i = 547; i <= 1095; i++ )         // July 1994 -> Dec 1995
+        offsetArray[i] = 2.0;
+    for ( int i = 1096; i <= 1642; i++ )        // Jan 1996 -> June 1997
+        offsetArray[i] = 3.0;
+    for ( int i = 1643; i <= 2191; i++ )        // July 1997 -> Dec 1998
+        offsetArray[i] = 4.0;
+    for ( int i = 2192; i <= 4748; i++ )        // Jan 1999 -> Dec 2005
+        offsetArray[i] = 5.0;
+    for ( int i = 4749; i <= 5845; i++ )        // Jan 2006 -> Dec 2008
+        offsetArray[i] = 6.0;
+    for ( int i = 5846; i <= 7210; i++ )        // Jan 2009 -> June 2012
+        offsetArray[i] = 7.0;
+    for ( int i = 7211; i <= 8215; i++ )        // July 2012 -> June 2015
+        offsetArray[i] = 8.0;
+    for ( int i = 8216; i <= 8767; i++ )        // July 2015 -> Dec 2016
+        offsetArray[i] = 9.0;
+    for ( int i = 8768; i <= NUM_DAYS; i++ )    // Jan 2017 -> June 2017
+        offsetArray[i] = 10.0;                  // Currently, value not known past June 30th 2017
+
 
     int daysSinceEpoch = 0;
 
@@ -3311,45 +3370,33 @@ herr_t TAItoUTCconvert ( double* buffer, int size )
            number for the day, then truncate this value to get daysSinceEpoch.
         */
 
-        daysSinceEpoch = (int) ( buffer[i] / 86400.0 );
+        daysSinceEpoch = (int) ( buffer[i] / 86400.0 );                 // Casting to int will truncate the float (acts as the floor function)
 
-        if ( daysSinceEpoch <= 181 )        // Jan 1993 -> June 1993
-            continue;
-        else if ( daysSinceEpoch > 181 && daysSinceEpoch <= 546 ) // July 1993 -> June 1994
-            buffer[i] += 1.0;
-        else if ( daysSinceEpoch > 546 && daysSinceEpoch <= 1095 ) // July 1994 -> Dec 1995
-            buffer[i] += 2.0;
-        else if ( daysSinceEpoch > 1095 && daysSinceEpoch <= 1642 ) // Jan 1996 -> June 1997
-            buffer[i] += 3.0;
-        else if ( daysSinceEpoch > 1642 && daysSinceEpoch <= 2191 ) // July 1997 -> Dec 1998
-            buffer[i] += 4.0;
-        else if ( daysSinceEpoch > 2191 && daysSinceEpoch <= 4748 ) // Jan 1999 -> Dec 2005
-            buffer[i] += 5.0;
-        else if ( daysSinceEpoch > 4748 && daysSinceEpoch <= 5845 ) // Jan 2006 -> Dec 2008
-            buffer[i] += 6.0;
-        else if ( daysSinceEpoch > 5845 && daysSinceEpoch <= 7210 ) // Jan 2009 -> June 2012
-            buffer[i] += 7.0;
-        else if ( daysSinceEpoch > 7210 && daysSinceEpoch <= 8215 ) // July 2012 -> June 2015
-            buffer[i] += 8.0;
-        else if ( daysSinceEpoch > 8215 && daysSinceEpoch <= 8767 ) // July 2015 -> Dec 2016
-            buffer[i] += 9.0;
-        else if ( daysSinceEpoch > 8767 && daysSinceEpoch <= 8946 ) // Jan 2017 -> June 2017
-            buffer[i] += 9.0;
-        else if ( daysSinceEpoch > 8946 )                           // Currently, value not known past June 30th 2017
+        if ( daysSinceEpoch < NUM_DAYS && daysSinceEpoch >= 0 )
+        {
+            buffer[i] += offsetArray[daysSinceEpoch];
+        }
+        else if ( daysSinceEpoch >= NUM_DAYS )                           // Currently, value not known past June 30th 2017
         {
             if ( badTimeValues == 0 )
-                WARN_MSG("Major Warning: MOPITT time values converted using out of date UTC-TAI93 offset.\n\tConverted time values may be incorrect! Please update the else-if tree in the function listed in the preamble of this message.\n" );
-            
-            badTimeValues = 1;
+            {
+                WARN_MSG("CAUTION!!! MOPITT time values converted using out of date UTC-TAI93 offset.\n\tConverted time values may be incorrect! Please update the offset array in the function listed in the preamble of this message.\n" );
+                badTimeValues = 1;
+            }
 
-            buffer[i] += 9.0;
+            /**************************/
+            /**/ buffer[i] += 10.0; /**/     // Offset this value with the last offset available (the last cumulative offset as of the writing of this program was +10.0 seconds)
+            /**************************/
         }
-        else        // something bad happened
+        else                        // something bad happened
         {
             FATAL_MSG("Failed to convert MOPITT time values to UTC.\n");
+            free(offsetArray);
             return FAIL;
         }
     }
+
+    free(offsetArray);
 
     return SUCCEED;
 }
