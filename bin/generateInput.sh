@@ -291,6 +291,7 @@ cd "../MISR"
 ls | grep "MISR_AM1_GRP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_GRP.txt
 ls | grep "MISR_AM1_AGP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_AGP.txt
 ls | grep "MISR_AM1_GP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_GP.txt
+ls | grep "MISR_HRLL_" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_HRLL.txt
 # iterate over this file, prepending the path of the file into our
 # OUTFILE
 
@@ -306,6 +307,10 @@ while read -r line; do
     echo "$(pwd)/$line" >> "$OUTFILE"
     let "MISRNUM++"
 done <"$CURDIR"/__tempFiles/MISR_GP.txt
+while read -r line; do
+    echo "$(pwd)/$line" >> "$OUTFILE"
+    let "MISRNUM++"
+done <"$CURDIR"/__tempFiles/MISR_HRLL.txt
 
 ##################################################
 #           PREPROCESSING ERROR CHECKS           #
@@ -950,11 +955,21 @@ while read -r line; do
                 exit 1
             fi
         elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
+            if [[ "$(echo "$curfilename" | cut -f2,2 -d'_')" != "HRLL" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MISR files are out of order.\n" >&2
+                printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
+                printf "\tExpected to see HRLL file after GP file.\n" >&2
+                printf "Exiting script.\n" >&2
+                rm -r "$CURDIR"/__tempFiles
+                exit 1
+            fi
+        elif [[ "$(echo "$prevfilename" | cut -f2,2 -d'_')" == "HRLL" ]]; then
             if [[ "$curCam" != "AA" ]]; then
                 printf "\e[4m\e[91mFatal Error\e[0m: " >&2
                 printf "MISR files are out of order.\n" >&2
                 printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
-                printf "\tExpected to see AA file after GP file.\n" >&2
+                printf "\tExpected to see AA file after HRLL file.\n" >&2
                 printf "Exiting script.\n" >&2
                 rm -r "$CURDIR"/__tempFiles
                 exit 1

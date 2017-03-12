@@ -72,7 +72,7 @@ i       8. data_out        -- A single dimensional array containing information 
 */
 /* OutputFileID is not used. NO need to have this parameter. MY 2017-03-03 */
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID, 
-                     int rank, hsize_t* datasetDims, hid_t dataType, char* datasetName, void* data_out) 
+                     int rank, hsize_t* datasetDims, hid_t dataType, const char *datasetName, const void* data_out) 
 {
     hid_t memspace;
     hid_t dataset;
@@ -391,7 +391,22 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
      *Reading the dataset is now complete. We have freed all related memory for the input data *
      *(except of course the data_out array) and can now work on writing this data to a new file*
      *******************************************************************************************/
-    
+   
+
+    /*
+     * Need to convert TAI93 times contained in the data_out buffer to UTC time.
+     */
+
+    if ( strncmp( outDatasetName, "Time", 4 ) == 0 )
+    {
+        status = TAItoUTCconvert( data_out, datasetDims[0] );
+        if ( status == FAIL )
+        {
+            FATAL_MSG("Failed to convert from TAI to UTC.\n");
+            goto cleanupFail;
+        }
+    } 
+     
     memspace = H5Screate_simple( rank, datasetDims, NULL );
     
     dataset = H5Dcreate( *datasetGroup_ID, outDatasetName, dataType, memspace, 
@@ -3410,4 +3425,174 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
 
 }
 
+/*
+            MOPITTaddDimension
 
+    DESCRIPTION:
+        This function adds a dimension scale to the output HDF5 file. It writes the data stored in scaleBuffer to the dimension.
+        The dimension is created under the HDF5 group/file ID given by h5dimGroupID. It does not attach the dimension to any
+        dataset.
+
+    EFFECTS:
+        A new dimension scale is added to the output HDF5 file.
+
+        IT IS THE DUTY OF THE CALLER to close the returned identifier with H5Dclose() once finished.
+
+    ARGUMENTS:
+            INPUT
+        1. hid_t h5dimGroupID      -- The file or group identifier under which to store the dimension
+        2. const char* dimName     -- The name to be given to the dimension
+        3. hsize_t dimSize         -- The integer size of the dimension
+        4. const void* scaleBuffer -- The data to be written to the scale
+        5. hid_t dimScaleNumType   -- The HDF5 number type of scaleBuffer
+
+    RETURN:
+        Returns the identifier of the dimension upon success.
+        Else, it returns FAIL.
+
+*/
+
+hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimSize, const void* scaleBuffer, hid_t dimScaleNumType )
+{
+    hid_t dsetID = 0;
+    herr_t status = 0;
+
+    dsetID = insertDataset ( &outputFile, &h5dimGroupID, 1, 1, &dimSize, dimScaleNumType, dimName, scaleBuffer);
+    if ( dsetID == EXIT_FAILURE )
+    {
+        dsetID = 0;
+        FATAL_MSG("Failed to insert dataset.\n");
+        return FAIL;
+    }
+
+    status = H5DSset_scale( dsetID, dimName );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set dataset as a dimension scale.\n");
+        return FAIL;        
+    }
+
+    return dsetID;
+    
+}
+
+/*
+            TAItoUTCconvert
+
+    DESCRIPTION:
+        This function converts an array with TAI93 times (International Atomic Time - 1993) to UTC (Universal Coordinated Time).
+        A single dimensional array of double values must be passed to the function along with the number of elements in the array.
+        The function will modify the array to contain the converted UTC times. 
+
+        UTC time is an offset version of Atomic Time. The amount of offset from TAI is periodically incremented or decremented
+        depending on the amount of fluctuation in the Earth's orbit and rotation so that the times remain roughly congruent
+        with solar time. These offsets are not applied according to a formula, but rather by the current astronomical conditions.
+        Therefore it is impossible to predict future offset values -- this function is only valid for previous dates and 
+        DOES NOT ACCOUNT FOR FUTURE OFFSETS. This implies that this function must be periodically updated to contain the new
+        offset information.
+
+        TAI93 time is defined to be exactly equal to UTC time on Jan 1, 1993 00:00:00.
+
+        Directions to update this function:
+            To add additional offsets to the offsetArray, one needs to inquire the exact dates the offsets were added.
+            Convert these dates to "days since epoch" (epoch being Jan 1, 1993), being careful to account for leap years.
+            You can use the fact that at the end of June 30th 2017, 8946 full days have passed since epoch. Then:
+
+            1. Update NUM_DAYS to be equal to the number of days since epoch since the last known offset was added.
+            2. Add the additional necessary for loops to initialize the offsetArray with the RUNNING TOTAL offset
+            3. Modify the line underneath the WARN_MSG that increments buffer to the last known offset value so that
+               the buffer is incremented to the NEW last known offset value. This line is made highly visible for your
+               convenience :)
+
+            Note that offsets are applied either at the end of June 30th and/or December 31st. i.e. The offsets are applied
+            not during the month of June or December, but AT THE END.
+
+    EFFECTS:
+        Modifies array passed to it with the converted UTC values. Temporarily allocates offset array on heap, frees before
+        return.
+
+    INPUTS:
+        IN
+            int size       -- Number of elements in buffer.
+        IN/OUT
+            double* buffer -- One dimensional array containing the TAI93 values (units given in seconds)
+    
+    RETURN:
+        Returns FAIL upon failure. Otherwise, SUCCEED.
+
+*/
+
+
+unsigned short badTimeValues = 0;
+
+herr_t TAItoUTCconvert ( double* buffer, int size )
+{
+    /* this function assumes that buffer is one dimensional */
+
+    #define NUM_DAYS 8946
+
+    double* offsetArray = malloc(sizeof(double) * NUM_DAYS) ;
+
+    /* Initialize the offset Array */
+    for ( int i = 0; i <= 181; i++ )            // Jan 1993 -> June 1993
+        offsetArray[i] = 0.0;
+    for ( int i = 182; i <= 546; i++ )          // July 1993 -> June 1994
+        offsetArray[i] = 1.0;
+    for ( int i = 547; i <= 1095; i++ )         // July 1994 -> Dec 1995
+        offsetArray[i] = 2.0;
+    for ( int i = 1096; i <= 1642; i++ )        // Jan 1996 -> June 1997
+        offsetArray[i] = 3.0;
+    for ( int i = 1643; i <= 2191; i++ )        // July 1997 -> Dec 1998
+        offsetArray[i] = 4.0;
+    for ( int i = 2192; i <= 4748; i++ )        // Jan 1999 -> Dec 2005
+        offsetArray[i] = 5.0;
+    for ( int i = 4749; i <= 5845; i++ )        // Jan 2006 -> Dec 2008
+        offsetArray[i] = 6.0;
+    for ( int i = 5846; i <= 7210; i++ )        // Jan 2009 -> June 2012
+        offsetArray[i] = 7.0;
+    for ( int i = 7211; i <= 8215; i++ )        // July 2012 -> June 2015
+        offsetArray[i] = 8.0;
+    for ( int i = 8216; i <= 8767; i++ )        // July 2015 -> Dec 2016
+        offsetArray[i] = 9.0;
+    for ( int i = 8768; i <= NUM_DAYS; i++ )    // Jan 2017 -> June 2017
+        offsetArray[i] = 10.0;                  // Currently, value not known past June 30th 2017
+
+
+    int daysSinceEpoch = 0;
+
+    for ( int i = 0; i < size; i++ )
+    {
+        /* Divide buffer value by 86400 (number of seconds in day) to get a floating point
+           number for the day, then truncate this value to get daysSinceEpoch.
+        */
+
+        daysSinceEpoch = (int) ( buffer[i] / 86400.0 );                 // Casting to int will truncate the float (acts as the floor function)
+
+        if ( daysSinceEpoch < NUM_DAYS && daysSinceEpoch >= 0 )
+        {
+            buffer[i] += offsetArray[daysSinceEpoch];
+        }
+        else if ( daysSinceEpoch >= NUM_DAYS )                           // Currently, value not known past June 30th 2017
+        {
+            if ( badTimeValues == 0 )
+            {
+                WARN_MSG("CAUTION!!! MOPITT time values converted\n\tusing out of date UTC-TAI93 offset.\n\tConverted time values may be incorrect!\n\tPlease update the offset array in the function listed in the preamble of this message.\n" );
+                badTimeValues = 1;
+            }
+
+            /**************************/
+            /**/ buffer[i] += 10.0; /**/     // Offset this value with the last offset available (the last cumulative offset as of the writing of this program was +10.0 seconds)
+            /**************************/
+        }
+        else                        // something bad happened
+        {
+            FATAL_MSG("Failed to convert MOPITT time values to UTC.\n");
+            free(offsetArray);
+            return FAIL;
+        }
+    }
+
+    free(offsetArray);
+
+    return SUCCEED;
+}

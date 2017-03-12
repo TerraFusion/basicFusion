@@ -56,7 +56,7 @@ int main( int argc, char* argv[] )
     char* CERESargs[3] = {NULL};
     char* MODISargs[7] = {NULL};
     char* ASTERargs[4] = {NULL};
-    char* MISRargs[12] = {NULL};
+    char* MISRargs[13] = {NULL};
     
     int status = EXIT_SUCCESS;
     int fail = 0;
@@ -507,6 +507,7 @@ int main( int argc, char* argv[] )
         goto cleanupFail;
     }
 
+
     if ( strstr( string, MISRcheck4 ) == NULL )
     {
         FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MISRcheck4);
@@ -546,13 +547,40 @@ int main( int argc, char* argv[] )
     if ( MODISargs[5] ) free( MODISargs[5] );
     if ( ASTERargs[1] ) free ( ASTERargs[1] );
     if ( ASTERargs[2] ) free ( ASTERargs[2] );
-    for ( int j = 1; j <= 12; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
+    for ( int j = 1; j <= 12; j++ ) if ( MISRargs[j] != NULL ) free (MISRargs[j]);
 
     if ( fail ) return -1;
     
     return 0;
 }
 
+/*
+            getNextLine
+
+    DESCRIPTION:
+        This function takes as input a FILE descriptor and reads the current line (as specified by the file descriptor)
+        into the string buffer.
+
+    EFFECTS:
+        Modifies the memory pointed to by string to contain the current line. If the current line is longer than the macro
+        definition of STR_LEN, the line will be cut off at STR_LEN number of characters.
+        If the end of file has been reached, string will contain "[EOF]" to indicate as such.
+
+    ARGUMENTS:
+
+        IN
+        FILE* const inputFile -- A FILE descriptor
+        IN/OUT
+        char* string          -- The location where the current string will be stored.
+
+    RETURN:
+
+        Returns -1 if the EOF marker for inputFile is set (end of file has been reached).
+        Returns EXIT_FAILURE if an error has occured.
+        Returns EXIT_SUCCESS upon success.
+
+
+*/
 int getNextLine ( char* string, FILE* const inputFile )
 {
     
@@ -561,7 +589,11 @@ int getNextLine ( char* string, FILE* const inputFile )
         if ( fgets( string, STR_LEN, inputFile ) == NULL )
         {
             if ( feof(inputFile) != 0 )
+            {    
+                strcpy(string, "[EOF]");
                 return -1;
+            }
+
             FATAL_MSG("Unable to get next line.\n");    
             return EXIT_FAILURE;
         }       

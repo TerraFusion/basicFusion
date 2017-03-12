@@ -217,7 +217,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     }
 
         
-    if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleTime",argv[1])<0) 
+    if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"FilePath",argv[1])<0) 
     {
         fprintf(stderr, "[%s:%s:%d] Cannot add the file path attribute.\n",__FILE__,__func__,__LINE__);
         goto cleanupFail;

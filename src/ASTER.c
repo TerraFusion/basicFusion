@@ -29,6 +29,12 @@ char* obtain_gain_info(char *whole_string);
 short get_band_index(char *band_index_str);
 short get_gain_stat(char *gain_stat_str);
 
+/*
+    argv[0] = program name
+    argv[1] = granule file path
+    argv[2] = granule name (granule1, granule2 etc)
+    argv[3] = output file name
+*/
 
 int ASTER( char* argv[] ,int aster_count,int unpack)
 {
@@ -168,6 +174,8 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             ASTERrootGroupID = 0;
             goto cleanupFail;
         }
+        /* Add the GranuleTime and FilePath attributes to this group */
+        
     }
 
     else {
