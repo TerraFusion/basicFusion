@@ -3576,7 +3576,7 @@ herr_t TAItoUTCconvert ( double* buffer, int size )
         {
             if ( badTimeValues == 0 )
             {
-                WARN_MSG("CAUTION!!! MOPITT time values converted using out of date UTC-TAI93 offset.\n\tConverted time values may be incorrect! Please update the offset array in the function listed in the preamble of this message.\n" );
+                WARN_MSG("CAUTION!!! MOPITT time values converted\n\tusing out of date UTC-TAI93 offset.\n\tConverted time values may be incorrect!\n\tPlease update the offset array in the function listed in the preamble of this message.\n" );
                 badTimeValues = 1;
             }
 
