@@ -8,7 +8,7 @@
 #define TIME "HDFEOS/SWATHS/MOP01/Geolocation Fields/Time"
 #define RADIANCE_UNIT "Watts meter-2 Sr-1"
 #define LAT_LON_UNIT "degree"
-#define TIME_UNIT "seconds since 12 AM 1-1-13 UTC"
+#define TIME_UNIT "seconds UTC"
 
 /*
     NOTE: argv[1] = INPUT_FILE
