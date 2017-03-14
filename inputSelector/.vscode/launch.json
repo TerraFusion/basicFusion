@@ -1,7 +1,83 @@
 {
   "version": "0.2.0",
   "configurations": [
-    
+    {
+      "name": "orbitquery",
+      "type": "python",
+      "request": "launch",
+      "stopOnEntry": false,
+      "pythonPath": "${config.python.pythonPath}",
+      "program": "${file}",
+      "cwd": "${workspaceRoot}",
+      "debugOptions": [
+        "WaitOnAbnormalExit",
+        "WaitOnNormalExit",
+        "RedirectOutput"
+      ],
+      "args": [
+        "test.sqlite",
+        "-o",
+        "1388"
+      ]
+    },
+    {
+      "name": "oneorbitquerytest",
+      "type": "python",
+      "request": "launch",
+      "stopOnEntry": false,
+      "pythonPath": "${config.python.pythonPath}",
+      "program": "${file}",
+      "cwd": "${workspaceRoot}",
+      "debugOptions": [
+        "WaitOnAbnormalExit",
+        "WaitOnNormalExit",
+        "RedirectOutput"
+      ],
+      "args": [
+        "oneorbit.sqlite",
+        "-o",
+        "40110"
+      ]
+    },
+    {
+      "name": "queryprintall",
+      "type": "python",
+      "request": "launch",
+      "stopOnEntry": false,
+      "pythonPath": "${config.python.pythonPath}",
+      "program": "${file}",
+      "cwd": "${workspaceRoot}",
+      "debugOptions": [
+        "WaitOnAbnormalExit",
+        "WaitOnNormalExit",
+        "RedirectOutput"
+      ],
+      "args": [
+        "test.sqlite",
+        "--printall"
+      ]
+    },
+        {
+      "name": "oneorbitbuilddb",
+      "type": "python",
+      "request": "launch",
+      "stopOnEntry": false,
+      "pythonPath": "${config.python.pythonPath}",
+      "program": "${file}",
+      "cwd": "${workspaceRoot}",
+      "debugOptions": [
+        "WaitOnAbnormalExit",
+        "WaitOnNormalExit",
+        "RedirectOutput"
+      ],
+      "args": [
+        "-o",
+        "-v",
+        "oneorbit.sqlite",
+        "data/orbits.txt.gz",
+        "testdata/one-orbit-files.txt.gz"
+      ]
+    },
     {
       "name": "Python",
       "type": "python",
