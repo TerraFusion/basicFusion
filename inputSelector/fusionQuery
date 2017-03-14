@@ -1,19 +1,16 @@
 #!/usr/bin/python
 
-"""fusionQuery - Queries on the timespan database
-
-Usage:
-    fusionQuery DB_FILE START_TIME END_TIME
-    fusionQuery DB_FILE ORBIT_NUM
-    fusionQuery -h | --help
+"""usage: fusionQuery DBFILE [options]
+        fusionQuery -h | --help
 
 Arguments:
-    START_TIME  Start of range date/time string of form yyyy/mm/dd/hh/mm/ss
-    END_TIME    End of range date/time string of form yyyy/mm/dd/hh/mm/ss
-    DB_FILE     Path to database populated with buildDB
+    DBFILE              The timespan database to query
 
 Options:
-    -h --help   Show help and args
+    --printall          Print all orbits in DB
+    -s <start> <end>    Print files that overlap with start and end time
+    -o <orbit>          Print files that start in a particular orbit
+    -h, --help          Print usage
 
 """
 
@@ -37,29 +34,46 @@ def openDB(dbfile):
     cursor = dbconnection.cursor()
     return cursor
 
-def main():
-    args = docopt(__doc__)
-    cursor = openDB(args['DB_FILE'])
-    stime = makeTime(args['START_TIME'])
-    etime = makeTime(args['END_TIME'])
-    info("fusionQuery: start %s, end %s", stime, etime)
-    qtemplate = "SELECT fname FROM {} WHERE stime BETWEEN {} AND {} OR etime BETWEEN {} AND {}"
-    qresults = dict()
-    for instrument in ['modis', 'moppit', 'aster', 'ceres', 'miser']:
-        qstr = qtemplate.format(instrument, stime, etime, stime, etime)
-        cursor = dbexec(cursor, qstr)
-        qresults.update(cursor.fetchall())
-    for file in qresults:
-        print file
+def orbitFiles(cursor, orbit):
+    oquery = "SELECT stime, etime FROM orbits where orbit = {}".format(orbit)
+    cursor = cursor.execute(oquery)
+    data = cursor.fetchall()
+    stime, etime = data[0]
+    subqueries = []
+    instruments = ["modis", "mopitt", "aster", "ceres", "miser"]
+    for inst in instruments:
+        subqueries.append("SELECT directory, fname FROM {} where stime >= {} and stime < {}".format(inst, stime, etime))
+    fquery = ' UNION '.join(subqueries)
+    cursor = cursor.execute(fquery)
+    #debug("orbit query found {} files".format(cursor.rowcount))
+    files = cursor.fetchall()
+    return files
+
+def printall(cursor):
+    oquery = "SELECT orbit FROM orbits order by orbit"
+    cursor = cursor.execute(oquery)
+    for orbit in cursor.fetchall():
+        for file in orbitFiles(cursor, orbit[0]):
+            print("{} {}".format(orbit[0], file[1]))
     return
 
+def main():
+    cursor = openDB(args['DBFILE'])
+    if args.get('-o', False):
+        for file in orbitFiles(cursor, args['-o']):
+            print("{}".format(file[1]))
+    elif args.get('--printall', False):
+        printall(cursor)
+    return
+
+args = docopt(__doc__)
 
 if __name__ == '__main__':
     logLevel = logging.NOTSET
     if 'LOGLEVEL' in os.environ:
         logLevel = getattr(logging, os.environ['LOGLEVEL'])
     logging.basicConfig(level=logLevel, stream=sys.stdout, 
-	format=sys.argv[0].split('/')[-1]+': %(message)s')
+    	format=sys.argv[0].split('/')[-1]+': %(message)s')
     main()
     sys.exit(0)
 
