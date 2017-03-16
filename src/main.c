@@ -1,6 +1,5 @@
 #include "libTERRA.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 #include <assert.h>
@@ -8,8 +7,6 @@
 #define STR_LEN 500
 #define LOGIN_NODE "login"
 #define MOM_NODE
-
-
 
 int getNextLine ( char* string, FILE* const inputFile );
 
@@ -44,35 +41,6 @@ int main( int argc, char* argv[] )
         return EXIT_FAILURE;
     }
     
-
-    FILE* new_orbit_info_b = fopen("orbit_info.bin","r");
-    long fSize;
-    fseek(new_orbit_info_b,0,SEEK_END);
-    fSize = ftell(new_orbit_info_b);
-    rewind(new_orbit_info_b);
-    printf("file size is %d\n",(int)fSize);
-
-    OInfo_t* test_orbit_ptr = NULL;
-    test_orbit_ptr = calloc(fSize/sizeof(OInfo_t),sizeof(OInfo_t));
-    size_t result = fread(test_orbit_ptr,sizeof(OInfo_t),fSize/sizeof(OInfo_t),new_orbit_info_b);
-    if(result != fSize/sizeof(OInfo_t)) {
-          free(test_orbit_ptr);
-          fclose(new_orbit_info_b);
-          printf("fread is not successful.\n");
-          return EXIT_FAILURE;
-    }
-    
-    OInfo_t current_orbit_info;
-
-    // This number needs to be obtained from the input file eventually.
-
-    int current_orbit_number = 40110;
-    for (int i = 0; i<fSize/sizeof(OInfo_t);i++) {
-        if(test_orbit_ptr[i].orbit_number == current_orbit_number)
-            current_orbit_info = test_orbit_ptr[i];
-    }
-    fclose(new_orbit_info_b);
-    free(test_orbit_ptr);
         
     /* open the input file list */
     FILE* const inputFile = fopen( argv[2], "r" );
@@ -100,10 +68,10 @@ int main( int argc, char* argv[] )
      * MOPITT, CERES, ASTER etc will pass this error check.
      */
     char MOPITTcheck[] = "MOP01";
-    char CEREScheck1[] = "CER_SSF_Terra-FM1";
+    char CEREScheck1[] = "CER_BDS_Terra-FM1";
 
     /*MY 2016-12-20: add FM2 based on GZ's request.  */
-    char CEREScheck2[] = "CER_SSF_Terra-FM2";
+    char CEREScheck2[] = "CER_BDS_Terra-FM2";
     char MODIScheck1[] = "MOD021KM";
     char MODIScheck2[] = "MOD02HKM";
     char MODIScheck3[] = "MOD02QKM";
@@ -128,13 +96,6 @@ int main( int argc, char* argv[] )
     memset(aster_granule_suffix,0,3);
 
     /*MY 2016-12-21: MODIS and ASTER have more than one granule for each orbit. We use a counter to stop the loop. */
-    int ceres_count = 1;
-    int ceres_fm1_count = 1;
-    int ceres_fm2_count = 1;
-    int ceres_start_index = 0;
-    int* ceres_start_index_ptr=&ceres_start_index;
-    int ceres_end_index = 0;
-    int* ceres_end_index_ptr=&ceres_end_index;
     int modis_count = 1;
     int aster_count = 1;
 
@@ -217,8 +178,7 @@ int main( int argc, char* argv[] )
     /*********
      * CERES *
      *********/
-    /* Get the CERES  */
-#if 0
+    /* Get the CERES FM1 */
     status = getNextLine( string, inputFile);
     if ( status == EXIT_FAILURE )
     {
@@ -276,84 +236,6 @@ int main( int argc, char* argv[] )
 
     printf("CERES done.\nTransferring MODIS..."); fflush(stdout);
 
-#endif
-
-  CERESargs[0] = argv[0];
-  CERESargs[1] = argv[1];
-
-  while(ceres_count != 0) {
-    status = getNextLine( string, inputFile);
-printf("string is %s\n",string);
-    if ( status == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to get CERES line. Exiting program.\n");
-        goto cleanupFail;
-    }
-
-    if(strstr(string,MODIScheck1) != NULL) {
-        ceres_count = 0;
-        continue;
-    }
-
-    if ( strstr( string, CEREScheck1 ) != NULL )
-    {
-       CERESargs[2] = malloc(strlen(string)+1); 
-       memset(CERESargs[2],0,strlen(string)+1);
-       strncpy( CERESargs[2], string, strlen(string) );
-       //FM1
-       ceres_fm1_count++;
-       status = CERES_OrbitInfo(CERESargs,ceres_start_index_ptr,ceres_end_index_ptr,current_orbit_info);
-       if ( status == EXIT_FAILURE )
-       {
-            FATAL_MSG("CERES failed to obtain orbit info.\nExiting program.\n");
-            goto cleanupFail;
-       }
-
-// Temp turn off for debugging
-#if 0
-       status = CERES_Subset(CERESargs,1,ceres_fm1_count,unpack,ceres_start_index,ceres_end_index);
-       if ( status == EXIT_FAILURE )
-       {
-            FATAL_MSG("CERES failed data transfer.\nExiting program.\n");
-            goto cleanupFail;
-       }
-#endif
-
-    }
-    else if ( strstr( string, CEREScheck2 ) != NULL )
-    {
-       CERESargs[2] = malloc(strlen(string)+1); 
-       memset(CERESargs[2],0,strlen(string)+1);
-       strncpy( CERESargs[2], string, strlen(string) );
-       //FM2
-       ceres_fm2_count++;
-       status = CERES_OrbitInfo(CERESargs,ceres_start_index_ptr,ceres_end_index_ptr,current_orbit_info);
-       if ( status == EXIT_FAILURE )
-       {
-            FATAL_MSG("CERES failed to obtain orbit info.\nExiting program.\n");
-            goto cleanupFail;
-       }
-
-#if 0
-       status = CERES_Subset(CERESargs,2,ceres_fm2_count,unpack,ceres_start_index,ceres_end_index);
-       if ( status == EXIT_FAILURE )
-       {
-            FATAL_MSG("CERES failed data transfer.\nExiting program.\n");
-            goto cleanupFail;
-       }
-#endif
-
-    }
-    else {
-        FATAL_MSG("CERES files are neither CER_SSF_Terra-FM1 nor CER_SSF_Terra-FM2.\n");
-        goto cleanupFail;
-    }
-
-    if(CERESargs[2]) free(CERESargs[2]); CERESargs[2] = NULL;   
-    ceres_count++;
-  }
-
-    printf("CERES done.\nTransferring MODIS..."); fflush(stdout);
 
 
     /*********
@@ -369,7 +251,6 @@ printf("string is %s\n",string);
     *  will not exit prematurely */
     while(modis_count != 0) {
 
-#if 0
         /* get the MODIS 1KM file */
         status = getNextLine( string, inputFile);
         if ( status == EXIT_FAILURE )
@@ -377,7 +258,6 @@ printf("string is %s\n",string);
             FATAL_MSG("Failed to get MODIS 1KM line. Exiting program.\n");
             goto cleanupFail;
         }
-#endif
 
         /* Need to check more, now just assume ASTER is after */
         if(strstr(string,ASTERcheck)!=NULL) {
@@ -392,7 +272,7 @@ printf("string is %s\n",string);
             goto cleanupFail;
         }
 
- 
+
         /* Allocate memory for the argument */
         MODISargs[1] = malloc ( strlen(string )+1 );
         memset(MODISargs[1],0,strlen(string)+1);
@@ -503,14 +383,6 @@ printf("string is %s\n",string);
         if(MODISargs[3]) free(MODISargs[3]); MODISargs[3] = NULL;
         if(MODISargs[4]) free(MODISargs[4]); MODISargs[4] = NULL;
         if(MODISargs[5]) free(MODISargs[5]); MODISargs[5] = NULL;
-
-        /* get the next MODIS 1KM file */
-        status = getNextLine( string, inputFile);
-        if ( status == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to get MODIS 1KM line. Exiting program.\n");
-            goto cleanupFail;
-        }
 
 
         modis_count++;

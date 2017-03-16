@@ -3446,7 +3446,6 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
         4. const void* scaleBuffer -- The data to be written to the scale
         5. hid_t dimScaleNumType   -- The HDF5 number type of scaleBuffer
 
-
     RETURN:
         Returns the identifier of the dimension upon success.
         Else, it returns FAIL.
@@ -3596,98 +3595,4 @@ herr_t TAItoUTCconvert ( double* buffer, int size )
     free(offsetArray);
 
     return SUCCEED;
-}
-
-int comp_grep(GDateInfo_t j1, GDateInfo_t j2) {
-
-#define cmp_number(a,b) (((a) > (b)) ? 1 : (((a) == (b)) ? 0 : -1))
-//#define cmp_number2(a,b) (((a) > (b)) ? 1 : (((a) == (b)) ? 0 : -1))
-
-    int cmp_year = cmp_number(j1.year,j2.year);
-printf("cmp_year is %d\n",cmp_year);
-    if(cmp_year == 0) {
-        int cmp_month = cmp_number(j1.month,j2.month);
-printf("cmp_month is %d\n",cmp_month);
-        if(cmp_month == 0) {
-            int cmp_day = cmp_number(j1.day,j2.day);
-printf("cmp_day is %d\n",cmp_day);
-            if(cmp_day == 0) {
-                int cmp_hour = cmp_number(j1.hour,j2.hour);
-printf("cmp_hour is %d\n",cmp_hour);
-                if(cmp_hour == 0) {
-                    int cmp_minute = cmp_number(j1.minute,j2.minute);
-printf("cmp_minute is %d\n",cmp_minute);
-                    if(cmp_minute == 0) {
-                        int cmp_second = cmp_number(j1.second,j2.second);
-printf("cmp_second is %d\n",cmp_second);
-                        return cmp_second;
-                    }
-                    else
-                        return cmp_minute;
-                }
-                else
-                    return cmp_hour;
-            }
-            else
-                return cmp_day;
-        }
-        else
-           return cmp_month;
-    }
-    else
-       return cmp_year;
-
-}
-
-int get_greg(double julian, int*yearp,int*monthp,int*dayp,int*hourp,int*mmp,double*ssp) {
-
-printf("julian is %f\n",julian);
-    int JGREG = 15 + 31*(10+12*1582);
-    double HALFSECOND = 0.5;
-
-    double julian_fract = julian-(int)julian;
-    double total_ss,ss;
-    int hh,mm;
-    if(julian_fract >0.5)
-        total_ss = 86400*(julian_fract-0.5);
-    else
-        total_ss = 86400*(julian_fract+0.5);
-
-    hh = (int)(total_ss/3600);
-    mm = (int)((total_ss-(hh*3600))/60);
-    ss = total_ss-(hh*60.0+mm)*60.0;
-printf("ss is %lf \n",ss);
-
-
-    /* Calculte fraction */
-
-
-    int jalpha,ja,jb,jc,jd,je,year,month,day;
-    julian = julian + HALFSECOND / 86400.0;
-      ja = (int) julian;
-      if (ja>= JGREG) {
-
-       jalpha = (int) (((ja - 1867216) - 0.25) / 36524.25);
-       ja = ja + 1 + jalpha - jalpha / 4;
-       }
-     jb = ja + 1524;
-   jc = (int) (6680.0 + ((jb - 2439870) - 122.1) / 365.25);
-   jd = 365 * jc + jc / 4;
-   je = (int) ((jb - jd) / 30.6001);
-   day = jb - jd - (int) (30.6001 * je);
-   month = je - 1;
-   if (month > 12) month = month - 12;
-   year = jc - 4715;
-   if (month > 2) year--;
-   if (year <= 0) year--;
-
-   *yearp = year;
-   *monthp = month;
-   *dayp   = day;
-   *hourp  = hh;
-   *mmp    = mm;
-   *ssp    = ss;
-
-printf("ss is %lf \n",ss);
-   return 0;
 }
