@@ -73,13 +73,14 @@
       "args": [
         "-o",
         "-v",
+        "--trace=trace.txt"
         "oneorbit.sqlite",
         "data/orbits.txt.gz",
         "testdata/one-orbit-files.txt.gz"
       ]
     },
     {
-      "name": "Python",
+      "name": "accesslist-build",
       "type": "python",
       "request": "launch",
       "stopOnEntry": false,
@@ -94,9 +95,10 @@
       "args": [
         "-o",
         "-q",
-        "test.sqlite",
+        "--trace=trace.txt"
+        "acccesslist.sqlite",
         "data/orbits.txt.gz",
-        "data/accesslist.txt.gz"
+        "data/accesslist.gz"
       ]
     },
     {
