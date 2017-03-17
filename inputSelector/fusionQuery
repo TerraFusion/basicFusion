@@ -42,7 +42,7 @@ def orbitFiles(cursor, orbit):
     subqueries = []
     instruments = ["modis", "mopitt", "aster", "ceres", "miser"]
     for inst in instruments:
-        subqueries.append("SELECT directory, fname FROM {} where stime >= {} and stime < {}".format(inst, stime, etime))
+        subqueries.append("SELECT dir, fname FROM {} inner join dirs on dirs.id == {}.directory where stime >= {} and stime < {}".format(inst, inst, stime, etime))
     fquery = ' UNION '.join(subqueries)
     cursor = cursor.execute(fquery)
     #debug("orbit query found {} files".format(cursor.rowcount))
@@ -61,7 +61,7 @@ def main():
     cursor = openDB(args['DBFILE'])
     if args.get('-o', False):
         for file in orbitFiles(cursor, args['-o']):
-            print("{}".format(file[1]))
+            print("{}/{}".format(file[0], file[1]))
     elif args.get('--printall', False):
         printall(cursor)
     return
