@@ -21,6 +21,7 @@ do { \
  *FUNCTION PROTOTYPES*
  *********************/
 extern hid_t outputFile;
+extern double* TAI93toUTCoffset; // The array containing the TAI93 to UTC offset values
 
 int MOPITT( char* argv[] );
 int CERES( char* argv[] ,int index);

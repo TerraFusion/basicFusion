@@ -548,6 +548,7 @@ int main( int argc, char* argv[] )
     if ( ASTERargs[1] ) free ( ASTERargs[1] );
     if ( ASTERargs[2] ) free ( ASTERargs[2] );
     for ( int j = 1; j <= 12; j++ ) if ( MISRargs[j] != NULL ) free (MISRargs[j]);
+    if (TAI93toUTCoffset) free (TAI93toUTCoffset);      // The offset array for MOPITT time conversion
 
     if ( fail ) return -1;
     

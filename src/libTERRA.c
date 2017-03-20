@@ -3477,13 +3477,16 @@ hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimS
 }
 
 /*
-            TAItoUTCconvert
+        initializeTimeOffset
 
     DESCRIPTION:
-        This function converts an array with TAI93 times (International Atomic Time - 1993) to UTC (Universal Coordinated Time).
-        A single dimensional array of double values must be passed to the function along with the number of elements in the array.
-        The function will modify the array to contain the converted UTC times. 
+        Initializes the array for TAI93 to UTC conversion. This array contains double precision values
+        (which are actually all integer values) that denote the number of seconds to offset a TAI93 value to
+        UTC time. The index of the array represents days since Jan 1 1993 00:00:00.
 
+        This function must be periodically updated to contain new leap second information as it arrives, otherwise
+        the array may not be able to account for all TAI93 times.
+        
         UTC time is an offset version of Atomic Time. The amount of offset from TAI is periodically incremented or decremented
         depending on the amount of fluctuation in the Earth's orbit and rotation so that the times remain roughly congruent
         with solar time. These offsets are not applied according to a formula, but rather by the current astronomical conditions.
@@ -3492,20 +3495,83 @@ hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimS
         offset information.
 
         TAI93 time is defined to be exactly equal to UTC time on Jan 1, 1993 00:00:00.
-
+        
         Directions to update this function:
-            To add additional offsets to the offsetArray, one needs to inquire the exact dates the offsets were added.
+            To add additional offsets to the TAI93toUTCoffset, one needs to inquire the exact dates the offsets were added.
             Convert these dates to "days since epoch" (epoch being Jan 1, 1993), being careful to account for leap years.
             You can use the fact that at the end of June 30th 2017, 8946 full days have passed since epoch. Then:
 
             1. Update NUM_DAYS to be equal to the number of days since epoch since the last known offset was added.
-            2. Add the additional necessary for loops to initialize the offsetArray with the RUNNING TOTAL offset
-            3. Modify the line underneath the WARN_MSG that increments buffer to the last known offset value so that
-               the buffer is incremented to the NEW last known offset value. This line is made highly visible for your
-               convenience :)
+            2. Add the additional necessary for loops to initialize the TAI93toUTCoffset with the RUNNING TOTAL offset
 
             Note that offsets are applied either at the end of June 30th and/or December 31st. i.e. The offsets are applied
             not during the month of June or December, but AT THE END.
+    
+    ARGUMENTS:
+        None
+
+    EFFECTS:
+        Updates the global variable TAI93toUTCoffset to point to the allocated memory on the heap containing the proper
+        offset values.
+
+        IT IS THE DUTY OF THE CALLER to free the TAI93toUTCoffset array when the offset values are no longer needed.
+        The caller must also set TAI93toUTCoffset to NULL once freed to prevent main.c from erroneously freeing it
+        again.
+
+    RETURN:
+        EXIT_FAILURE
+        EXIT_SUCCESS
+
+*/
+
+double* TAI93toUTCoffset = NULL;
+#define NUM_DAYS 8946
+
+herr_t initializeTimeOffset()
+{
+    
+    TAI93toUTCoffset = malloc(sizeof(double) * NUM_DAYS) ;
+    if ( TAI93toUTCoffset == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory for time offset array.\n");
+        return EXIT_FAILURE;
+    }
+
+    /* Initialize the offset Array */
+    for ( int i = 0; i <= 181; i++ )            // Jan 1993 -> June 1993
+        TAI93toUTCoffset[i] = 0.0;
+    for ( int i = 182; i <= 546; i++ )          // July 1993 -> June 1994
+        TAI93toUTCoffset[i] = 1.0;
+    for ( int i = 547; i <= 1095; i++ )         // July 1994 -> Dec 1995
+        TAI93toUTCoffset[i] = 2.0;
+    for ( int i = 1096; i <= 1642; i++ )        // Jan 1996 -> June 1997
+        TAI93toUTCoffset[i] = 3.0;
+    for ( int i = 1643; i <= 2191; i++ )        // July 1997 -> Dec 1998
+        TAI93toUTCoffset[i] = 4.0;
+    for ( int i = 2192; i <= 4748; i++ )        // Jan 1999 -> Dec 2005
+        TAI93toUTCoffset[i] = 5.0;
+    for ( int i = 4749; i <= 5845; i++ )        // Jan 2006 -> Dec 2008
+        TAI93toUTCoffset[i] = 6.0;
+    for ( int i = 5846; i <= 7210; i++ )        // Jan 2009 -> June 2012
+        TAI93toUTCoffset[i] = 7.0;
+    for ( int i = 7211; i <= 8215; i++ )        // July 2012 -> June 2015
+        TAI93toUTCoffset[i] = 8.0;
+    for ( int i = 8216; i <= 8767; i++ )        // July 2015 -> Dec 2016
+        TAI93toUTCoffset[i] = 9.0;
+    for ( int i = 8768; i <= NUM_DAYS; i++ )    // Jan 2017 -> June 2017
+        TAI93toUTCoffset[i] = 10.0;                  // Currently, value not known past June 30th 2017
+    
+    return EXIT_SUCCESS;
+}
+
+/*
+            TAItoUTCconvert
+
+    DESCRIPTION:
+        This function converts an array with TAI93 times (International Atomic Time - 1993) to UTC (Universal Coordinated Time).
+        A single dimensional array of double values must be passed to the function along with the number of elements in the array.
+        The function will modify the array to contain the converted UTC times. 
+
 
     EFFECTS:
         Modifies array passed to it with the converted UTC values. Temporarily allocates offset array on heap, frees before
@@ -3523,40 +3589,25 @@ hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimS
 */
 
 
-unsigned short badTimeValues = 0;
-
 herr_t TAItoUTCconvert ( double* buffer, int size )
 {
     /* this function assumes that buffer is one dimensional */
+    herr_t status = 0;
 
-    #define NUM_DAYS 8946
+    if ( buffer == NULL )
+    {
+        FATAL_MSG("Argument cannot be NULL.\n");
+        return FAIL;
+    }
 
-    double* offsetArray = malloc(sizeof(double) * NUM_DAYS) ;
+    if ( TAI93toUTCoffset == NULL )
+        status = initializeTimeOffset();
 
-    /* Initialize the offset Array */
-    for ( int i = 0; i <= 181; i++ )            // Jan 1993 -> June 1993
-        offsetArray[i] = 0.0;
-    for ( int i = 182; i <= 546; i++ )          // July 1993 -> June 1994
-        offsetArray[i] = 1.0;
-    for ( int i = 547; i <= 1095; i++ )         // July 1994 -> Dec 1995
-        offsetArray[i] = 2.0;
-    for ( int i = 1096; i <= 1642; i++ )        // Jan 1996 -> June 1997
-        offsetArray[i] = 3.0;
-    for ( int i = 1643; i <= 2191; i++ )        // July 1997 -> Dec 1998
-        offsetArray[i] = 4.0;
-    for ( int i = 2192; i <= 4748; i++ )        // Jan 1999 -> Dec 2005
-        offsetArray[i] = 5.0;
-    for ( int i = 4749; i <= 5845; i++ )        // Jan 2006 -> Dec 2008
-        offsetArray[i] = 6.0;
-    for ( int i = 5846; i <= 7210; i++ )        // Jan 2009 -> June 2012
-        offsetArray[i] = 7.0;
-    for ( int i = 7211; i <= 8215; i++ )        // July 2012 -> June 2015
-        offsetArray[i] = 8.0;
-    for ( int i = 8216; i <= 8767; i++ )        // July 2015 -> Dec 2016
-        offsetArray[i] = 9.0;
-    for ( int i = 8768; i <= NUM_DAYS; i++ )    // Jan 2017 -> June 2017
-        offsetArray[i] = 10.0;                  // Currently, value not known past June 30th 2017
-
+    if ( status = EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to initialize TAI to UTC time offset.\n");
+        return FAIL;
+    }
 
     int daysSinceEpoch = 0;
 
@@ -3570,29 +3621,410 @@ herr_t TAItoUTCconvert ( double* buffer, int size )
 
         if ( daysSinceEpoch < NUM_DAYS && daysSinceEpoch >= 0 )
         {
-            buffer[i] += offsetArray[daysSinceEpoch];
+            buffer[i] += TAI93toUTCoffset[daysSinceEpoch];
         }
         else if ( daysSinceEpoch >= NUM_DAYS )                           // Currently, value not known past June 30th 2017
         {
-            if ( badTimeValues == 0 )
-            {
-                WARN_MSG("CAUTION!!! MOPITT time values converted\n\tusing out of date UTC-TAI93 offset.\n\tConverted time values may be incorrect!\n\tPlease update the offset array in the function listed in the preamble of this message.\n" );
-                badTimeValues = 1;
-            }
+            FATAL_MSG("MOPITT time values converted\n\tusing out of date UTC-TAI93 offset.\n\tConverted time values may be incorrect!\n\tPlease update the offset array in the function \"initializeTimeOffset()\".\n" );
+            free(TAI93toUTCoffset); TAI93toUTCoffset = NULL;
+            return FAIL;
 
-            /**************************/
-            /**/ buffer[i] += 10.0; /**/     // Offset this value with the last offset available (the last cumulative offset as of the writing of this program was +10.0 seconds)
-            /**************************/
         }
         else                        // something bad happened
         {
             FATAL_MSG("Failed to convert MOPITT time values to UTC.\n");
-            free(offsetArray);
+            free(TAI93toUTCoffset); TAI93toUTCoffset = NULL;
             return FAIL;
         }
     }
 
-    free(offsetArray);
-
     return SUCCEED;
+}
+
+/*
+        H5allocateMem
+
+    DESCRIPTION:
+        This function allocates enough memory to store the dataset give by datasetPath.
+
+    ARGUMENTS:
+        IN
+            hid_t inputFile   -- The HDF5 input group/file identifier
+            char* datasetPath -- The path of the dataset relative to inputFile
+            hid_t dataType    -- The datatype of the dataset to be read
+        OUT
+            void** buffer     -- The buffer in which the data will be stored. Does not need to be pre-allocated.
+            long int* size    -- Returns the number of elements in the allocated array. Can be set to NULL if don't care.
+
+    EFFECTS:
+        Sets the caller's buffer pointer (of the appropriate pointer type) to point to the allocated memory
+        on the heap. 
+
+        IT IS THE DUTY OF THE CALLER to release buffer to avoid memory leaks.
+
+    RETURN:
+        EXIT_FAILURE
+        EXIT_SUCCESS
+*/
+
+herr_t H5allocateMem ( hid_t inputFile, char* datasetPath, hid_t dataType, void** buffer, long int* size )
+{
+    if ( datasetPath == NULL || buffer == NULL )
+    {
+        FATAL_MSG("Invalid arguments passed to function. Pointers cannot be NULL.\n");
+        return FAIL;
+    }
+    hid_t dataset = 0;
+    hid_t dataspace = 0;
+
+    herr_t statusn;
+
+    hsize_t * datasetDims = NULL;
+    int rank = 0;
+
+    unsigned short = 0;
+
+    dataset = H5Dopen2( inputFile, datasetPath, H5F_ACC_RDONLY );
+    if ( dataset < 0 )
+    {
+        FATAL_MSG("Failed to read HDF5 dataset.\n");
+        dataset = 0;
+        goto cleanupFail;
+    }
+
+    dataspace = H5Dget_space(dataset);
+    if ( dataspace < 0 )
+    {
+        dataspace = 0;
+        FATAL_MSG("Failed to get dataspace.\n");
+        goto cleanupFail;
+    }
+
+    rank = H5Sget_simple_extent_ndims(dataspace);
+    if ( rank < 0 )
+    {
+        FATAL_MSG("Failed to get rank of dataset.\n");
+        goto cleanupFail;
+    }
+    
+    datasetDims = malloc( sizeof(hsize_t) * DIM_MAX );
+    if ( datasetDims == NULL )
+    {
+        FATAL_MSG("Malloc failed to allocate memory.\n");
+        goto cleanupFail;
+    }
+
+    for ( int i = 0; i < DIM_MAX; i++ )
+        datasetDims[i] = 1;
+
+    statusn = H5Sget_simple_extent_dims(dataspace, datasetDims, NULL);
+    if ( statusn < 0 )
+    {
+        FATAL_MSG("Unable to get dimension size.\n");
+        goto cleanupFail;
+    }
+
+    unsigned long long numElems = 0;
+
+    for ( int i = 0; i < DIM_MAX; i++ )
+        numElems += datasetDims[i];
+
+    *buffer = malloc( sizeof(dataType) * numElems );
+
+    if ( size ) *size = numElems;
+
+    if ( 0 )
+    {
+        cleanupFail:
+        fail = 1;
+    }
+
+    if ( dataset ) H5Dclose(dataset);
+    if ( dataspace ) H5Sclose(dataspace);
+    if ( datasetDims ) free(datasetDims);
+    if ( fail ) return EXIT_FAILURE;
+
+    return EXIT_SUCCESS;
+}
+
+herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
+{
+    if ( date.year < 1993 )
+    {
+        FATAL_MSG("Cannot convert to TAI93 with dates before the year 1993.\n");
+        return EXIT_FAILURE;
+    }
+    if ( TAI93timestamp == NULL )
+    {
+        FATAL_MSG("TAI93timestamp argument cannot be NULL.\n");
+        return EXIT_FAILURE;
+    }
+
+    double TAI93 = 0.0;
+    
+    TAI93 += (date.year - 1) * 31556952.0;         // How many full years, multiplied by number of seconds in a year
+    
+    // Find how many leap years since 1993
+    unsigned short numLeapYears = 0;
+    if ( date.year >= 1993 && date.year <= 1995 )
+        numLeapYears = 0;
+    else if ( date.year >= 1996 && date.year <= 1999 )
+        numLeapYears = 1;
+    else if ( date.year >= 2000 && date.year <= 2003 )
+        numLeapYears = 2;
+    else if ( date.year >= 2004 && date.year <= 2007 )
+        numLeapYears = 3;
+    else if ( date.year >= 2008 && date.year <= 2011 )
+        numLeapYears = 4;
+    else if ( date.year >= 2012 && date.year <= 2015 )
+        numLeapYears = 5;
+    else if ( date.year >= 2016 && date.year <= 2019 )
+        numLeapYears = 6;
+    else if ( date.year >= 2020 && date.year <= 2023 )
+        numLeapYears = 7;
+    else if ( date.year >= 2024 && date.year <= 2027 )
+        numLeapYears = 8;
+    else if ( date.year >= 2028 && date.year <= 2031 )
+        numLeapYears = 9;
+    else if ( date.year >= 2032 && date.year <= 2035 )
+        numLeapYears = 10;
+    else
+    {
+        FATAL_MSG("Failed to find how many leap years since 1993. Maybe this function is\n\tout of date?\n");
+        return EXIT_FAILURE;
+    }
+
+    TAI93 += (double)(numLeapYears * 86400);        // Account for additional days during leap years
+
+    unsigned short isLeapYear = 0;
+    // Find if the current year is a leap year
+    if ( date.year % 4 == 0 )           // divisible by 4
+    {
+        if ( date.year % 100 == 0 )     // divisible by 100
+        {
+            if ( date.year % 400 == 0 )
+                isLeapYear = 1;
+            else                        // not divisible by 400
+                isLeapYear = 0;
+        }
+
+        else                            // not divisible by 100
+            isLeapYear = 1;
+    }
+    else                                // not divisible by 4
+        isLeapYear = 0;
+
+    // Account for the number of seconds in a month
+    // Note that we increment TAI93 based on how many FULL months have passed.
+
+    const unsigned short month = (unsigned short) date.month;
+
+    if ( month == 0 )              // Current month is Jan
+        TAI93 += 0.0;
+    else if ( month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 )          
+        // Current month is Feb, April, June, Aug, Sept, Nov (months whose previous month had 31 days)
+        TAI93 += 2592000.0
+    else if ( month == 1 )          // Current month is March (previous month is Feb which may or may not have leap day)
+    {
+        if ( isLeapYear )
+            TAI93 += 2505600.0;
+        else
+            TAI93 += 2419200.0;
+    }
+    else if ( month == 4 || month == 6 || month == 9 || month == 11 )    
+    {        
+        // Current month is May, July, October, December (months whose previous month had 30 days)
+        TAI93 += 2592000.0;
+    }
+
+    // Account for the number of FULL days that have passed in this month
+    const short days = (short) date.day - 1;        // day is 1-indexed
+    if ( days >= 0 && days <= 31 )
+        TAI93 += days * 86400.0;          // Number of full days passed multiplied by number of seconds in a day
+    else
+    {
+        FATAL_MSG("Failed to account for the number of days passed in the current month.\n");
+        return EXIT_FAILURE;
+    }
+
+    // Account for the number of FULL hours that have passed in this day
+
+    const short hours = (short) date.hour;          // hour is 0-indexed
+    if ( hours >= 0 && hours <= 23 )
+        TAI93 += hours * 3600.0;        // Number of full hours passed multiplied by number of seconds in an hour
+    else
+    {
+        FATAL_MSG("Failed to acount for the number of hours passed in a day.\n");
+        return EXIT_FAILURE;
+    }
+
+    // Account for the number of FULL minutes that have passed in this hour
+    const short minutes = (short) date.minute;      // Minutes are 0-indexed
+    if ( minutes >= 0 && minutes <= 60 )            // From 0 to 60 because leap seconds may make minute indicator show 60
+        TAI93 += minutes * 60.0;
+    else
+    {
+        FATAL_MSG("Failed to account for number of minutes passed.\n");
+        return EXIT_FAILURE;
+    }
+
+    // Finally, increment the seconds
+    TAI93 += date.second;
+    
+    *TAI93timestamp = TAI93;
+    
+    return EXIT_SUCCESS;
+}
+/*
+    TODO
+        Remember that a MODIS granule is inlcuded iff its starting time is within range of orbit.
+        For MOPITT, one granule may span ~16-18 orbits. A MOPITT/CERES granule is included if either
+        its starting time or ending time is within the time range of the orbit.
+
+        Finish thinking about how 2 MOPITT granules will be handled (if necessary)
+
+        Add function declarations in header file
+*/
+
+        
+herr_t binarySearchDouble ( double* array, double target, hsize_t size, long int* targetIndex )
+{
+    long int left = 0;
+    long int right = (long int)(size - 1);
+    long int middle;
+    
+    while ( left <= right )
+    {    
+        middle = (left + right)/2;
+
+        if ( array[middle] < target )
+        {
+            left = middle+1;
+            /* If the search was unable to find an exact match, set middle to the first index that is greater than target.
+               This is useful information for subsetting. It is possible that middle will be set to the very beginning or to
+               the very end of the array. This is okay, this is also useful information.
+             */
+            if ( left > right )
+                while ( middle-1 >= 0 && array[middle-1] > target )
+                    middle--;
+
+            continue;
+        }
+
+        if ( array[middle] > target )
+        {
+            right = middle - 1;
+            /* If the search was unable to find an exact match, set middle to the first index that is greater than target.
+               This is useful information for subsetting. It is possible that middle will be set to the very beginning or to
+               the very end of the array. This is okay, this is also useful information.
+             */
+            if ( left > right )
+                while ( middle+1 < size && array[middle] < target )
+                    middle++;
+
+            continue;
+        }
+
+        *targetIndex = middle;
+        return 0;
+    }
+
+    *targetIndex = middle;
+    return 1;
+}
+
+
+herr_t MOPITT_OrbitInfo( char* MOPITTargs[], OInfo_t cur_orbit_info, const char* timePath, int* start_indx_ptr, int* end_indx_ptr )
+{
+    hid_t inputFile = 0;
+    unsigned short fail = 0;
+    double* timeData = NULL;
+    long int numElems = 0;
+    herr_t status = 0;
+
+    if ( openFile( &file, argv[1], H5F_ACC_RDONLY) )
+    {
+        FATAL_MSG("Failed to open MOPITT file.\n");
+        file = 0;
+        goto cleanupFail;
+    }
+
+    status = H5allocateMem ( file, timePath, H5T_NATIVE_DOUBLE, (void**) &timeData, &numElems );
+    if ( status == FAIL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        buffer = NULL;
+        goto cleanupFail;
+    }
+
+    status = H5LTread_dataset_double( file, timePath, buffer);
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to read dataset.\n");
+        goto cleanupFail;
+    }
+
+    /* We now need to convert the orbit info given by current_orbit_info into TAI93 start time and TAI93 end time.
+       This way, we will know exactly which elements in timeData will be selected for the start and end pointers.
+       We convert to TAI93 because the MOPITT time values are given in TAI93.
+     */
+    GDateInfo_t time;
+    double startTAI93;
+    double endTAI93;
+
+    time.year = cur_orbit_info.start_year;
+    time.month = cur_orbit_info.start_month;
+    time.day = cur_orbit_info.start_day;
+    time.hour = cur_orbit_info.start_hour;
+    time.minute = cur_orbit_info.start_minute;
+
+    status = getTAI93 ( time, &startTAI93 );
+    if ( status == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to get TAI93 timestamp.\n");
+        goto cleanupFail;
+    }
+
+    time.year = cur_orbit_info.end_year;
+    time.month = cur_orbit_info.end_month;
+    time.day = cur_orbit_info.end_day;
+    time.hour = cur_orbit_info.end_hour;
+    time.minute = cur_orbit_info.end_minute;
+
+    status = getTAI93 ( time, &endTAI93 );
+    if ( status == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to get TAI93 timestamp.\n");
+        goto cleanupFail;
+    }
+
+    /* Perform a binary search on the timeData array to find the start and end indices */
+    long int startIdx, endIdx;
+
+    status = binarySearchDouble ( timeData, startTAI93, (hsize_t) numElems, &startIdx );
+    if ( status == EXIT_SUCCESS )       // EXIT_SUCCESS indicates that an exact match was found
+    {
+        startIdx--;
+        if ( startIdx < 0 )
+        {
+            FATAL_MSG("The MOPITT granule passed to this program has a start time that comes\n\tafter the start time of the orbit.\n");
+            return EXIT_FAILURE;
+        }
+    }
+    status = binarySearchDouble ( timeData, endTAI93, (hsize_t) numElems, &endIdx );
+
+
+    if ( 0 )
+    {
+        cleanupFail:
+        fail = 1;
+    }
+
+    if(inputFile) H5Fclose(inputFile);
+    if(timeData) free(timeData);
+
+    if ( fail )
+        return EXIT_FAILURE;
+
+    return EXIT_SUCCESS;
 }
