@@ -1,0 +1,9 @@
+#!/bin/bash
+
+for i in ASTER MODIS CERES MOPITT MISR; do
+
+( echo "ls -R /projects/sciteam/bage/TFData/$i" | /hpsstools/scrub_batch >> /tmp/$i.list ) &
+
+done
+
+
