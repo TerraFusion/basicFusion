@@ -17,7 +17,7 @@
 
 hid_t outputFile;
 
-int MOPITT( char* argv[] )
+int MOPITT( char* argv[], OInfo_t cur_orbit_info )
 {
     
     hid_t file = 0;
@@ -51,6 +51,9 @@ int MOPITT( char* argv[] )
     int fail = 0;
     int* intArray = NULL;
 
+    unsigned int startIdx = 0;
+    unsigned int endIdx = 0;
+    unsigned int bound[2];
     float tempFloat = 0.0f;
     char* correctName = NULL;
     char* fileTime = NULL;
@@ -72,7 +75,6 @@ int MOPITT( char* argv[] )
     }
     
 
-    #if 1
 
     correctName = correct_name("MOPITT");    
     if(H5LTset_attribute_string(outputFile,correctName,"FilePath",argv[1])<0)
@@ -80,7 +82,6 @@ int MOPITT( char* argv[] )
         fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
         goto cleanupFail;
     }
-    #endif
 
     fileTime = getTime( argv[1], 0 );
     if(H5LTset_attribute_string(outputFile,correctName,"GranuleTime",fileTime)<0)
@@ -107,14 +108,19 @@ int MOPITT( char* argv[] )
         geolocationGroup = 0;
         goto cleanupFail;
     }
-    
-   
+
+    /* Before inserting datasets, we need to find the starting and ending indices for subsetting. */
+    herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const char* timePath, int* start_indx_ptr, int* end_indx_ptr )
+    status = MOPITT_OrbitInfo ( file, cur_orbit_info, TIME, &startIdx, &endIdx );
+  
+    bound[0] = startIdx;
+    bound[1] = endIdx;
                             /********************
                              * RADIANCE DATASET *
                              ********************/
  
     // insert the radiance dataset
-    radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "MOPITTRadiances", H5T_NATIVE_FLOAT, 1 );
+    radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "MOPITTRadiances", H5T_NATIVE_FLOAT, 1, bound );
     if ( radianceDataset == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT radiance dataset.\n", __FILE__,__func__,__LINE__);
@@ -247,7 +253,7 @@ int MOPITT( char* argv[] )
                              *********************/
 
     // insert the longitude dataset
-    longitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude", H5T_NATIVE_FLOAT, 1 );
+    longitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude", H5T_NATIVE_FLOAT, 1, bound );
     if ( longitudeDataset == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT longitude dataset.\n", __FILE__,__func__,__LINE__);
@@ -313,7 +319,7 @@ int MOPITT( char* argv[] )
                          ********************/
 
     // insert the latitude dataset
-    latitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude", H5T_NATIVE_FLOAT, 1 );
+    latitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude", H5T_NATIVE_FLOAT, 1, bound );
     if ( latitudeDataset == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT latitude dataset.\n", __FILE__,__func__,__LINE__);
@@ -380,7 +386,7 @@ int MOPITT( char* argv[] )
                          ****************/
     // insert the time dataset
     // Note that the time dataset is converted from TAI93 time to UTC time in this function.
-    timeDataset = MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time", H5T_NATIVE_DOUBLE, 1);
+    timeDataset = MOPITTinsertDataset( &file, &geolocationGroup, TIME, "Time", H5T_NATIVE_DOUBLE, 1, bound);
     if ( timeDataset < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to insert MOPITT time dataset.\n", __FILE__,__func__,__LINE__);

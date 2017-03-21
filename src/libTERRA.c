@@ -247,14 +247,18 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
         the program will not free the ID but rather return it to the caller.
         
     ARGUMENTS:
-        1. input file ID pointer. Identifier already exists.
-        2. output file ID pointer. Identifier already exists.
-        3. input dataset absolute path string
-        4. Output dataset name
-        5. dataset group ID. Group identifier already exists. This is the group that the data will be read into
-        6. returnDatasetID: Set to 0 if caller does not want to return the dataset identifier.
-                            Set to non-zero if the caller DOES want the dataset identifier. If set to non-zero,
-                            caller must be sure to free the identifier using H5Dclose() when finished.
+        IN
+            1. input file ID pointer. Identifier already exists.
+            2. output file ID pointer. Identifier already exists.
+            3. input dataset absolute path string
+            4. Output dataset name
+            5. dataset group ID. Group identifier already exists. This is the group that the data will be read into
+            6. returnDatasetID: Set to 0 if caller does not want to return the dataset identifier.
+                                Set to non-zero if the caller DOES want the dataset identifier. If set to non-zero,
+                                caller must be sure to free the identifier using H5Dclose() when finished.
+            7. int bound    -- Provides the starting index and ending index for the TrackCount dimensions in the MOPITT datasets.
+                               Set to NULL if entire dataset is desired.
+                               bound[0] contains the starting index, bound[1] contains ending index.
     EFFECTS:
         Creates a new HDF5 file and writes the radiance dataset into it.
         Opens an HDF file pointer but does not close it.
@@ -269,12 +273,11 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
 */  
 
 hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
-                           char * inDatasetPath, char* outDatasetName, hid_t dataType, int returnDatasetID )
+                           char * inDatasetPath, char* outDatasetName, hid_t dataType, int returnDatasetID, unsigned int bound[2] )
 {
     
     hid_t dataset;                              // dataset ID
     hid_t dataspace;                            // filespace ID
-    hid_t memspace;                             // memoryspace ID
     
     hsize_t *datasetDims;                       // size of each dimension
     hsize_t *datasetMaxSize;                    // maximum allowed size of each dimension in datasetDims
@@ -320,6 +323,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
         FATAL_MSG("Failed to get dataspace.\n");
         goto cleanupFail;
     }
+
     rank = H5Sget_simple_extent_ndims( dataspace );
     
     if ( rank < 0 )
@@ -360,17 +364,31 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
         FATAL_MSG("Unable to get dimensions.\n");
         goto cleanupFail;
     }
+
+    /* If we are doing subsetting, we need to select a hyperslab (a subset) of the dataset to read from.
+     * Perform this operation using the hyperslab functions.
+     */
+
+    if ( bound )
+    {
+        const hsize_t start[5] = { startIdx, 0, 0, 0, 0 }; // Define the starting point of the hyperslab
+        const hsize_t count[5] = { 1, 1, 1, 1, 1 };        // Define how many blocks in each dimension to read (in our case, just 1)
+        // Define the size of the block
+        const hsize_t block[5] = { endIdx - startIdx + 1, datasetDims[1], datasetDims[2], datasetDims[3], datasetDims[4] };
+        status_n = H5Sselect_hyperslab( dataspace, H5S_SELECT_SET, start, NULL, count, block );
+        
+        
+        datasetDims[0] = endIdx - startIdx + 1;
+    }
+
     
     /*
      * Create a data_out buffer using the dimensions of the dataset specified by datasetDims
      */
-    
     data_out = malloc( sizeof(double ) * datasetDims[0] * datasetDims[1] * datasetDims[2] *  datasetDims[3] * datasetDims[4]);
     
     /*
      * Now read dataset into data_out buffer
-     * H5T_NATIVE_FLOAT is specifying that we are reading floating points
-     * H5S_ALL specifies that we are reading the entire dataset instead of just a portion
      */
 
     status = H5Dread( dataset, dataType, dataspace, H5S_ALL, H5P_DEFAULT, data_out );
@@ -384,7 +402,6 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     
     /* Free all memory associated with the input data */
     
-    H5Sclose(dataspace); dataspace = 0;
     H5Dclose(dataset); dataset = 0;
     
     /*******************************************************************************************
@@ -407,11 +424,11 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
         }
     } 
      
-    memspace = H5Screate_simple( rank, datasetDims, NULL );
     
-    dataset = H5Dcreate( *datasetGroup_ID, outDatasetName, dataType, memspace, 
+    dataset = H5Dcreate( *datasetGroup_ID, outDatasetName, dataType, dataspace, 
                          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
                          
+    H5Sclose(dataspace); dataspace = 0;
     /* Now that dataset has been created, read into this data set our data_out array */
     
     status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, data_out );
@@ -439,7 +456,6 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     if ( datasetMaxSize ) free(datasetMaxSize);
     if ( datasetChunkSize ) free(datasetChunkSize);
     if ( data_out ) free(data_out);
-    if ( memspace ) H5Sclose(memspace);
 
     if ( fail != 0 ) return EXIT_FAILURE;                   // first check if something failed
     
@@ -3529,7 +3545,11 @@ double* TAI93toUTCoffset = NULL;
 
 herr_t initializeTimeOffset()
 {
-    
+    if ( TAI93toUTCoffset != NULL )
+    {
+        FATAL_MSG("Failed to allocate memory for time TAI93-UTC offset array.\n\tEither the array already points to valid memory or the\n\tarray was freed and not set back to NULL.\n");
+    }
+
     TAI93toUTCoffset = malloc(sizeof(double) * NUM_DAYS) ;
     if ( TAI93toUTCoffset == NULL )
     {
@@ -3579,9 +3599,9 @@ herr_t initializeTimeOffset()
 
     INPUTS:
         IN
-            int size       -- Number of elements in buffer.
+            unsigned int size       -- Number of elements in buffer.
         IN/OUT
-            double* buffer -- One dimensional array containing the TAI93 values (units given in seconds)
+            double* buffer          -- One dimensional array containing the TAI93 values (units given in seconds)
     
     RETURN:
         Returns FAIL upon failure. Otherwise, SUCCEED.
@@ -3589,7 +3609,7 @@ herr_t initializeTimeOffset()
 */
 
 
-herr_t TAItoUTCconvert ( double* buffer, int size )
+herr_t TAItoUTCconvert ( double* buffer, unsigned int size )
 {
     /* this function assumes that buffer is one dimensional */
     herr_t status = 0;
@@ -3747,6 +3767,31 @@ herr_t H5allocateMem ( hid_t inputFile, char* datasetPath, hid_t dataType, void*
     return EXIT_SUCCESS;
 }
 
+/*
+        getTAI93
+
+    DESCRIPTION:
+        This function takes as input the GDateInfo_t struct (as defined in libTERRA.h) which contains date information,
+        and returns the corresponding TAI93 (defined as TAI = UTC on Jan 1 1993 00:00:00) timestamp.
+
+        This function will need to be periodically updated if being used after the year 2035 to contain more running-total
+        leap year information (as shown in the if-else tree).
+
+    ARGUMENTS:
+        IN
+            1. GDateInfo_t date       -- The input date information.
+        OUT
+            2. double* TAI93timestamp -- The corresponding TAI93 time
+
+    EFFECTS:
+        Modifies the memory pointed to by TAI93timestamp
+
+    RETURN:
+        EXIT_FAILURE
+        EXIT_SUCCESS
+
+*/
+
 herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 {
     if ( date.year < 1993 )
@@ -3875,28 +3920,43 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     
     return EXIT_SUCCESS;
 }
+
 /*
-    TODO
-        Remember that a MODIS granule is inlcuded iff its starting time is within range of orbit.
-        For MOPITT, one granule may span ~16-18 orbits. A MOPITT/CERES granule is included if either
-        its starting time or ending time is within the time range of the orbit.
+        binarySearchDouble
 
-        Finish thinking about how 2 MOPITT granules will be handled (if necessary)
+    DESCRIPTION:
+        This function performs a binary search on a sorted array of double values.
+        If the exact target is not found, the first element that is greater than the target value is returned
+        in the argument targetIndex.
 
-        Add function declarations in header file
+    ARGUMENTS:
+        IN
+            1. double* array         -- The array to perform the search on
+            2. double target         -- The value to search for
+            3. hsize_t size          -- The number of elements in array
+        OUT
+            4. long int* targetIndex -- The index of where the target value is. If target doesn't exist in the array,
+                                        this will return the first element in array that is larger than target.
+
+    EFFECTS:
+        Modifies the memory pointed to by targetIndex to contain the selected index of the array.
+
+    RETURN:
+        0 if an exact match is found.
+        1 if an exact match was not found (first element larger than target is returned).
+       -1 if an error occured.
+
 */
-
-        
-herr_t binarySearchDouble ( double* array, double target, hsize_t size, long int* targetIndex )
+herr_t binarySearchDouble ( const double* array, double target, hsize_t size, long int* targetIndex )
 {
     long int left = 0;
     long int right = (long int)(size - 1);
     long int middle;
-    
-    while ( left <= right )
-    {    
-        middle = (left + right)/2;
 
+    while ( left <= right )
+    {
+        middle = (left + right)/2;
+        printf("Middle: %d\n", middle);
         if ( array[middle] < target )
         {
             left = middle+1;
@@ -3904,10 +3964,12 @@ herr_t binarySearchDouble ( double* array, double target, hsize_t size, long int
                This is useful information for subsetting. It is possible that middle will be set to the very beginning or to
                the very end of the array. This is okay, this is also useful information.
              */
-            if ( left > right )
-                while ( middle-1 >= 0 && array[middle-1] > target )
-                    middle--;
 
+            if ( left > right ){
+                printf("middle++\n");
+                while ( middle+1 < size && array[middle] < target )
+                    middle++;
+            }
             continue;
         }
 
@@ -3918,10 +3980,12 @@ herr_t binarySearchDouble ( double* array, double target, hsize_t size, long int
                This is useful information for subsetting. It is possible that middle will be set to the very beginning or to
                the very end of the array. This is okay, this is also useful information.
              */
-            if ( left > right )
-                while ( middle+1 < size && array[middle] < target )
-                    middle++;
 
+            if ( left > right ){
+                printf("middle--\n");
+                while ( middle-1 >= 0 && array[middle] > target )
+                    middle--;
+            }
             continue;
         }
 
@@ -3929,27 +3993,53 @@ herr_t binarySearchDouble ( double* array, double target, hsize_t size, long int
         return 0;
     }
 
+    /* Final error check to make sure that array[middle] either equals target or is greater than target */
+    if ( middle < 0 || middle >= size || (array[middle] < target && middle != size-1))
+    {
+        FATAL_MSG("Binary search produced an invalid result. Debug information:\n\ttargetIndex = %d\n\tarray[targetIndex] = %lf\n\tsize = %u\n", middle, array[middle], size);
+        return -1;
+    }
+
     *targetIndex = middle;
     return 1;
+
 }
 
+/*
+            MOPITT_OrbitInfo
 
-herr_t MOPITT_OrbitInfo( char* MOPITTargs[], OInfo_t cur_orbit_info, const char* timePath, int* start_indx_ptr, int* end_indx_ptr )
+    DESCRIPTION:
+        This function takes as input the starting and ending times of the orbit (given as OInfo_t struct), the input hid_t
+        HDF5 file/group identifier, the path to the time dataset (relative to inputFile), and gives the starting and ending
+        indices for MOPITT subsetting. The time dataset MUST be a 1 dimensional HDF5 dataset containing the MOPITT pixel times.
+
+    ARGUMENTS:
+        IN
+            1. const hid_t inputFile  -- The HDF5 file or group identifier under which the time dataset is stored.
+            2. OInfo_t cur_orbit_info -- A struct containing the start and end dates of the orbit. Defined in libTERRA.h
+            3. const char* timePath   -- The path to the time dataset relative to inputFile
+        OUT
+            4. unsigned int* start_indx_ptr    -- The index to begin subsetting from
+            5. unsigned int* end_indx_ptr      -- The index to end the subsetting at
+
+    EFFECTS:
+        Modifies start and end_indx_ptr to contain the appropriate values
+
+    RETURN:
+        EXIT_FAILURE
+        EXIT_SUCCESS
+
+*/
+
+herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const char* timePath, unsigned int* start_indx_ptr, 
+                         unsigned int* end_indx_ptr )
 {
-    hid_t inputFile = 0;
     unsigned short fail = 0;
     double* timeData = NULL;
     long int numElems = 0;
     herr_t status = 0;
 
-    if ( openFile( &file, argv[1], H5F_ACC_RDONLY) )
-    {
-        FATAL_MSG("Failed to open MOPITT file.\n");
-        file = 0;
-        goto cleanupFail;
-    }
-
-    status = H5allocateMem ( file, timePath, H5T_NATIVE_DOUBLE, (void**) &timeData, &numElems );
+    status = H5allocateMem ( inputFile, timePath, H5T_NATIVE_DOUBLE, (void**) &timeData, &numElems );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to allocate memory.\n");
@@ -4002,17 +4092,20 @@ herr_t MOPITT_OrbitInfo( char* MOPITTargs[], OInfo_t cur_orbit_info, const char*
     long int startIdx, endIdx;
 
     status = binarySearchDouble ( timeData, startTAI93, (hsize_t) numElems, &startIdx );
-    if ( status == EXIT_SUCCESS )       // EXIT_SUCCESS indicates that an exact match was found
+    if ( status == -1 )
     {
-        startIdx--;
-        if ( startIdx < 0 )
-        {
-            FATAL_MSG("The MOPITT granule passed to this program has a start time that comes\n\tafter the start time of the orbit.\n");
-            return EXIT_FAILURE;
-        }
+        FATAL_MSG("Failed to find MOPITT starting and ending indices.\n");
+        goto cleanupFail;
     }
     status = binarySearchDouble ( timeData, endTAI93, (hsize_t) numElems, &endIdx );
+    if ( status == -1 )
+    {
+        FATAL_MSG("Failed to find MOPITT starting and ending indices.\n");
+        goto cleanupFail;
+    }
 
+    *start_indx_ptr = startIdx;
+    *end_indx_ptr = endIdx;
 
     if ( 0 )
     {
