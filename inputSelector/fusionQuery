@@ -1,14 +1,18 @@
 #!/usr/bin/python
 
-"""usage: fusionQuery DBFILE [options]
-        fusionQuery -h | --help
+"""usage: fusionQuery -h | --help
+        fusionQuery DBFILE -o ORBIT
+        fusionQuery DBFILE -t STARTTIME ENDTIME
 
 Arguments:
-    DBFILE              The timespan database to query
+    DBFILE              The timespan database to query 
+    ORBIT               The orbit number 
+    STARTTIME, ENDTIME  YYYYMMDDHHMMSS format timespan to return all overlapping files
+
 
 Options:
-    --printall          Print all orbits in DB
-    -s <start> <end>    Print files that overlap with start and end time
+    --printall          Print all files for each orbit in DB
+    -s <start> <end>    Print files that overlap with start and end time, start/end as YYYYMMDDHHMMSS
     -o <orbit>          Print files that start in a particular orbit
     -h, --help          Print usage
 
