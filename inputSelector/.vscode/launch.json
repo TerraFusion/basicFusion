@@ -75,7 +75,7 @@
         "-v",
         "--trace=trace.txt"
         "oneorbit.sqlite",
-        "data/orbits.txt.gz",
+        "data/Orbit_Path_Time.txt.gz",
         "testdata/one-orbit-files.txt.gz"
       ]
     },
@@ -97,7 +97,7 @@
         "-q",
         "--trace=trace.txt"
         "acccesslist.sqlite",
-        "data/orbits.txt.gz",
+        "data/Orbit_Path_Time.txt.gz",
         "data/accesslist.gz"
       ]
     },
