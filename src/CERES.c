@@ -8,6 +8,7 @@
 #define YMAX 720
 #define DIM_MAX 10
 
+void obtain_start_end_index(int* sindex_ptr,int* endex_ptr,double *jd,int32 size);
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax );
 //int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info){

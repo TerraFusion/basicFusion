@@ -3854,9 +3854,6 @@ herr_t H5allocateMemDouble ( hid_t inputFile, const char* datasetPath, void** bu
         EXIT_SUCCESS
 
 */
-/* TODO
-        This function is not correct. Need to initially set TAI93 equal to UTC, then add based on existant criteria
-*/
 herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 {
     if ( date.year < 1993 )
@@ -3872,8 +3869,9 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     double TAI93 = 0.0;
     
-    TAI93 += ( date.year-1993 ) * 31556952.0;         // How many full years since 1993, multiplied by number of seconds in a year
-    
+    TAI93 += ( date.year-1993 );         // How many full years since 1993, multiplied by number of seconds in a year
+    TAI93 *= 365.0;
+    TAI93 *= 86400.0;
     // Find how many leap years since 1993
     /* Note that the current year is not considered in this else if tree whether or not it is a leap year. That is handled downstream */
     unsigned short numLeapYears = 0;
@@ -3907,7 +3905,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     printf("Adding %u leap days.\n", numLeapYears);
 
-    //TAI93 += (double)(numLeapYears * 86400);        // Account for additional days during leap years
+    TAI93 += (double)(numLeapYears * 86400);        // Account for additional days during leap years
 
     unsigned short isLeapYear = 0;
     // Find if the current year is a leap year
@@ -3939,46 +3937,46 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
             break;
         case 2:              // Feb
             printf("Feb\n");          
-            TAI93 += 2678400.0;
+            TAI93 += (double) (31 * 86400);
             break;
         case 3:             // Current month is March (previous month is Feb which may or may not have leap day)
-            TAI93 += 5097600.0;
+            TAI93 += (double)((31+28)*86400);
             printf("March\n");
             break;
         case 4:             // April
-            TAI93 += 7776000.0;
+            TAI93 += (double) ((31+28+31)*86400);
             printf("Apr\n");
             break;
         case 5:             // May
-            TAI93 += 10368000.0;
+            TAI93 += (double) ((31+28+31+30)*86400);
             printf("May\n");
             break;
         case 6:             // June
-            TAI93 += 13046400.0;
+            TAI93 += (double) ((31+28+31+30+31)*86400);
             printf("June\n");
             break;
         case 7:             // July
-            TAI93 += 15638400.0;
+            TAI93 += (double) ((31+28+31+30+31+30)*86400);
             printf("July\n");
             break;
         case 8:             // Aug
-            TAI93 += 18316800.0;
+            TAI93 += (double) ((31+28+31+30+31+30+31)*86400);
             printf("Aug\n");
             break;
         case 9:             // Sept
-            TAI93 += 20995200.0;
+            TAI93 += (double) ((31+28+31+30+31+30+31+31)*86400);
             printf("Sept\n");
             break;
         case 10:            // Oct
-            TAI93 += 23587200.0;
+            TAI93 += (double) ((31+28+31+30+31+30+31+31+30)*86400);
             printf("Oct\n");
             break;
         case 11:            // Nov
-            TAI93 += 26265600.0;
+            TAI93 += (double) ((31+28+31+30+31+30+31+31+30+31)*86400);
             printf("Nov\n");
             break;
         case 12:            // Dec
-            TAI93 += 28857600.0;
+            TAI93 += (double) ((31+28+31+30+31+30+31+31+30+31+30)*86400);
             printf("Dec\n");
             break;
         default:
@@ -3995,9 +3993,9 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     // Account for the number of FULL days that have passed in this month
     const short days = (short) date.day - 1;        // day is 1-indexed
     printf("%d full days have passed.\n", days);
-    #if 0
-    if ( days >= 0 && days <= 31 )
-        TAI93 += days * 86400.0;          // Number of full days passed multiplied by number of seconds in a day
+    #if 1
+    if ( days > 0 && days <= 31 )
+        TAI93 += (double) ((days) * 86400);          // Number of full days passed multiplied by number of seconds in a day
     else
     {
         FATAL_MSG("Failed to account for the number of days passed in the current month.\n");
@@ -4010,7 +4008,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     const short hours = (short) date.hour;          // hour is 0-indexed
     printf("%d full hours have passed.\n", hours);
     if ( hours >= 0 && hours <= 23 )
-        TAI93 += hours * 3600.0;        // Number of full hours passed multiplied by number of seconds in an hour
+        TAI93 += (double)(hours * 3600);        // Number of full hours passed multiplied by number of seconds in an hour
     else
     {
         FATAL_MSG("Failed to acount for the number of hours passed in a day.\n");
@@ -4021,7 +4019,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     const short minutes = (short) date.minute;      // Minutes are 0-indexed
     printf("%d full minutes have passed.\n", minutes);
     if ( minutes >= 0 && minutes <= 60 )            // From 0 to 60 because leap seconds may make minute indicator show 60
-        TAI93 += minutes * 60.0;
+        TAI93 += (double)(minutes * 60);
     else
     {
         FATAL_MSG("Failed to account for number of minutes passed.\n");
@@ -4032,7 +4030,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     printf("Adding %lf seconds\n", date.second);
     TAI93 += date.second;
    
-    TAI93 += 100000.0;
+    //TAI93 += 100000.0;
  
     *TAI93timestamp = TAI93;
     
