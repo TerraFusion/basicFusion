@@ -110,11 +110,16 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     }
 
     /* Before inserting datasets, we need to find the starting and ending indices for subsetting. */
-    herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const char* timePath, int* start_indx_ptr, int* end_indx_ptr )
     status = MOPITT_OrbitInfo ( file, cur_orbit_info, TIME, &startIdx, &endIdx );
-  
+    if ( status == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to get MOPITT start and end indices.\n");
+        goto cleanupFail;
+    } 
     bound[0] = startIdx;
     bound[1] = endIdx;
+
+    printf("Start: %u End:%u\n", bound[0], bound[1] );
                             /********************
                              * RADIANCE DATASET *
                              ********************/
@@ -311,7 +316,10 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     }
 
         
-    H5Dclose(longitudeDataset); longitudeDataset = 0;
+    if ( H5Dclose(longitudeDataset) < 0 )
+        WARN_MSG("Failed to close dataset.\n");
+    
+    longitudeDataset = 0;
 
 
                         /********************
@@ -377,7 +385,10 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     }
 
 
-    H5Dclose(latitudeDataset); latitudeDataset = 0;
+    if ( H5Dclose(latitudeDataset) < 0)
+        WARN_MSG("Failed to close dataset.\n");
+
+    latitudeDataset = 0;
 
 
 
@@ -401,7 +412,10 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
         goto cleanupFail;
     }
 
-    H5Dclose(timeDataset); timeDataset = 0;  
+    if ( H5Dclose(timeDataset) < 0 ) 
+        WARN_MSG("Failed to close dataset.\n");
+        
+    timeDataset = 0;  
     
 
     /***************************************************************

@@ -17,6 +17,33 @@ do { \
     fprintf(stderr, __VA_ARGS__); \
     } while(0)
 
+typedef struct OInfo {
+        unsigned int orbit_number;
+        unsigned short start_year;
+        unsigned char  start_month;
+        unsigned char start_day;
+        unsigned char start_hour;
+        unsigned char start_minute;
+        unsigned char start_second;
+        unsigned short end_year;
+        unsigned char  end_month;
+        unsigned char end_day;
+        unsigned char end_hour;
+        unsigned char end_minute;
+        unsigned char end_second;
+
+} OInfo_t;
+
+typedef struct GDateInfo {
+        unsigned short year;
+        unsigned char  month;
+        unsigned char day;
+        unsigned char hour;
+        unsigned char minute;
+        double second;
+
+} GDateInfo_t;
+
 /*********************
  *FUNCTION PROTOTYPES*
  *********************/
@@ -25,6 +52,7 @@ extern double* TAI93toUTCoffset; // The array containing the TAI93 to UTC offset
 
 int MOPITT( char* argv[], OInfo_t cur_orbit_info );
 int CERES( char* argv[] ,int index);
+int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 int MODIS( char* argv[],int modis_count,int unpack );
 int ASTER( char* argv[],int aster_count,int unpack );
 int MISR( char* argv[],int unpack );
@@ -37,8 +65,6 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID,
                           int returnDatasetID, int rank, hsize_t* datasetDims,
                           hid_t dataType, char* datasetName, void* data_out);
                      
-hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
-                            char * inDatasetPath, char* outDatasetPath, hid_t dataType, int returnDatasetID);
 herr_t openFile(hid_t *file, char* inputFileName, unsigned flags );
 herr_t createOutputFile( hid_t *outputFile, char* outputFileName);
 herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroupName);
@@ -85,7 +111,7 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
 herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
 herr_t binarySearchDouble ( const double* array, double target, hsize_t size, long int* targetIndex );
 herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp );
-herr_t H5allocateMem ( hid_t inputFile, char* datasetPath, hid_t dataType, void** buffer, long int* size );
+herr_t H5allocateMemDouble ( hid_t inputFile, const char* datasetPath, void** buffer, long int* size );
 herr_t initializeTimeOffset();
 
 #if 0

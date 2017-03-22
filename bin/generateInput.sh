@@ -139,7 +139,7 @@ if [ ${#temp} -lt 2 ]; then
 	FAIL=1
 fi
 
-temp=$(ls "$INPATH/CERES" | grep "CER_BDS_Terra" )
+temp=$(ls "$INPATH/CERES" | grep "CER_SSF_Terra" )
 if [ ${#temp} -lt 2 ]; then
         printf "\e[4m\e[91mFatal Error\e[0m: No valid CERES HDF files found.\n" >&2
 	FAIL=1
@@ -195,8 +195,8 @@ done <"$CURDIR"/__tempFiles/MOPITT.txt
 printf "# CERES\n" >> "$OUTFILE"
 cd "../CERES"
 # grep -v removes any files with "met" in them, they're unwanted
-ls | grep "CER_BDS_Terra.*FM1.*" | grep -v "met" >> "$CURDIR"/__tempFiles/CERESFM1.txt
-ls | grep "CER_BDS_Terra.*FM2.*" | grep -v "met" >> "$CURDIR"/__tempFiles/CERESFM2.txt
+ls | grep "CER_SSF_Terra.*FM1.*" | grep -v "met" >> "$CURDIR"/__tempFiles/CERESFM1.txt
+ls | grep "CER_SSF_Terra.*FM2.*" | grep -v "met" >> "$CURDIR"/__tempFiles/CERESFM2.txt
 # iterate over this file, prepending the path of the file into our
 # OUTFILE
 
@@ -338,7 +338,7 @@ if [ -z "$tempLine" ]; then
     printf "\tNo MOPITT \"MOP01\" files were found in generated file list.\n" >&2
     FAIL=1
 fi
-tempLine=$(cat "$DEBUGFILE" | grep "CER_BDS_Terra")
+tempLine=$(cat "$DEBUGFILE" | grep "CER_SSF_Terra")
 if [ -z "$tempLine" ]; then
     printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
     printf "\tNo CERES files were found in generated file list.\n" >&2

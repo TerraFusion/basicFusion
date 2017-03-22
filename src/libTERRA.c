@@ -276,12 +276,13 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
                            char * inDatasetPath, char* outDatasetName, hid_t dataType, int returnDatasetID, unsigned int bound[2] )
 {
     
-    hid_t dataset;                              // dataset ID
-    hid_t dataspace;                            // filespace ID
-    
-    hsize_t *datasetDims;                       // size of each dimension
-    hsize_t *datasetMaxSize;                    // maximum allowed size of each dimension in datasetDims
-    hsize_t *datasetChunkSize;
+    hid_t dataset = 0;                              // dataset ID
+    hid_t dataspace = 0;                            // filespace ID
+    hid_t memspace = 0;
+    hid_t newmemspace = 0;
+    hsize_t *datasetDims = NULL;                       // size of each dimension
+    hsize_t *datasetMaxSize = NULL;                    // maximum allowed size of each dimension in datasetDims
+    hsize_t *datasetChunkSize = NULL;
     
     herr_t status_n, status;
     
@@ -289,6 +290,13 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     
     int rank;
     short fail = 0;
+
+    /* Make sure that bound[1] is >= bound[0] */
+    if ( bound[1] < bound[0] )
+    {
+        FATAL_MSG("The bounds provided for MOPITT subsetting are invalid!\n\tThe right bound is less than the left bound.\n");
+        goto cleanupFail;
+    }
 
     // Get the corrected dataset name.
     outDatasetName = correct_name(outDatasetName);
@@ -371,38 +379,64 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 
     if ( bound )
     {
-        const hsize_t start[5] = { startIdx, 0, 0, 0, 0 }; // Define the starting point of the hyperslab
+        const hsize_t start[5] = { bound[0], 0, 0, 0, 0 }; // Define the starting point of the hyperslab
         const hsize_t count[5] = { 1, 1, 1, 1, 1 };        // Define how many blocks in each dimension to read (in our case, just 1)
         // Define the size of the block
-        const hsize_t block[5] = { endIdx - startIdx + 1, datasetDims[1], datasetDims[2], datasetDims[3], datasetDims[4] };
+        const hsize_t block[5] = { bound[1] - bound[0] + 1, datasetDims[1], datasetDims[2], datasetDims[3], datasetDims[4] };
         status_n = H5Sselect_hyperslab( dataspace, H5S_SELECT_SET, start, NULL, count, block );
         
         
-        datasetDims[0] = endIdx - startIdx + 1;
+        datasetDims[0] = bound[1] - bound[0] + 1;
+        data_out = malloc( sizeof(double) * datasetDims[0] * datasetDims[1] * datasetDims[2] *  datasetDims[3] * datasetDims[4]);
+        
+        /* create a memory space for reading the hyperslab */
+        memspace = H5Screate_simple(5, datasetDims, NULL);
+        if ( memspace < 0 )
+        {
+            FATAL_MSG("Failed to create memory space.\n");
+            goto cleanupFail;
+        }
+
+        status = H5Dread( dataset, dataType, memspace, dataspace, H5P_DEFAULT, data_out );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Unable to read dataset into output data buffer.\n");
+            goto cleanupFail;
+        }
     }
 
-    
-    /*
-     * Create a data_out buffer using the dimensions of the dataset specified by datasetDims
-     */
-    data_out = malloc( sizeof(double ) * datasetDims[0] * datasetDims[1] * datasetDims[2] *  datasetDims[3] * datasetDims[4]);
-    
-    /*
-     * Now read dataset into data_out buffer
-     */
-
-    status = H5Dread( dataset, dataType, dataspace, H5S_ALL, H5P_DEFAULT, data_out );
-    if ( status < 0 )
+    else
     {
-        FATAL_MSG("Unable to read dataset into output data buffer.\n");
-        goto cleanupFail;
-    }
-    
+        /*
+         * Create a data_out buffer using the dimensions of the dataset specified by datasetDims
+         */
+        data_out = malloc( sizeof(double ) * datasetDims[0] * datasetDims[1] * datasetDims[2] *  datasetDims[3] * datasetDims[4]);
+        
+        /*
+         * Now read dataset into data_out buffer
+         */
+
+        memspace = H5Screate_simple(5, datasetDims, NULL);
+        if ( memspace < 0 )
+        {
+            FATAL_MSG("Failed to create memory space.\n");
+            goto cleanupFail;
+        }
+        status = H5Dread( dataset, dataType, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Unable to read dataset into output data buffer.\n");
+            goto cleanupFail;
+        }
+   } 
     
     
     /* Free all memory associated with the input data */
     
-    H5Dclose(dataset); dataset = 0;
+    if ( H5Dclose(dataset) < 0 ) 
+        WARN_MSG("Failed to close dataset.\n");
+
+    dataset = 0;
     
     /*******************************************************************************************
      *Reading the dataset is now complete. We have freed all related memory for the input data *
@@ -425,20 +459,49 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     } 
      
     
-    dataset = H5Dcreate( *datasetGroup_ID, outDatasetName, dataType, dataspace, 
-                         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
-                         
-    H5Sclose(dataspace); dataspace = 0;
+    newmemspace = H5Screate_simple(5, datasetDims, NULL );   
+ 
     /* Now that dataset has been created, read into this data set our data_out array */
-    
-    status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, data_out );
-    if ( status < 0 )
+    if ( bound )
     {
-        FATAL_MSG("Unable to write to dataset.\n");
-        goto cleanupFail;
+        dataset = H5Dcreate( *datasetGroup_ID, outDatasetName, dataType, newmemspace, 
+                             H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+        if ( dataset < 0 )
+        {
+            FATAL_MSG("Failed to create dataset.\n");
+            dataset = 0;
+            goto cleanupFail;
+        }
+        status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Unable to write to dataset.\n");
+            goto cleanupFail;
+        }
     }
-    
+    else
+    {
+        
+        dataset = H5Dcreate( *datasetGroup_ID, outDatasetName, dataType, newmemspace, 
+                             H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+        if ( dataset < 0 )
+        {
+            FATAL_MSG("Failed to create dataset.\n");
+            dataset = 0;
+            goto cleanupFail;
+        }                     
+        status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_out );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Unable to write to dataset.\n");
+            goto cleanupFail;
+        }
+    }
       
+    if ( H5Sclose(dataspace) < 0 )
+        WARN_MSG("Failed to close dataspace\n");
+
+    dataspace = 0;
 
     if ( 0 )
     {
@@ -451,7 +514,9 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     {
         if ( dataset ) H5Dclose(dataset);
     }
-    if ( dataspace ) H5Sclose(dataspace);
+    if ( dataspace ) if ( H5Sclose(dataspace) < 0 ) WARN_MSG("Failed to close dataspace.\n");
+    if ( memspace ) H5Sclose(memspace);
+    if ( newmemspace ) H5Sclose(newmemspace);
     if ( datasetDims ) free(datasetDims);
     if ( datasetMaxSize ) free(datasetMaxSize);
     if ( datasetChunkSize ) free(datasetChunkSize);
@@ -3623,7 +3688,7 @@ herr_t TAItoUTCconvert ( double* buffer, unsigned int size )
     if ( TAI93toUTCoffset == NULL )
         status = initializeTimeOffset();
 
-    if ( status = EXIT_FAILURE )
+    if ( status == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to initialize TAI to UTC time offset.\n");
         return FAIL;
@@ -3662,7 +3727,7 @@ herr_t TAItoUTCconvert ( double* buffer, unsigned int size )
 }
 
 /*
-        H5allocateMem
+        H5allocateMemDouble
 
     DESCRIPTION:
         This function allocates enough memory to store the dataset give by datasetPath.
@@ -3671,7 +3736,6 @@ herr_t TAItoUTCconvert ( double* buffer, unsigned int size )
         IN
             hid_t inputFile   -- The HDF5 input group/file identifier
             char* datasetPath -- The path of the dataset relative to inputFile
-            hid_t dataType    -- The datatype of the dataset to be read
         OUT
             void** buffer     -- The buffer in which the data will be stored. Does not need to be pre-allocated.
             long int* size    -- Returns the number of elements in the allocated array. Can be set to NULL if don't care.
@@ -3687,7 +3751,7 @@ herr_t TAItoUTCconvert ( double* buffer, unsigned int size )
         EXIT_SUCCESS
 */
 
-herr_t H5allocateMem ( hid_t inputFile, char* datasetPath, hid_t dataType, void** buffer, long int* size )
+herr_t H5allocateMemDouble ( hid_t inputFile, const char* datasetPath, void** buffer, long int* size )
 {
     if ( datasetPath == NULL || buffer == NULL )
     {
@@ -3698,11 +3762,10 @@ herr_t H5allocateMem ( hid_t inputFile, char* datasetPath, hid_t dataType, void*
     hid_t dataspace = 0;
 
     herr_t statusn;
-
+    unsigned short fail = 0;
     hsize_t * datasetDims = NULL;
     int rank = 0;
 
-    unsigned short = 0;
 
     dataset = H5Dopen2( inputFile, datasetPath, H5F_ACC_RDONLY );
     if ( dataset < 0 )
@@ -3735,7 +3798,7 @@ herr_t H5allocateMem ( hid_t inputFile, char* datasetPath, hid_t dataType, void*
     }
 
     for ( int i = 0; i < DIM_MAX; i++ )
-        datasetDims[i] = 1;
+        datasetDims[i] = 0;
 
     statusn = H5Sget_simple_extent_dims(dataspace, datasetDims, NULL);
     if ( statusn < 0 )
@@ -3749,7 +3812,7 @@ herr_t H5allocateMem ( hid_t inputFile, char* datasetPath, hid_t dataType, void*
     for ( int i = 0; i < DIM_MAX; i++ )
         numElems += datasetDims[i];
 
-    *buffer = malloc( sizeof(dataType) * numElems );
+    *buffer = malloc( sizeof(double) * numElems );
 
     if ( size ) *size = numElems;
 
@@ -3772,7 +3835,7 @@ herr_t H5allocateMem ( hid_t inputFile, char* datasetPath, hid_t dataType, void*
 
     DESCRIPTION:
         This function takes as input the GDateInfo_t struct (as defined in libTERRA.h) which contains date information,
-        and returns the corresponding TAI93 (defined as TAI = UTC on Jan 1 1993 00:00:00) timestamp.
+        and returns the corresponding TAI93 (defined as TAI = 0 on Jan 1 1993 00:00:00) timestamp.
 
         This function will need to be periodically updated if being used after the year 2035 to contain more running-total
         leap year information (as shown in the if-else tree).
@@ -3791,7 +3854,9 @@ herr_t H5allocateMem ( hid_t inputFile, char* datasetPath, hid_t dataType, void*
         EXIT_SUCCESS
 
 */
-
+/* TODO
+        This function is not correct. Need to initially set TAI93 equal to UTC, then add based on existant criteria
+*/
 herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 {
     if ( date.year < 1993 )
@@ -3807,31 +3872,32 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     double TAI93 = 0.0;
     
-    TAI93 += (date.year - 1) * 31556952.0;         // How many full years, multiplied by number of seconds in a year
+    TAI93 += ( date.year-1993 ) * 31556952.0;         // How many full years since 1993, multiplied by number of seconds in a year
     
     // Find how many leap years since 1993
+    /* Note that the current year is not considered in this else if tree whether or not it is a leap year. That is handled downstream */
     unsigned short numLeapYears = 0;
     if ( date.year >= 1993 && date.year <= 1995 )
         numLeapYears = 0;
-    else if ( date.year >= 1996 && date.year <= 1999 )
+    else if ( date.year >= 1996 && date.year <= 2000 )
         numLeapYears = 1;
-    else if ( date.year >= 2000 && date.year <= 2003 )
+    else if ( date.year >= 2001 && date.year <= 2004 )
         numLeapYears = 2;
-    else if ( date.year >= 2004 && date.year <= 2007 )
+    else if ( date.year >= 2005 && date.year <= 2008 )
         numLeapYears = 3;
-    else if ( date.year >= 2008 && date.year <= 2011 )
+    else if ( date.year >= 2009 && date.year <= 2012 )
         numLeapYears = 4;
-    else if ( date.year >= 2012 && date.year <= 2015 )
+    else if ( date.year >= 2013 && date.year <= 2016 )
         numLeapYears = 5;
-    else if ( date.year >= 2016 && date.year <= 2019 )
+    else if ( date.year >= 2017 && date.year <= 2020 )
         numLeapYears = 6;
-    else if ( date.year >= 2020 && date.year <= 2023 )
+    else if ( date.year >= 2021 && date.year <= 2024 )
         numLeapYears = 7;
-    else if ( date.year >= 2024 && date.year <= 2027 )
+    else if ( date.year >= 2025 && date.year <= 2028 )
         numLeapYears = 8;
-    else if ( date.year >= 2028 && date.year <= 2031 )
+    else if ( date.year >= 2029 && date.year <= 2032 )
         numLeapYears = 9;
-    else if ( date.year >= 2032 && date.year <= 2035 )
+    else if ( date.year >= 2033 && date.year <= 2036 )
         numLeapYears = 10;
     else
     {
@@ -3839,7 +3905,9 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
         return EXIT_FAILURE;
     }
 
-    TAI93 += (double)(numLeapYears * 86400);        // Account for additional days during leap years
+    printf("Adding %u leap days.\n", numLeapYears);
+
+    //TAI93 += (double)(numLeapYears * 86400);        // Account for additional days during leap years
 
     unsigned short isLeapYear = 0;
     // Find if the current year is a leap year
@@ -3864,26 +3932,70 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     const unsigned short month = (unsigned short) date.month;
 
-    if ( month == 0 )              // Current month is Jan
-        TAI93 += 0.0;
-    else if ( month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 )          
-        // Current month is Feb, April, June, Aug, Sept, Nov (months whose previous month had 31 days)
-        TAI93 += 2592000.0
-    else if ( month == 1 )          // Current month is March (previous month is Feb which may or may not have leap day)
-    {
-        if ( isLeapYear )
-            TAI93 += 2505600.0;
-        else
-            TAI93 += 2419200.0;
+    switch ( month ){
+        case 1:              // Current month is Jan
+            printf("Jan\n");
+            TAI93 += 0.0;
+            break;
+        case 2:              // Feb
+            printf("Feb\n");          
+            TAI93 += 2678400.0;
+            break;
+        case 3:             // Current month is March (previous month is Feb which may or may not have leap day)
+            TAI93 += 5097600.0;
+            printf("March\n");
+            break;
+        case 4:             // April
+            TAI93 += 7776000.0;
+            printf("Apr\n");
+            break;
+        case 5:             // May
+            TAI93 += 10368000.0;
+            printf("May\n");
+            break;
+        case 6:             // June
+            TAI93 += 13046400.0;
+            printf("June\n");
+            break;
+        case 7:             // July
+            TAI93 += 15638400.0;
+            printf("July\n");
+            break;
+        case 8:             // Aug
+            TAI93 += 18316800.0;
+            printf("Aug\n");
+            break;
+        case 9:             // Sept
+            TAI93 += 20995200.0;
+            printf("Sept\n");
+            break;
+        case 10:            // Oct
+            TAI93 += 23587200.0;
+            printf("Oct\n");
+            break;
+        case 11:            // Nov
+            TAI93 += 26265600.0;
+            printf("Nov\n");
+            break;
+        case 12:            // Dec
+            TAI93 += 28857600.0;
+            printf("Dec\n");
+            break;
+        default:
+            FATAL_MSG("Problem occurred trying to convert date to TAI93 time.\n");
+            return EXIT_FAILURE;
     }
-    else if ( month == 4 || month == 6 || month == 9 || month == 11 )    
-    {        
-        // Current month is May, July, October, December (months whose previous month had 30 days)
-        TAI93 += 2592000.0;
+
+    // Add extra day if leap year and month is March or after
+    if ( isLeapYear && month >= 3){
+        printf("Adding extra leap day.\n");
+        TAI93 += 86400.0;
     }
 
     // Account for the number of FULL days that have passed in this month
     const short days = (short) date.day - 1;        // day is 1-indexed
+    printf("%d full days have passed.\n", days);
+    #if 0
     if ( days >= 0 && days <= 31 )
         TAI93 += days * 86400.0;          // Number of full days passed multiplied by number of seconds in a day
     else
@@ -3891,10 +4003,12 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
         FATAL_MSG("Failed to account for the number of days passed in the current month.\n");
         return EXIT_FAILURE;
     }
+    #endif
 
     // Account for the number of FULL hours that have passed in this day
 
     const short hours = (short) date.hour;          // hour is 0-indexed
+    printf("%d full hours have passed.\n", hours);
     if ( hours >= 0 && hours <= 23 )
         TAI93 += hours * 3600.0;        // Number of full hours passed multiplied by number of seconds in an hour
     else
@@ -3905,6 +4019,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     // Account for the number of FULL minutes that have passed in this hour
     const short minutes = (short) date.minute;      // Minutes are 0-indexed
+    printf("%d full minutes have passed.\n", minutes);
     if ( minutes >= 0 && minutes <= 60 )            // From 0 to 60 because leap seconds may make minute indicator show 60
         TAI93 += minutes * 60.0;
     else
@@ -3914,8 +4029,11 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     }
 
     // Finally, increment the seconds
+    printf("Adding %lf seconds\n", date.second);
     TAI93 += date.second;
-    
+   
+    TAI93 += 100000.0;
+ 
     *TAI93timestamp = TAI93;
     
     return EXIT_SUCCESS;
@@ -3956,7 +4074,6 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, lo
     while ( left <= right )
     {
         middle = (left + right)/2;
-        printf("Middle: %d\n", middle);
         if ( array[middle] < target )
         {
             left = middle+1;
@@ -3966,7 +4083,6 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, lo
              */
 
             if ( left > right ){
-                printf("middle++\n");
                 while ( middle+1 < size && array[middle] < target )
                     middle++;
             }
@@ -3982,8 +4098,7 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, lo
              */
 
             if ( left > right ){
-                printf("middle--\n");
-                while ( middle-1 >= 0 && array[middle] > target )
+                while ( middle-1 >= 0 && array[middle-1] > target )
                     middle--;
             }
             continue;
@@ -3996,7 +4111,7 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, lo
     /* Final error check to make sure that array[middle] either equals target or is greater than target */
     if ( middle < 0 || middle >= size || (array[middle] < target && middle != size-1))
     {
-        FATAL_MSG("Binary search produced an invalid result. Debug information:\n\ttargetIndex = %d\n\tarray[targetIndex] = %lf\n\tsize = %u\n", middle, array[middle], size);
+        FATAL_MSG("Binary search produced an invalid result. Debug information:\n\ttargetIndex = %ld\n\tsize = %u\n", middle, (unsigned int) size);
         return -1;
     }
 
@@ -4011,7 +4126,7 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, lo
     DESCRIPTION:
         This function takes as input the starting and ending times of the orbit (given as OInfo_t struct), the input hid_t
         HDF5 file/group identifier, the path to the time dataset (relative to inputFile), and gives the starting and ending
-        indices for MOPITT subsetting. The time dataset MUST be a 1 dimensional HDF5 dataset containing the MOPITT pixel times.
+        
 
     ARGUMENTS:
         IN
@@ -4038,21 +4153,61 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     double* timeData = NULL;
     long int numElems = 0;
     herr_t status = 0;
-
-    status = H5allocateMem ( inputFile, timePath, H5T_NATIVE_DOUBLE, (void**) &timeData, &numElems );
+    hid_t dataset = 0;
+    hid_t dataspace = 0;
+    hid_t groupID = 0;
+    #if 1
+    status = H5allocateMemDouble ( inputFile, timePath, (void**) &timeData, &numElems );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to allocate memory.\n");
-        buffer = NULL;
+        timeData = NULL;
         goto cleanupFail;
     }
+    #endif
 
-    status = H5LTread_dataset_double( file, timePath, buffer);
+
+    #if 0
+    hid_t groupID = H5Gopen2(inputFile, "HDFEOS/SWATHS/MOP01/Geolocation Fields", H5P_DEFAULT);
+    if ( groupID < 0 )
+    {
+        FATAL_MSG("Failed to open group.\n");
+        groupID = 0;
+        goto cleanupFail;
+    }
+    #endif
+    #if 1
+    status = H5LTread_dataset_double( inputFile, timePath, timeData);
     if ( status < 0 )
     {
         FATAL_MSG("Failed to read dataset.\n");
         goto cleanupFail;
     }
+    #endif
+
+    #if 0    
+    //TODO
+    hid_t dataset = H5Dopen2( inputFile, timePath, H5F_ACC_RDONLY );
+    if ( dataset < 0 )
+    {
+        FATAL_MSG("Failed to open dataset.\n");
+        goto cleanupFail;
+    }
+
+    hid_t dataspace = H5Dget_space( dataset );
+    if ( dataspace < 0 )
+    {
+        FATAL_MSG("Failed to get dataspace.\n");
+        goto cleanupFail;
+    }
+
+    status = H5Dread( dataset, H5T_NATIVE_FLOAT, dataspace, H5S_ALL, H5P_DEFAULT, timeData);
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to read dataset.\n");
+        goto cleanupFail;
+    }
+    #endif
 
     /* We now need to convert the orbit info given by current_orbit_info into TAI93 start time and TAI93 end time.
        This way, we will know exactly which elements in timeData will be selected for the start and end pointers.
@@ -4067,7 +4222,9 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     time.day = cur_orbit_info.start_day;
     time.hour = cur_orbit_info.start_hour;
     time.minute = cur_orbit_info.start_minute;
+    time.second = (double) cur_orbit_info.start_second;
 
+    printf("\nstartYear = %u\nstartMonth = %u\nstartDay = %u\nstartHour = %u\nstartMinute = %u\nstartSecond = %lf\n", time.year, (unsigned short) time.month, (unsigned short) time.day, (unsigned short) time.hour, (unsigned short) time.minute, time.second);
     status = getTAI93 ( time, &startTAI93 );
     if ( status == EXIT_FAILURE )
     {
@@ -4080,6 +4237,9 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     time.day = cur_orbit_info.end_day;
     time.hour = cur_orbit_info.end_hour;
     time.minute = cur_orbit_info.end_minute;
+    time.second = (double) cur_orbit_info.end_second;
+
+     printf("\nendYear = %u\nendMonth = %u\nendDay = %u\nendHour = %u\nendMinute = %u\nendSecond = %lf\n", time.year, (unsigned short) time.month, (unsigned short) time.day, (unsigned short) time.hour, (unsigned short) time.minute, time.second);
 
     status = getTAI93 ( time, &endTAI93 );
     if ( status == EXIT_FAILURE )
@@ -4091,6 +4251,7 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     /* Perform a binary search on the timeData array to find the start and end indices */
     long int startIdx, endIdx;
 
+    printf("startTAI93: %lf endTAI93: %lf\n", startTAI93, endTAI93);
     status = binarySearchDouble ( timeData, startTAI93, (hsize_t) numElems, &startIdx );
     if ( status == -1 )
     {
@@ -4113,9 +4274,10 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
         fail = 1;
     }
 
-    if(inputFile) H5Fclose(inputFile);
     if(timeData) free(timeData);
-
+    if (dataset) H5Dclose(dataset);
+    if (dataspace) H5Sclose(dataspace);
+    if ( groupID ) H5Gclose(groupID);
     if ( fail )
         return EXIT_FAILURE;
 
