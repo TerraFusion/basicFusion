@@ -119,7 +119,6 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     bound[0] = startIdx;
     bound[1] = endIdx;
 
-    printf("Start: %u End:%u\n", bound[0], bound[1] );
                             /********************
                              * RADIANCE DATASET *
                              ********************/

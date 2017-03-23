@@ -389,7 +389,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
         datasetDims[0] = bound[1] - bound[0] + 1;
         data_out = malloc( sizeof(double) * datasetDims[0] * datasetDims[1] * datasetDims[2] *  datasetDims[3] * datasetDims[4]);
         
-        /* create a memory space for reading the hyperslab */
+
         memspace = H5Screate_simple(5, datasetDims, NULL);
         if ( memspace < 0 )
         {
@@ -459,7 +459,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     } 
      
     
-    newmemspace = H5Screate_simple(5, datasetDims, NULL );   
+    newmemspace = H5Screate_simple(rank, datasetDims, NULL );   
  
     /* Now that dataset has been created, read into this data set our data_out array */
     if ( bound )
@@ -822,7 +822,6 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *retRank, 
     int32 start[DIM_MAX] = {0};
     int32 stride[DIM_MAX] = {0};
     
-//printf("datasetName is %s\n",datasetName);
     /* get the index of the dataset from the dataset's name */
     sds_index = SDnametoindex( fileID, datasetName );
     if( sds_index < 0 )
@@ -3903,7 +3902,6 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
         return EXIT_FAILURE;
     }
 
-    printf("Adding %u leap days.\n", numLeapYears);
 
     TAI93 += (double)(numLeapYears * 86400);        // Account for additional days during leap years
 
@@ -3932,52 +3930,40 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     switch ( month ){
         case 1:              // Current month is Jan
-            printf("Jan\n");
             TAI93 += 0.0;
             break;
         case 2:              // Feb
-            printf("Feb\n");          
             TAI93 += (double) (31 * 86400);
             break;
         case 3:             // Current month is March (previous month is Feb which may or may not have leap day)
             TAI93 += (double)((31+28)*86400);
-            printf("March\n");
             break;
         case 4:             // April
             TAI93 += (double) ((31+28+31)*86400);
-            printf("Apr\n");
             break;
         case 5:             // May
             TAI93 += (double) ((31+28+31+30)*86400);
-            printf("May\n");
             break;
         case 6:             // June
             TAI93 += (double) ((31+28+31+30+31)*86400);
-            printf("June\n");
             break;
         case 7:             // July
             TAI93 += (double) ((31+28+31+30+31+30)*86400);
-            printf("July\n");
             break;
         case 8:             // Aug
             TAI93 += (double) ((31+28+31+30+31+30+31)*86400);
-            printf("Aug\n");
             break;
         case 9:             // Sept
             TAI93 += (double) ((31+28+31+30+31+30+31+31)*86400);
-            printf("Sept\n");
             break;
         case 10:            // Oct
             TAI93 += (double) ((31+28+31+30+31+30+31+31+30)*86400);
-            printf("Oct\n");
             break;
         case 11:            // Nov
             TAI93 += (double) ((31+28+31+30+31+30+31+31+30+31)*86400);
-            printf("Nov\n");
             break;
         case 12:            // Dec
             TAI93 += (double) ((31+28+31+30+31+30+31+31+30+31+30)*86400);
-            printf("Dec\n");
             break;
         default:
             FATAL_MSG("Problem occurred trying to convert date to TAI93 time.\n");
@@ -3986,14 +3972,11 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     // Add extra day if leap year and month is March or after
     if ( isLeapYear && month >= 3){
-        printf("Adding extra leap day.\n");
         TAI93 += 86400.0;
     }
 
     // Account for the number of FULL days that have passed in this month
     const short days = (short) date.day - 1;        // day is 1-indexed
-    printf("%d full days have passed.\n", days);
-    #if 1
     if ( days > 0 && days <= 31 )
         TAI93 += (double) ((days) * 86400);          // Number of full days passed multiplied by number of seconds in a day
     else
@@ -4001,12 +3984,10 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
         FATAL_MSG("Failed to account for the number of days passed in the current month.\n");
         return EXIT_FAILURE;
     }
-    #endif
 
     // Account for the number of FULL hours that have passed in this day
 
     const short hours = (short) date.hour;          // hour is 0-indexed
-    printf("%d full hours have passed.\n", hours);
     if ( hours >= 0 && hours <= 23 )
         TAI93 += (double)(hours * 3600);        // Number of full hours passed multiplied by number of seconds in an hour
     else
@@ -4017,7 +3998,6 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     // Account for the number of FULL minutes that have passed in this hour
     const short minutes = (short) date.minute;      // Minutes are 0-indexed
-    printf("%d full minutes have passed.\n", minutes);
     if ( minutes >= 0 && minutes <= 60 )            // From 0 to 60 because leap seconds may make minute indicator show 60
         TAI93 += (double)(minutes * 60);
     else
@@ -4027,10 +4007,8 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     }
 
     // Finally, increment the seconds
-    printf("Adding %lf seconds\n", date.second);
     TAI93 += date.second;
    
-    //TAI93 += 100000.0;
  
     *TAI93timestamp = TAI93;
     
@@ -4154,7 +4132,7 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     hid_t dataset = 0;
     hid_t dataspace = 0;
     hid_t groupID = 0;
-    #if 1
+    
     status = H5allocateMemDouble ( inputFile, timePath, (void**) &timeData, &numElems );
     if ( status == FAIL )
     {
@@ -4162,50 +4140,14 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
         timeData = NULL;
         goto cleanupFail;
     }
-    #endif
 
 
-    #if 0
-    hid_t groupID = H5Gopen2(inputFile, "HDFEOS/SWATHS/MOP01/Geolocation Fields", H5P_DEFAULT);
-    if ( groupID < 0 )
-    {
-        FATAL_MSG("Failed to open group.\n");
-        groupID = 0;
-        goto cleanupFail;
-    }
-    #endif
-    #if 1
     status = H5LTread_dataset_double( inputFile, timePath, timeData);
     if ( status < 0 )
     {
         FATAL_MSG("Failed to read dataset.\n");
         goto cleanupFail;
     }
-    #endif
-
-    #if 0    
-    //TODO
-    hid_t dataset = H5Dopen2( inputFile, timePath, H5F_ACC_RDONLY );
-    if ( dataset < 0 )
-    {
-        FATAL_MSG("Failed to open dataset.\n");
-        goto cleanupFail;
-    }
-
-    hid_t dataspace = H5Dget_space( dataset );
-    if ( dataspace < 0 )
-    {
-        FATAL_MSG("Failed to get dataspace.\n");
-        goto cleanupFail;
-    }
-
-    status = H5Dread( dataset, H5T_NATIVE_FLOAT, dataspace, H5S_ALL, H5P_DEFAULT, timeData);
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to read dataset.\n");
-        goto cleanupFail;
-    }
-    #endif
 
     /* We now need to convert the orbit info given by current_orbit_info into TAI93 start time and TAI93 end time.
        This way, we will know exactly which elements in timeData will be selected for the start and end pointers.
@@ -4222,7 +4164,6 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     time.minute = cur_orbit_info.start_minute;
     time.second = (double) cur_orbit_info.start_second;
 
-    printf("\nstartYear = %u\nstartMonth = %u\nstartDay = %u\nstartHour = %u\nstartMinute = %u\nstartSecond = %lf\n", time.year, (unsigned short) time.month, (unsigned short) time.day, (unsigned short) time.hour, (unsigned short) time.minute, time.second);
     status = getTAI93 ( time, &startTAI93 );
     if ( status == EXIT_FAILURE )
     {
@@ -4237,7 +4178,6 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     time.minute = cur_orbit_info.end_minute;
     time.second = (double) cur_orbit_info.end_second;
 
-     printf("\nendYear = %u\nendMonth = %u\nendDay = %u\nendHour = %u\nendMinute = %u\nendSecond = %lf\n", time.year, (unsigned short) time.month, (unsigned short) time.day, (unsigned short) time.hour, (unsigned short) time.minute, time.second);
 
     status = getTAI93 ( time, &endTAI93 );
     if ( status == EXIT_FAILURE )
@@ -4249,7 +4189,6 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     /* Perform a binary search on the timeData array to find the start and end indices */
     long int startIdx, endIdx;
 
-    printf("startTAI93: %lf endTAI93: %lf\n", startTAI93, endTAI93);
     status = binarySearchDouble ( timeData, startTAI93, (hsize_t) numElems, &startIdx );
     if ( status == -1 )
     {
@@ -4263,6 +4202,11 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
         goto cleanupFail;
     }
 
+    if ( startIdx == endIdx )
+    {
+        WARN_MSG("The start and end indices for MOPITT subsetting are equal. This probably isn't correct.\n");
+    }
+
     *start_indx_ptr = startIdx;
     *end_indx_ptr = endIdx;
 
@@ -4271,6 +4215,19 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
         cleanupFail:
         fail = 1;
     }
+
+    #if DEBUG
+
+    printf("\nstartYear = %u\nstartMonth = %u\nstartDay = %u\nstartHour = %u\nstartMinute = %u\nstartSecond = %lf\n", time.year, (unsigned short) time.month, (unsigned short) time.day, (unsigned short) time.hour, (unsigned short) time.minute, time.second);
+     printf("\nendYear = %u\nendMonth = %u\nendDay = %u\nendHour = %u\nendMinute = %u\nendSecond = %lf\n", time.year, (unsigned short) time.month, (unsigned short) time.day, (unsigned short) time.hour, (unsigned short) time.minute, time.second);
+    printf("startTAI93: %lf endTAI93: %lf\n", startTAI93, endTAI93);
+    
+
+    #endif
+
+
+
+
 
     if(timeData) free(timeData);
     if (dataset) H5Dclose(dataset);
