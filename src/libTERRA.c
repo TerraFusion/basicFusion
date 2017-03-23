@@ -3574,7 +3574,7 @@ hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimS
         DOES NOT ACCOUNT FOR FUTURE OFFSETS. This implies that this function must be periodically updated to contain the new
         offset information.
 
-        TAI93 time is defined to be exactly equal to UTC time on Jan 1, 1993 00:00:00.
+        TAI93 time is defined to be equal to 0 on Jan 1, 1993 00:00:00.
         
         Directions to update this function:
             To add additional offsets to the TAI93toUTCoffset, one needs to inquire the exact dates the offsets were added.
