@@ -218,7 +218,7 @@ int main( int argc, char* argv[] )
      * CERES *
      *********/
     /* Get the CERES  */
-#if 0
+#if 1
     status = getNextLine( string, inputFile);
     if ( status == EXIT_FAILURE )
     {
@@ -666,7 +666,6 @@ printf("string is %s\n",string);
     if ( outputFile ) H5Fclose(outputFile);
     if ( inputFile ) fclose(inputFile);
     if ( MOPITTargs[1] ) free(MOPITTargs[1]);
-    //if ( CERESargs[1] ) free(CERESargs[1]);
     if ( MODISargs[1] ) free(MODISargs[1]);
     if (  MODISargs[2] ) free( MODISargs[2]);
     if ( MODISargs[3] ) free ( MODISargs[3] );
@@ -675,7 +674,6 @@ printf("string is %s\n",string);
     if ( ASTERargs[1] ) free ( ASTERargs[1] );
     if ( ASTERargs[2] ) free ( ASTERargs[2] );
     for ( int j = 1; j <= 12; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
-
     if ( fail ) return -1;
     
     return 0;

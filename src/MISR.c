@@ -203,7 +203,7 @@ int MISR( char* argv[],int unpack )
             else {
                 //correctedName = correct_name(radiance_name[j]);
 
-                h5DataFieldID =  readThenWrite( h5DataGroupID, radiance_name[j], DFNT_UINT16,
+                h5DataFieldID =  readThenWrite( NULL, h5DataGroupID, radiance_name[j], DFNT_UINT16,
                                                 H5T_NATIVE_USHORT,h4FileID);
                 if ( h5DataFieldID == EXIT_FAILURE )
                 {
@@ -250,7 +250,7 @@ int MISR( char* argv[],int unpack )
 
         /* Inserting the "AaAzimuth", "AaGlitter", "AaScatter"... etc. */
         for (int j = 0; j<4;j++) {
-            h5SensorGeomFieldID = readThenWrite(h5SensorGeomGroupID,band_geom_name[i*4+j],DFNT_FLOAT64,
+            h5SensorGeomFieldID = readThenWrite( NULL,h5SensorGeomGroupID,band_geom_name[i*4+j],DFNT_FLOAT64,
                                                 H5T_NATIVE_DOUBLE,gmpFileID);
             if ( h5SensorGeomFieldID == EXIT_FAILURE )
             {   
@@ -306,7 +306,7 @@ int MISR( char* argv[],int unpack )
     }
 
 
-    latitudeID  = readThenWrite(geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
+    latitudeID  = readThenWrite( NULL,geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
     if ( latitudeID == EXIT_FAILURE )
     {
         FATAL_MSG("MISR readThenWrite function failed (latitude dataset).\n");
@@ -333,7 +333,7 @@ int MISR( char* argv[],int unpack )
 
     free(correctedName); correctedName = NULL;
 
-    longitudeID = readThenWrite(geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
+    longitudeID = readThenWrite( NULL,geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
     if ( longitudeID == EXIT_FAILURE )
     {
         FATAL_MSG("MISR readThenWrite function failed (longitude dataset).\n");
@@ -369,7 +369,7 @@ int MISR( char* argv[],int unpack )
     }
 
 
-    hr_latitudeID  = readThenWrite(hr_geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
+    hr_latitudeID  = readThenWrite( NULL,hr_geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
     if ( hr_latitudeID == EXIT_FAILURE )
     {
         FATAL_MSG("MISR readThenWrite function failed (latitude dataset).\n");
@@ -396,7 +396,7 @@ int MISR( char* argv[],int unpack )
 
     free(correctedName); correctedName = NULL;
 
-    hr_longitudeID = readThenWrite(hr_geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
+    hr_longitudeID = readThenWrite( NULL,hr_geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
     if ( hr_longitudeID == EXIT_FAILURE )
     {
         FATAL_MSG("MISR readThenWrite function failed (longitude dataset).\n");
@@ -431,7 +431,7 @@ int MISR( char* argv[],int unpack )
     }
 
 
-    solarAzimuthID = readThenWrite(gmpSolarGeoGroupID,solar_geom_name[0],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
+    solarAzimuthID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[0],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
     if ( solarAzimuthID == EXIT_FAILURE )
     {
         FATAL_MSG("MISR readThenWrite function failed (solarAzimuth dataset).\n");
@@ -466,7 +466,7 @@ int MISR( char* argv[],int unpack )
 
     free(correctedName); correctedName = NULL;
 
-    solarZenithID = readThenWrite(gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
+    solarZenithID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
     if ( solarZenithID == EXIT_FAILURE )
     {
         FATAL_MSG("MISR readThenWrite function failed (solarZenith dataset).\n");

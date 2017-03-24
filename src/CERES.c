@@ -96,6 +96,360 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
 }
 int CERES( char* argv[],int index )
 {
+
+    #define NUM_TIME 3
+    #define NUM_VIEWING 4
+    #define NUM_FILT 4
+    #define NUM_UNFILT 3
+
+    /*************
+     * VARIABLES *
+     *************/
+    int32 fileID = 0;
+    int32 h4Type;
+    hid_t h5Type;
+    hid_t rootID_g = 0;
+    hid_t granuleID_g = 0;
+    hid_t radianceID_g = 0;
+    hid_t geolocationID_g = 0;
+    hid_t viewingAngleID_g = 0;
+    hid_t generalDsetID_d = 0;
+
+    herr_t status = 0;
+
+    char* fileTime = NULL;
+    char* correctName = NULL;
+    short fail = 0;
+
+    char* inTimePosName[NUM_TIME] = {"Time of observation", "Colatitude of CERES FOV at surface", 
+                                     "Longitude of CERES FOV at surface" };
+    char* outTimePosName[NUM_TIME] = {"Time of observation", "Latitude", "Longitude" };
+
+    char* inViewingAngles[NUM_VIEWING] = {
+            "CERES viewing zenith at surface", "CERES solar zenith at surface", "CERES relative azimuth at surface",
+            "CERES viewing azimuth at surface wrt North" };
+    char* outViewingAngles[NUM_VIEWING] = {"Viewing Zenith", "Solar Zenith", "Relative Azimuth", "Viewing Azimuth" };
+
+    char* inFilteredRadiance[NUM_FILT] = { 
+            "CERES TOT filtered radiance - upwards", "CERES SW filtered radiance - upwards",
+            "CERES WN filtered radiance - upwards", "Radiance and Mode flags" };
+    char* outFilteredRadiance[NUM_FILT] = {
+            "TOT Filtered Radiance", "SW Filtered Radiance", "WN Filtered Radiance", "Radiance Mode Flags" };
+
+    char* inUnfilteredRadiance[NUM_UNFILT] = {
+            "CERES SW radiance - upwards", "CERES LW radiance - upwards", "CERES WN radiance - upwards" };
+    char* outUnfilteredRadiance[NUM_UNFILT] = {
+            "SW Radiance", "LW Radiance", "WN Radiance"
+            };
+
+    /* open the input file */
+    fileID = SDstart( argv[1], DFACC_READ );
+    if ( fileID < 0 )
+    {
+        FATAL_MSG("Unable to open CERES file.\n");
+        return (EXIT_FAILURE);
+    }
+
+    /* outputfile already exists (created by main). Create the group directories */
+    //create root CERES group
+    if ( index == 1 ){
+        if ( createGroup( &outputFile, &rootID_g, "CERES" ) )
+        {
+            FATAL_MSG("Failed to create CERES root group.\n");
+            rootID_g = 0;
+            goto cleanupFail;
+        }
+
+
+        if(H5LTset_attribute_string(outputFile,"CERES","FilePath",argv[1])<0) {
+            FATAL_MSG("Failed to add CERES time stamp.\n");
+            goto cleanupFail;
+        }
+
+        fileTime = getTime( argv[1], 1 );
+
+        if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",fileTime)<0) {
+            FATAL_MSG("Failed to add CERES time stamp.\n");
+            goto cleanupFail;
+        }
+        free(fileTime); fileTime = NULL;
+
+        if ( createGroup( &rootID_g , &granuleID_g, "FM1" ) )
+        {
+            FATAL_MSG("CERES create granule group failure.\n");
+            granuleID_g = 0;
+            goto cleanupFail;
+        }
+    }   
+    else if(index == 2) {
+        rootID_g = H5Gopen2( outputFile, "CERES", H5P_DEFAULT );
+        if ( rootID_g < 0 )
+        {
+            FATAL_MSG("Unable to open CERES root group.\n");
+            rootID_g = 0;
+            goto cleanupFail;
+        }
+        if ( createGroup( &rootID_g , &granuleID_g, "FM2" ) )
+        {
+            FATAL_MSG("CERES create granule group failure.\n");
+            goto cleanupFail;
+        }
+    }   
+
+    else {
+        FATAL_MSG("The CERES granule index should be either 1 or 2.\n");
+        goto cleanupFail;
+    }  
+
+
+    // create the data fields group
+    if ( createGroup ( &granuleID_g, &radianceID_g, "Radiances" ) )
+    {
+        FATAL_MSG("CERES create data fields group failure.\n");
+        radianceID_g = 0;
+        goto cleanupFail;
+    }
+    
+    // create geolocation fields
+    if ( createGroup( &granuleID_g, &geolocationID_g, "Time_and_Position" ) )
+    {
+        FATAL_MSG("Failed to create CERES geolocation group.\n");
+        geolocationID_g = 0;
+        goto cleanupFail;
+    }
+
+    // create Viewing angle fields
+    if ( createGroup( &granuleID_g, &viewingAngleID_g, "Viewing_Angles" ) )
+    {
+        FATAL_MSG("Failed to create CERES ViewingAngle group.\n");
+        viewingAngleID_g = 0;
+        goto cleanupFail;
+    }
+
+    /************************
+     * Time and Position *
+     ************************/
+    int i;
+
+    for ( i = 0; i < NUM_TIME; i++ )
+    {
+        
+        switch ( i ){
+            case 0:
+                h4Type = DFNT_FLOAT64;
+                h5Type = H5T_NATIVE_DOUBLE;
+                break;
+            case 1:
+                h4Type = DFNT_FLOAT32;
+                h5Type = H5T_NATIVE_FLOAT;
+                break;
+            case 2:
+                h4Type = DFNT_FLOAT32;
+                h5Type = H5T_NATIVE_FLOAT;
+                break;
+            default:
+                FATAL_MSG("Failed to set the appropriate HDF4 and HDF5 types.\n");
+                goto cleanupFail;
+        }
+
+        generalDsetID_d = readThenWrite( outTimePosName[i], geolocationID_g, inTimePosName[i], h4Type, h5Type,
+                                fileID );
+
+
+        if ( generalDsetID_d == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to insert CERES %s dataset.\n", inTimePosName[i]);
+            generalDsetID_d = 0;
+            goto cleanupFail;
+        }
+        // copy the dimension scales
+
+        /* NOTE
+         * The dataset name in output HDF5 file is not the same as dataset name in input HDF4 file. Name is passed
+         * according to the correct_name function.
+         */
+        status = copyDimension( fileID, inTimePosName[i], outputFile, generalDsetID_d );
+        if ( status == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions for %s.\n", inTimePosName[i]);
+            goto cleanupFail;
+        }
+
+        H5Dclose(generalDsetID_d); generalDsetID_d = 0;
+
+    }
+
+    /******************
+     * VIEWING ANGLES *
+     ******************/
+
+    for ( i = 0; i < NUM_VIEWING; i++ )
+    {
+        h4Type = DFNT_FLOAT32;
+        h5Type = H5T_NATIVE_FLOAT;
+
+        generalDsetID_d = readThenWrite( outViewingAngles[i], viewingAngleID_g, inViewingAngles[i], h4Type, h5Type, fileID );
+        if ( generalDsetID_d == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to insert \"%s\" dataset.\n", inViewingAngles[i]);
+            generalDsetID_d = 0;
+            goto cleanupFail;
+        }
+
+        status = copyDimension( fileID, inViewingAngles[i], outputFile, generalDsetID_d );
+        if ( status == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions for %s.\n", inViewingAngles[i] );
+            goto cleanupFail;
+        }
+
+        H5Dclose(generalDsetID_d); generalDsetID_d = 0;
+    }
+
+
+    /**********************
+     * FILTERED RADIANCES *
+     **********************/
+
+    for ( i = 0; i < NUM_FILT; i++ )
+    {
+        if ( i >=0 && i <=2 )
+        {
+            h4Type = DFNT_FLOAT32;
+            h5Type = H5T_NATIVE_FLOAT;
+        }
+        else if ( i == 3 )
+        {
+            h4Type = DFNT_INT32;
+            h5Type = H5T_NATIVE_INT;
+        }
+
+        generalDsetID_d = readThenWrite( outFilteredRadiance[i], radianceID_g, inFilteredRadiance[i], h4Type, h5Type, fileID );
+        if ( generalDsetID_d == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to insert \"%s\" dataset.\n", inFilteredRadiance[i]);
+            generalDsetID_d = 0;
+            goto cleanupFail;
+        }
+
+        // Insert attributes to one of the radiance fields
+        if ( i == 0 )
+        {
+            correctName = correct_name(outFilteredRadiance[i]);
+
+            int radiance_flags_fvalue = 2147483647;
+            int radiance_flags_valid_range[2] = { 0, 2147483647 };
+            if(H5LTset_attribute_string(radianceID_g,correctName,"units","W m-2 μm-1 sr-1")<0) {
+                FATAL_MSG("Failed to insert the %s units attribute.\n", correctName);
+                goto cleanupFail;
+            }
+
+            if(H5LTset_attribute_int(radianceID_g,correctName,"_FillValue",&radiance_flags_fvalue, 1 )<0) {
+                FATAL_MSG("Failed to insert the %s _FillValue attribute.\n", correctName);
+                goto cleanupFail;
+            }
+
+            if(H5LTset_attribute_int(radianceID_g, correctName, "valid_range",radiance_flags_valid_range, 2 )<0) {
+                FATAL_MSG("Failed to insert the %s valid_range attribute.\n", correctName );
+                goto cleanupFail;
+            }
+            free ( correctName ); correctName = NULL;
+        }
+
+        status = copyDimension( fileID, inFilteredRadiance[i], outputFile, generalDsetID_d );
+        if ( status == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions for %s.\n", inFilteredRadiance[i] );
+            goto cleanupFail;
+        }
+
+        H5Dclose(generalDsetID_d); generalDsetID_d = 0;
+    }
+
+    /************************
+     * UNFILTERED RADIANCES *
+     ************************/
+
+    for ( i = 0; i < NUM_UNFILT; i++ )
+    {
+        h4Type = DFNT_FLOAT32;
+        h5Type = H5T_NATIVE_FLOAT;
+
+        generalDsetID_d = readThenWrite( outUnfilteredRadiance[i], radianceID_g, inUnfilteredRadiance[i], h4Type, h5Type, fileID );
+        if ( generalDsetID_d == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to insert \"%s\" dataset.\n", inUnfilteredRadiance[i]);
+            generalDsetID_d = 0;
+            goto cleanupFail;
+        }
+
+        status = copyDimension( fileID, inUnfilteredRadiance[i], outputFile, generalDsetID_d );
+        if ( status == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions for %s.\n", inUnfilteredRadiance[i] );
+            goto cleanupFail;
+        }
+
+        H5Dclose(generalDsetID_d); generalDsetID_d = 0;
+    }
+
+
+
+
+    if ( 0 )
+    {
+        cleanupFail:
+        fail = 1;
+    }
+
+    if ( fileID ) SDend(fileID);
+    if ( fileTime ) free(fileTime);
+    if ( rootID_g ) H5Gclose(rootID_g);
+    if ( radianceID_g ) H5Gclose(radianceID_g);
+    if ( geolocationID_g ) H5Gclose(geolocationID_g);
+    if ( viewingAngleID_g ) H5Gclose(viewingAngleID_g);
+    if ( generalDsetID_d ) H5Dclose(generalDsetID_d);
+    if ( correctName ) free(correctName);
+
+    if ( fail ) return EXIT_FAILURE;
+
+    return EXIT_SUCCESS;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 #if 0
     /*************
      * VARIABLES *

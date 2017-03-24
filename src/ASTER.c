@@ -466,7 +466,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     } // end if(unpacked =1)
 
     else {
-        imageData4ID = readThenWrite( SWIRgroupID, "ImageData4",
+        imageData4ID = readThenWrite(NULL, SWIRgroupID, "ImageData4",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData4ID == EXIT_FAILURE )
         {
@@ -475,7 +475,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData5ID = readThenWrite( SWIRgroupID, "ImageData5",
+        imageData5ID = readThenWrite(NULL, SWIRgroupID, "ImageData5",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData5ID == EXIT_FAILURE )
         {
@@ -484,7 +484,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData6ID = readThenWrite( SWIRgroupID, "ImageData6",
+        imageData6ID = readThenWrite(NULL, SWIRgroupID, "ImageData6",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData6ID == EXIT_FAILURE )
         {
@@ -493,7 +493,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData7ID = readThenWrite( SWIRgroupID, "ImageData7",
+        imageData7ID = readThenWrite(NULL, SWIRgroupID, "ImageData7",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData7ID == EXIT_FAILURE )
         {
@@ -502,7 +502,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData8ID = readThenWrite( SWIRgroupID, "ImageData8",
+        imageData8ID = readThenWrite(NULL, SWIRgroupID, "ImageData8",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData8ID == EXIT_FAILURE )
         {
@@ -511,7 +511,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData9ID = readThenWrite( SWIRgroupID, "ImageData9",
+        imageData9ID = readThenWrite(NULL, SWIRgroupID, "ImageData9",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData9ID == EXIT_FAILURE )
         {
@@ -522,7 +522,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     
         /* VNIR */
         if(vnir_grp_ref >0) {
-            imageData1ID = readThenWrite( VNIRgroupID, "ImageData1",
+            imageData1ID = readThenWrite(NULL, VNIRgroupID, "ImageData1",
                             DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
             if ( imageData1ID == EXIT_FAILURE )
             {
@@ -532,7 +532,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
 
             }
     
-            imageData2ID = readThenWrite( VNIRgroupID, "ImageData2",
+            imageData2ID = readThenWrite(NULL, VNIRgroupID, "ImageData2",
                             DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
             if ( imageData2ID == EXIT_FAILURE )
             {
@@ -541,7 +541,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
                 goto cleanupFail;
             }
     
-            imageData3NID = readThenWrite( VNIRgroupID, "ImageData3N",
+            imageData3NID = readThenWrite(NULL, VNIRgroupID, "ImageData3N",
                             DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
             if ( imageData3NID == EXIT_FAILURE )
             {
@@ -557,7 +557,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData3Bindex = SDnametoindex(inFileID,"ImageData3B");
             if(imageData3Bindex != FAIL) {
 
-                imageData3BID = readThenWrite( VNIRgroupID, "ImageData3B",
+                imageData3BID = readThenWrite(NULL, VNIRgroupID, "ImageData3B",
                                             DFNT_UINT8, H5T_STD_U8LE, inFileID);
                 if ( imageData3BID == EXIT_FAILURE )
                 {
@@ -571,7 +571,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
        } // end if(vnir_grp_ref >0) 
     
         /* TIR */
-        imageData10ID = readThenWrite( TIRgroupID, "ImageData10",
+        imageData10ID = readThenWrite(NULL, TIRgroupID, "ImageData10",
                         DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
         if ( imageData10ID == EXIT_FAILURE )
         {
@@ -580,7 +580,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData11ID = readThenWrite( TIRgroupID, "ImageData11",
+        imageData11ID = readThenWrite(NULL, TIRgroupID, "ImageData11",
                         DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
         if ( imageData11ID == EXIT_FAILURE )
         {
@@ -589,7 +589,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData12ID = readThenWrite( TIRgroupID, "ImageData12",
+        imageData12ID = readThenWrite(NULL, TIRgroupID, "ImageData12",
                         DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
         if ( imageData12ID == EXIT_FAILURE )
         {
@@ -598,7 +598,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData13ID = readThenWrite( TIRgroupID, "ImageData13",
+        imageData13ID = readThenWrite(NULL, TIRgroupID, "ImageData13",
                         DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
         if ( imageData13ID == EXIT_FAILURE )
         {
@@ -607,7 +607,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData14ID = readThenWrite( TIRgroupID, "ImageData14",
+        imageData14ID = readThenWrite(NULL, TIRgroupID, "ImageData14",
                         DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
         if ( imageData14ID == EXIT_FAILURE )
         {
@@ -721,7 +721,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
 
     
         /* geolocation */
-    latDataID = readThenWrite( geoGroupID, "Latitude",
+    latDataID = readThenWrite(NULL, geoGroupID, "Latitude",
                     DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID ); 
     if ( latDataID == EXIT_FAILURE )
     {
@@ -743,7 +743,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         goto cleanupFail;
     }
     
-    lonDataID = readThenWrite( geoGroupID, "Longitude",
+    lonDataID = readThenWrite(NULL, geoGroupID, "Longitude",
                     DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID ); 
     if ( lonDataID == EXIT_FAILURE )
     {

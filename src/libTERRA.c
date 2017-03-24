@@ -34,6 +34,9 @@
         identifier).
     
     ARGUMENTS:
+        0. outdatasetName  -- The name that the output dataset will have. Can be set to NULL
+                              if the same name as the input is desired. NOTE that any non-alphaneumeric
+                              characters will be changed to '_' to comply with netCDF convention.
         1. outputFileID    -- A pointer to the file identifier of the output file.
         2. datasetGroup_ID -- A pointer to the group in the output file where the data is
                               to be written to.
@@ -71,7 +74,7 @@ i       8. data_out        -- A single dimensional array containing information 
             Returns the identifier to the newly created dataset upon success.
 */
 /* OutputFileID is not used. NO need to have this parameter. MY 2017-03-03 */
-hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID, 
+hid_t insertDataset(  hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID, 
                      int rank, hsize_t* datasetDims, hid_t dataType, const char *datasetName, const void* data_out) 
 {
     hid_t memspace;
@@ -84,10 +87,11 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
     
     /* This is necessary since "/" is a reserved character in HDF5,we have to change it "_". MY 2016-12-20 */
     correct_dsetname = correct_name(datasetName);
+
     dataset = H5Dcreate( *datasetGroup_ID, correct_dsetname, dataType, memspace, 
                          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
     if(dataset<0) {
-        fprintf(stderr,"[%s:%s:%d] H5Dcreate -- Unable to create dataset \"%s\".\n", __FILE__,__func__ ,__LINE__ , datasetName );
+        FATAL_MSG("Unable to create dataset \"%s\".\n", datasetName );
         H5Sclose(memspace);
         free(correct_dsetname);
         return (EXIT_FAILURE);
@@ -96,7 +100,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID, int retu
     status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, (VOIDP)data_out );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5DWrite -- Unable to write to dataset \"%s\".\n", __FILE__,__func__ ,__LINE__ , datasetName );
+        FATAL_MSG("Unable to write to dataset \"%s\".\n", datasetName );
         H5Dclose(dataset);
         H5Sclose(memspace);
         free(correct_dsetname);
@@ -811,7 +815,7 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname) {
         Else, returns EXIT_SUCCESS.
 */
 
-int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *retRank, int32* retDimsizes, int32 dataType )
+int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *retRank, int32* retDimsizes, int32 dataType )
 {
     int32 sds_id, sds_index;
     int32 rank;
@@ -861,38 +865,43 @@ int32 H4readData( int32 fileID, char* datasetName, void** data, int32 *retRank, 
      * It was either this or make a separate function for each individual data type. So,
      * having a void double pointer was the best choice.
      */
-    if ( dataType == DFNT_FLOAT32 )
+
+    *data = NULL;
+
+    switch ( dataType )
     {
-        /* Setting it to NULL is simply a safeguard for checks downstream should malloc fail */
-        *((float**)data) = NULL;
-        *((float**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]*dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] * sizeof( float ) );
-    }
-    else if ( dataType == DFNT_FLOAT64 )
-    {
-        *((double**)data) = NULL;
-        *((double**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
-                   *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
-                   * sizeof( double ) );
-    }
-    else if ( dataType == DFNT_UINT16 )
-    {
-        *((unsigned short int**)data) = NULL;
-        *((unsigned short int**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
-                   *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
-                   * sizeof( unsigned short int ) );
-    }
-    else if ( dataType == DFNT_UINT8 )
-    {
-        *((uint8_t**)data) = NULL;
-        *((uint8_t**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
-                   *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
-                   * sizeof( uint8_t ) );
-    }
-    else
-    {
-        fprintf( stderr, "[%s:%s:%d] Invalid data type.\nIt may be the case that your datatype has not been accounted for in the %s function.\nIf that is the case, simply add your datatype to the function in the else-if tree.\n", __FILE__, __func__, __LINE__, __func__ );
-        SDendaccess(sds_id);
-        return EXIT_FAILURE;
+        case DFNT_FLOAT32:
+            *((float**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]*dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] * sizeof( float ) );
+            break;
+
+        case DFNT_FLOAT64:
+            *((double**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
+                       *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
+                       * sizeof( double ) );
+            break;
+
+        case DFNT_UINT16:
+            *((unsigned short int**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
+                       *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
+                       * sizeof( unsigned short int ) );
+            break;
+
+        case DFNT_UINT8:
+            *((uint8_t**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
+                       *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] 
+                       * sizeof( uint8_t ) );
+            break;
+
+        case DFNT_INT32:
+            *((int32_t**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
+                       *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9]
+                       * sizeof( int32_t ) );
+            break;
+
+        default:
+            FATAL_MSG("Invalid data type.\nIt may be the case that your datatype has not been accounted for in the %s function.\nIf that is the case, simply add your datatype to the function as a switch case.\n",__func__ );
+            SDendaccess(sds_id);
+            return EXIT_FAILURE;
     }
     
     for ( int i = 0; i < rank; i++ )
@@ -989,11 +998,17 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
         identifier that was created in the output file.
         
     ARGUMENTS:
+        0. outDatasetName -- The name that the output HDF5 dataset will have. Note that the actual
+                             name the output dataset will have is the one given by correct_name(outDatasetName).
+                             Therefore you cannot assume that the output name will be exactly what
+                             is passed to this argument.
+                             Set to NULL if the same name as the inDatasetName is desired.
+
         1. outputGroupID  -- The HDF5 group/directory identifier for where the data is to
                              be written. Can either be an actual group ID or can be the
                              file ID (in the latter case, data will be written to the root
                              directory).
-        2. datasetName    -- A string containing the name of the dataset in the input HDF4
+        2. inDatasetName    -- A string containing the name of the dataset in the input HDF4
                              file. The output dataset will have the same name.
         3. inputDataType  -- An HDF4 datatype identifier. Must match the data type of the
                              input dataset. Please reference Section 3 of the HDF4
@@ -1015,7 +1030,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
         any errors.
 */
 
-hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
+hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType, 
                        hid_t outputDataType, int32 inputFileID )
 {
     int32 dataRank;
@@ -1025,12 +1040,12 @@ hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType
     
     herr_t status;
     
-    status = H4readData( inputFileID, datasetName,
+    status = H4readData( inputFileID, inDatasetName,
         (void**)&dataBuffer, &dataRank, dataDimSizes, inputDataType );
     
-    if ( status < 0 )
+    if ( status == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+        FATAL_MSG("Unable to read \"%s\" data.\n", inDatasetName );
         if ( dataBuffer != NULL ) free(dataBuffer);
         return (EXIT_FAILURE);
     }
@@ -1046,13 +1061,18 @@ hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType
     hsize_t temp[DIM_MAX];
     for ( int i = 0; i < DIM_MAX; i++ )
         temp[i] = (hsize_t) dataDimSizes[i];
-        
-    datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
-         temp, outputDataType, datasetName, dataBuffer );
+    
+    if ( outDatasetName )     
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+         temp, outputDataType, outDatasetName, dataBuffer );
+    else
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+         temp, outputDataType, inDatasetName, dataBuffer );
         
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+        char* tempStr = outDatasetName ? outDatasetName : inDatasetName;
+        FATAL_MSG("Error writing \"%s\" dataset.\n", tempStr );
         free(dataBuffer);
         H5Dclose(datasetID);
         return (EXIT_FAILURE);
@@ -2395,7 +2415,7 @@ char* getTime( char* pathname, int instrument )
      *********/
     else if ( instrument == 1 )
     {
-        start = strstr( pathname, "Edition3_" );
+        start = strstr( pathname, "CER_" );
         if ( start == NULL ){
             FATAL_MSG("Expected CERES path.\n\tReceived \"%s\"\n",pathname );
             return NULL;

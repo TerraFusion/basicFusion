@@ -75,11 +75,10 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value );
 
 int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname);
 
-int32 H4readData( int32 fileID, char* datasetName, void** data,
+int32 H4readData( int32 fileID, const char* datasetName, void** data,
                   int32 *rank, int32* dimsizes, int32 dataType );
-hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
-                       hid_t outputDataType, int32 inputFile);    
-
+hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType, 
+                       hid_t outputDataType, int32 inputFileID );
 char *correct_name(const char* oldname);
 
 /* MOPITT functions */
