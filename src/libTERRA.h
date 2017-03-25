@@ -17,13 +17,42 @@ do { \
     fprintf(stderr, __VA_ARGS__); \
     } while(0)
 
+typedef struct OInfo {
+        unsigned int orbit_number;
+        unsigned short start_year;
+        unsigned char  start_month;
+        unsigned char start_day;
+        unsigned char start_hour;
+        unsigned char start_minute;
+        unsigned char start_second;
+        unsigned short end_year;
+        unsigned char  end_month;
+        unsigned char end_day;
+        unsigned char end_hour;
+        unsigned char end_minute;
+        unsigned char end_second;
+
+} OInfo_t;
+
+typedef struct GDateInfo {
+        unsigned short year;
+        unsigned char  month;
+        unsigned char day;
+        unsigned char hour;
+        unsigned char minute;
+        double second;
+
+} GDateInfo_t;
+
 /*********************
  *FUNCTION PROTOTYPES*
  *********************/
 extern hid_t outputFile;
+extern double* TAI93toUTCoffset; // The array containing the TAI93 to UTC offset values
 
-int MOPITT( char* argv[] );
+int MOPITT( char* argv[], OInfo_t cur_orbit_info );
 int CERES( char* argv[] ,int index);
+int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 int MODIS( char* argv[],int modis_count,int unpack );
 int ASTER( char* argv[],int aster_count,int unpack );
 int MISR( char* argv[],int unpack );
@@ -36,8 +65,6 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID,
                           int returnDatasetID, int rank, hsize_t* datasetDims,
                           hid_t dataType, char* datasetName, void* data_out);
                      
-hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, 
-                            char * inDatasetPath, char* outDatasetPath, hid_t dataType, int returnDatasetID);
 herr_t openFile(hid_t *file, char* inputFileName, unsigned flags );
 herr_t createOutputFile( hid_t *outputFile, char* outputFileName);
 herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* newGroupName);
@@ -48,16 +75,17 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value );
 
 int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname);
 
-int32 H4readData( int32 fileID, char* datasetName, void** data,
+int32 H4readData( int32 fileID, const char* datasetName, void** data,
                   int32 *rank, int32* dimsizes, int32 dataType );
-hid_t readThenWrite( hid_t outputGroupID, char* datasetName, int32 inputDataType, 
-                       hid_t outputDataType, int32 inputFile);    
-
+hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType, 
+                       hid_t outputDataType, int32 inputFileID );
 char *correct_name(const char* oldname);
 
 /* MOPITT functions */
 hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimSize, const void* scaleBuffer, hid_t dimScaleNumType );
-
+hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID, char * inDatasetPath, char* outDatasetName, hid_t dataType, int returnDatasetID, unsigned int bound[2] );
+herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const char* timePath, unsigned int* start_indx_ptr,
+                         unsigned int* end_indx_ptr );
 /* ASTER functions */
 
 hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
@@ -79,7 +107,11 @@ char* getTime( char* pathname, int instrument );
 int  h4type_to_h5type( const int32 h4type, hid_t* h5memtype);
 int change_dim_attr_NAME_value(hid_t h5dset_id);
 herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID );
-herr_t TAItoUTCconvert ( double* buffer, int size );
+herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
+herr_t binarySearchDouble ( const double* array, double target, hsize_t size, long int* targetIndex );
+herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp );
+herr_t H5allocateMemDouble ( hid_t inputFile, const char* datasetPath, void** buffer, long int* size );
+herr_t initializeTimeOffset();
 
 #if 0
 float unc[5][15] =

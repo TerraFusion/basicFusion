@@ -343,7 +343,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
         
     // ELSE WE ARE NOT UNPACKING DATA
     else {
-        _1KMDatasetID = readThenWrite( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", DFNT_UINT16, 
+        _1KMDatasetID = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", DFNT_UINT16, 
                 H5T_NATIVE_USHORT, _1KMFileID);
         if ( _1KMDatasetID == EXIT_FAILURE )
         {
@@ -354,7 +354,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     /*______________EV_1KM_RefSB_Uncert_Indexes______________*/
 
 
-        _1KMUncertID = readThenWrite( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes",
+        _1KMUncertID = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes",
                 DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
         if ( _1KMUncertID == EXIT_FAILURE )
         {
@@ -458,7 +458,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
     }
     else {
-        _1KMEmissive = readThenWrite( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive",
+        _1KMEmissive = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive",
                 DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
         if ( _1KMEmissive == EXIT_FAILURE )
         {
@@ -467,7 +467,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             goto cleanupFail;
         }
 
-        _1KMEmissiveUncert = readThenWrite( MODIS1KMdataFieldsGroupID,
+        _1KMEmissiveUncert = readThenWrite( NULL, MODIS1KMdataFieldsGroupID,
                       "EV_1KM_Emissive_Uncert_Indexes",
                       DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);
         if ( _1KMEmissiveUncert == EXIT_FAILURE )
@@ -569,7 +569,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
     else {
 
-        _250Aggr1km = readThenWrite( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB",
+        _250Aggr1km = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB",
                 DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
         if ( _250Aggr1km == EXIT_FAILURE )
         {
@@ -580,7 +580,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
 /*__________EV_250_Aggr1km_RefSB_Uncert_Indexes_____________*/
 
-        _250Aggr1kmUncert = readThenWrite( MODIS1KMdataFieldsGroupID, 
+        _250Aggr1kmUncert = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, 
                     "EV_250_Aggr1km_RefSB_Uncert_Indexes",
                     DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);
         if ( _250Aggr1kmUncert == EXIT_FAILURE )
@@ -686,7 +686,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     }
 
     else {
-        _500Aggr1km = readThenWrite( MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB",
+        _500Aggr1km = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB",
                   DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID );
         if ( _500Aggr1km == EXIT_FAILURE )
         {
@@ -695,7 +695,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             goto cleanupFail;
         }
 
-        _500Aggr1kmUncert = readThenWrite( MODIS1KMdataFieldsGroupID, 
+        _500Aggr1kmUncert = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, 
                         "EV_500_Aggr1km_RefSB_Uncert_Indexes",
                         DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
         if ( _500Aggr1kmUncert == EXIT_FAILURE )
@@ -768,7 +768,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                             
     /*_______________latitude data under geolocation_______________*/
     
-    latitudeDatasetID = readThenWrite( MODIS1KMgeolocationGroupID,
+    latitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
                       "Latitude",
                       DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
     if ( latitudeDatasetID == EXIT_FAILURE )
@@ -800,7 +800,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
     
     /*_______________longitude data under geolocation______________*/
-    longitudeDatasetID = readThenWrite( MODIS1KMgeolocationGroupID,
+    longitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
                       "Longitude",
                       DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
     if ( longitudeDatasetID == EXIT_FAILURE )
@@ -958,7 +958,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
 
     /*_______________Sun angle under the granule group______________*/
-    SDSunzenithDatasetID = readThenWrite(MODISgranuleGroupID,"SD Sun zenith",
+    SDSunzenithDatasetID = readThenWrite( NULL,MODISgranuleGroupID,"SD Sun zenith",
                                              DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
     if ( SDSunzenithDatasetID == EXIT_FAILURE )
     {
@@ -1023,7 +1023,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     SDSunzenithDatasetID = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
-    SDSunazimuthDatasetID = readThenWrite(MODISgranuleGroupID,"SD Sun azimuth",
+    SDSunazimuthDatasetID = readThenWrite( NULL,MODISgranuleGroupID,"SD Sun azimuth",
                                              DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
     if ( SDSunazimuthDatasetID == EXIT_FAILURE )
     {
@@ -1127,7 +1127,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
         }
         else {
-            _250Aggr500 = readThenWrite( MODIS500mdataFieldsGroupID, 
+            _250Aggr500 = readThenWrite( NULL, MODIS500mdataFieldsGroupID, 
                             "EV_250_Aggr500_RefSB",
                             DFNT_UINT16,H5T_NATIVE_USHORT,  _500mFileID );
 
@@ -1139,7 +1139,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             }
             /*_____________EV_250_Aggr500_RefSB_Uncert_Indexes____________*/
         
-            _250Aggr500Uncert = readThenWrite( MODIS500mdataFieldsGroupID, 
+            _250Aggr500Uncert = readThenWrite( NULL, MODIS500mdataFieldsGroupID, 
                             "EV_250_Aggr500_RefSB_Uncert_Indexes",
                             DFNT_UINT8,H5T_STD_U8LE, _500mFileID );
             if ( _250Aggr500Uncert == EXIT_FAILURE )
@@ -1237,7 +1237,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
         }
         else {
-            _500RefSB = readThenWrite( MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
+            _500RefSB = readThenWrite( NULL, MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
                     H5T_NATIVE_USHORT, _500mFileID );
             /*____________EV_500_RefSB_Uncert_Indexes_____________*/
             if ( _500RefSB == EXIT_FAILURE )
@@ -1246,7 +1246,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                 _500RefSB = 0;
                 goto cleanupFail;
             }
-            _500RefSBUncert = readThenWrite( MODIS500mdataFieldsGroupID, "EV_500_RefSB_Uncert_Indexes",
+            _500RefSBUncert = readThenWrite( NULL, MODIS500mdataFieldsGroupID, "EV_500_RefSB_Uncert_Indexes",
                           DFNT_UINT8, H5T_STD_U8LE, _500mFileID );
             if ( _500RefSBUncert == EXIT_FAILURE )
             {
@@ -1347,7 +1347,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 
         }
         else {
-            _250RefSB = readThenWrite( MODIS250mdataFieldsGroupID, "EV_250_RefSB", DFNT_UINT16,
+            _250RefSB = readThenWrite( NULL, MODIS250mdataFieldsGroupID, "EV_250_RefSB", DFNT_UINT16,
             H5T_NATIVE_USHORT, _250mFileID );
             if ( _250RefSB == EXIT_FAILURE )
             {
@@ -1357,7 +1357,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             }
             /*____________EV_250_RefSB_Uncert_Indexes_____________*/
 
-            _250RefSBUncert = readThenWrite( MODIS250mdataFieldsGroupID, "EV_250_RefSB_Uncert_Indexes",
+            _250RefSBUncert = readThenWrite( NULL, MODIS250mdataFieldsGroupID, "EV_250_RefSB_Uncert_Indexes",
                   DFNT_UINT8, H5T_STD_U8LE, _250mFileID);             
             if ( _250RefSBUncert == EXIT_FAILURE )
             {
@@ -1435,17 +1435,17 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
 #if 0                       
     /*_______________latitude data_______________*/
     
-    latitudeDatasetID = readThenWrite( MODIS1KMgeolocationGroupID,
+    latitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
                       "Latitude",
                       DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
     
     /*_______________longitude data______________*/
-    longitudeDatasetID = readThenWrite( MODIS1KMgeolocationGroupID,
+    longitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
                       "Longitude",
                       DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
     
     /*_______________Sun angle under the granule group______________*/
-        SDSunzenithDatasetID = readThenWrite(MODISgranuleGroupID,"SD Sun zenith",
+        SDSunzenithDatasetID = readThenWrite( NULL, MODISgranuleGroupID,"SD Sun zenith",
                                              DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
 
         SDSunazimuthDatasetID = readThenWrite(MODISgranuleGroupID,"SD Sun azimuth",
