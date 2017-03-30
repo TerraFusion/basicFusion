@@ -218,7 +218,7 @@ int main( int argc, char* argv[] )
      * CERES *
      *********/
     /* Get the CERES  */
-#if 1
+#if 0
     status = getNextLine( string, inputFile);
     if ( status == EXIT_FAILURE )
     {
