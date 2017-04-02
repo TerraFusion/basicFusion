@@ -37,23 +37,30 @@ int main( int argc, char* argv[] )
     }   
     #endif
 
-    if ( argc != 3 )
+    if ( argc != 4 )
     {
-        fprintf( stderr, "Usage: %s [outputFile] [inputFiles.txt] \n", argv[0] );
+        fprintf( stderr, "Usage: %s [outputFile] [inputFiles.txt] [orbit_info.bin]\n", argv[0] );
         fprintf( stderr, "Set environment variable TERRA_DATA_UNPACK to non-zero for unpacking.\n");
         return EXIT_FAILURE;
     }
     
 
-    FILE* new_orbit_info_b = fopen("orbit_info.bin","r");
+    // open the orbit_info.bin file
+    FILE* new_orbit_info_b = fopen(argv[3],"r");
     long fSize;
+
+    // get the size of the file
     fseek(new_orbit_info_b,0,SEEK_END);
     fSize = ftell(new_orbit_info_b);
+    // rewind file pointer to beginning of file
     rewind(new_orbit_info_b);
+
     printf("file size is %d\n",(int)fSize);
 
     OInfo_t* test_orbit_ptr = NULL;
     test_orbit_ptr = calloc(fSize/sizeof(OInfo_t),sizeof(OInfo_t));
+
+    // read the file into the test_orbit_ptr struct array
     size_t result = fread(test_orbit_ptr,sizeof(OInfo_t),fSize/sizeof(OInfo_t),new_orbit_info_b);
     if(result != fSize/sizeof(OInfo_t)) {
           free(test_orbit_ptr);
@@ -67,10 +74,14 @@ int main( int argc, char* argv[] )
     // This number needs to be obtained from the input file eventually.
 
     int current_orbit_number = 40110;
-    for (int i = 0; i<fSize/sizeof(OInfo_t);i++) {
-        if(test_orbit_ptr[i].orbit_number == current_orbit_number)
+    for ( int i = 0; i<fSize/sizeof(OInfo_t);i++) {
+        if( test_orbit_ptr[i].orbit_number == current_orbit_number )
+        {
             current_orbit_info = test_orbit_ptr[i];
+            break;
+        }
     }
+
     fclose(new_orbit_info_b);
     free(test_orbit_ptr);
         
@@ -673,6 +684,7 @@ printf("string is %s\n",string);
     if ( MODISargs[5] ) free( MODISargs[5] );
     if ( ASTERargs[1] ) free ( ASTERargs[1] );
     if ( ASTERargs[2] ) free ( ASTERargs[2] );
+    if ( TAI93toUTCoffset ) free(TAI93toUTCoffset);
     for ( int j = 1; j <= 12; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
     if ( fail ) return -1;
     
@@ -699,4 +711,262 @@ int getNextLine ( char* string, FILE* const inputFile )
         string[len] = '\0';
 
     return EXIT_SUCCESS;    
+}
+
+int validateInFiles( char* inFileList, OInfo_t orbitInfo )
+{
+    short fail = 0;
+    const char MOPITTcheck[] = "MOP01";
+    const char CEREScheck[] = "CER_SSF_Terra";
+    const char MODIScheck1[] = "MOD021KM";
+    const char MODIScheck2[] = "MOD02HKM";
+    const char MODIScheck3[] = "MOD02QKM";
+    const char MODIScheck4[] = "MOD03";
+    const char ASTERcheck[] = "AST_L1T_";
+    const char MISRcheck1[] = "MISR_AM1_GRP";
+    const char MISRcheck2[] = "MISR_AM1_AGP";
+    char* MOPITTtime = NULL;
+    char* CEREStime = NULL;
+    char tempString[STR_LEN];
+    int i;
+    herr_t status;
+
+    memset(tempString, 0, STR_LEN);
+
+    /* open the input file list */
+    FILE* inputFile = fopen( inFileList, "r" );
+    char string[STR_LEN];
+
+    if ( inputFile == NULL )
+    {
+        FATAL_MSG("file \"%s\" does not exist\n", inFileList);
+        return EXIT_FAILURE;
+    }
+
+    /********************************************
+     *                  MOPITT                  *
+     ********************************************/
+
+    /* MOPITT file granularity is 24 hours. Thus the granularity of the dates that we need to check
+       is a day. Don't need to check any more accurately than a day.
+     */
+    // MOPITT filename has YYYMMDD, check using that
+    status = getNextLine( string, inputFile);
+    if ( status == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to get input file line.\n");
+        goto cleanupFail;
+    }
+    /* strstr will fail if unexpected input is present */
+    if ( strstr( string, MOPITTcheck ) == NULL )
+    {
+        FATAL_MSG("Received an unexpected input line for MOPITT.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n",string,MOPITTcheck);
+        goto cleanupFail;
+    }
+
+    do
+    {
+        // extract the time from MOPITT file path
+        MOPITTtime = getTime( string, 0 );
+        if ( MOPITTtime == NULL )
+        {
+            FATAL_MSG("Failed to extract MOPITT time.\n");
+            goto cleanupFail;
+        }        
+
+        // If the MOPITT date is same as orbit date, then file is valid
+        // extract year
+        for ( i = 0; i < 4; i++ )
+        {
+            tempString[i] = MOPITTtime[i];
+        }
+        int MOPITTyear = atoi(tempString);
+        if ( MOPITTyear == 0 )
+        {
+            FATAL_MSG("failed to extract MOPITT year.\n");
+            goto cleanupFail;
+        }
+
+        // extract month
+        memset(tempString, 0, STR_LEN);
+        for ( i = 0; i < 2; i++ )
+        {
+            tempString[i] = MOPITTtime[i+4];
+        }
+        int MOPITTmonth = atoi(tempString);
+        if ( MOPITTmonth == 0 )
+        {
+            FATAL_MSG("failed to extract MOPITT month.\n");
+            goto cleanupFail;
+        }
+
+        // extract day
+        memset(tempString, 0, STR_LEN);
+        for ( i = 0; i < 2; i++ )
+        {
+            tempString[i] = MOPITTtime[i+6];
+        }
+        int MOPITTday = atoi(tempString);
+        
+        if ( MOPITTday == 0 )
+        {
+            FATAL_MSG("failed to extract MOPITT day.\n");
+            goto cleanupFail;
+        }
+
+        free(MOPITTtime); MOPITTtime = 0;
+
+        // check if the orbit start or orbit end times are within the MOPITT granule
+        if ( !((orbitInfo.start_year == MOPITTyear && orbitInfo.start_month == MOPITTmonth && orbitInfo.start_day == MOPITTday ) ||
+             (orbitInfo.end_year == MOPITTyear && orbitInfo.end_month == MOPITTmonth && orbitInfo.end_day == MOPITTday ) ) )
+        {
+            FATAL_MSG("MOPITT file does not reside within the given orbit.\n\tOffending file:%s\n\tOrbit start: %d/%d/%d\n\tOrbit end: %d/%d/%d\n\tDates given in YYYY/MM/DD\n", string, orbitInfo.start_year, orbitInfo.start_month, orbitInfo.start_day,orbitInfo.end_year, orbitInfo.end_month, orbitInfo.end_day);
+            goto cleanupFail;
+        }
+
+        status = getNextLine( string, inputFile);
+        if ( status == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to get input file line. Exiting program.\n");
+            goto cleanupFail;
+        }
+
+    } while ( strstr( string, MOPITTcheck ) != NULL );
+
+
+    /********************************************
+     *                  CERES                   *
+     ********************************************/
+
+    /* CERES file time accuracy is down to the hour, so bounds checking only needs to be accurate up to hour */
+
+    if ( strstr( string, CEREScheck ) == NULL )
+    {
+        FATAL_MSG("Received an unexpected input line for CERES.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n",string,CEREScheck);
+        goto cleanupFail;
+    }
+
+    do
+    {
+        // extract the time from MOPITT file path
+        CEREStime = getTime( string, 1 );
+        if ( CEREStime == NULL )
+        {
+            FATAL_MSG("Failed to extract MOPITT time.\n");
+            goto cleanupFail;
+        }
+
+        // If the CERES date is same as orbit date, then file is valid
+        // extract year
+        memset(tempString, 0, STR_LEN);
+        for ( i = 0; i < 4; i++ )
+        {
+            tempString[i] = CEREStime[i+7];
+        }
+        int CERESyear = atoi(tempString);
+        if ( CERESyear == 0 )
+        {
+            FATAL_MSG("failed to extract CERES year.\n");
+            goto cleanupFail;
+        }
+
+        // extract month
+        memset(tempString, 0, STR_LEN);
+        for ( i = 0; i < 2; i++ )
+        {
+            tempString[i] = CEREStime[i+11];
+        }
+        int CERESmonth = atoi(tempString);
+        if ( CERESmonth == 0 )
+        {
+            FATAL_MSG("failed to extract CERES month.\n");
+            goto cleanupFail;
+        }
+
+        // extract day
+        memset(tempString, 0, STR_LEN);
+        for ( i = 0; i < 2; i++ )
+        {
+            tempString[i] = CEREStime[i+13];
+        }
+        int CERESday = atoi(tempString);
+
+        if ( CERESday == 0 )
+        {
+            FATAL_MSG("failed to extract CERES day.\n");
+            goto cleanupFail;
+        }
+
+        // extract hour
+        memset(tempString, 0, STR_LEN);
+        for ( i = 0; i < 2; i++ )
+        {
+            tempString[i] = CEREStime[i+15];
+        }
+        int CEREShour = atoi(tempString);
+    
+        if ( CEREShour == 0 )
+        {
+            FATAL_MSG("failed to extract CERES hour.\n");
+            goto cleanupFail;
+        }
+
+        free(CEREStime); CEREStime = 0;
+        int CERESendYear = CERESyear;
+        int CERESendMonth = CERESmonth;
+        int CERESendDay = CERESday;
+        int CERESendHour = CEREShour;
+
+        // CERES SSF file has granularity of 1 hour. Increment the start time by an hour.
+        CERESendHour++;
+
+        //if ( )
+
+        // check if the orbit start or orbit end times are within the CERES granule
+        if ( ! ((CERESyear >= orbitInfo.start_year && CERESyear <= orbitInfo.end_year &&
+             CERESmonth >= orbitInfo.start_month && CERESmonth <= orbitInfo.end_month &&
+             CERESday >= orbitInfo.start_day && CERESday <= orbitInfo.end_day &&
+             CEREShour >= orbitInfo.start_hour && CEREShour <= orbitInfo.end_hour) 
+             ||
+             (CERESyear >= orbitInfo.start_hour) ))
+        {
+            FATAL_MSG("CERES file does not reside within the given orbit.\n\tOffending file:%s\n\tOrbit start: %d/%d/%d\n\tOrbit end: %d/%d/%d\n\tDates given in YYYY/MM/DD\n", string, orbitInfo.start_year, orbitInfo.start_month, orbitInfo.start_day,orbitInfo.end_year, orbitInfo.end_month, orbitInfo.end_day);
+            goto cleanupFail;
+        }
+
+        status = getNextLine( string, inputFile);
+        if ( status == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to get input file line. Exiting program.\n");
+            goto cleanupFail;
+        }
+
+
+    } while ( strstr( string, CEREScheck ) != NULL );
+
+    
+
+
+
+
+    /********************************************
+     *                  MODIS                   *
+     ********************************************/
+
+    /* MODIS files have starting accuracy up to the minute */
+    
+
+    if ( 0 )
+    {
+        cleanupFail:
+        fail = 1;
+    }
+
+    if (MOPITTtime) free(MOPITTtime);
+    if (CEREStime) free(CEREStime);
+
+    if ( fail ) 
+        return EXIT_FAILURE;
+    else
+        return EXIT_SUCCESS;
 }

@@ -2420,7 +2420,7 @@ char* getTime( char* pathname, int instrument )
             FATAL_MSG("Expected CERES path.\n\tReceived \"%s\"\n",pathname );
             return NULL;
         }
-        start += 10;
+        start += 27;
         
         end = pathname + strlen( pathname ) - 1;
         
@@ -3662,7 +3662,7 @@ herr_t initializeTimeOffset()
         TAI93toUTCoffset[i] = 8.0;
     for ( int i = 8216; i <= 8767; i++ )        // July 2015 -> Dec 2016
         TAI93toUTCoffset[i] = 9.0;
-    for ( int i = 8768; i <= NUM_DAYS; i++ )    // Jan 2017 -> June 2017
+    for ( int i = 8768; i < NUM_DAYS; i++ )    // Jan 2017 -> June 2017
         TAI93toUTCoffset[i] = 10.0;                  // Currently, value not known past June 30th 2017
     
     return EXIT_SUCCESS;
