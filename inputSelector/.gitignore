@@ -1,3 +1,6 @@
 tags
 *.sqlite
 OLD/
+trace.txt
+.vscode/
+!.vscode/launch.json
