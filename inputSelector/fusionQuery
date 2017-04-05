@@ -1,19 +1,20 @@
 #!/usr/bin/python
 
-"""usage: fusionQuery -h | --help
-        fusionQuery DBFILE -o ORBIT
-        fusionQuery DBFILE -t STARTTIME ENDTIME
+"""
+Usage:
+    fusionQuery -h | --help
+    fusionQuery DBFILE [options] -t START END
+    fusionQuery DBFILE [options] -o ORBIT
 
 Arguments:
     DBFILE              The timespan database to query 
     ORBIT               The orbit number 
-    STARTTIME, ENDTIME  YYYYMMDDHHMMSS format timespan to return all overlapping files
-
+    START               YYYYMMDDHHMMSS format timespan to return all overlapping files
+    END                 YYYYMMDDHHMMSS format timespan to return all overlapping files
 
 Options:
     --printall          Print all files for each orbit in DB
-    -s <start> <end>    Print files that overlap with start and end time, start/end as YYYYMMDDHHMMSS
-    -o <orbit>          Print files that start in a particular orbit
+    -v                  Verbose - print detailed timestamp information
     -h, --help          Print usage
 
 """
@@ -26,7 +27,16 @@ from logging import *
 import os
 from docopt import docopt
 import time
-from time import mktime, strptime
+#from time import strftime, gmtime
+from time import mktime, strptime, gmtime, strftime
+import calendar
+from pytz import timezone
+from datetime import datetime
+
+TIMEFMT = '%Y%m%d%H%M%S'
+TZ = timezone('UTC')
+def mktime_utc(timefmt, timestr):
+    return calendar.timegm(TZ.localize(datetime.strptime(timestr, timefmt)).timetuple())
 
 # execute the DB query string
 def dbexec(cursor, qstring):
@@ -38,36 +48,57 @@ def openDB(dbfile):
     cursor = dbconnection.cursor()
     return cursor
 
-def orbitFiles(cursor, orbit):
-    oquery = "SELECT stime, etime FROM orbits where orbit = {}".format(orbit)
-    cursor = cursor.execute(oquery)
-    data = cursor.fetchall()
-    stime, etime = data[0]
+def timeQuery(cursor, stime, etime):
     subqueries = []
     instruments = ["modis", "mopitt", "aster", "ceres", "miser"]
     for inst in instruments:
-        subqueries.append("SELECT dir, fname FROM {} inner join dirs on dirs.id == {}.directory where stime >= {} and stime < {}".format(inst, inst, stime, etime))
+        subqueries.append("SELECT dir, fname, stime, etime FROM {} inner join dirs on dirs.id == {}.directory where {}.stime <= {} and {}.etime >= {}".format(inst, inst, inst, etime, inst, stime))
     fquery = ' UNION '.join(subqueries)
     cursor = cursor.execute(fquery)
     #debug("orbit query found {} files".format(cursor.rowcount))
     files = cursor.fetchall()
     return files
 
+def orbitQuery(cursor, orbit):
+    oquery = "SELECT stime, etime FROM orbits where orbit = {}".format(orbit)
+    cursor = cursor.execute(oquery)
+    data = cursor.fetchall()
+    stime, etime = data[0]
+    if args.get('-v', False):
+        print("Orbit {}: StartTime: {} {}, EndTime: {} {}".format(orbit, stime, \
+            strftime(TIMEFMT, gmtime(stime)), etime, strftime(TIMEFMT, gmtime(etime))))
+    return timeQuery(cursor, stime, etime)
+
 def printall(cursor):
     oquery = "SELECT orbit FROM orbits order by orbit"
     cursor = cursor.execute(oquery)
     for orbit in cursor.fetchall():
-        for file in orbitFiles(cursor, orbit[0]):
-            print("{} {}".format(orbit[0], file[1]))
+        for ofile in orbitFiles(cursor, orbit[0]):
+            print("{} {}".format(orbit[0], ofile[1]))
     return
 
 def main():
+    if args.get('-v', False):
+        print(' '.join(sys.argv))
     cursor = openDB(args['DBFILE'])
-    if args.get('-o', False):
-        for file in orbitFiles(cursor, args['-o']):
-            print("{}/{}".format(file[0], file[1]))
+    if args.get('-o', False): # orbit query
+        for result in orbitQuery(cursor, args['ORBIT']):
+            if args.get('-v', False):
+                print('{}/{} start: {}, end: {}'.format(result[0], result[1], strftime(TIMEFMT, gmtime(result[2])), strftime(TIMEFMT, gmtime(result[3]))))
+            else:
+                print("{}/{}".format(result[0], result[1]))
     elif args.get('--printall', False):
         printall(cursor)
+    elif args.get('-t', False): # time range query
+        
+        stime = int(mktime(strptime(args.get('STARTTIME', ' '), TIMEFMT)))
+        etime = int(mktime(strptime(args.get('ENDTIME', ' '), TIMEFMT)))
+        for result in timeQuery(cursor, stime, etime):
+            if args.get('-v', False):
+                print('{}/{} start: {}, end: {}'.format(result[0], result[1], \
+                    strftime(TIMEFMT, gmtime(result[2])), strftime(TIMEFMT, gmtime(result[3]))))
+            else:
+                print("{}/{}".format(result[0], result[1]))
     return
 
 args = docopt(__doc__)
