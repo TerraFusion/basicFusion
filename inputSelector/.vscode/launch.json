@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "orbitquery",
+      "name": "fulldb-query-orbit-1388",
       "type": "python",
       "request": "launch",
       "stopOnEntry": false,
@@ -15,9 +15,58 @@
         "RedirectOutput"
       ],
       "args": [
-        "test.sqlite",
+        "accessist.sqlite",
         "-o",
         "1388"
+      ]
+    },
+    {
+      "name": "fulldb-build",
+      "type": "python",
+      "request": "launch",
+      "stopOnEntry": false,
+      "pythonPath": "${config.python.pythonPath}",
+      "program": "${file}",
+      "cwd": "${workspaceRoot}",
+      "debugOptions": [
+        "WaitOnAbnormalExit",
+        "WaitOnNormalExit",
+        "RedirectOutput"
+      ],
+      "args": [
+        "-o",
+        "-q",
+        "-v",
+        "--trace=trace.txt",
+        "accesslist.sqlite",
+        "data/Orbit_Path_Time.txt.gz",
+        "data/MODIS.list.gz",
+        "data/ASTER.list.gz",
+        "data/MOPITT.list.gz",
+        "data/MISR.list.gz",
+        "data/CERES.list.gz"
+      ]
+    },
+    {
+      "name": "oneorbitbuilddb",
+      "type": "python",
+      "request": "launch",
+      "stopOnEntry": false,
+      "pythonPath": "${config.python.pythonPath}",
+      "program": "${file}",
+      "cwd": "${workspaceRoot}",
+      "debugOptions": [
+        "WaitOnAbnormalExit",
+        "WaitOnNormalExit",
+        "RedirectOutput"
+      ],
+      "args": [
+        "-o",
+        "-v",
+        "--trace=trace.txt",
+        "oneorbit.sqlite",
+        "data/Orbit_Path_Time.txt.gz",
+        "testdata/one-orbit-files.txt.gz"
       ]
     },
     {
@@ -35,8 +84,30 @@
       ],
       "args": [
         "oneorbit.sqlite",
+        "-v",
         "-o",
         "40110"
+      ]
+    },
+    {
+      "name": "timequerytest",
+      "type": "python",
+      "request": "launch",
+      "stopOnEntry": false,
+      "pythonPath": "${config.python.pythonPath}",
+      "program": "${file}",
+      "cwd": "${workspaceRoot}",
+      "debugOptions": [
+        "WaitOnAbnormalExit",
+        "WaitOnNormalExit",
+        "RedirectOutput"
+      ],
+      "args": [
+        "accesslist.sqlite",
+        "-v",
+        "-t",
+        "20070703220500",
+        "20070703220500"
       ]
     },
     {
@@ -53,54 +124,10 @@
         "RedirectOutput"
       ],
       "args": [
-        "test.sqlite",
+        "accesslist.sqlite",
         "--printall"
       ]
-    },
-        {
-      "name": "oneorbitbuilddb",
-      "type": "python",
-      "request": "launch",
-      "stopOnEntry": false,
-      "pythonPath": "${config.python.pythonPath}",
-      "program": "${file}",
-      "cwd": "${workspaceRoot}",
-      "debugOptions": [
-        "WaitOnAbnormalExit",
-        "WaitOnNormalExit",
-        "RedirectOutput"
-      ],
-      "args": [
-        "-o",
-        "-v",
-        "--trace=trace.txt"
-        "oneorbit.sqlite",
-        "data/Orbit_Path_Time.txt.gz",
-        "testdata/one-orbit-files.txt.gz"
-      ]
-    },
-    {
-      "name": "accesslist-build",
-      "type": "python",
-      "request": "launch",
-      "stopOnEntry": false,
-      "pythonPath": "${config.python.pythonPath}",
-      "program": "${file}",
-      "cwd": "${workspaceRoot}",
-      "debugOptions": [
-        "WaitOnAbnormalExit",
-        "WaitOnNormalExit",
-        "RedirectOutput"
-      ],
-      "args": [
-        "-o",
-        "-q",
-        "--trace=trace.txt"
-        "acccesslist.sqlite",
-        "data/Orbit_Path_Time.txt.gz",
-        "data/accesslist.gz"
-      ]
-    },
+    }, 
     {
       "name": "PySpark",
       "type": "python",
