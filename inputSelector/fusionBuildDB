@@ -3,7 +3,7 @@
 """buildDB - Build the timespan database from orbits data-file and instrument-file-names data-files
 
 Usage:
-    buildDB [-ohqv] [--trace=FILENAME] DB_FILE ORBIT_FILE INSTRUMENT_FILES...
+    buildDB [-ohqv] [--trace=FILENAME] [--discards=DISCARDFILE] DB_FILE ORBIT_FILE INSTRUMENT_FILES...
     buildDB -h | --help
 
 Arguments:
@@ -17,7 +17,8 @@ Options:
     -q                        Quiet mode - omit warnings/anomalies to stdout
     -anomalies=<file>         send input anomalies to <file>
     -v                        verbose, print command/args, file, times, etc on inserts
-    -trace=<file>             capture trace/debug output to file
+    --trace=<file>            capture trace/debug output to file
+    --discards=<file>         capture discards/filters to the named file
 
 """
 
@@ -25,27 +26,47 @@ from __future__ import print_function
 import sqlite3
 import gzip
 import sys
-from datetime import datetime
 import logging
 from logging import *
 import os
 from docopt import docopt
 import time
-from time import mktime, strptime
+import calendar
+from pytz import timezone
+from datetime import datetime
+from time import mktime, strptime #, gmtime, strftime
 
 args = docopt(__doc__)
 
+# global rows and insert strings to collect all the rows
+# then do the inserts at once, misr last (see populate orbit calc)
+ROWS = {"orbits": [], "MOD": [], "AST": [], "CER": [], "MOP": [], "MIS": [], "dirs": dict()}
+INSERTS = {\
+    "orbits": 'insert or ignore into orbits (orbit, path, stime, etime) values (?, ?, ?, ?)',\
+    "MOD": 'insert or ignore into modis (directory, fname, stime, etime) values(?, ?, ?, ?)',\
+    "AST": 'insert or ignore into aster (directory, fname, stime, etime) values(?, ?, ?, ?)',\
+    "CER": 'insert or ignore into ceres (directory, fname, stime, etime) values(?, ?, ?, ?)',\
+    "MOP": 'insert or ignore into mopitt (directory, fname, stime, etime) values(?, ?, ?, ?)',\
+    "MIS": 'insert or ignore into miser (directory, fname, stime, etime) values(?, ?, ?, ?)',\
+    "dirs": 'insert or ignore into dirs (dir, id) values(?,?)'\
+    }
+# Filter specs: matches get dropped
+TAILFILTERS = ['.met', '.xml']
+HEADFILTERS = ['#', 'MISBR']
+# Timezone reference for all timesh
+TZ = timezone('UTC')
+
+def mktime_utc(timefmt, timestr):
+    return calendar.timegm(TZ.localize(datetime.strptime(timestr, timefmt)).timetuple())
 
 class Timer:    
     def __enter__(self):
         self.start = time.clock()
         return self
-
     def __exit__(self, *args):
         self.end = time.clock()
         self.interval = self.end - self.start
         print ('time: {}'.format(self.interval))
-
 
 def usage():
     print (__doc__)
@@ -85,32 +106,16 @@ def createDB(dbfile):
         cursor = cursor.execute(query)
     return dbconnection, cursor
 
-# global rows and insert strings to collect all the rows
-# then do the inserts at once, misr last (see populate orbit calc)
-ROWS = {"orbits": [], "MOD": [], "AST": [], "CER": [], "MOP": [], "MIS": [], "dirs": dict()}
-INSERTS = {\
-    "orbits": 'insert or ignore into orbits (orbit, path, stime, etime) values (?, ?, ?, ?)',\
-    "MOD": 'insert or ignore into modis (directory, fname, stime, etime) values(?, ?, ?, ?)',\
-    "AST": 'insert or ignore into aster (directory, fname, stime, etime) values(?, ?, ?, ?)',\
-    "CER": 'insert or ignore into ceres (directory, fname, stime, etime) values(?, ?, ?, ?)',\
-    "MOP": 'insert or ignore into mopitt (directory, fname, stime, etime) values(?, ?, ?, ?)',\
-    "MIS": 'insert or ignore into miser (directory, fname, stime, etime) values(?, ?, ?, ?)',\
-    "dirs": 'insert or ignore into dirs (dir, id) values(?,?)'\
-    }
-
 odict = dict()
 def addOrbits(orbitsfile):
     timeFmt = '%Y-%m-%dT%H:%M:%SZ'
     with gzip.open(orbitsfile, 'r') as infile:
         for line in infile:
-            line = line.decode("utf-8-sig")
-            line = line.strip()
-            if line.startswith('#'):
-                continue
+            line = line.decode("utf-8-sig").strip()
             orbitnum, pathnum, starttime, endtime = line.split()
             orbitnum = int(orbitnum)
-            stime = int(mktime(strptime(starttime, timeFmt)))
-            etime = int(mktime(strptime(endtime, timeFmt)))
+            stime = mktime_utc(timeFmt, starttime)
+            etime = mktime_utc(timeFmt, endtime)
             ROWS["orbits"].append((orbitnum, pathnum, stime, etime,))
             odict[orbitnum] = (stime, etime, pathnum)
         if args.get('-v', False):
@@ -123,12 +128,9 @@ def addDir(directory):
     
 def addmod(directory, fname):
     sformat = '%Y%j%H%M'
-    eformat = '%Y%j%H%M%S'
     ss = fname.split('.')
-    sstr = ss[1][1:]+ss[2]
-    estr = ss[4]
-    stime = int(mktime(strptime(sstr, sformat)))
-    etime = int(mktime(strptime(estr, eformat)))
+    stime = mktime_utc(sformat, ss[1][1:]+ss[2])
+    etime = stime + 5*60
     directory = ROWS['dirs'][directory]
     ROWS["MOD"].append((directory, fname, stime, etime,))
     return
@@ -136,7 +138,7 @@ def addmod(directory, fname):
 def addmop(directory, fname):
     sformat = '%Y%m%d'
     ss = fname.split('-')
-    stime = int(mktime(strptime(ss[1], sformat)))
+    stime = mktime_utc(sformat, ss[1])
     etime = stime + 24*60*60 # TODO CHECK THIS 24 hours?
     directory = ROWS['dirs'][directory]
     ROWS["MOP"].append((directory, fname, stime, etime,))
@@ -145,8 +147,8 @@ def addmop(directory, fname):
 def addcer(directory, fname):
     timeFmt = '%Y%m%d'
     ss = fname.split('.')
-    stime = int(mktime(strptime(ss[-1], timeFmt)))
-    etime = 0 # TODO CHECK THIS
+    stime = mktime_utc(timeFmt, ss[-1])
+    etime = stime + 24*60*60 # TODO CHECK THIS 24 hrs?
     directory = ROWS['dirs'][directory]
     ROWS["CER"].append((directory, fname, stime, etime,))
     return
@@ -154,12 +156,12 @@ def addcer(directory, fname):
 def addast(directory, fname):
     sformat = '003%d%m%Y%H%M%S'
     ss = fname.split('_')
-    startstring = ss[2]
-    stime = int(mktime(strptime(startstring, sformat)))
-    etime = stime + 9*60  # TODO CHECK 9 mins?
+    stime = mktime_utc(sformat, ss[2])
+    etime = stime + 9  # TODO CHECK 9 sec?
     directory = ROWS['dirs'][directory]
     ROWS["AST"].append((directory, fname, stime, etime,))
     return
+#Orbit 40110: StartTime: 20070703210915, EndTime: 20070703224808
 
 def addmisr(directory, fname):
     ss = fname.split('_')
@@ -188,12 +190,17 @@ def addInstrumentFile(instFile):
             if (count % report_interval) == 0:
                 timenow = time.time()
                 rate = report_interval/(timenow-timeprev)
-                print('{} processed, rate: {}/s'.format(count, int(rate)))
+                print('Processing file {}, {} processed, rate: {}/s'.format(instFile, count, int(rate)))
                 timeprev = timenow
             line = line.decode("utf-8-sig").strip()
-            # skip comments
-            if line.startswith('#') or len(line) == 0:
+            if len(line) == 0:
                 continue
+            for match in HEADFILTERS:
+                if line.startswith(match):
+                    continue
+            for match in TAILFILTERS:
+                if line.endswith(match):
+                    continue
             if line.startswith('/') and line.endswith(':'):
                 # looks like a path
                 warn("addInstrumentFile: new directory %s for following files", line)
@@ -207,8 +214,7 @@ def addInstrumentFile(instFile):
                 addDir(directory)
                 addFunc(directory, fname)
             except Exception as e:
-                debug("file %s: line %d: failed to add line: %s", instFile, count, line)
-
+                debug("file %s: line %d: add failed: '%s'", instFile, count, line)
     return
 
 def main():
