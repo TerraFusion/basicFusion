@@ -48,7 +48,7 @@
       ]
     },
     {
-      "name": "oneorbitbuilddb",
+      "name": "oneorbit-build",
       "type": "python",
       "request": "launch",
       "stopOnEntry": false,
@@ -70,7 +70,7 @@
       ]
     },
     {
-      "name": "oneorbitquerytest",
+      "name": "oneorbit-query-40110",
       "type": "python",
       "request": "launch",
       "stopOnEntry": false,
