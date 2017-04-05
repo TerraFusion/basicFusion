@@ -39,22 +39,24 @@ from time import mktime, strptime #, gmtime, strftime
 args = docopt(__doc__)
 
 # global rows and insert strings to collect all the rows
-# then do the inserts at once, misr last (see populate orbit calc)
-ROWS = {"orbits": [], "MOD": [], "AST": [], "CER": [], "MOP": [], "MIS": [], "dirs": dict()}
+# the inserts at once, misr last (see populate orbit calc)
+ROWS = {"instruments": [], "orbits": [], "MOD": [], "AST": [], "CER": [], "MOP": [], "MIS": [], "dirs": dict()}
 INSERTS = {\
     "orbits": 'insert or ignore into orbits (orbit, path, stime, etime) values (?, ?, ?, ?)',\
-    "MOD": 'insert or ignore into modis (directory, fname, stime, etime) values(?, ?, ?, ?)',\
-    "AST": 'insert or ignore into aster (directory, fname, stime, etime) values(?, ?, ?, ?)',\
-    "CER": 'insert or ignore into ceres (directory, fname, stime, etime) values(?, ?, ?, ?)',\
-    "MOP": 'insert or ignore into mopitt (directory, fname, stime, etime) values(?, ?, ?, ?)',\
-    "MIS": 'insert or ignore into miser (directory, fname, stime, etime) values(?, ?, ?, ?)',\
-    "dirs": 'insert or ignore into dirs (dir, id) values(?,?)'\
+    "MOD": 'insert or ignore into modis (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',\
+    "AST": 'insert or ignore into modis (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',\
+    "CER": 'insert or ignore into modis (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',\
+    "MOP": 'insert or ignore into modis (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',\
+    "MIS": 'insert or ignore into modis (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',\
+    "dirs": 'insert or ignore into dirs (dir, id) values(?,?)',\
+    "instruments": 'insert or ignore into instruments (id, name) values(?, ?)'
     }
 # Filter specs: matches get dropped
 TAILFILTERS = ['.met', '.xml']
 HEADFILTERS = ['#', 'MISBR']
 # Timezone reference for all timesh
 TZ = timezone('UTC')
+INSTRUMENTS = ["dirs", "orbits", "MOD", "AST", "CER", "MOP", "MIS"]
 
 def mktime_utc(timefmt, timestr):
     return calendar.timegm(TZ.localize(datetime.strptime(timestr, timefmt)).timetuple())
@@ -99,9 +101,10 @@ def createDB(dbfile):
 
     tstrs = {'CREATE TABLE orbits (orbit integer, path integer, stime integer, etime integer)'}
     tstrs.add('CREATE TABLE dirs (id integer primary key autoincrement, dir text unique)')
+    tstrs.add('CREATE TABLE instruments (id integer primary key autoincrement, name text unique)')
     for inst in {"modis", "mopitt", "aster", "ceres", "miser"}:
         tstrs.add('CREATE TABLE {} (stime integer, etime integer, \
-            directory integer, fname text, FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
+            directory integer, fname text, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
     for query in tstrs:
         cursor = cursor.execute(query)
     return dbconnection, cursor
@@ -132,7 +135,7 @@ def addmod(directory, fname):
     stime = mktime_utc(sformat, ss[1][1:]+ss[2])
     etime = stime + 5*60
     directory = ROWS['dirs'][directory]
-    ROWS["MOD"].append((directory, fname, stime, etime,))
+    ROWS["MOD"].append((directory, fname, stime, etime, INSTRUMENTS.index('MOD'),))
     return
 
 def addmop(directory, fname):
@@ -141,7 +144,7 @@ def addmop(directory, fname):
     stime = mktime_utc(sformat, ss[1])
     etime = stime + 24*60*60 # TODO CHECK THIS 24 hours?
     directory = ROWS['dirs'][directory]
-    ROWS["MOP"].append((directory, fname, stime, etime,))
+    ROWS["MOP"].append((directory, fname, stime, etime, INSTRUMENTS.index('MOP'),))
     return
 
 def addcer(directory, fname):
@@ -150,7 +153,7 @@ def addcer(directory, fname):
     stime = mktime_utc(timeFmt, ss[-1])
     etime = stime + 24*60*60 # TODO CHECK THIS 24 hrs?
     directory = ROWS['dirs'][directory]
-    ROWS["CER"].append((directory, fname, stime, etime,))
+    ROWS["CER"].append((directory, fname, stime, etime, INSTRUMENTS.index('CER'),))
     return
    
 def addast(directory, fname):
@@ -159,7 +162,7 @@ def addast(directory, fname):
     stime = mktime_utc(sformat, ss[2])
     etime = stime + 9  # TODO CHECK 9 sec?
     directory = ROWS['dirs'][directory]
-    ROWS["AST"].append((directory, fname, stime, etime,))
+    ROWS["AST"].append((directory, fname, stime, etime, INSTRUMENTS.index('AST'),))
     return
 #Orbit 40110: StartTime: 20070703210915, EndTime: 20070703224808
 
@@ -169,7 +172,7 @@ def addmisr(directory, fname):
     orbit = int(startstring[1:])
     directory = ROWS['dirs'][directory]
     if odict.has_key(orbit):
-        ROWS["MIS"].append((directory, fname, odict[orbit][0], odict[orbit][1],))
+        ROWS["MIS"].append((directory, fname, odict[orbit][0], odict[orbit][1], INSTRUMENTS.index('MIS'),))
     else:
         warn("addmisr: no data for orbit %d trying to add %s", orbit, directory+"/"+fname)
     return
@@ -240,7 +243,11 @@ def main():
     except:
         None
     connection, cursor = createDB(args['DB_FILE'])
-    for table in ["dirs", "orbits", "MOD", "AST", "CER", "MOP", "MIS"]:
+    
+    idata = [ (k, INSTRUMENTS.index(k)) for k in INSTRUMENTS[2:] ]
+
+        
+    for table in INSTRUMENTS:
         #debug("execute: {}, ex: {}".format(INSERTS[table], ROWS[table][0]))
         if args.get('-v', False):
             [debug("table {0} data {1}".format(table, r)) for r in ROWS[table]]
