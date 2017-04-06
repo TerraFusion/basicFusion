@@ -815,7 +815,7 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname) {
         Else, returns EXIT_SUCCESS.
 */
 
-int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *retRank, int32* retDimsizes, int32 dataType )
+int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *retRank, int32* retDimsizes, int32 dataType, int32*h4_start,int32*h4_stride,int32*h4_count )
 {
     int32 sds_id, sds_index;
     int32 rank;
@@ -825,7 +825,10 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
     intn status;
     int32 start[DIM_MAX] = {0};
     int32 stride[DIM_MAX] = {0};
-    
+    int32 count[DIM_MAX];
+
+    int total_elems = 1;
+       
     /* get the index of the dataset from the dataset's name */
     sds_index = SDnametoindex( fileID, datasetName );
     if( sds_index < 0 )
@@ -845,6 +848,8 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
     for ( int i = 0; i < DIM_MAX; i++ )
     {
         dimsizes[i] = 1;
+        if(h4_count != NULL)
+            count[i] = 1;
     }
     
     /* get info about dataset (rank, dim size, number type, num attributes ) */
@@ -854,6 +859,36 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
         fprintf( stderr, "[%s:%s:%d] SDgetinfo: Failed to get info from dataset.\n", __FILE__, __func__, __LINE__);
         SDendaccess(sds_id);
         return EXIT_FAILURE;
+    }
+
+
+    // Adding subsetting information.
+    
+    if(h4_start != NULL) {
+        for(int i = 0; i<rank; i++)
+            start[i] = h4_start[i];
+    }
+
+    if(h4_stride != NULL) {
+        for(int i = 0; i<rank; i++)
+            stride[i] = h4_stride[i];
+    }
+    else {
+        for ( int i = 0; i < rank; i++ )
+            stride[i] = 1;
+    }
+
+    if(h4_count != NULL) {
+        for(int i = 0; i<rank; i++)
+            count[i] = h4_count[i];
+    }
+
+    // Number of total elements
+    for (int i = 0; i < rank;i++) {
+        if(h4_count!=NULL)
+           total_elems *= count[i];
+        else 
+           total_elems *= dimsizes[i];
     }
     
     
@@ -868,7 +903,36 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
 
     *data = NULL;
 
+    // The following needs to re-work,just temporarily fix it for the time being. KY 2017-03-31, the original code is kept.
     switch ( dataType )
+    {
+        case DFNT_FLOAT32:
+            *((float**)data) = malloc (total_elems * sizeof( float ) );
+            break;
+
+        case DFNT_FLOAT64:
+            *((double**)data) = malloc (total_elems* sizeof(double));
+            break;
+
+        case DFNT_UINT16:
+            *((unsigned short int**)data) = malloc (total_elems* sizeof(unsigned short int));
+            break;
+
+        case DFNT_UINT8:
+            *((uint8_t**)data) = malloc (total_elems* sizeof(uint8_t));
+            break;
+
+        case DFNT_INT32:
+            *((int32_t**)data) = malloc (total_elems* sizeof(int32_t));
+            break;
+
+        default:
+            FATAL_MSG("Invalid data type.\nIt may be the case that your datatype has not been accounted for in the %s function.\nIf that is the case, simply add your datatype to the function as a switch case.\n",__func__ );
+            SDendaccess(sds_id);
+            return EXIT_FAILURE;
+    }
+#if 0
+     switch ( dataType )
     {
         case DFNT_FLOAT32:
             *((float**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]*dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] * sizeof( float ) );
@@ -904,10 +968,12 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
             return EXIT_FAILURE;
     }
     
-    for ( int i = 0; i < rank; i++ )
-        stride[i] = 1;
+#endif
     
-    status = SDreaddata( sds_id, start, stride, dimsizes, *data );      
+    if(h4_count!=NULL)
+        status = SDreaddata( sds_id, start, stride, count, *data );      
+    else 
+        status = SDreaddata( sds_id, start, stride, dimsizes, *data );      
     
     if ( status < 0 )
     {
@@ -921,9 +987,12 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
     SDendaccess(sds_id);
 
     if ( retRank != NULL ) *retRank = rank;
-    if ( retDimsizes != NULL )
+    if ( retDimsizes != NULL ) {
+      if(h4_count!=NULL)
+        for ( int i = 0; i < DIM_MAX; i++ ) retDimsizes[i] = count[i];
+      else
         for ( int i = 0; i < DIM_MAX; i++ ) retDimsizes[i] = dimsizes[i];
-    
+    }
     return EXIT_SUCCESS;
 }
 
@@ -1041,7 +1110,7 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
     herr_t status;
     
     status = H4readData( inputFileID, inDatasetName,
-        (void**)&dataBuffer, &dataRank, dataDimSizes, inputDataType );
+        (void**)&dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL );
     
     if ( status == EXIT_FAILURE )
     {
@@ -1071,6 +1140,7 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
         
     if ( datasetID == EXIT_FAILURE )
     {
+        // Have warning const char* to char*:
         char* tempStr = outDatasetName ? outDatasetName : inDatasetName;
         FATAL_MSG("Error writing \"%s\" dataset.\n", tempStr );
         free(dataBuffer);
@@ -1083,6 +1153,107 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
     
     return datasetID;
 }
+/*
+                    readThenWriteSubset
+    DESCRIPTION:
+        This function is an abstraction of reading a dataset from an HDF4 file
+        and then writing it to the output HDF5 file. This function calls H4readData
+        which is itself an abstraction for reading input data into a data buffer, and
+        then writes that buffer to the output file using the insertDataset function.
+        Once all writing is done, it frees allocated memory and returns the HDF5 dataset
+        identifier that was created in the output file.
+        
+    ARGUMENTS:
+        0. outDatasetName -- The name that the output HDF5 dataset will have. Note that the actual
+                             name the output dataset will have is the one given by correct_name(outDatasetName).
+                             Therefore you cannot assume that the output name will be exactly what
+                             is passed to this argument.
+                             Set to NULL if the same name as the inDatasetName is desired.
+
+        1. outputGroupID  -- The HDF5 group/directory identifier for where the data is to
+                             be written. Can either be an actual group ID or can be the
+                             file ID (in the latter case, data will be written to the root
+                             directory).
+        2. inDatasetName    -- A string containing the name of the dataset in the input HDF4
+                             file. The output dataset will have the same name.
+        3. inputDataType  -- An HDF4 datatype identifier. Must match the data type of the
+                             input dataset. Please reference Section 3 of the HDF4
+                             Reference Manual for a list of HDF types.
+        4. outputDataType -- An HDF5 datatype identifier. Must be of the same general type
+                             of the input data type. Please reference the HDF5 API
+                             specification under "Predefined Datatypes" for a list of HDF5
+                             datatypes.
+        5. inputFileID    -- The HDF4 input file identifier
+    
+        6. start
+        7. stride
+        8. count
+    EFFECTS:
+        Reads the input file dataset and then writes to the HDF5 output file. Returns
+        a dataset identifier for the new dataset created in the output file. It is the
+        responsibility of the caller to close the dataset ID when finished using
+        H5Dclose().
+    
+    RETURN:
+        Returns the dataset identifier if successful. Else returns EXIT_FAILURE upon
+        any errors.
+*/
+
+hid_t readThenWriteSubset( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType, 
+                       hid_t outputDataType, int32 inputFileID,int32 *start,int32*stride,int32*count )
+{
+    int32 dataRank;
+    int32 dataDimSizes[DIM_MAX];
+    unsigned int* dataBuffer = NULL;
+    hid_t datasetID;
+    
+    herr_t status;
+    
+    status = H4readData( inputFileID, inDatasetName,
+        (void**)&dataBuffer, &dataRank, dataDimSizes, inputDataType,start,stride,count );
+    
+    if ( status == EXIT_FAILURE )
+    {
+        FATAL_MSG("Unable to read \"%s\" data.\n", inDatasetName );
+        if ( dataBuffer != NULL ) free(dataBuffer);
+        return (EXIT_FAILURE);
+    }
+    
+    /* END READ DATA. BEGIN INSERTION OF DATA */ 
+     
+    /* Because we are converting from HDF4 to HDF5, there are a few type mismatches
+     * that need to be resolved. Thus, we need to take the DimSizes array, which is
+     * of type int32 (an HDF4 type) and put it into an array of type hsize_t.
+     * A simple casting might work, but that is dangerous considering hsize_t and int32
+     * are not simply two different names for the same type. They are two different types.
+     */
+    hsize_t temp[DIM_MAX];
+    for ( int i = 0; i < DIM_MAX; i++ )
+        temp[i] = (hsize_t) dataDimSizes[i];
+    
+    if ( outDatasetName )     
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+         temp, outputDataType, outDatasetName, dataBuffer );
+    else
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
+         temp, outputDataType, inDatasetName, dataBuffer );
+        
+    if ( datasetID == EXIT_FAILURE )
+    {
+        // Have warning const char* to char*:
+        char* tempStr = outDatasetName ? outDatasetName : inDatasetName;
+        FATAL_MSG("Error writing \"%s\" dataset.\n", tempStr );
+        free(dataBuffer);
+        H5Dclose(datasetID);
+        return (EXIT_FAILURE);
+    }
+    
+    
+    free(dataBuffer);
+    
+    return datasetID;
+}
+
 
 /*
         correct_name
@@ -1218,11 +1389,11 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
     
     if(DFNT_UINT8 == inputDataType) {
         status = H4readData( inputFileID, datasetName,
-        (void**)&vsir_dataBuffer, &dataRank, dataDimSizes, inputDataType );
+        (void**)&vsir_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL );
     }
     else if(DFNT_UINT16 == inputDataType) {
         status = H4readData( inputFileID, datasetName,
-        (void**)&tir_dataBuffer, &dataRank, dataDimSizes, inputDataType );
+        (void**)&tir_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL );
        
     }
     else {
@@ -1396,7 +1567,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
 
     }
     status = H4readData( inputFileID, datasetName,
-    (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType );
+    (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType ,NULL,NULL,NULL);
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
@@ -1671,7 +1842,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
     intn status = -1;
 
     status = H4readData( inputFileID, datasetName,
-        (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType );
+        (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
@@ -1907,7 +2078,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
 
     
     status = H4readData( inputFileID, datasetName,
-        (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType );
+        (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
@@ -2166,7 +2337,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
     intn status = -1;
 
     status = H4readData( inputFileID, datasetName,
-        (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType );
+        (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
@@ -3524,6 +3695,236 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
     return SUCCEED;
 
 }
+// Just see if it works 
+herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID,int32 s_size ,char*fm_number_str, int gran_number)
+{
+    hsize_t tempInt = 0;
+    char* dimName = NULL;
+    herr_t errStatus = 0;
+    int32 ntype = 0;
+    int32 h4dsetID = 0;
+    intn statusn = 0;
+    int rank = 0;
+    int status = 0;
+    hid_t h5dimID = 0;
+    void *dimBuffer = NULL;
+    short fail = 0;
+    hid_t memspace = 0;
+    htri_t dsetExists = 0;
+    short wasHardCodeCopy = 0;
+
+    char* correct_dimName = NULL;
+    char* ceres_sub_dim_name = NULL;
+    char ceres_granule_suffix[3] = {'\0'};
+
+    /* Get dataset index */
+    int32 sds_index = SDnametoindex(h4fileID, h4datasetName );
+    if ( sds_index == FAIL )
+    {
+        FATAL_MSG("Failed to get SD index.\n");
+        goto cleanupFail;
+    }
+    /* select the dataset */
+    h4dsetID = SDselect(h4fileID, sds_index);
+    if ( h4dsetID == FAIL )
+    {
+        h4dsetID = 0;
+        FATAL_MSG("Failed to select the HDF4 dataset.\n");
+        goto cleanupFail;
+    }
+
+    /* get the rank of the dataset so we know how many dimensions to copy */
+    statusn = SDgetinfo(h4dsetID, NULL, &rank, NULL, NULL, NULL );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to get SD info.\n");
+        goto cleanupFail;
+    }
+
+
+    int32 dim_index;
+
+    // COPY OVER DIMENSION SCALES TO HDF5 OBJECT
+    dimName = calloc(500, 1);
+    int32 size = 0;
+    int32 num_attrs = 0;
+    hid_t h5type = 0;
+    int32 h4dimID = 0;
+
+    for ( dim_index = 0; dim_index < rank; dim_index++ )
+    {
+        // Get the dimension ID
+        h4dimID = SDgetdimid ( h4dsetID, dim_index );
+        if ( h4dimID == FAIL )
+        {
+            FATAL_MSG("Failed to get dimension ID.\n");
+            h4dimID = 0;
+            goto cleanupFail;
+        }
+
+        /* get various useful info about this dimension */
+        statusn = SDdiminfo( h4dimID, dimName, &size, &ntype, &num_attrs );
+        //int32 dimRank = 0;
+        //int32 dimSizes = 0;
+        //statusn = SDgetinfo( h4dimID, dimName, &dimRank, &dimSizes, &ntype, &num_attrs);
+        if ( statusn == FAIL )
+        {
+            FATAL_MSG("Failed to get dimension info.\n");
+            goto cleanupFail;
+        }
+
+        size = s_size;
+        /* Since dimension scales are shared, it is possible this dimension already exists in HDF5 file (previous
+           call to this function created it). Check to see if it does. If so, use the dimension that eixsts.
+        */
+
+        correct_dimName = correct_name(dimName);
+        // Now we need to add the granule number for this dimenson since each granule will be different.
+        memset(ceres_granule_suffix,0,3);
+        sprintf(ceres_granule_suffix,"%d",gran_number);
+        ceres_sub_dim_name=malloc(strlen(correct_dimName)+strlen(fm_number_str)+strlen(ceres_granule_suffix)+1);
+        memset(ceres_sub_dim_name,0,strlen(correct_dimName)+strlen(fm_number_str)+strlen(ceres_granule_suffix)+1);
+
+        strncpy(ceres_sub_dim_name,correct_dimName,strlen(correct_dimName));
+        strncat(ceres_sub_dim_name,fm_number_str,strlen(fm_number_str));
+        strncat(ceres_sub_dim_name,ceres_granule_suffix,strlen(ceres_granule_suffix));
+
+        //dsetExists = H5Lexists(h5dimGroupID, correct_dsetname, H5P_DEFAULT);
+        dsetExists = H5Lexists(h5dimGroupID, ceres_sub_dim_name, H5P_DEFAULT);
+        // if dsetExists is <= 0, then dimension does not yet exist.
+        if ( dsetExists <= 0 )
+        {
+            /* If the dimension is one of the following, we will do an explicit dimension scale copy (hard code
+             * the scale values)
+             */
+            {
+                wasHardCodeCopy = 0;
+                /* SDdiminfo will return 0 for ntype if the dimension has no scale information. This is the case when
+                   it is a pure dimension.  We need two separate cases for when it is and is not a pure dim
+                */
+
+                if ( ntype != 0 )
+                {
+                    /* get the correct HDF5 datatype from ntype */
+                    status = h4type_to_h5type( ntype, &h5type );
+                    if ( status != 0 )
+                    {
+                        FATAL_MSG("Failed to convert HDF4 to HDF5 datatype.\n");
+                        goto cleanupFail;
+                    }
+
+                    /* read the dimension scale into a buffer */
+                    dimBuffer = malloc(size);
+                    //int32 start[1] = {0};
+                    //int32 stride[1] = {1};
+                    //statusn = SDreaddata( h4dimID, start, stride, &dimSizes, dimBuffer );
+                    statusn = SDgetdimscale(h4dimID, dimBuffer);
+                    if ( statusn != 0 )
+                    {
+                        FATAL_MSG("Failed to get dimension scale.\n");
+                        goto cleanupFail;
+                    }
+
+                    /* make a new dataset for our dimension scale */
+                    
+                    tempInt = size;
+                    h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, h5type, ceres_sub_dim_name, dimBuffer);
+                    if ( h5dimID == EXIT_FAILURE )
+                    {
+                        h5dimID = 0;
+                        FATAL_MSG("Failed to insert dataset.\n");
+                        goto cleanupFail;
+                    }
+
+                    free(dimBuffer); dimBuffer = NULL;
+                }
+
+                else
+                {
+                    hsize_t tempSize2 = 0;
+
+                    tempSize2 = (hsize_t) size;
+                    memspace = H5Screate_simple( 1, &tempSize2, NULL );
+
+                    h5dimID = H5Dcreate( h5dimGroupID, ceres_sub_dim_name, H5T_NATIVE_INT, memspace,
+                                         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+                    if ( h5dimID < 0 )
+                    {
+                        FATAL_MSG("Failed to create dataset.\n");
+                        h5dimID = 0;
+                        goto cleanupFail;
+                    }
+
+                    H5Sclose(memspace); memspace = 0;
+                    
+                } // end else
+            } 
+
+            errStatus = H5DSset_scale(h5dimID, ceres_sub_dim_name);
+            if ( errStatus != 0 )
+            {
+                FATAL_MSG("Failed to set dataset as a dimension scale.\n");
+                goto cleanupFail;
+            }
+
+
+            /* Correct the NAME attribute of the pure dimension to conform with netCDF
+               standards.
+            */
+            if ( ntype == 0 && !wasHardCodeCopy )
+            {
+                statusn = change_dim_attr_NAME_value(h5dimID); 
+                if ( statusn == FAIL )
+                {
+                    FATAL_MSG("Failed to change the NAME attribute of a dimension.\n");
+                    goto cleanupFail;
+                }
+            }
+        } // end if ( dsetExists <= 0 )
+
+        else 
+        {    
+            h5dimID = H5Dopen2(h5dimGroupID, ceres_sub_dim_name, H5P_DEFAULT);
+            if ( h5dimID < 0 )
+            {
+                h5dimID = 0;
+                FATAL_MSG("Failed to open dataset.\n");
+                goto cleanupFail;
+            }
+        }
+
+        
+        errStatus = H5DSattach_scale(h5dsetID, h5dimID, dim_index);
+        if ( errStatus != 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+
+        free(correct_dimName); correct_dimName = NULL;
+        free(ceres_sub_dim_name); ceres_sub_dim_name = NULL;
+        H5Dclose(h5dimID); h5dimID = 0;
+    }   // end for loop
+
+    fail = 0;
+    if ( 0 )
+    {
+        cleanupFail:
+        fail = 1;
+    }
+
+    // The following free, espeically free(dimName) may be an issue.
+    if ( dimName ) free ( dimName );
+    if ( h5dimID ) H5Dclose(h5dimID);
+    if ( dimBuffer ) free(dimBuffer);
+    if ( correct_dimName ) free(correct_dimName);
+    if ( memspace ) H5Sclose(memspace);
+    if ( fail ) return FAIL;
+
+    return SUCCEED;
+
+}
+
 
 /*
             MOPITTaddDimension
@@ -4257,4 +4658,250 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
         return EXIT_FAILURE;
 
     return EXIT_SUCCESS;
+}
+
+
+int comp_greg(GDateInfo_t j1, GDateInfo_t j2) {
+
+#define cmp_number(a,b) (((a) > (b)) ? 1 : (((a) == (b)) ? 0 : -1))
+//#define cmp_number2(a,b) (((a) > (b)) ? 1 : (((a) == (b)) ? 0 : -1))
+
+    int cmp_year = cmp_number(j1.year,j2.year);
+//printf("cmp_year is %d\n",cmp_year);
+    if(cmp_year == 0) {
+        int cmp_month = cmp_number(j1.month,j2.month);
+//printf("cmp_month is %d\n",cmp_month);
+        if(cmp_month == 0) {
+            int cmp_day = cmp_number(j1.day,j2.day);
+//printf("cmp_day is %d\n",cmp_day);
+            if(cmp_day == 0) {
+                int cmp_hour = cmp_number(j1.hour,j2.hour);
+//printf("cmp_hour is %d\n",cmp_hour);
+                if(cmp_hour == 0) {
+                    int cmp_minute = cmp_number(j1.minute,j2.minute);
+//printf("cmp_minute is %d\n",cmp_minute);
+                    if(cmp_minute == 0) {
+                        int cmp_second = cmp_number(j1.second,j2.second);
+//printf("cmp_second is %d\n",cmp_second);
+                        return cmp_second;
+                    }
+                    else
+                        return cmp_minute;
+                }
+                else
+                    return cmp_hour;
+            }
+            else
+                return cmp_day;
+        }
+        else
+           return cmp_month;
+    }
+    else
+       return cmp_year;
+
+}
+
+void get_greg(double julian, int*yearp,int*monthp,int*dayp,int*hourp,int*mmp,double*ssp) {
+
+//printf("julian is %f\n",julian);
+    int JGREG = 15 + 31*(10+12*1582);
+    double HALFSECOND = 0.5;
+
+    double julian_fract = julian-(int)julian;
+    double total_ss,ss;
+    int hh,mm;
+    if(julian_fract >0.5)
+        total_ss = 86400*(julian_fract-0.5);
+    else
+        total_ss = 86400*(julian_fract+0.5);
+
+    hh = (int)(total_ss/3600);
+    mm = (int)((total_ss-(hh*3600))/60);
+    ss = total_ss-(hh*60.0+mm)*60.0;
+//printf("ss is %lf \n",ss);
+
+
+    /* Calculte fraction */
+
+
+    int jalpha,ja,jb,jc,jd,je,year,month,day;
+    julian = julian + HALFSECOND / 86400.0;
+      ja = (int) julian;
+      if (ja>= JGREG) {
+
+       jalpha = (int) (((ja - 1867216) - 0.25) / 36524.25);
+       ja = ja + 1 + jalpha - jalpha / 4;
+       }
+     jb = ja + 1524;
+   jc = (int) (6680.0 + ((jb - 2439870) - 122.1) / 365.25);
+   jd = 365 * jc + jc / 4;
+   je = (int) ((jb - jd) / 30.6001);
+   day = jb - jd - (int) (30.6001 * je);
+   month = je - 1;
+   if (month > 12) month = month - 12;
+   year = jc - 4715;
+   if (month > 2) year--;
+   if (year <= 0) year--;
+
+   *yearp = year;
+   *monthp = month;
+   *dayp   = day;
+   *hourp  = hh;
+   *mmp    = mm;
+   *ssp    = ss;
+
+//printf("ss is %lf \n",ss);
+   return;
+}
+/*
+        binarySearchUTC
+
+        TODO: NEED to CLEAN UP the comments.
+    DESCRIPTION:
+        This function performs a binary search on a sorted incrased order array of double values.
+        If the exact target is not found, the first element that is greater than the target value is returned
+        in the argument targetIndex.
+
+    ARGUMENTS:
+        IN
+            1. double* array         -- The array to perform the search on
+            2. double target         -- The value to search for
+            3. hsize_t size          -- The number of elements in array
+        OUT
+            4. long int* targetIndex -- The index of where the target value is. If target doesn't exist in the array,
+                                        this will return the first element in array that is larger than target.
+
+    EFFECTS:
+        Modifies the memory pointed to by targetIndex to contain the selected index of the array.
+
+    RETURN:
+        0 if an exact match is found.
+        1 if an exact match was not found (first element larger than target is returned).
+       -1 if an error occured.
+
+*/
+int binarySearchUTC ( const double* jd, GDateInfo_t target, int start_index,int end_index)
+{
+    int middle = 0;
+
+    GDateInfo_t gran_mark_index_time,gran_mark_adj_time;
+
+    int temp_year = 0;
+    int temp_month = 0;
+    int temp_day = 0;
+    int temp_hour = 0;
+    int temp_minute = 0;
+    double temp_second = 0.;
+    int* temp_yearp =&temp_year;
+    int* temp_monthp=&temp_month;
+    int* temp_dayp=&temp_day;
+    int* temp_hourp=&temp_hour;
+    int* temp_minutep=&temp_minute;
+    double* temp_secondp=&temp_second;
+
+    if(start_index >end_index) 
+        return -1;
+    middle = (start_index+end_index)/2;
+
+    if(middle == end_index)
+        return end_index;
+        
+#if 0
+printf("orbit year is %d\n",target.year);
+printf("orbit month is %d\n",target.month);
+printf("orbit day is %d\n",target.day);
+printf("orbit hour is %d\n",target.hour);
+printf("orbit minute is %d\n",target.minute);
+printf("orbit second is %lf\n",target.second);
+#endif
+
+    get_greg(jd[middle],temp_yearp,temp_monthp,temp_dayp,temp_hourp,temp_minutep,temp_secondp);
+    gran_mark_index_time.year = *temp_yearp;
+    gran_mark_index_time.month = *temp_monthp;
+    gran_mark_index_time.day = *temp_dayp;
+    gran_mark_index_time.hour = *temp_hourp;
+    gran_mark_index_time.minute = *temp_minutep;
+    gran_mark_index_time.second = *temp_secondp;
+
+#if 0
+printf("N orbit year is %d\n",gran_mark_index_time.year);
+printf("N orbit month is %d\n",gran_mark_index_time.month);
+printf("N orbit day is %d\n",gran_mark_index_time.day);
+printf("N orbit hour is %d\n",gran_mark_index_time.hour);
+printf("N orbit minute is %d\n",gran_mark_index_time.minute);
+printf("N orbit second is %lf\n",gran_mark_index_time.second);
+#endif
+
+ 
+
+    int cmp_orbit_mark_time = comp_greg(target,gran_mark_index_time);
+
+    get_greg(jd[middle+1],temp_yearp,temp_monthp,temp_dayp,temp_hourp,temp_minutep,temp_secondp);
+    gran_mark_adj_time.year = *temp_yearp;
+    gran_mark_adj_time.month = *temp_monthp;
+    gran_mark_adj_time.day = *temp_dayp;
+    gran_mark_adj_time.hour = *temp_hourp;
+    gran_mark_adj_time.minute = *temp_minutep;
+    gran_mark_adj_time.second = *temp_secondp;
+
+    int cmp_orbit_adj_time = comp_greg(target,gran_mark_adj_time);
+    if ( cmp_orbit_mark_time >=0 && cmp_orbit_adj_time <0)
+        return middle;
+    else if(cmp_orbit_mark_time <0) 
+        return binarySearchUTC(jd,target,0,middle);
+    else 
+        return binarySearchUTC(jd,target,middle,end_index);
+
+}
+
+int comp_greg_utc(double sgreg,GDateInfo_t sutc) {
+
+    GDateInfo_t sgreg_utc;
+    int temp_year = 0;
+    int temp_month = 0;
+    int temp_day = 0;
+    int temp_hour = 0;
+    int temp_minute = 0;
+    double temp_second = 0.0;
+    int* temp_yearp =&temp_year;
+    int* temp_monthp=&temp_month;
+    int* temp_dayp=&temp_day;
+    int* temp_hourp=&temp_hour;
+    int* temp_minutep=&temp_minute;
+    double* temp_secondp=&temp_second;
+
+    get_greg(sgreg,temp_yearp,temp_monthp,temp_dayp,temp_hourp,temp_minutep,temp_secondp);
+    sgreg_utc.year = *temp_yearp;
+    sgreg_utc.month = *temp_monthp;
+    sgreg_utc.day = *temp_dayp;
+    sgreg_utc.hour = *temp_hourp;
+    sgreg_utc.minute = *temp_minutep;
+    sgreg_utc.second = *temp_secondp;
+    return comp_greg(sgreg_utc,sutc);
+
+}
+
+int utc_time_diff(struct tm start_date, struct tm end_date) {
+
+
+  //struct tm start_date;
+  //struct tm end_date;
+  time_t start_time, end_time;
+  int seconds;
+
+#if 0
+  start_date.tm_hour = 0;  start_date.tm_min = 0;  start_date.tm_sec = 0;
+  start_date.tm_mon = 1; start_date.tm_mday = 1; start_date.tm_year = 112;
+
+  end_date.tm_hour = 0;  end_date.tm_min = 0;  end_date.tm_sec = 0;
+  end_date.tm_mon = 2; end_date.tm_mday = 1; end_date.tm_year = 112;
+#endif
+
+  start_time = mktime(&start_date);
+  end_time = mktime(&end_date);
+
+  seconds = (int)(difftime(end_time, start_time)) ;
+
+  return seconds;
 }

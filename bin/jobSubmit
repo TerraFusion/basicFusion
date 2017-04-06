@@ -5,14 +5,14 @@ inputFiles=/projects/sciteam/jq0/TerraFusion/basicFusion/testFiles
 # Path to the basicFusion directory
 PROJDIR=/u/sciteam/clipp/basicFusion
 while [[ "$input" != "y" && "$input" != "Y" && "$input" != "n" && "$input" != "N" ]]; do
-    printf "Should data be unpacked? Unpacked data will be significantly larger! [y/n]: "
+    printf "Should data be packed? Packed data will be significantly smaller! [y/n]: "
     read input
 done
 
 if [[ "$input" == "y" || "$input" == "Y" ]]; then
-    export TERRA_DATA_UNPACK=1
+    export TERRA_DATA_PACK=1
 else
-    unset TERRA_DATA_UNPACK
+    unset TERRA_DATA_PACK
 fi
 
 cd "$PROJDIR"/bin
@@ -37,5 +37,5 @@ if [ "$status" -ne 0 ]; then
 fi
 
 printf "\e[92m\e[4mSubmitting job to scheduler\e[0m\n"
-qsub -v TERRA_DATA_UNPACK "$PROJDIR"/bin/batchscript.pbs
+qsub -v TERRA_DATA_PACK "$PROJDIR"/bin/batchscript.pbs
 

@@ -1584,7 +1584,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     
 
     status = H4readData( MOD03FileID, latname,
-        (void**)&latBuffer, &latRank, latDimSizes, h4_type );
+        (void**)&latBuffer, &latRank, latDimSizes, h4_type,NULL,NULL,NULL );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  latname );
@@ -1593,7 +1593,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     }
 
     status = H4readData( MOD03FileID, lonname,
-        (void**)&lonBuffer, &lonRank, lonDimSizes, h4_type );
+        (void**)&lonBuffer, &lonRank, lonDimSizes, h4_type,NULL,NULL,NULL );
     if ( status < 0 )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  lonname );

@@ -1,5 +1,6 @@
 #ifndef TERRA_H
 #define TERRA_H
+#include <time.h>
 #include <hdf.h>
 #include <mfhdf.h>
 #include <hdf5.h>
@@ -51,7 +52,9 @@ extern hid_t outputFile;
 extern double* TAI93toUTCoffset; // The array containing the TAI93 to UTC offset values
 
 int MOPITT( char* argv[], OInfo_t cur_orbit_info );
-int CERES( char* argv[] ,int index);
+//int CERES( char* argv[] ,int index,int ceres_fm_count);
+int CERES( char* argv[] ,int index,int ceres_fm_count,int32*,int32*,int32*);
+//int CERES( char* argv[] ,int index);
 int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 int MODIS( char* argv[],int modis_count,int unpack );
 int ASTER( char* argv[],int aster_count,int unpack );
@@ -76,9 +79,12 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value );
 int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname);
 
 int32 H4readData( int32 fileID, const char* datasetName, void** data,
-                  int32 *rank, int32* dimsizes, int32 dataType );
+                  int32 *rank, int32* dimsizes, int32 dataType,int32 *start,int32 *stride,int32 *count);
 hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType, 
                        hid_t outputDataType, int32 inputFileID );
+hid_t readThenWriteSubset( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType, 
+                       hid_t outputDataType, int32 inputFileID,int32*start,int32*stride,int32*count );
+
 char *correct_name(const char* oldname);
 
 /* MOPITT functions */
@@ -107,11 +113,19 @@ char* getTime( char* pathname, int instrument );
 int  h4type_to_h5type( const int32 h4type, hid_t* h5memtype);
 int change_dim_attr_NAME_value(hid_t h5dset_id);
 herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID );
+herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID,int32 s_size,char*,int );
+herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
 herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
 herr_t binarySearchDouble ( const double* array, double target, hsize_t size, long int* targetIndex );
 herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp );
 herr_t H5allocateMemDouble ( hid_t inputFile, const char* datasetPath, void** buffer, long int* size );
 herr_t initializeTimeOffset();
+
+int comp_greg(GDateInfo_t j1, GDateInfo_t j2);
+int comp_greg_utc(double greg, GDateInfo_t utc);
+void get_greg(double julian, int*yearp,int*monthp,int*dayp,int*hourp,int*mmp,double*ssp);
+int binarySearchUTC ( const double* array, GDateInfo_t target, int start_index, int end_index );
+int utc_time_diff(struct tm start_date, struct tm end_date);
 
 #if 0
 float unc[5][15] =
