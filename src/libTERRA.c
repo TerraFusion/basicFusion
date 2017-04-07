@@ -3925,6 +3925,23 @@ herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGrou
 
 }
 
+herr_t attachDimension(hid_t fileID,char*dimname, hid_t dsetID,int dim_index) {
+
+    hid_t h5dimID = H5Dopen2(fileID, dimname, H5P_DEFAULT);
+    if ( h5dimID < 0 )
+    {
+        FATAL_MSG("Failed to open dataset.\n");
+        return FAIL;
+    }
+
+    if(H5DSattach_scale(dsetID,h5dimID,dim_index)) {
+        FATAL_MSG("Failed to attach the dimension scale.\n");
+        H5Dclose(h5dimID);
+        return FAIL;
+    }
+    H5Dclose(h5dimID);
+    return SUCCEED;
+}
 
 /*
             MOPITTaddDimension

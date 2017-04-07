@@ -25,7 +25,7 @@
 /* MY 2016-12-20, handling the MODIS files with and without MOD02HKM and MOD02QKM. */
 
 void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol, int scanSize, double * newLat, double * newLon);
-int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID);
+int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID,hid_t outputFile);
 int MODIS( char* argv[] ,int modis_count, int unpack)
 {
     /*************
@@ -827,33 +827,6 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     longitudeDatasetID = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
-
-     // We add the high-resolution lat/lon only when the data is unpacked, This is actually an advanced basic-fusion version.
-     if(unpack == 1) {
-        if(argv[2]!=NULL) {
-            // Add MODIS interpolation data
-            if ( createGroup( &MODIS500mGroupID, &MODIS500mgeolocationGroupID, "Geolocation" ) )
-            {
-                fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 500m geolocation group.\n",__FILE__,__func__,__LINE__);
-                MODIS500mgeolocationGroupID = 0;
-                goto cleanupFail;
-            }
-            // Add MODIS interpolation data
-            if ( createGroup( &MODIS250mGroupID, &MODIS250mgeolocationGroupID, "Geolocation" ) )
-            {
-                fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 250m geolocation group.\n",__FILE__,__func__,__LINE__);
-                MODIS250mgeolocationGroupID = 0;
-                goto cleanupFail;
-            }
-
-            if(-1 == readThenWrite_MODIS_HR_LatLon(MODIS500mgeolocationGroupID, MODIS250mgeolocationGroupID,"Latitude","Longitude",DFNT_FLOAT32,H5T_NATIVE_FLOAT,MOD03FileID)){
-                fprintf( stderr, "[%s:%s:%d] Failed to generate MODIS 250m and 500m geolocation fields.\n",__FILE__,__func__,__LINE__);
-                goto cleanupFail;
-
-            }
-        }
-    }
-
     /*_______________Sensor Zenith under the granule group______________*/
     SensorZenithDatasetID = readThenWrite_MODIS_GeoMetry_Unpack(MODISgranuleGroupID,"SensorZenith",
                                              DFNT_FLOAT32,  MOD03FileID);
@@ -956,7 +929,8 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
             goto cleanupFail;
     }
 
-
+    // The SD Sun fields are not needed. Still leave it for the time being in case they are needed.
+#if 0
     /*_______________Sun angle under the granule group______________*/
     SDSunzenithDatasetID = readThenWrite( NULL,MODISgranuleGroupID,"SD Sun zenith",
                                              DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
@@ -1089,6 +1063,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     SDSunazimuthDatasetID = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");               
                         
+#endif
 
     
                 /*-------------------------------------
@@ -1452,7 +1427,33 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
                                              DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
 #endif
 
-       
+         // We add the high-resolution lat/lon only when the data is unpacked, This is actually an advanced basic-fusion version.
+     if(unpack == 1) {
+        if(argv[2]!=NULL) {
+            // Add MODIS interpolation data
+            if ( createGroup( &MODIS500mGroupID, &MODIS500mgeolocationGroupID, "Geolocation" ) )
+            {
+                fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 500m geolocation group.\n",__FILE__,__func__,__LINE__);
+                MODIS500mgeolocationGroupID = 0;
+                goto cleanupFail;
+            }
+            // Add MODIS interpolation data
+            if ( createGroup( &MODIS250mGroupID, &MODIS250mgeolocationGroupID, "Geolocation" ) )
+            {
+                fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 250m geolocation group.\n",__FILE__,__func__,__LINE__);
+                MODIS250mgeolocationGroupID = 0;
+                goto cleanupFail;
+            }
+
+            if(-1 == readThenWrite_MODIS_HR_LatLon(MODIS500mgeolocationGroupID, MODIS250mgeolocationGroupID,"Latitude","Longitude",DFNT_FLOAT32,H5T_NATIVE_FLOAT,MOD03FileID,outputFile)){
+                fprintf( stderr, "[%s:%s:%d] Failed to generate MODIS 250m and 500m geolocation fields.\n",__FILE__,__func__,__LINE__);
+                goto cleanupFail;
+
+            }
+        }
+    }
+
+   
     if ( 0 )
     {
         cleanupFail: 
@@ -1549,7 +1550,7 @@ int MODIS( char* argv[] ,int modis_count, int unpack)
     
 }
 
-int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID) {
+int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID,hid_t outputFileID) {
 
     hid_t dummy_output_file_id = 0;
     int32 latRank,lonRank;
@@ -1581,6 +1582,9 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     float* lon_output_500m_buffer = NULL;
     float* lat_output_250m_buffer = NULL;
     float* lon_output_250m_buffer = NULL;
+
+    char* ll_500m_dimnames[2]={"_20_nscans_MODIS_SWATH_Type_L1B","_2_Max_EV_frames_MODIS_SWATH_Type_L1B"};
+    char* ll_250m_dimnames[2]={"_40_nscans_MODIS_SWATH_Type_L1B","_4_Max_EV_frames_MODIS_SWATH_Type_L1B"};
     
 
     status = H4readData( MOD03FileID, latname,
@@ -1701,6 +1705,28 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
         free(lat_output_500m_buffer);
         return -1;
     }
+    // semi-hard-code here. 
+    if(attachDimension(outputFileID,ll_500m_dimnames[0],datasetID,0) <0) {
+        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__,ll_500m_dimnames[0] );
+        free(latBuffer);
+        free(lonBuffer);
+        free(lat_1km_buffer);
+        free(lon_1km_buffer);
+        free(lat_500m_buffer);
+        free(lat_output_500m_buffer);
+        return -1;
+    } 
+    if(attachDimension(outputFileID,ll_500m_dimnames[1],datasetID,1)<0){
+        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__, ll_500m_dimnames[1] );
+        free(latBuffer);
+        free(lonBuffer);
+        free(lat_1km_buffer);
+        free(lon_1km_buffer);
+        free(lat_500m_buffer);
+        free(lat_output_500m_buffer);
+        return -1;
+    }
+
     H5Dclose(datasetID);
 
     
@@ -1736,6 +1762,32 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
         free(lon_output_500m_buffer);
         return -1;
     }
+       // semi-hard-code here. 
+    if(attachDimension(outputFileID,ll_500m_dimnames[0],datasetID,0) <0) {
+        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__,ll_500m_dimnames[0] );
+        free(latBuffer);
+        free(lonBuffer);
+        free(lat_1km_buffer);
+        free(lon_1km_buffer);
+        free(lat_500m_buffer);
+        free(lon_500m_buffer);
+        free(lat_output_500m_buffer);
+        free(lon_output_500m_buffer);
+        return -1;
+    } 
+    if(attachDimension(outputFileID,ll_500m_dimnames[1],datasetID,1)<0){
+        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__, ll_500m_dimnames[1] );
+        free(latBuffer);
+        free(lonBuffer);
+        free(lat_1km_buffer);
+        free(lon_1km_buffer);
+        free(lat_500m_buffer);
+        free(lon_500m_buffer);
+        free(lat_output_500m_buffer);
+        free(lon_output_500m_buffer);
+        return -1;
+    }
+
     H5Dclose(datasetID);
     
     // Nor used anymore, free.
@@ -1808,9 +1860,22 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
         free(lon_output_250m_buffer);
         return -1;
     }
-    H5Dclose(datasetID);
 
     free(lat_output_250m_buffer);
+
+    if(attachDimension(outputFileID,ll_250m_dimnames[0],datasetID,0) <0) {
+        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__,ll_250m_dimnames[0] );
+        free(lon_250m_buffer);
+        return -1;
+    } 
+    if(attachDimension(outputFileID,ll_250m_dimnames[1],datasetID,1)<0){
+        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__, ll_250m_dimnames[1] );
+        free(lon_250m_buffer);
+        return -1;
+    }
+ 
+    H5Dclose(datasetID);
+
     datasetID = insertDataset( &dummy_output_file_id, &MODIS250mgeoGroupID, 1, lonRank ,
          temp, h5_type, lonname, lon_output_250m_buffer );
 
@@ -1823,6 +1888,14 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     
     free(lon_output_250m_buffer);
  
+    if(attachDimension(outputFileID,ll_250m_dimnames[0],datasetID,0) <0) {
+        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__,ll_250m_dimnames[0] );
+        return -1;
+    } 
+    if(attachDimension(outputFileID,ll_250m_dimnames[1],datasetID,1)<0){
+        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__, ll_250m_dimnames[1] );
+        return -1;
+    }
     
     H5Dclose(datasetID);
  
