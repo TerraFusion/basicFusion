@@ -750,7 +750,7 @@ int validateInFiles( char* inFileList, OInfo_t orbitInfo )
     /* MOPITT file granularity is 24 hours. Thus the granularity of the dates that we need to check
        is a day. Don't need to check any more accurately than a day.
      */
-    // MOPITT filename has YYYMMDD, check using that
+    // MOPITT filename has YYYYMMDD, check using that
     status = getNextLine( string, inputFile);
     if ( status == EXIT_FAILURE )
     {
@@ -911,6 +911,8 @@ int validateInFiles( char* inFileList, OInfo_t orbitInfo )
             goto cleanupFail;
         }
 
+
+        // TODO create function that increments the times
         free(CEREStime); CEREStime = 0;
         int CERESendYear = CERESyear;
         int CERESendMonth = CERESmonth;
