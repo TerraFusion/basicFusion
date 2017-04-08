@@ -8,7 +8,8 @@
 #define YMAX 720
 #define DIM_MAX 10
 
-void obtain_start_end_index(int* sindex_ptr,int* endex_ptr,double *jd,int32 size);
+//int get_subset_index(int start_fix,int start_index,int end_index,GDateInfo_t orbit_time,double* jd);
+int obtain_start_end_index(int* sindex_ptr,int* endex_ptr,double *jd,int32 size,OInfo_t orbit_info);
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax );
 //int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info){
@@ -83,9 +84,22 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
         return EXIT_FAILURE;
     }
 
- printf("julian_date[0] is %lf \n",julian_date[0]);
+//printf("julian_date[0] is %lf \n",julian_date[0]);
     
-    obtain_start_end_index(start_index_ptr,end_index_ptr,julian_date,dimsizes[0]);
+    if(obtain_start_end_index(start_index_ptr,end_index_ptr,julian_date,dimsizes[0],orbit_info) == EXIT_FAILURE){
+        fprintf( stderr, "[%s:%s:%d] Obtain_start_end_index: Failed to obtain the start and end index.\n", __FILE__, __func__, __LINE__);
+        SDendaccess(sds_id);
+        SDend(sd_id);
+        if ( julian_date != NULL ) free(julian_date);
+        return EXIT_FAILURE;
+ 
+
+    }
+#if DEBUG
+printf("starting index is %d\n",*start_index_ptr);
+printf("ending index is %d\n",*end_index_ptr);
+#endif 
+
  
 
     SDendaccess(sds_id);
@@ -94,7 +108,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
     return 0;   
 
 }
-int CERES( char* argv[],int index )
+int CERES( char* argv[],int index ,int ceres_fm_count,int32*c_start,int32*c_stride,int32*c_count)
 {
 
     #define NUM_TIME 3
@@ -110,6 +124,7 @@ int CERES( char* argv[],int index )
     hid_t h5Type;
     hid_t rootID_g = 0;
     hid_t granuleID_g = 0;
+    hid_t FMID_g = 0;
     hid_t radianceID_g = 0;
     hid_t geolocationID_g = 0;
     hid_t viewingAngleID_g = 0;
@@ -143,7 +158,7 @@ int CERES( char* argv[],int index )
             };
 
     /* open the input file */
-    fileID = SDstart( argv[1], DFACC_READ );
+    fileID = SDstart( argv[2], DFACC_READ );
     if ( fileID < 0 )
     {
         FATAL_MSG("Unable to open CERES file.\n");
@@ -152,21 +167,32 @@ int CERES( char* argv[],int index )
 
     /* outputfile already exists (created by main). Create the group directories */
     //create root CERES group
-    if ( index == 1 ){
-        if ( createGroup( &outputFile, &rootID_g, "CERES" ) )
-        {
-            FATAL_MSG("Failed to create CERES root group.\n");
-            rootID_g = 0;
-            goto cleanupFail;
+    if (index == 1){
+//printf("ceres_fm_count is %d\n",ceres_fm_count);
+        if(ceres_fm_count == 1) {
+            if ( createGroup( &outputFile, &rootID_g, "CERES" ) )
+            {
+                FATAL_MSG("Failed to create CERES root group.\n");
+                rootID_g = 0;
+                goto cleanupFail;
+            }
+        }
+        else {
+            rootID_g = H5Gopen2( outputFile, "CERES", H5P_DEFAULT );
+            if ( rootID_g < 0 )
+            {
+                FATAL_MSG("Unable to open CERES root group.\n");
+                rootID_g = 0;
+                goto cleanupFail;
+            }
         }
 
-
-        if(H5LTset_attribute_string(outputFile,"CERES","FilePath",argv[1])<0) {
+        if(H5LTset_attribute_string(outputFile,"CERES","FilePath",argv[2])<0) {
             FATAL_MSG("Failed to add CERES time stamp.\n");
             goto cleanupFail;
         }
 
-        fileTime = getTime( argv[1], 1 );
+        fileTime = getTime( argv[2], 1 );
 
         if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",fileTime)<0) {
             FATAL_MSG("Failed to add CERES time stamp.\n");
@@ -174,10 +200,18 @@ int CERES( char* argv[],int index )
         }
         free(fileTime); fileTime = NULL;
 
-        if ( createGroup( &rootID_g , &granuleID_g, "FM1" ) )
+        if ( createGroup( &rootID_g, &granuleID_g,argv[3] ) )
+        {
+            fprintf( stderr, "[%s:%s:%d] Failed to create CERES root group.\n",__FILE__,__func__,__LINE__);
+            granuleID_g = 0;
+            goto cleanupFail;
+        }
+
+
+        if ( createGroup( &granuleID_g , &FMID_g, "FM1" ) )
         {
             FATAL_MSG("CERES create granule group failure.\n");
-            granuleID_g = 0;
+            FMID_g = 0;
             goto cleanupFail;
         }
     }   
@@ -189,7 +223,15 @@ int CERES( char* argv[],int index )
             rootID_g = 0;
             goto cleanupFail;
         }
-        if ( createGroup( &rootID_g , &granuleID_g, "FM2" ) )
+        granuleID_g = H5Gopen2( rootID_g, argv[3], H5P_DEFAULT );
+        if ( rootID_g < 0 )
+        {
+            FATAL_MSG("Unable to open CERES root group.\n");
+            rootID_g = 0;
+            goto cleanupFail;
+        }
+
+        if ( createGroup( &granuleID_g , &FMID_g, "FM2" ) )
         {
             FATAL_MSG("CERES create granule group failure.\n");
             goto cleanupFail;
@@ -203,7 +245,7 @@ int CERES( char* argv[],int index )
 
 
     // create the data fields group
-    if ( createGroup ( &granuleID_g, &radianceID_g, "Radiances" ) )
+    if ( createGroup ( &FMID_g, &radianceID_g, "Radiances" ) )
     {
         FATAL_MSG("CERES create data fields group failure.\n");
         radianceID_g = 0;
@@ -211,7 +253,7 @@ int CERES( char* argv[],int index )
     }
     
     // create geolocation fields
-    if ( createGroup( &granuleID_g, &geolocationID_g, "Time_and_Position" ) )
+    if ( createGroup( &FMID_g, &geolocationID_g, "Time_and_Position" ) )
     {
         FATAL_MSG("Failed to create CERES geolocation group.\n");
         geolocationID_g = 0;
@@ -219,7 +261,7 @@ int CERES( char* argv[],int index )
     }
 
     // create Viewing angle fields
-    if ( createGroup( &granuleID_g, &viewingAngleID_g, "Viewing_Angles" ) )
+    if ( createGroup( &FMID_g, &viewingAngleID_g, "Viewing_Angles" ) )
     {
         FATAL_MSG("Failed to create CERES ViewingAngle group.\n");
         viewingAngleID_g = 0;
@@ -252,8 +294,8 @@ int CERES( char* argv[],int index )
                 goto cleanupFail;
         }
 
-        generalDsetID_d = readThenWrite( outTimePosName[i], geolocationID_g, inTimePosName[i], h4Type, h5Type,
-                                fileID );
+        generalDsetID_d = readThenWriteSubset( outTimePosName[i], geolocationID_g, inTimePosName[i], h4Type, h5Type,
+                                fileID ,c_start,c_stride,c_count);
 
 
         if ( generalDsetID_d == EXIT_FAILURE )
@@ -268,7 +310,10 @@ int CERES( char* argv[],int index )
          * The dataset name in output HDF5 file is not the same as dataset name in input HDF4 file. Name is passed
          * according to the correct_name function.
          */
-        status = copyDimension( fileID, inTimePosName[i], outputFile, generalDsetID_d );
+        if(index == 1) 
+            status = copyDimensionSubset( fileID, inTimePosName[i], outputFile, generalDsetID_d,*c_count,"_FM1_",ceres_fm_count );
+        else 
+            status = copyDimensionSubset( fileID, inTimePosName[i], outputFile, generalDsetID_d,*c_count,"_FM2_",ceres_fm_count );
         if ( status == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions for %s.\n", inTimePosName[i]);
@@ -288,7 +333,7 @@ int CERES( char* argv[],int index )
         h4Type = DFNT_FLOAT32;
         h5Type = H5T_NATIVE_FLOAT;
 
-        generalDsetID_d = readThenWrite( outViewingAngles[i], viewingAngleID_g, inViewingAngles[i], h4Type, h5Type, fileID );
+        generalDsetID_d = readThenWriteSubset( outViewingAngles[i], viewingAngleID_g, inViewingAngles[i], h4Type, h5Type, fileID ,c_start,c_stride,c_count);
         if ( generalDsetID_d == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to insert \"%s\" dataset.\n", inViewingAngles[i]);
@@ -296,7 +341,10 @@ int CERES( char* argv[],int index )
             goto cleanupFail;
         }
 
-        status = copyDimension( fileID, inViewingAngles[i], outputFile, generalDsetID_d );
+        if(index == 1) 
+            status = copyDimensionSubset( fileID, inViewingAngles[i], outputFile, generalDsetID_d,*c_count,"_FM1_",ceres_fm_count );
+        else 
+            status = copyDimensionSubset( fileID, inViewingAngles[i], outputFile, generalDsetID_d,*c_count,"_FM2_",ceres_fm_count );
         if ( status == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions for %s.\n", inViewingAngles[i] );
@@ -324,7 +372,7 @@ int CERES( char* argv[],int index )
             h5Type = H5T_NATIVE_INT;
         }
 
-        generalDsetID_d = readThenWrite( outFilteredRadiance[i], radianceID_g, inFilteredRadiance[i], h4Type, h5Type, fileID );
+        generalDsetID_d = readThenWriteSubset( outFilteredRadiance[i], radianceID_g, inFilteredRadiance[i], h4Type, h5Type, fileID ,c_start,c_stride,c_count);
         if ( generalDsetID_d == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to insert \"%s\" dataset.\n", inFilteredRadiance[i]);
@@ -356,7 +404,10 @@ int CERES( char* argv[],int index )
             free ( correctName ); correctName = NULL;
         }
 
-        status = copyDimension( fileID, inFilteredRadiance[i], outputFile, generalDsetID_d );
+        if(index == 1)
+            status = copyDimensionSubset( fileID, inFilteredRadiance[i], outputFile, generalDsetID_d,*c_count,"_FM1_",ceres_fm_count );
+        else 
+            status = copyDimensionSubset( fileID, inFilteredRadiance[i], outputFile, generalDsetID_d,*c_count,"_FM2_",ceres_fm_count );
         if ( status == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions for %s.\n", inFilteredRadiance[i] );
@@ -375,7 +426,7 @@ int CERES( char* argv[],int index )
         h4Type = DFNT_FLOAT32;
         h5Type = H5T_NATIVE_FLOAT;
 
-        generalDsetID_d = readThenWrite( outUnfilteredRadiance[i], radianceID_g, inUnfilteredRadiance[i], h4Type, h5Type, fileID );
+        generalDsetID_d = readThenWriteSubset( outUnfilteredRadiance[i], radianceID_g, inUnfilteredRadiance[i], h4Type, h5Type, fileID ,c_start,c_stride,c_count);
         if ( generalDsetID_d == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to insert \"%s\" dataset.\n", inUnfilteredRadiance[i]);
@@ -383,7 +434,11 @@ int CERES( char* argv[],int index )
             goto cleanupFail;
         }
 
-        status = copyDimension( fileID, inUnfilteredRadiance[i], outputFile, generalDsetID_d );
+        if(index == 1)
+            status = copyDimensionSubset( fileID, inUnfilteredRadiance[i], outputFile, generalDsetID_d,*c_count,"_FM1_",ceres_fm_count );
+        else
+            status = copyDimensionSubset( fileID, inUnfilteredRadiance[i], outputFile, generalDsetID_d,*c_count,"_FM2_",ceres_fm_count );
+
         if ( status == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions for %s.\n", inUnfilteredRadiance[i] );
@@ -405,6 +460,8 @@ int CERES( char* argv[],int index )
     if ( fileID ) SDend(fileID);
     if ( fileTime ) free(fileTime);
     if ( rootID_g ) H5Gclose(rootID_g);
+    if ( granuleID_g) H5Gclose(granuleID_g);
+    if ( FMID_g) H5Gclose(FMID_g);
     if ( radianceID_g ) H5Gclose(radianceID_g);
     if ( geolocationID_g ) H5Gclose(geolocationID_g);
     if ( viewingAngleID_g ) H5Gclose(viewingAngleID_g);
@@ -414,38 +471,6 @@ int CERES( char* argv[],int index )
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -574,7 +599,7 @@ int CERES( char* argv[],int index )
      *Time_Of_Observation *
      ************************/
     timeDatasetID = readThenWrite( CERESgeolocationID, "Time_Of_Observation", DFNT_FLOAT64, H5T_NATIVE_DOUBLE,
-                            fileID );
+                            fileID,c_start,c_stride,c_end );
 
     if ( timeDatasetID == EXIT_FAILURE )
     {
@@ -975,7 +1000,7 @@ int CERES( char* argv[],int index )
 
     if ( fail ) return EXIT_FAILURE;
 #endif
-    return EXIT_SUCCESS;    
+    //return EXIT_SUCCESS;    
 }
 
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax )
@@ -1083,6 +1108,216 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
     
 }
 
-void obtain_start_end_index(int* sindex_ptr,int* endex_ptr,double *jd,int32 size){
+int obtain_start_end_index(int* sindex_ptr,int* eindex_ptr,double *jd,int32 size,OInfo_t orbit_info){
+
+    GDateInfo_t orbit_start_time,orbit_end_time;
+    GDateInfo_t granule_start_time,granule_end_time;
+    int temp_year = 0;
+    int temp_month = 0;
+    int temp_day = 0;
+    int temp_hour = 0;
+    int temp_minute = 0;
+    double temp_second = 0.0;
+    int* temp_yearp =&temp_year;
+    int* temp_monthp=&temp_month;
+    int* temp_dayp=&temp_day;
+    int* temp_hourp=&temp_hour;
+    int* temp_minutep=&temp_minute;
+    double* temp_secondp=&temp_second;
+
+
+    orbit_start_time.year = orbit_info.start_year;
+    orbit_start_time.month = orbit_info.start_month;
+    orbit_start_time.day = orbit_info.start_day;
+    orbit_start_time.hour = orbit_info.start_hour;
+    orbit_start_time.minute = orbit_info.start_minute;
+    orbit_start_time.second = orbit_info.start_second;
+
+#if DEBUG
+printf("S orbit year is %d\n",orbit_start_time.year);
+printf("S orbit month is %d\n",orbit_start_time.month);
+printf("S orbit day is %d\n",orbit_start_time.day);
+printf("S orbit hour is %d\n",orbit_start_time.hour);
+printf("S orbit minute is %d\n",orbit_start_time.minute);
+printf("S orbit second is %lf\n",orbit_start_time.second);
+#endif
+
+    orbit_end_time.year = orbit_info.end_year;
+    orbit_end_time.month = orbit_info.end_month;
+    orbit_end_time.day = orbit_info.end_day;
+    orbit_end_time.hour = orbit_info.end_hour;
+    orbit_end_time.minute = orbit_info.end_minute;
+    orbit_end_time.second = orbit_info.end_second;
+
+#if DEBUG
+printf("E orbit year is %d\n",orbit_end_time.year);
+printf("E orbit month is %d\n",orbit_end_time.month);
+printf("E orbit day is %d\n",orbit_end_time.day);
+printf("E orbit hour is %d\n",orbit_end_time.hour);
+printf("E orbit minute is %d\n",orbit_end_time.minute);
+printf("E orbit second is %lf\n",orbit_end_time.second);
+#endif
+
+
+
+    get_greg(jd[0],temp_yearp,temp_monthp,temp_dayp,temp_hourp,temp_minutep,temp_secondp);
+
+    //sanity check the return value
+    if((*temp_yearp<=0) || ((*temp_monthp)>12) || ((*temp_monthp) <=0) ||((*temp_dayp)>31)
+       ||((*temp_dayp)<=0) ||((*temp_hourp)<0) ||((*temp_hourp)>59) ||((*temp_minutep)<0)
+       ||((*temp_minutep)>59)||((*temp_secondp)<0) ||((*temp_secondp)>59)){
+       FATAL_MSG("The UTC time retrieved from CERES array is out of range\n");
+       return EXIT_FAILURE;
+    }
+    granule_start_time.year = *temp_yearp;
+    granule_start_time.month = *temp_monthp;
+    granule_start_time.day = *temp_dayp;
+    granule_start_time.hour = *temp_hourp;
+    granule_start_time.minute = *temp_minutep;
+    granule_start_time.second = *temp_secondp;
+    
+    
+    get_greg(jd[size-1],temp_yearp,temp_monthp,temp_dayp,temp_hourp,temp_minutep,temp_secondp);
+
+    granule_end_time.year = *temp_yearp;
+    granule_end_time.month = *temp_monthp;
+    granule_end_time.day = *temp_dayp;
+    granule_end_time.hour = *temp_hourp;
+    granule_end_time.minute = *temp_minutep;
+    granule_end_time.second = *temp_secondp;
+    
+    // The granule is not falling into the oribit
+    if ((comp_greg(granule_end_time,orbit_start_time)<0) || (comp_greg(orbit_end_time,granule_start_time)<0)){
+        *sindex_ptr = -1;
+        *eindex_ptr = -1;
+    }
+    // The whole granule falls into the orbit
+    else if((comp_greg(orbit_start_time,granule_start_time)<0) &&(comp_greg(granule_end_time,orbit_end_time)<0)){
+//printf("coming to full granule \n");
+        *sindex_ptr = 0;
+        *eindex_ptr = size-1;
+    }
+    // Partial - Use efficient algorithm
+    else {
+
+        // Here, we know that CERES is an hourly date,so use 1 hour
+        // now use the binarySearchDouble, later, will use the combination of utc_diff_time and binaerySearchDouble
+        // The starting index will always be 0
+        if(comp_greg(orbit_start_time,granule_start_time)<=0) {
+//printf("coming to partial start index is 0\n");
+           *sindex_ptr = 0;
+           // Find end_index, must use granule_end_time 
+          
+           //*eindex_ptr = get_subset_index(1,0,size-1,orbit_end_time,jd);
+           int temp_index =  binarySearchUTC(jd,orbit_end_time, 0,size-1);
+           if(temp_index == -1) {
+                FATAL_MSG("The CERES subset index is out of range\n");
+                return EXIT_FAILURE;
+           }
+
+           *eindex_ptr = temp_index;
+           // corner case, if the end_index time is exactly the same as orbit_end_time, don't count this point.
+           if(comp_greg_utc(jd[*eindex_ptr],orbit_end_time) == 0)
+              *eindex_ptr = *eindex_ptr -1;
+
+        }
+        else {
+//printf("coming to partial end index is %d\n",size-1);
+            *eindex_ptr = size-1;
+            // Find the start index, we need to add 1 because the convention is that the starting time falls in
+            // the orbit. The return index is adjcent to the orbit start time but on the smaller side. 
+            int temp_index = binarySearchUTC(jd,orbit_start_time,0,size-1);
+            if(temp_index == -1) {
+                FATAL_MSG("The CERES subset index is out of range\n");
+                return EXIT_FAILURE;
+            }
+
+            *sindex_ptr = 1+temp_index;
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+
+#if 0
+// The start_fix will determine which point includes in the subset. Only the larger value one includes in the subset.
+int get_subset_index(int start_fix,int start_index,int end_index,GDateInfo_t orbit_time,double* jd){
+    
+printf("orbit year is %d\n",orbit_time.year);
+printf("orbit month is %d\n",orbit_time.month);
+printf("orbit day is %d\n",orbit_time.day);
+printf("orbit hour is %d\n",orbit_time.hour);
+printf("orbit minute is %d\n",orbit_time.minute);
+printf("orbit second is %lf\n",orbit_time.second);
+    GDateInfo_t gran_mark_index_time,gran_mark_adj_time;
+    int temp_year = 0;
+    int temp_month = 0;
+    int temp_day = 0;
+    int temp_hour = 0;
+    int temp_minute = 0;
+    double temp_second = 0.;
+    int* temp_yearp =&temp_year;
+    int* temp_monthp=&temp_month;
+    int* temp_dayp=&temp_day;
+    int* temp_hourp=&temp_hour;
+    int* temp_minutep=&temp_minute;
+    double* temp_secondp=&temp_second;
+
+       // Find end_index
+    int mark_index =end_index/2;
+    int mark_adj_index = mark_index+1;
+    
+    int find_index = 0;
+    short before_orbit = 0;
+    int pre_mark_index = 0;
+
+    int loop_end_index = end_index;
+    int loop_start_index = 0;
+    //int pre_mark_index2 = 0;
+    
+    while (find_index == 0) {
+
+        get_greg(jd[mark_index],temp_yearp,temp_monthp,temp_dayp,temp_hourp,temp_minutep,temp_secondp);
+        gran_mark_index_time.year = *temp_yearp;
+        gran_mark_index_time.month = *temp_monthp;
+        gran_mark_index_time.day = *temp_dayp;
+        gran_mark_index_time.hour = *temp_hourp;
+        gran_mark_index_time.minute = *temp_minutep;
+        gran_mark_index_time.second = *temp_secondp;
+  
+        int cmp_orbit_mark_time = comp_greg(orbit_time,gran_mark_index_time);
+printf("mark_index is %d\n",mark_index);
+printf("cmp_orbit_mark_time is %d\n",cmp_orbit_mark_time);
+        
+        int temp_mark_index = mark_index;
+        //if(cmp_orbit_mark_time >=0) {
+        if(cmp_orbit_mark_time >0) {
+            if(before_orbit == -1) {
+                mark_index = (mark_index+pre_mark_index)/2;
+            }
+            else 
+                mark_index = (mark_index+loop_end_index)/2;
+            loop_start_index = mark_index;
+            before_orbit = 1; 
+        }
+        else { 
+            if(before_orbit == 1) 
+                mark_index = (mark_index+pre_mark_index)/2;
+            else 
+                mark_index =(mark_index+loop_start_index)/2;
+            loop_end_index = mark_index;
+            before_orbit = -1;
+        }
+        if(((pre_mark_index - mark_index) == 1) || ((mark_index - pre_mark_index) == 1))
+            find_index = 1;
+        if(mark_index == 0)
+            find_index = -1;
+
+        pre_mark_index = temp_mark_index;
+        
+    }
+    // Get the index 
+    return mark_index;
 
 }
+#endif

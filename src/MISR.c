@@ -475,7 +475,7 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( gmpFileID, solar_geom_name[1], outputFile, latitudeID);
+    errStatus = copyDimension( gmpFileID, solar_geom_name[1], outputFile, solarZenithID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");

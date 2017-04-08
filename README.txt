@@ -65,7 +65,7 @@ To build the code at roger(ncsa cyberGIS clustor), do the following:
        cd exe
        cp ../inputFileDebug/roger_large_input.txt .
        cp ../inputFileDebug/roger_small_input.txt .
-   (2) Run the unpacked option, set the environment variable TERRA_DATA_UNPACK=1 first
+   (2) Run the packed option, set the environment variable TERRA_DATA_PACK=1 first
        otherwise, just run the following:
        ./TERRArepackage <your_output_fused_HDF5_file> roger_large_input.txt
        
@@ -159,11 +159,11 @@ Step 3: Generate the inputFiles.txt file using the generateInput.sh script
   b. ./generateInput.sh [path to 5 instrument directories]
 
 Setp 4: Set environment variables to tell program whether or not to unpack data
-  a. export TERRA_DATA_UNPACK=1 (if you want unpacking)
-  b. unset TERRA_DATA_UNPACK (if you don't want unpacking)
+  a. export TERRA_DATA_PACK=1 (if you want to just have the packed data like the original HDF4 files)
+  b. unset TERRA_DATA_PACK (if you don't want the data to be packed 
 
 Step 4: Submit the executable to the BW job queue (qsub)
-  a. qsub -v TERRA_DATA_UNPACK [path to batchscript.pbs]
+  a. qsub -v TERRA_DATA_PACK [path to batchscript.pbs]
 
 Check the status of the job by executing the command "qstat | grep [your BW username]". A flag of "Q" means the job
 is enqueued. A flag of "R" means the job is currently executing. A flag of "C" means the job has completed. 
