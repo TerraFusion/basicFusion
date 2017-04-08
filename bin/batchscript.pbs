@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# DANGER!!!!! the "FILELISTNAME" variable MUST remain on the 4th line for the jobSubmit script!!!
+FILELISTNAME=inputFiles.txt
+
 ### set the number of nodes
 ### set the number of PEs per node
 #PBS -l nodes=1:ppn=1:xe
@@ -16,10 +20,12 @@
 ##PBS -A xyz
 ### Set umask so users in my group can read job stdout and stderr files
 ##PBS -W umask=0027
+
+
+
 PROJDIR=/u/sciteam/clipp/basicFusion/
 EXENAME=TERRArepackage
 OUTFILENAME=$PBS_JOBID.h5
-FILELISTNAME=inputFiles.txt
 STD_OUTFILENAME=$PBS_JOBID.out.txt
 
 ##HLIBPATH=/projects/sciteam/jq0/TerraFusion/basicFusion/hdflib/lib
@@ -61,10 +67,10 @@ module load hdf4/4.2.10
 ### redirecting stdin and stdout if needed
 ### NOTE: (the "in" file must exist for input)
 
-aprun -n 1 "$PROJDIR"/exe/"$EXENAME" "$PROJDIR"/jobOutput/"$OUTFILENAME" "$PROJDIR"/exe/"$FILELISTNAME" &> "$PROJDIR"/jobOutput/"$STD_OUTFILENAME"
+aprun -n 1 "$PROJDIR"/exe/"$EXENAME" "$PROJDIR"/jobOutput/"$OUTFILENAME" "$PROJDIR"/exe/"$FILELISTNAME" "$PROJDIR"/exe/orbit_info.bin &> "$PROJDIR"/jobOutput/"$STD_OUTFILENAME"
 
 
 ### For more information see the man page for aprun
 #module load valgrind/3.12.0
-#aprun -n 1 valgrind --leak-check=full --track-origins=yes "$PROJDIR"/exe/"$EXENAME" "$PROJDIR"/jobOutput/"$OUTFILENAME" "$PROJDIR"/exe/"$FILELISTNAME" &> "$PROJDIR"/jobOutput/"$STD_OUTFILENAME"
+#aprun -n 1 valgrind --leak-check=full --track-origins=yes --show-reachable=yes "$PROJDIR"/exe/"$EXENAME" "$PROJDIR"/jobOutput/"$OUTFILENAME" "$PROJDIR"/exe/"$FILELISTNAME" "$PROJDIR"/exe/orbit_info.bin &> "$PROJDIR"/jobOutput/"$STD_OUTFILENAME"
 

@@ -55,7 +55,6 @@ int main( int argc, char* argv[] )
     // rewind file pointer to beginning of file
     rewind(new_orbit_info_b);
 
-    printf("file size is %d\n",(int)fSize);
 
     OInfo_t* test_orbit_ptr = NULL;
     test_orbit_ptr = calloc(fSize/sizeof(OInfo_t),sizeof(OInfo_t));
@@ -198,38 +197,61 @@ int main( int argc, char* argv[] )
     /**********
      * MOPITT *
      **********/
+    
+    printf("Transferring MOPITT..."); fflush(stdout); 
     /* get the MOPITT input file paths from our inputFiles.txt */
     status = getNextLine( string, inputFile);
+
     if ( status == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to get MOPITT line. Exiting program.\n");
         goto cleanupFail;
     }
-    /* strstr will fail if unexpected input is present */
-    if ( strstr( string, MOPITTcheck ) == NULL )
+
+    int MOPITTgranule = 1;
+
+    do
     {
-        FATAL_MSG("Received an unexpected input line for MOPITT.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n",string,MOPITTcheck);
-        goto cleanupFail;
-    }
-    
-    MOPITTargs[0] = argv[0];
+        /* strstr will fail if unexpected input is present */
+        if ( strstr( string, MOPITTcheck ) == NULL )
+        {
+            FATAL_MSG("Received an unexpected input line for MOPITT.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n",string,MOPITTcheck);
+            goto cleanupFail;
+        }
+        
+        MOPITTargs[0] = argv[0];
 
-    /* allocate space for the argument */
-    MOPITTargs[1] = malloc( strlen(string)+1 );
-    memset(MOPITTargs[1],0,strlen(string)+1);
+        /* allocate space for the argument */
+        MOPITTargs[1] = malloc( strlen(string)+1 );
+        memset(MOPITTargs[1],0,strlen(string)+1);
 
-    /* copy the data over */
-    strncpy( MOPITTargs[1], string, strlen(string) );
-    MOPITTargs[2] = argv[1];
+        /* copy the data over */
+        strncpy( MOPITTargs[1], string, strlen(string) );
+        MOPITTargs[2] = argv[1];
 
-    printf("Transferring MOPITT..."); fflush(stdout);
-    if ( MOPITT( MOPITTargs, current_orbit_info ) == EXIT_FAILURE )
-    {
-        FATAL_MSG("MOPITT failed data transfer.\nExiting program.\n");
-        goto cleanupFail;
-    }
+        if ( MOPITT( MOPITTargs, current_orbit_info, &MOPITTgranule ) == EXIT_FAILURE )
+        {
+            FATAL_MSG("MOPITT failed data transfer.\nExiting program.\n");
+            goto cleanupFail;
+        }
 
-    free(MOPITTargs[1]); MOPITTargs[1] = NULL;
+        free(MOPITTargs[1]); MOPITTargs[1] = NULL;
+
+        status = getNextLine( string, inputFile);
+
+        if ( status == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to get MOPITT line. Exiting program.\n");
+            goto cleanupFail;
+        }
+
+
+        /* LTC Apr-7-2017 Note that if the current granule was skipped, MOPITTgranule will be decremented by MOPITT.c
+           so that it contains the correct running total for number of granules that have been read.*/
+        MOPITTgranule++;
+
+    } while ( strstr( string, MOPITTcheck ) != NULL );
+
 
     printf("MOPITT done.\nTransferring CERES..."); fflush(stdout);
     
@@ -301,13 +323,6 @@ int main( int argc, char* argv[] )
   CERESargs[1] = argv[1];
 
   while(ceres_count != 0) {
-    status = getNextLine( string, inputFile);
-//printf("string is %s\n",string);
-    if ( status == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to get CERES line. Exiting program.\n");
-        goto cleanupFail;
-    }
 
     if(strstr(string,MODIScheck1) != NULL) {
         ceres_count = 0;

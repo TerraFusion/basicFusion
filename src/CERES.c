@@ -202,7 +202,7 @@ int CERES( char* argv[],int index ,int ceres_fm_count,int32*c_start,int32*c_stri
 
         if ( createGroup( &rootID_g, &granuleID_g,argv[3] ) )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to create CERES root group.\n",__FILE__,__func__,__LINE__);
+            fprintf( stderr, "[%s:%s:%d] Failed to create CERES granule group.\n",__FILE__,__func__,__LINE__);
             granuleID_g = 0;
             goto cleanupFail;
         }

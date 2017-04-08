@@ -17,7 +17,7 @@
 
 hid_t outputFile;
 
-int MOPITT( char* argv[], OInfo_t cur_orbit_info )
+int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
 {
     
     hid_t file = 0;
@@ -40,6 +40,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     hid_t npixelsID = 0;
     hid_t nchanID = 0;
     hid_t nstateID = 0;
+    hid_t granuleID = 0;
 
     herr_t status = 0;
     
@@ -66,34 +67,113 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
         goto cleanupFail;
     }
     
-    // create the root group
-    if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) == EXIT_FAILURE )
+
+    /* LandonClipp Apr 7 2017. Before inserting datasets, we need to find the starting and ending indices for subsetting. */
+    status = MOPITT_OrbitInfo ( file, cur_orbit_info, TIME, &startIdx, &endIdx );
+    if ( status == 1 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT root group.\n", __FILE__,__func__,__LINE__);
-        MOPITTroot = 0;
+        /* LandonClipp Apr 7 2017
+           Decrement the granuleNum variable in the calling function. Calling function increments naively 
+           to keep track of how many granules have been inserted, but if no granule is inserted (in the case
+           where the status == 1), we'll need to modify this variable to account for that.
+        */
+        *granuleNum += -1;
+        goto cleanup;
+    } 
+    else if ( status == 2 )
+    {
+        FATAL_MSG("Failed to obtain MOPITT subsetting information.\n");
         goto cleanupFail;
     }
-    
+    bound[0] = startIdx;
+    bound[1] = endIdx;
 
 
-    correctName = correct_name("MOPITT");    
-    if(H5LTset_attribute_string(outputFile,correctName,"FilePath",argv[1])<0)
+
+    /* If it's the first granule, create the root MOPITT group */
+    if ( *granuleNum == 1 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
+        // create the root group
+        if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) == EXIT_FAILURE )
+        {
+            fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT root group.\n", __FILE__,__func__,__LINE__);
+            MOPITTroot = 0;
+            goto cleanupFail;
+        }
+    }
+    else
+    {
+        MOPITTroot = H5Gopen2( file, "MOPITT", H5P_DEFAULT );
+        if ( MOPITTroot < 0 )
+        {
+            MOPITTroot = 0;
+            FATAL_MSG("Failed to open MOPITT group for the creation of granule %d.\n", *granuleNum );
+            goto cleanupFail;
+        }
+    }
+
+    /* Create the granule group */
+    if ( *granuleNum == 1 )
+    {
+        status = createGroup( &MOPITTroot, &granuleID, "granule1" );
+        if ( status == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to create granule group number %d.\n", *granuleNum );
+            granuleID = 0;
+            goto cleanupFail;
+        }
+        
+        /* Set the attributes for the granule group indicating information about the original file */
+        
+        if(H5LTset_attribute_string(MOPITTroot,"granule1","FilePath",argv[1])<0)
+        {
+            fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
+            goto cleanupFail;
+        }
+
+        fileTime = getTime( argv[1], 0 );
+        if(H5LTset_attribute_string(MOPITTroot,"granule1","GranuleTime",fileTime)<0)
+        {
+            fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
+            goto cleanupFail;
+        }
+        free(fileTime); fileTime = NULL;
+    }
+    else if ( *granuleNum == 2 )
+    {
+        status = createGroup( &MOPITTroot, &granuleID, "granule2" );
+        if ( status == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to create granule group number %d.\n", *granuleNum );
+            granuleID = 0;
+            goto cleanupFail;
+        }
+        
+        /* Set the attributes for the granule group indicating information about the original file */
+        
+        if(H5LTset_attribute_string(MOPITTroot,"granule2","FilePath",argv[1])<0)
+        {
+            fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
+            goto cleanupFail;
+        }
+
+        fileTime = getTime( argv[1], 0 );
+        if(H5LTset_attribute_string(MOPITTroot,"granule2","GranuleTime",fileTime)<0)
+        {
+            fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
+            goto cleanupFail;
+        }
+        free(fileTime); fileTime = NULL;
+    }
+    else
+    {
+        FATAL_MSG("MOPITT can't have more than 2 granules in one orbit!\n");
         goto cleanupFail;
     }
 
-    fileTime = getTime( argv[1], 0 );
-    if(H5LTset_attribute_string(outputFile,correctName,"GranuleTime",fileTime)<0)
-    {
-        fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
-        goto cleanupFail;
-    }
-    free(fileTime); fileTime = NULL;
-    free(correctName); correctName = NULL;
 
     // create the radiance group
-    if ( createGroup ( &MOPITTroot, &radianceGroup, "Data Fields" ) )
+    if ( createGroup ( &granuleID, &radianceGroup, "Data Fields" ) )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT radiance group.\n", __FILE__,__func__,__LINE__);
         radianceGroup = 0;
@@ -102,22 +182,13 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
 
     
     // create the geolocation group
-    if ( createGroup ( &MOPITTroot, &geolocationGroup, "Geolocation" ) )
+    if ( createGroup ( &granuleID, &geolocationGroup, "Geolocation" ) )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create MOPITT geolocation group.\n", __FILE__,__func__,__LINE__);
         geolocationGroup = 0;
         goto cleanupFail;
     }
 
-    /* Before inserting datasets, we need to find the starting and ending indices for subsetting. */
-    status = MOPITT_OrbitInfo ( file, cur_orbit_info, TIME, &startIdx, &endIdx );
-    if ( status == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to get MOPITT start and end indices.\n");
-        goto cleanupFail;
-    } 
-    bound[0] = startIdx;
-    bound[1] = endIdx;
 
                             /********************
                              * RADIANCE DATASET *
@@ -141,21 +212,57 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     */
 
     // Add the necessary dimensions to the output file
-    intArray = calloc ( 29, sizeof(int) );
-    dimSize = 2;
-    ntrackID = MOPITTaddDimension( outputFile, "ntrack", dimSize, intArray, H5T_NATIVE_INT );
-    if ( ntrackID == FAIL )
+
+    /* calloc initializes to 0. No scale information will be present, so keep array as 0's (this is desired behavior) */
+    dimSize = bound[1] - bound[0] + 1; 
+    intArray = calloc ( dimSize, sizeof(int) );
+
+    if ( *granuleNum == 1 )
     {
-        ntrackID = 0;
-        FATAL_MSG("Failed to add MOPITT dimension.\n");
+        ntrackID = MOPITTaddDimension( outputFile, "ntrack_1", dimSize, intArray, H5T_NATIVE_INT );
+        if ( ntrackID == FAIL )
+        {
+            ntrackID = 0;
+            FATAL_MSG("Failed to add MOPITT dimension.\n");
+            goto cleanupFail;
+        }
+    }
+    else if ( *granuleNum == 2 )
+    {
+        ntrackID = MOPITTaddDimension( outputFile, "ntrack_2", dimSize, intArray, H5T_NATIVE_INT );
+        if ( ntrackID == FAIL )
+        {
+            ntrackID = 0;
+            FATAL_MSG("Failed to add MOPITT dimension.\n");
+            goto cleanupFail;
+        }
+    }
+    else
+    {
+        FATAL_MSG("MOPITT can't have more than 2 granules in one orbit!\n");
         goto cleanupFail;
     }
+
+    
     /* Change the NAME attribute for this dimension */
     if ( change_dim_attr_NAME_value(ntrackID) == FAIL )
     {
         FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
         goto cleanupFail;
     }
+
+    /* Reallocate the empty array to a size of 29. This array is just used to create pure dim scales
+       in the HDF5 file. Setting to size 29 because that is the largest size needed for our dimensions
+       from here on out.
+    */
+    intArray = realloc( intArray, 29 * sizeof(int) );
+    if ( intArray == NULL )
+    {
+        FATAL_MSG("Failed to reallocate array.\n");
+        goto cleanupFail;
+    }
+
+    memset(intArray, 0, 29);
 
     dimSize = 29;
     nstareID = MOPITTaddDimension( outputFile, "nstare", dimSize, intArray, H5T_NATIVE_INT );
@@ -732,6 +839,8 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
         cleanupFail:
         fail = 1;
     }
+
+    cleanup:
     
     if ( attrID )           H5Aclose( attrID );
     if ( inputAttrID )      H5Aclose(inputAttrID);
@@ -756,7 +865,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     if ( npixelsID )        H5Dclose( npixelsID );
     if ( nchanID )          H5Dclose(nchanID);
     if ( nstateID )         H5Dclose(nstateID);
-
+    if ( granuleID )        H5Gclose(granuleID);
     if ( fail )
         return EXIT_FAILURE;
 
