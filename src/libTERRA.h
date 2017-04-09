@@ -9,12 +9,12 @@
 #define DIM_MAX 10
 #define FATAL_MSG( ... ) \
 do { \
-    fprintf(stderr,"[%s:%s:%d] Fatal error: ",__FILE__,__func__,__LINE__); \
+    fprintf(stderr,"[%s:%d] Fatal error: ",__FILE__,__LINE__); \
     fprintf(stderr, __VA_ARGS__); \
     } while(0)
 #define WARN_MSG( ... ) \
 do { \
-    fprintf(stderr,"[%s:%s:%d] Warning: ",__FILE__,__func__,__LINE__); \
+    fprintf(stderr,"[%s:%d] Warning: ",__FILE__,__LINE__); \
     fprintf(stderr, __VA_ARGS__); \
     } while(0)
 
@@ -51,7 +51,7 @@ typedef struct GDateInfo {
 extern hid_t outputFile;
 extern double* TAI93toUTCoffset; // The array containing the TAI93 to UTC offset values
 
-int MOPITT( char* argv[], OInfo_t cur_orbit_info );
+int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum );
 //int CERES( char* argv[] ,int index,int ceres_fm_count);
 int CERES( char* argv[] ,int index,int ceres_fm_count,int32*,int32*,int32*);
 //int CERES( char* argv[] ,int index);

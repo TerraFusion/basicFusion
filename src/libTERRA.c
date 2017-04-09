@@ -2591,7 +2591,7 @@ char* getTime( char* pathname, int instrument )
             FATAL_MSG("Expected CERES path.\n\tReceived \"%s\"\n",pathname );
             return NULL;
         }
-        start += 10;
+        start += 27;
         
         end = pathname + strlen( pathname ) - 1;
         
@@ -3957,12 +3957,12 @@ herr_t attachDimension(hid_t fileID,char*dimname, hid_t dsetID,int dim_index) {
         IT IS THE DUTY OF THE CALLER to close the returned identifier with H5Dclose() once finished.
 
     ARGUMENTS:
-            INPUT
-        1. hid_t h5dimGroupID      -- The file or group identifier under which to store the dimension
-        2. const char* dimName     -- The name to be given to the dimension
-        3. hsize_t dimSize         -- The integer size of the dimension
-        4. const void* scaleBuffer -- The data to be written to the scale
-        5. hid_t dimScaleNumType   -- The HDF5 number type of scaleBuffer
+        INPUT
+            1. hid_t h5dimGroupID      -- The file or group identifier under which to store the dimension
+            2. const char* dimName     -- The name to be given to the dimension
+            3. hsize_t dimSize         -- The integer size of the dimension
+            4. const void* scaleBuffer -- The data to be written to the scale
+            5. hid_t dimScaleNumType   -- The HDF5 number type of scaleBuffer
 
     RETURN:
         Returns the identifier of the dimension upon success.
@@ -4080,7 +4080,7 @@ herr_t initializeTimeOffset()
         TAI93toUTCoffset[i] = 8.0;
     for ( int i = 8216; i <= 8767; i++ )        // July 2015 -> Dec 2016
         TAI93toUTCoffset[i] = 9.0;
-    for ( int i = 8768; i <= NUM_DAYS; i++ )    // Jan 2017 -> June 2017
+    for ( int i = 8768; i < NUM_DAYS; i++ )    // Jan 2017 -> June 2017
         TAI93toUTCoffset[i] = 10.0;                  // Currently, value not known past June 30th 2017
     
     return EXIT_SUCCESS;
@@ -4555,15 +4555,16 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, lo
         Modifies start and end_indx_ptr to contain the appropriate values
 
     RETURN:
-        EXIT_FAILURE
-        EXIT_SUCCESS
+        0 if success.
+        1 if MOPITT file should be skipped (no error, but shouldn't include MOPITT file in output).
+        2 if other failure.
 
 */
 
 herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const char* timePath, unsigned int* start_indx_ptr, 
                          unsigned int* end_indx_ptr )
 {
-    unsigned short fail = 0;
+    herr_t retStatus = 0;
     double* timeData = NULL;
     long int numElems = 0;
     herr_t status = 0;
@@ -4630,19 +4631,20 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     status = binarySearchDouble ( timeData, startTAI93, (hsize_t) numElems, &startIdx );
     if ( status == -1 )
     {
-        FATAL_MSG("Failed to find MOPITT starting and ending indices.\n");
+        FATAL_MSG("Failed to find MOPITT start index.\n");
         goto cleanupFail;
     }
     status = binarySearchDouble ( timeData, endTAI93, (hsize_t) numElems, &endIdx );
     if ( status == -1 )
     {
-        FATAL_MSG("Failed to find MOPITT starting and ending indices.\n");
+        FATAL_MSG("Failed to find MOPITT end index.\n");
         goto cleanupFail;
     }
 
+    /* If the start and end indices are equal, this file is probably out of bounds of the orbit. */
     if ( startIdx == endIdx )
     {
-        WARN_MSG("The start and end indices for MOPITT subsetting are equal. This probably isn't correct.\n");
+        retStatus = 1;
     }
 
     *start_indx_ptr = startIdx;
@@ -4651,11 +4653,12 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     if ( 0 )
     {
         cleanupFail:
-        fail = 1;
+        retStatus = 2;
     }
 
-    #if DEBUG
+    #if 0
 
+    /* This is for debugging only */
     printf("\nstartYear = %u\nstartMonth = %u\nstartDay = %u\nstartHour = %u\nstartMinute = %u\nstartSecond = %lf\n", time.year, (unsigned short) time.month, (unsigned short) time.day, (unsigned short) time.hour, (unsigned short) time.minute, time.second);
      printf("\nendYear = %u\nendMonth = %u\nendDay = %u\nendHour = %u\nendMinute = %u\nendSecond = %lf\n", time.year, (unsigned short) time.month, (unsigned short) time.day, (unsigned short) time.hour, (unsigned short) time.minute, time.second);
     printf("startTAI93: %lf endTAI93: %lf\n", startTAI93, endTAI93);
@@ -4671,10 +4674,8 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     if (dataset) H5Dclose(dataset);
     if (dataspace) H5Sclose(dataspace);
     if ( groupID ) H5Gclose(groupID);
-    if ( fail )
-        return EXIT_FAILURE;
-
-    return EXIT_SUCCESS;
+    
+    return retStatus;
 }
 
 
