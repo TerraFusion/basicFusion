@@ -413,6 +413,13 @@ printf("CERES: the ending index is %d\n",*ceres_end_index_ptr);
         goto cleanupFail;
     }
 
+    status = getNextLine( string, inputFile);
+    if ( status == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to get next line. Exiting program.\n");
+        goto cleanupFail;
+    }
+
     if(CERESargs[2]) free(CERESargs[2]); CERESargs[2] = NULL;   
     if(CERESargs[3]) free(CERESargs[3]); CERESargs[3] = NULL;   
     ceres_count++;
@@ -434,15 +441,6 @@ printf("CERES: the ending index is %d\n",*ceres_end_index_ptr);
     *  will not exit prematurely */
     while(modis_count != 0) {
 
-#if 0
-        /* get the MODIS 1KM file */
-        status = getNextLine( string, inputFile);
-        if ( status == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to get MODIS 1KM line. Exiting program.\n");
-            goto cleanupFail;
-        }
-#endif
 
         /* Need to check more, now just assume ASTER is after */
         if(strstr(string,ASTERcheck)!=NULL) {
@@ -573,7 +571,7 @@ printf("CERES: the ending index is %d\n",*ceres_end_index_ptr);
         status = getNextLine( string, inputFile);
         if ( status == EXIT_FAILURE )
         {
-            FATAL_MSG("Failed to get MODIS 1KM line. Exiting program.\n");
+            FATAL_MSG("Failed to get next line. Exiting program.\n");
             goto cleanupFail;
         }
 
@@ -767,6 +765,7 @@ int getNextLine ( char* string, FILE* const inputFile )
     return EXIT_SUCCESS;    
 }
 
+#if 0
 int validateInFiles( char* inFileList, OInfo_t orbitInfo )
 {
     short fail = 0;
@@ -1026,3 +1025,4 @@ int validateInFiles( char* inFileList, OInfo_t orbitInfo )
     else
         return EXIT_SUCCESS;
 }
+#endif

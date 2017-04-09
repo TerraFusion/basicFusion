@@ -53,7 +53,7 @@ else
 fi
 
 # replace 4th line in batchscript.pbs with var
-sed -n "4s/.*/$var/" "$PROJDIR"/bin/batchscript.pbs
+sed -i "4s/.*/$var/" "$PROJDIR"/bin/batchscript.pbs
 
 printf "\e[92m\e[4mSubmitting job to scheduler\e[0m\n"
 qsub -v TERRA_DATA_PACK "$PROJDIR"/bin/batchscript.pbs

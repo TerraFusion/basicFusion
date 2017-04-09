@@ -67,7 +67,6 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
         goto cleanupFail;
     }
     
-
     /* LandonClipp Apr 7 2017. Before inserting datasets, we need to find the starting and ending indices for subsetting. */
     status = MOPITT_OrbitInfo ( file, cur_orbit_info, TIME, &startIdx, &endIdx );
     if ( status == 1 )
@@ -103,7 +102,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     }
     else
     {
-        MOPITTroot = H5Gopen2( file, "MOPITT", H5P_DEFAULT );
+        MOPITTroot = H5Gopen2( outputFile, "MOPITT", H5P_DEFAULT );
         if ( MOPITTroot < 0 )
         {
             MOPITTroot = 0;
@@ -226,6 +225,78 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
             FATAL_MSG("Failed to add MOPITT dimension.\n");
             goto cleanupFail;
         }
+
+        
+        /* Reallocate the empty array to a size of 29. This array is just used to create pure dim scales
+           in the HDF5 file. Setting to size 29 because that is the largest size needed for our dimensions
+           from here on out.
+        */
+        intArray = realloc( intArray, 29 * sizeof(int) );
+        if ( intArray == NULL )
+        {
+            FATAL_MSG("Failed to reallocate array.\n");
+            goto cleanupFail;
+        }
+
+        memset(intArray, 0, 29);
+
+        dimSize = 29;
+        nstareID = MOPITTaddDimension( outputFile, "nstare", dimSize, intArray, H5T_NATIVE_INT );
+        if ( nstareID == FAIL )
+        {
+            nstareID = 0;
+            FATAL_MSG("Failed to add MOPITT dimension.\n");
+            goto cleanupFail;
+        }
+        if ( change_dim_attr_NAME_value(nstareID) == FAIL )
+        {
+            FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+            goto cleanupFail;
+        }
+
+        dimSize = 4;
+        npixelsID = MOPITTaddDimension( outputFile, "npixels", dimSize, intArray, H5T_NATIVE_INT );
+        if ( npixelsID == FAIL )
+        {
+            npixelsID = 0;
+            FATAL_MSG("Failed to add MOPITT dimension.\n");
+            goto cleanupFail;
+        }
+        if ( change_dim_attr_NAME_value(npixelsID) == FAIL )
+        {
+            FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+            goto cleanupFail;
+        }
+
+
+        dimSize = 8;
+        nchanID = MOPITTaddDimension( outputFile, "nchan", dimSize, intArray, H5T_NATIVE_INT );
+        if ( nchanID == FAIL )
+        {
+            nchanID = 0;
+            FATAL_MSG("Failed to add MOPITT dimension.\n");
+            goto cleanupFail;
+        }
+        if ( change_dim_attr_NAME_value(nchanID) == FAIL )
+        {
+            FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+            goto cleanupFail;
+        }
+
+
+        dimSize = 2;
+        nstateID = MOPITTaddDimension( outputFile, "nstate", dimSize, intArray, H5T_NATIVE_INT );
+        if ( nstateID == FAIL )
+        {
+            nstateID = 0;
+            FATAL_MSG("Failed to add MOPITT dimension.\n");
+            goto cleanupFail;
+        }
+        if ( change_dim_attr_NAME_value(nstateID) == FAIL )
+        {
+            FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+            goto cleanupFail;
+        }
     }
     else if ( *granuleNum == 2 )
     {
@@ -234,6 +305,38 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
         {
             ntrackID = 0;
             FATAL_MSG("Failed to add MOPITT dimension.\n");
+            goto cleanupFail;
+        }
+
+        nstareID = H5Dopen2( outputFile, "nstare", H5P_DEFAULT);
+        if ( nstareID < 0 )
+        {
+            FATAL_MSG("Failed to open nstare dimension.\n");
+            nstareID = 0;   
+            goto cleanupFail;
+        }
+
+        npixelsID = H5Dopen2( outputFile, "npixels", H5P_DEFAULT);
+        if ( npixelsID < 0 )
+        {
+            FATAL_MSG("Failed to open npixels dimension.\n");
+            npixelsID = 0;
+            goto cleanupFail;
+        }
+
+        nchanID = H5Dopen2( outputFile, "nchan", H5P_DEFAULT);
+        if ( nchanID < 0 )
+        {
+            FATAL_MSG("Failed to open nchan dimension.\n");
+            nchanID = 0;
+            goto cleanupFail;
+        }
+
+        nstateID = H5Dopen2( outputFile, "nstate", H5P_DEFAULT);
+        if ( nstateID < 0 )
+        {
+            FATAL_MSG("Failed to open nstate dimension.\n");
+            nstateID = 0;
             goto cleanupFail;
         }
     }
@@ -251,77 +354,6 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
         goto cleanupFail;
     }
 
-    /* Reallocate the empty array to a size of 29. This array is just used to create pure dim scales
-       in the HDF5 file. Setting to size 29 because that is the largest size needed for our dimensions
-       from here on out.
-    */
-    intArray = realloc( intArray, 29 * sizeof(int) );
-    if ( intArray == NULL )
-    {
-        FATAL_MSG("Failed to reallocate array.\n");
-        goto cleanupFail;
-    }
-
-    memset(intArray, 0, 29);
-
-    dimSize = 29;
-    nstareID = MOPITTaddDimension( outputFile, "nstare", dimSize, intArray, H5T_NATIVE_INT );
-    if ( nstareID == FAIL )
-    {
-        nstareID = 0;
-        FATAL_MSG("Failed to add MOPITT dimension.\n");
-        goto cleanupFail;
-    }
-    if ( change_dim_attr_NAME_value(nstareID) == FAIL )
-    {
-        FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
-        goto cleanupFail;
-    }
-
-
-    dimSize = 4;
-    npixelsID = MOPITTaddDimension( outputFile, "npixels", dimSize, intArray, H5T_NATIVE_INT );
-    if ( npixelsID == FAIL )
-    {
-        npixelsID = 0;
-        FATAL_MSG("Failed to add MOPITT dimension.\n");
-        goto cleanupFail;
-    }
-    if ( change_dim_attr_NAME_value(npixelsID) == FAIL )
-    {
-        FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
-        goto cleanupFail;
-    }
-
-
-    dimSize = 8;
-    nchanID = MOPITTaddDimension( outputFile, "nchan", dimSize, intArray, H5T_NATIVE_INT );
-    if ( nchanID == FAIL )
-    {
-        nchanID = 0;
-        FATAL_MSG("Failed to add MOPITT dimension.\n");
-        goto cleanupFail;
-    }
-    if ( change_dim_attr_NAME_value(nchanID) == FAIL )
-    {
-        FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
-        goto cleanupFail;
-    }
-
-
-    dimSize = 2;
-    nstateID = MOPITTaddDimension( outputFile, "nstate", dimSize, intArray, H5T_NATIVE_INT );
-    if ( nstateID == FAIL )
-    {
-        nstateID = 0;
-        FATAL_MSG("Failed to add MOPITT dimension.\n");
-        goto cleanupFail;
-    }
-    if ( change_dim_attr_NAME_value(nstateID) == FAIL )
-    {
-        FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
-        goto cleanupFail;
-    }
 
 
     /* Attach these dimensions to the dataset */
