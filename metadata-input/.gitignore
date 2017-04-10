@@ -1,0 +1,7 @@
+tags
+*.sqlite
+OLD/
+trace.txt
+discards.txt
+.vscode/
+!.vscode/launch.json
