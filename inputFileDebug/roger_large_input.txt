@@ -10,10 +10,11 @@
 # CERES file:
 #/projects/TDataFus/oneorbit/CERES/CER_BDS_Terra-FM1_Edition3_032040.20070703
 #/projects/TDataFus/oneorbit/CERES/CER_BDS_Terra-FM2_Edition3_032040.20070703
-/projects/TDataFus/oneorbit/CERES/FM1/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070316
-/projects/TDataFus/oneorbit/CERES/FM1/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070317
-/projects/TDataFus/oneorbit/CERES/FM2/CER_SSF_Terra-FM2-MODIS_Edition4A_400403.2007070316
-/projects/TDataFus/oneorbit/CERES/FM2/CER_SSF_Terra-FM2-MODIS_Edition4A_400403.2007070317
+/projects/TDataFus/kent/oneorbit/CERES/FM1/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070316
+/projects/TDataFus/kent/oneorbit/CERES/FM1/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070317
+/projects/TDataFus/kent/oneorbit/CERES/FM1/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070318
+/projects/TDataFus/kent/oneorbit/CERES/FM2/CER_SSF_Terra-FM2-MODIS_Edition4A_400403.2007070316
+/projects/TDataFus/kent/oneorbit/CERES/FM2/CER_SSF_Terra-FM2-MODIS_Edition4A_400403.2007070317
 
 
 # MODIS file:

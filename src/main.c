@@ -210,6 +210,7 @@ int main( int argc, char* argv[] )
 
     int MOPITTgranule = 1;
 
+    // minor: strstr may be called twice in the loop. No need to change. KY 2017-04-10
     do
     {
         /* strstr will fail if unexpected input is present */
@@ -323,6 +324,16 @@ int main( int argc, char* argv[] )
   CERESargs[1] = argv[1];
 
   while(ceres_count != 0) {
+
+#if 0
+    status = getNextLine( string, inputFile);
+//printf("string is %s\n",string);
+    if ( status == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to get CERES line. Exiting program.\n");
+        goto cleanupFail;
+    }
+#endif
 
     if(strstr(string,MODIScheck1) != NULL) {
         ceres_count = 0;
