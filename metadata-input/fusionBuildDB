@@ -41,19 +41,22 @@ args = docopt(__doc__)
 # global rows and insert strings to collect all the rows
 # the inserts at once, misr last (see populate orbit calc)
 ROWS = {"instruments": [], "orbits": [], "MOD": [], "AST": [], "CER": [], "MOP": [], "MIS": [], "dirs": dict()}
+# originally one table per instrument - now single fileinfo table but separate inserts still aids debug/test
 INSERTS = {\
-    "orbits": 'insert or ignore into orbits (orbit, path, stime, etime) values (?, ?, ?, ?)',\
-    "MOD": 'insert or ignore into modis (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',\
-    "AST": 'insert or ignore into modis (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',\
-    "CER": 'insert or ignore into modis (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',\
-    "MOP": 'insert or ignore into modis (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',\
-    "MIS": 'insert or ignore into modis (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',\
-    "dirs": 'insert or ignore into dirs (dir, id) values(?,?)',\
-    "instruments": 'insert or ignore into instruments (id, name) values(?, ?)'
-    }
+    "orbits": 'insert  into orbits (orbit, path, stime, etime) values (?, ?, ?, ?)',
+    "MOD": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "AST": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "CER": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "MOP": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "MIS": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "dirs": 'insert  into dirs (dir, id) values(?,?)',
+    "instruments": 'insert  into instruments (id, name) values(?, ?)'
+}
 # Filter specs: matches get dropped
 TAILFILTERS = ['.met', '.xml']
 HEADFILTERS = ['#', 'MISBR']
+FILTERS = zip(HEADFILTERS, [str.startswith for i in range(len(HEADFILTERS))]) + \
+    zip(TAILFILTERS, [str.endswith for i in range(len(TAILFILTERS))])
 # Timezone reference for all timesh
 TZ = timezone('UTC')
 INSTRUMENTS = ["dirs", "orbits", "MOD", "AST", "CER", "MOP", "MIS"]
@@ -77,8 +80,13 @@ def usage():
 def nolog(msg, *args, **kwargs):
     return
 
-if args['-q']:
+if args.get('-q', False):
     warn = nolog
+
+discards = args.get('--discards', False)
+if discards:
+    discards = open(args['--discards'], 'w')
+
 
 def db_optimize(cursor):
     cursor.execute('PRAGMA synchronous = OFF;')
@@ -102,7 +110,7 @@ def createDB(dbfile):
     tstrs = {'CREATE TABLE orbits (orbit integer, path integer, stime integer, etime integer)'}
     tstrs.add('CREATE TABLE dirs (id integer primary key autoincrement, dir text unique)')
     tstrs.add('CREATE TABLE instruments (id integer primary key autoincrement, name text unique)')
-    for inst in {"modis", "mopitt", "aster", "ceres", "miser"}:
+    for inst in {"fileinfo", "mopitt", "aster", "ceres", "miser"}:
         tstrs.add('CREATE TABLE {} (stime integer, etime integer, \
             directory integer, fname text, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
     for query in tstrs:
@@ -195,32 +203,33 @@ def addInstrumentFile(instFile):
                 rate = report_interval/(timenow-timeprev)
                 print('Processing file {}, {} processed, rate: {}/s'.format(instFile, count, int(rate)))
                 timeprev = timenow
-            line = line.decode("utf-8-sig").strip()
+            line = str(line.decode("utf-8-sig").strip())
             if len(line) == 0:
                 continue
-            for match in HEADFILTERS:
-                if line.startswith(match):
+            for match, func in FILTERS:
+                if func(line, match):
+                    if discards:
+                        print(line, file=discards)
+                    break
+            else:
+                if line.startswith('/') and line.endswith(':'):
+                    # looks like a path
+                    warn("addInstrumentFile: new directory %s for following files", line)
+                    last_directory = line
                     continue
-            for match in TAILFILTERS:
-                if line.endswith(match):
-                    continue
-            if line.startswith('/') and line.endswith(':'):
-                # looks like a path
-                warn("addInstrumentFile: new directory %s for following files", line)
-                last_directory = line
-                continue
-            try:
-                directory, _, fname = line.rpartition('/')
-                addFunc = match_list.get(fname[0:3], False)
-                if len(directory) == 0:  # use last seen directory
-                    directory = last_directory.rstrip(':')
-                addDir(directory)
-                addFunc(directory, fname)
-            except Exception as e:
-                debug("file %s: line %d: add failed: '%s'", instFile, count, line)
+                try:
+                    directory, _, fname = line.rpartition('/')
+                    addFunc = match_list.get(fname[0:3], False)
+                    if len(directory) == 0:  # use last seen directory
+                        directory = last_directory.rstrip(':')
+                    addDir(directory)
+                    addFunc(directory, fname)
+                except Exception as e:
+                    debug("file %s: line %d: add failed: '%s'", instFile, count, line)
     return
 
 def main():
+
     # First the orbits - some instruments need orbit data
     debug("parsing orbits %s", args['ORBIT_FILE'])    
     addOrbits(args['ORBIT_FILE'])
