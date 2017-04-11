@@ -322,6 +322,19 @@ int CERES( char* argv[],int index ,int ceres_fm_count,int32*c_start,int32*c_stri
 
         H5Dclose(generalDsetID_d); generalDsetID_d = 0;
 
+        char* NewcorrectName = correct_name(outTimePosName[i]);
+        convert_SD_Attrs(fileID,geolocationID_g,NewcorrectName,inTimePosName[i]);
+        free(NewcorrectName);
+
+        // Quick way to change the attribute unit of latitude and longitude
+        // LEAVE this block of code, we may need this later.
+#if 0
+        if(i == 1)// latitude 
+            H5LTset_attribute_string(geolocationID_g,"Latitude","units","degrees_north");
+        else if( i==2)
+            H5LTset_attribute_string(geolocationID_g,"Longitude","units","degrees_east");
+#endif
+
     }
 
     /******************
@@ -352,7 +365,10 @@ int CERES( char* argv[],int index ,int ceres_fm_count,int32*c_start,int32*c_stri
         }
 
         H5Dclose(generalDsetID_d); generalDsetID_d = 0;
-    }
+        char* NewcorrectName = correct_name(outViewingAngles[i]);
+        convert_SD_Attrs(fileID,viewingAngleID_g,NewcorrectName,inViewingAngles[i]);
+        free(NewcorrectName);
+   }
 
 
     /**********************
@@ -380,30 +396,6 @@ int CERES( char* argv[],int index ,int ceres_fm_count,int32*c_start,int32*c_stri
             goto cleanupFail;
         }
 
-        // Insert attributes to one of the radiance fields
-        if ( i == 0 )
-        {
-            correctName = correct_name(outFilteredRadiance[i]);
-
-            int radiance_flags_fvalue = 2147483647;
-            int radiance_flags_valid_range[2] = { 0, 2147483647 };
-            if(H5LTset_attribute_string(radianceID_g,correctName,"units","W m-2 μm-1 sr-1")<0) {
-                FATAL_MSG("Failed to insert the %s units attribute.\n", correctName);
-                goto cleanupFail;
-            }
-
-            if(H5LTset_attribute_int(radianceID_g,correctName,"_FillValue",&radiance_flags_fvalue, 1 )<0) {
-                FATAL_MSG("Failed to insert the %s _FillValue attribute.\n", correctName);
-                goto cleanupFail;
-            }
-
-            if(H5LTset_attribute_int(radianceID_g, correctName, "valid_range",radiance_flags_valid_range, 2 )<0) {
-                FATAL_MSG("Failed to insert the %s valid_range attribute.\n", correctName );
-                goto cleanupFail;
-            }
-            free ( correctName ); correctName = NULL;
-        }
-
         if(index == 1)
             status = copyDimensionSubset( fileID, inFilteredRadiance[i], outputFile, generalDsetID_d,*c_count,"_FM1_",ceres_fm_count );
         else 
@@ -415,6 +407,9 @@ int CERES( char* argv[],int index ,int ceres_fm_count,int32*c_start,int32*c_stri
         }
 
         H5Dclose(generalDsetID_d); generalDsetID_d = 0;
+        char* NewcorrectName = correct_name(outFilteredRadiance[i]);
+        convert_SD_Attrs(fileID,radianceID_g,NewcorrectName,inFilteredRadiance[i]);
+        free(NewcorrectName);
     }
 
     /************************
@@ -446,10 +441,10 @@ int CERES( char* argv[],int index ,int ceres_fm_count,int32*c_start,int32*c_stri
         }
 
         H5Dclose(generalDsetID_d); generalDsetID_d = 0;
+        char* NewcorrectName = correct_name(outUnfilteredRadiance[i]);
+        convert_SD_Attrs(fileID,radianceID_g,NewcorrectName,inUnfilteredRadiance[i]);
+        free(NewcorrectName);
     }
-
-
-
 
     if ( 0 )
     {

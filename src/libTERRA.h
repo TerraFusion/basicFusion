@@ -106,6 +106,10 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
                                   int32 inputFileID);
 hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
                    int32 inputFileID);
+
+
+herr_t convert_SD_Attrs(int32 sd_id,hid_t h5grp_id,char*h5dset_name,char*sds_name);
+herr_t copy_h5_attrs(int32 h4_type,int32 n_values,char* attr_name,char* attr_value,hid_t grp, char* dset_name);
 herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* buffer );
 
 /* general utility functions */

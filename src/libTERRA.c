@@ -2481,6 +2481,119 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
     return datasetID;
 }
 
+herr_t convert_SD_Attrs(int32 sd_id,hid_t h5parobj_id,char*h5obj_name,char*sds_name) {
+
+    int   i;
+    intn  h4_status;
+    int32 sds_id,sds_index;
+    int32 dim_sizes[H4_MAX_VAR_DIMS];
+    int32 rank, data_type, n_attrs;
+    int32   n_values;
+    char    dummy_sds_name[H4_MAX_NC_NAME];
+    char    attr_name[H4_MAX_NC_NAME];
+    char*   attr_values= NULL;
+    herr_t   h5_status;
+
+
+    if(sds_name == NULL) 
+       sds_id = sd_id;
+    else {
+        sds_index = SDnametoindex(sd_id,sds_name);
+        sds_id = SDselect (sd_id, sds_index);
+    }
+
+    h4_status = SDgetinfo (sds_id, dummy_sds_name, &rank, dim_sizes, 
+                           &data_type, &n_attrs);
+
+#if 0
+   printf ("name = %s\n", dummy_sds_name);
+   printf ("rank = %d\n", rank);
+   printf ("dimension sizes are : ");
+   printf ("number of attributes is  %d\n", n_attrs);
+#endif
+ 
+    for( i = 0; i <n_attrs;i++) {
+        h4_status = SDattrinfo (sds_id, i, attr_name, &data_type, &n_values);
+        attr_values = malloc(n_values*DFKNTsize(data_type));
+        h4_status = SDreadattr (sds_id, i, attr_values);
+        copy_h5_attrs(data_type,n_values,attr_name,attr_values,h5parobj_id,h5obj_name);
+        free (attr_values);
+    }
+
+    if(sds_name != NULL)
+        SDendaccess(sds_id);
+    return 0;
+}
+
+herr_t copy_h5_attrs(int32 h4_type,int32 n_values,char* attr_name,char* attr_value,hid_t par_id, char* h5obj_name) {
+
+    size_t h5_size = 0;
+    int h5_sign = -2;
+    hid_t h5memtype = 0;
+    hid_t* h5memtype_ptr = &h5memtype;
+    h4type_to_h5type(h4_type,h5memtype_ptr);
+    h5memtype = *h5memtype_ptr;
+
+    if(h5memtype == H5T_STRING) {
+            hid_t str_type = H5Tcopy(H5T_C_S1);
+            H5Tset_size(str_type,n_values+1);
+            char*attr_value_new = malloc(n_values+1);
+            strncpy(attr_value_new,attr_value,n_values);
+            attr_value_new[n_values]='\0';
+            H5Tset_strpad(str_type,H5T_STR_NULLTERM);
+            herr_t ret= H5LTset_attribute_string(par_id,h5obj_name,attr_name,(const char*)attr_value_new);
+            free(attr_value_new);
+            return ret;
+    }
+    else {
+    switch (H5Tget_class(h5memtype)) {
+
+        case H5T_INTEGER:
+        {
+            h5_size = H5Tget_size(h5memtype);
+            h5_sign = H5Tget_sign(h5memtype);
+
+	    if (h5_size == 1) { // Either h5_signed char or unh5_signed char
+                if (h5_sign == H5T_SGN_2) 
+                    return H5LTset_attribute_char(par_id,h5obj_name,attr_name,(const char*)attr_value,n_values);
+                else 
+                    return H5LTset_attribute_uchar(par_id,h5obj_name,attr_name,(const unsigned char*)attr_value,n_values);
+                
+            }
+            else if (h5_size == 2) {
+                if (h5_sign == H5T_SGN_2) 
+                    return H5LTset_attribute_short(par_id,h5obj_name,attr_name,(const short*)attr_value,n_values);
+                else 
+                    return H5LTset_attribute_ushort(par_id,h5obj_name,attr_name,(const unsigned short*)attr_value,n_values);
+            }
+            else if (h5_size == 4) {
+                if (h5_sign == H5T_SGN_2) 
+                    return H5LTset_attribute_int(par_id,h5obj_name,attr_name,(const int*)attr_value,n_values);
+                else 
+                    return H5LTset_attribute_uint(par_id,h5obj_name,attr_name,(const unsigned int*)attr_value,n_values);
+            }
+            else if (h5_size == 8) {
+                if (h5_sign == H5T_SGN_2) 
+                    return H5LTset_attribute_long_long(par_id,h5obj_name,attr_name,(const long long*)attr_value,n_values);
+                else 
+                    return -1;
+            }
+            else return -1;
+        }
+        case H5T_FLOAT:
+        {
+            h5_size = H5Tget_size(h5memtype);
+            if (h5_size == 4) return H5LTset_attribute_float(par_id,h5obj_name,attr_name,(const float*)attr_value,n_values);
+            else if (h5_size == 8) return H5LTset_attribute_double(par_id,h5obj_name,attr_name,(const double*)attr_value,n_values);
+            else return -1;
+        }
+        default:
+            return -1;
+    }
+    }
+    return 0;
+}
+
 
 herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* buffer )
 {
