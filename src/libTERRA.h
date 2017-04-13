@@ -119,6 +119,9 @@ int change_dim_attr_NAME_value(hid_t h5dset_id);
 herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID );
 herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID,int32 s_size,char*,int );
 herr_t attachDimension(hid_t h5fileID, char* dimname, hid_t h5dsetID, int dim_index);
+size_t obtainDimSize(hid_t dsetID);
+herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size);
+
 herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
 herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
 herr_t binarySearchDouble ( const double* array, double target, hsize_t size, long int* targetIndex );

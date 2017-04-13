@@ -4,12 +4,14 @@
 #include <mfhdf.h>  // hdf4 SD interface (includes hdf.h by default)
 #include <hdf5.h>   // hdf5
 #include "libTERRA.h"
+#include "interp/modis/MODISLatLon.h"
 #ifndef DIM_MAX
 #define DIM_MAX 10
 #endif
-#ifndef M_PI
-#    define M_PI 3.14159265358979323846
-#endif
+
+//#ifndef M_PI
+//#    define M_PI 3.14159265358979323846
+//#endif
 
 
 /*
@@ -24,7 +26,7 @@
 
 /* MY 2016-12-20, handling the MODIS files with and without MOD02HKM and MOD02QKM. */
 
-void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol, int scanSize, double * newLat, double * newLon);
+//void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol, int scanSize, double * newLat, double * newLon);
 int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID,hid_t outputFile);
 int MODIS( char* argv[] ,int modis_count, int unpack)
 {
@@ -2089,6 +2091,7 @@ void upscaleLatLonPlanar(double * oriLat, double * oriLon, int nRow, int nCol, i
 }
 #endif
 
+#if 0
 /**
  * NAME:	upscaleLatLonSpherical
  * DESCRIPTION:	calculate the latitude and longitude of MODIS cell centers at finner resolution based on coarser resolution cell locations, using a planer cooridnate system
@@ -2334,3 +2337,4 @@ void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol
 
 }
 
+#endif

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <hdf5.h>
 #include <assert.h>
+#include "interp/aster/ASTERLatLon.h"
 #include "libTERRA.h"
 
 /* Author: MuQun Yang myang6@hdfgroup.org*/
@@ -28,6 +29,8 @@ int obtain_gain_index(int32 sd_id,short gain_index[15]);
 char* obtain_gain_info(char *whole_string);
 short get_band_index(char *band_index_str);
 short get_gain_stat(char *gain_stat_str);
+int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t VNIRgeoGroupID,char*latname,char*lonname,int32 h4_type,hid_t h5_type,int32 inFileID, hid_t outputFileID); 
+
 
 /*
     argv[0] = program name
@@ -102,6 +105,10 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
      ******************************/
         /* Group IDs */
     hid_t geoGroupID = 0;
+
+    hid_t SWIRgeoGroupID = 0;
+    hid_t TIRgeoGroupID  = 0;
+    hid_t VNIRgeoGroupID = 0;
         /* Dataset IDs */
     hid_t latDataID = 0;
     hid_t lonDataID = 0;
@@ -764,6 +771,39 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         goto cleanupFail;
     }
   
+    // Adding high-resolution lat/lon dataset
+    if(unpack == 1) {
+
+        createGroup( &SWIRgroupID, &SWIRgeoGroupID, "Geolocation" );
+        if ( SWIRgeoGroupID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to create ASTER SWIR Geolocation group.\n");
+            SWIRgeoGroupID = 0;
+            goto cleanupFail;
+        }
+
+        createGroup( &TIRgroupID, &TIRgeoGroupID, "Geolocation" );
+        if ( TIRgeoGroupID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to create ASTER TIR Geolocation group.\n");
+            TIRgeoGroupID = 0;
+            goto cleanupFail;
+        }
+
+        if(vnir_grp_ref >0) {
+            createGroup( &VNIRgroupID, &VNIRgeoGroupID, "Geolocation" );
+            if ( VNIRgeoGroupID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to create ASTER VNIR Geolocation group.\n");
+                VNIRgeoGroupID = 0;
+                goto cleanupFail;
+            }
+    
+        }
+        readThenWrite_ASTER_HR_LatLon(SWIRgeoGroupID,TIRgeoGroupID,VNIRgeoGroupID,"Latitude","Longitude",DFNT_FLOAT64,H5T_NATIVE_DOUBLE,inFileID, outputFile);
+
+    }
+
     /* release identifiers */
     if ( 0 )
     {
@@ -781,6 +821,9 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
     if ( TIRgroupID ) H5Gclose(TIRgroupID);
     if ( geoGroupID ) H5Gclose(geoGroupID);
+    if ( SWIRgeoGroupID ) H5Gclose(SWIRgeoGroupID);
+    if ( VNIRgeoGroupID ) H5Gclose(VNIRgeoGroupID);
+    if ( TIRgeoGroupID ) H5Gclose(TIRgeoGroupID);
     if ( imageData4ID ) H5Dclose(imageData4ID);
     if ( imageData5ID ) H5Dclose(imageData5ID);
     if ( imageData6ID ) H5Dclose(imageData6ID);
@@ -1005,4 +1048,253 @@ int obtain_gain_index(int32 sd_id,short gain_index[15]) {
    }
 
    return ret_value;
+}
+
+int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t VNIRgeoGroupID,char*latname,char*lonname,int32 h4_type,hid_t h5_type,int32 inFileID, hid_t outputFileID) {
+
+    hid_t dummy_output_file_id = 0;
+    int32 latRank,lonRank;
+    int32 latDimSizes[DIM_MAX];
+    int32 lonDimSizes[DIM_MAX];
+    double* latBuffer = NULL;
+    double* lonBuffer = NULL;
+    hid_t datasetID;
+    hid_t SWIR_ImageLine_DimID;
+    hid_t SWIR_ImagePixel_DimID;
+    hid_t TIR_ImageLine_DimID;
+    hid_t TIR_ImagePixel_DimID;
+    hid_t VNIR_ImageLine_DimID;
+    hid_t VNIR_ImagePixel_DimID;
+    herr_t status;
+
+    int i = 0;
+    int nSWIR_ImageLine = 0;
+    int nSWIR_ImagePixel = 0;
+    int nTIR_ImageLine = 0;
+    int nTIR_ImagePixel = 0;
+    int nVNIR_ImageLine = 0;
+    int nVNIR_ImagePixel = 0;
+
+
+    double* lat_swir_buffer = NULL;
+    double* lon_swir_buffer = NULL;
+    double* lat_tir_buffer = NULL;
+    double* lon_tir_buffer = NULL;
+    double* lat_vnir_buffer = NULL;
+    double* lon_vnir_buffer = NULL;
+
+    char* ll_swir_dimnames[2]={"ImageLine_SWIR_Swath","ImagePixel_SWIR_Swath"};
+    char* ll_tir_dimnames[2]={"ImageLine_TIR_Swath","ImagePixel_TIR_Swath"};
+    char* ll_vnir_dimnames[2]={"ImageLine_VNIR_Swath","ImagePixel_VNIR_Swath"};
+    
+
+    status = H4readData( inFileID, latname,
+        (void**)&latBuffer, &latRank, latDimSizes, h4_type,NULL,NULL,NULL );
+    if ( status < 0 )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  latname );
+        if ( latBuffer != NULL ) free(latBuffer);
+        return -1;
+    }
+
+    status = H4readData( inFileID, lonname,
+        (void**)&lonBuffer, &lonRank, lonDimSizes, h4_type,NULL,NULL,NULL );
+    if ( status < 0 )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  lonname );
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    if(latRank !=2 || lonRank!=2) {
+        fprintf( stderr, "[%s:%s:%d] The latitude and longitude array rank must be 2.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    if(latDimSizes[0]!=lonDimSizes[0] || latDimSizes[1]!=lonDimSizes[1]) {
+        fprintf( stderr, "[%s:%s:%d] The latitude and longitude array rank must share the same dimension sizes.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+   
+    /* END READ DATA. BEGIN Computing DATA */
+
+    SWIR_ImageLine_DimID = H5Dopen2(outputFileID,ll_swir_dimnames[0],H5P_DEFAULT);
+    nSWIR_ImageLine = obtainDimSize(SWIR_ImageLine_DimID);
+    SWIR_ImagePixel_DimID = H5Dopen2(outputFileID,ll_swir_dimnames[1],H5P_DEFAULT);
+    nSWIR_ImagePixel = obtainDimSize(SWIR_ImagePixel_DimID);
+
+    lat_swir_buffer = (double*)malloc(sizeof(double)*nSWIR_ImageLine*nSWIR_ImagePixel);
+    if(lat_swir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_swir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    
+    lon_swir_buffer = (double*)malloc(sizeof(double)*nSWIR_ImageLine*nSWIR_ImagePixel);
+    if(lon_swir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_swir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        if (lat_swir_buffer != NULL) free(lat_swir_buffer);
+        return -1;
+    }
+   
+    asterLatLonPlanar(latBuffer,lonBuffer,lat_swir_buffer,lon_swir_buffer,nSWIR_ImageLine,nSWIR_ImagePixel);
+
+    // SWIR Latitude
+    if (Generate2D_Dataset(SWIRgeoGroupID,latname,h5_type,lat_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lat_swir_buffer);
+    if(H5LTset_attribute_string(SWIRgeoGroupID,latname,"units","degrees_north")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+
+    //SWIR Longitude
+    if (Generate2D_Dataset(SWIRgeoGroupID,lonname,h5_type,lon_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lon_swir_buffer);
+    if(H5LTset_attribute_string(SWIRgeoGroupID,lonname,"units","degrees_east")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+    H5Dclose(SWIR_ImageLine_DimID);
+    H5Dclose(SWIR_ImagePixel_DimID);
+ 
+    // TIR
+    TIR_ImageLine_DimID = H5Dopen2(outputFileID,ll_tir_dimnames[0],H5P_DEFAULT);
+    nTIR_ImageLine = obtainDimSize(TIR_ImageLine_DimID);
+    TIR_ImagePixel_DimID = H5Dopen2(outputFileID,ll_tir_dimnames[1],H5P_DEFAULT);
+    nTIR_ImagePixel = obtainDimSize(TIR_ImagePixel_DimID);
+
+
+    lat_tir_buffer = (double*)malloc(sizeof(double)*nTIR_ImageLine*nTIR_ImagePixel);
+    if(lat_tir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_tir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    
+    lon_tir_buffer = (double*)malloc(sizeof(double)*nTIR_ImageLine*nTIR_ImagePixel);
+    if(lon_tir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_tir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        if (lat_tir_buffer != NULL) free(lat_tir_buffer);
+        return -1;
+    }
+   
+    asterLatLonPlanar(latBuffer,lonBuffer,lat_tir_buffer,lon_tir_buffer,nTIR_ImageLine,nTIR_ImagePixel);
+
+    // TIR Latitude
+    if (Generate2D_Dataset(TIRgeoGroupID,latname,h5_type,lat_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lat_tir_buffer);
+    if(H5LTset_attribute_string(TIRgeoGroupID,latname,"units","degrees_north")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+
+    //TIR Longitude
+    if (Generate2D_Dataset(TIRgeoGroupID,lonname,h5_type,lon_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lon_tir_buffer);
+    if(H5LTset_attribute_string(TIRgeoGroupID,lonname,"units","degrees_east")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+    H5Dclose(TIR_ImageLine_DimID);
+    H5Dclose(TIR_ImagePixel_DimID);
+ 
+    // Possible VNIR
+    if(VNIRgeoGroupID!=0) {
+
+    VNIR_ImageLine_DimID = H5Dopen2(outputFileID,ll_vnir_dimnames[0],H5P_DEFAULT);
+    nVNIR_ImageLine = obtainDimSize(VNIR_ImageLine_DimID);
+    VNIR_ImagePixel_DimID = H5Dopen2(outputFileID,ll_vnir_dimnames[1],H5P_DEFAULT);
+    nVNIR_ImagePixel = obtainDimSize(VNIR_ImagePixel_DimID);
+
+
+    lat_vnir_buffer = (double*)malloc(sizeof(double)*nVNIR_ImageLine*nVNIR_ImagePixel);
+    if(lat_vnir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_vnir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    
+    lon_vnir_buffer = (double*)malloc(sizeof(double)*nVNIR_ImageLine*nVNIR_ImagePixel);
+    if(lon_vnir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_vnir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        if (lat_vnir_buffer != NULL) free(lat_vnir_buffer);
+        return -1;
+    }
+   
+    asterLatLonPlanar(latBuffer,lonBuffer,lat_vnir_buffer,lon_vnir_buffer,nVNIR_ImageLine,nVNIR_ImagePixel);
+
+    // VNIR Latitude
+    if (Generate2D_Dataset(VNIRgeoGroupID,latname,h5_type,lat_vnir_buffer,VNIR_ImageLine_DimID,VNIR_ImagePixel_DimID,nVNIR_ImageLine,nVNIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lat_vnir_buffer);
+    if(H5LTset_attribute_string(VNIRgeoGroupID,latname,"units","degrees_north")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+
+    //VNIR Longitude
+    if (Generate2D_Dataset(VNIRgeoGroupID,lonname,h5_type,lon_vnir_buffer,VNIR_ImageLine_DimID,VNIR_ImagePixel_DimID,nVNIR_ImageLine,nVNIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lon_vnir_buffer);
+    if(H5LTset_attribute_string(VNIRgeoGroupID,lonname,"units","degrees_east")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+    H5Dclose(VNIR_ImageLine_DimID);
+    H5Dclose(VNIR_ImagePixel_DimID);
+ 
+
+    }
+    
+    free(latBuffer);
+    free(lonBuffer);
+ 
+    return SUCCEED;
+    
 }

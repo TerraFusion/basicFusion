@@ -4056,6 +4056,47 @@ herr_t attachDimension(hid_t fileID,char*dimname, hid_t dsetID,int dim_index) {
     return SUCCEED;
 }
 
+size_t obtainDimSize(hid_t dsetID) {
+
+    hid_t dspace = H5Dget_space(dsetID);
+    size_t ret_size =(size_t)H5Sget_simple_extent_npoints(dspace);
+    H5Sclose(dspace);
+    return ret_size;
+
+}
+
+herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size) {
+    hsize_t temp[2];
+    temp[0] = (hsize_t) (dim0_size);
+    temp[1] = (hsize_t) (dim1_size);
+    hid_t dummy_output_file_id, datasetID;
+
+    datasetID = insertDataset( &dummy_output_file_id, &h5_group, 1, 2 ,
+         temp, h5_type, dsetname, databuffer );
+
+    if ( datasetID == EXIT_FAILURE )
+    {
+        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, dsetname );
+        return -1;
+    }
+  
+   if(H5DSattach_scale(datasetID,dim0_id,0)) {
+        FATAL_MSG("Failed to attach the dimension scale.\n");
+        return FAIL;
+   }
+
+   if(H5DSattach_scale(datasetID,dim1_id,1)) {
+        FATAL_MSG("Failed to attach the dimension scale.\n");
+        return FAIL;
+   }
+
+   H5Dclose(datasetID); 
+
+   return SUCCEED;
+
+}
+
+
 /*
             MOPITTaddDimension
 
