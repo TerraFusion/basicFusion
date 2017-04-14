@@ -1,4 +1,4 @@
-#!/usr/bin/python
+ #!/usr/bin/python
 #
 """buildDB - Build the timespan database from orbits data-file and instrument-file-names data-files
 
@@ -26,7 +26,7 @@ from __future__ import print_function
 import sqlite3
 import gzip
 import sys
-import logging
+import logging 
 from logging import *
 import os
 from docopt import docopt
@@ -110,7 +110,7 @@ def createDB(dbfile):
     tstrs = {'CREATE TABLE orbits (orbit integer, path integer, stime integer, etime integer)'}
     tstrs.add('CREATE TABLE dirs (id integer primary key autoincrement, dir text unique)')
     tstrs.add('CREATE TABLE instruments (id integer primary key autoincrement, name text unique)')
-    for inst in {"fileinfo", "mopitt", "aster", "ceres", "miser"}:
+    for inst in {"fileinfo"}:
         tstrs.add('CREATE TABLE {} (stime integer, etime integer, \
             directory integer, fname text, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
     for query in tstrs:
@@ -165,7 +165,7 @@ def addcer(directory, fname):
     return
    
 def addast(directory, fname):
-    sformat = '003%d%m%Y%H%M%S'
+    sformat = '003%m%d%Y%H%M%S'
     ss = fname.split('_')
     stime = mktime_utc(sformat, ss[2])
     etime = stime + 9  # TODO CHECK 9 sec?
@@ -252,10 +252,7 @@ def main():
     except:
         None
     connection, cursor = createDB(args['DB_FILE'])
-    
     idata = [ (k, INSTRUMENTS.index(k)) for k in INSTRUMENTS[2:] ]
-
-        
     for table in INSTRUMENTS:
         #debug("execute: {}, ex: {}".format(INSERTS[table], ROWS[table][0]))
         if args.get('-v', False):
