@@ -1,6 +1,8 @@
 # All variables suffixed with 1 denote HDF4, 2 HDF5
 # This makefile is currently set up to be run on the 
 # Blue Waters computer.
+# NOTE: If you get errors about "missing separator" when running make, be sure
+# that your tabs are TABS, not SPACES. make requires actual tabs for indenting, not just spaces.
 CC=gcc
 CFLAGS=-c -g -O0 -Wall -std=c99
 LINKFLAGS= -g -std=c99 -Wl,-rpath,/u/sciteam/clipp/basicFusion/hdflib/lib
@@ -42,10 +44,10 @@ $(OBJDIR)/MISR.o: $(SRCDIR)/MISR.c
 	$(CC) $(CFLAGS) -I$(INCLUDE1) $(SRCDIR)/MISR.c -o $(OBJDIR)/MISR.o
 
 $(OBJDIR)/MODISLatLon.o: $(MODISINTERP_DIR)/MODISLatLon.c
-    $(CC) $(CFLAGS) -I$(INCLUDE1) $(MODISINTERP_DIR)/MODISLatLon.c -o $(OBJDIR)/MODISLatLon.o
+	$(CC) $(CFLAGS) -I$(INCLUDE1) $(MODISINTERP_DIR)/MODISLatLon.c -o $(OBJDIR)/MODISLatLon.o
 
 $(OBJDIR)/ASTERLatLon.o: $(ASTERINTERP_DIR)/ASTERLatLon.c
-    $(CC) $(CFLAGS) -I$(INCLUDE1) $(ASTERINTERP_DIR)/ASTERLatLon.c -o $(OBJDIR)/ASTERLatLon.o
+	$(CC) $(CFLAGS) -I$(INCLUDE1) $(ASTERINTERP_DIR)/ASTERLatLon.c -o $(OBJDIR)/ASTERLatLon.o
 
 clean:
 	rm -f $(TARGET) $(OBJDIR)/*.o

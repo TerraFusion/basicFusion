@@ -1141,7 +1141,7 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
     if ( datasetID == EXIT_FAILURE )
     {
         // Have warning const char* to char*:
-        char* tempStr = outDatasetName ? outDatasetName : inDatasetName;
+        const char* tempStr = outDatasetName ? outDatasetName : inDatasetName;
         FATAL_MSG("Error writing \"%s\" dataset.\n", tempStr );
         free(dataBuffer);
         H5Dclose(datasetID);
@@ -1241,7 +1241,7 @@ hid_t readThenWriteSubset( const char* outDatasetName, hid_t outputGroupID, cons
     if ( datasetID == EXIT_FAILURE )
     {
         // Have warning const char* to char*:
-        char* tempStr = outDatasetName ? outDatasetName : inDatasetName;
+        const char* tempStr = outDatasetName ? outDatasetName : inDatasetName;
         FATAL_MSG("Error writing \"%s\" dataset.\n", tempStr );
         free(dataBuffer);
         H5Dclose(datasetID);
@@ -4217,25 +4217,25 @@ herr_t initializeTimeOffset()
     for ( int i = 0; i <= 181; i++ )            // Jan 1993 -> June 1993
         TAI93toUTCoffset[i] = 0.0;
     for ( int i = 182; i <= 546; i++ )          // July 1993 -> June 1994
-        TAI93toUTCoffset[i] = 1.0;
+        TAI93toUTCoffset[i] = -1.0;
     for ( int i = 547; i <= 1095; i++ )         // July 1994 -> Dec 1995
-        TAI93toUTCoffset[i] = 2.0;
+        TAI93toUTCoffset[i] = -2.0;
     for ( int i = 1096; i <= 1642; i++ )        // Jan 1996 -> June 1997
-        TAI93toUTCoffset[i] = 3.0;
+        TAI93toUTCoffset[i] = -3.0;
     for ( int i = 1643; i <= 2191; i++ )        // July 1997 -> Dec 1998
-        TAI93toUTCoffset[i] = 4.0;
+        TAI93toUTCoffset[i] = -4.0;
     for ( int i = 2192; i <= 4748; i++ )        // Jan 1999 -> Dec 2005
-        TAI93toUTCoffset[i] = 5.0;
+        TAI93toUTCoffset[i] = -5.0;
     for ( int i = 4749; i <= 5845; i++ )        // Jan 2006 -> Dec 2008
-        TAI93toUTCoffset[i] = 6.0;
+        TAI93toUTCoffset[i] = -6.0;
     for ( int i = 5846; i <= 7210; i++ )        // Jan 2009 -> June 2012
-        TAI93toUTCoffset[i] = 7.0;
+        TAI93toUTCoffset[i] = -7.0;
     for ( int i = 7211; i <= 8215; i++ )        // July 2012 -> June 2015
-        TAI93toUTCoffset[i] = 8.0;
+        TAI93toUTCoffset[i] = -8.0;
     for ( int i = 8216; i <= 8767; i++ )        // July 2015 -> Dec 2016
-        TAI93toUTCoffset[i] = 9.0;
+        TAI93toUTCoffset[i] = -9.0;
     for ( int i = 8768; i < NUM_DAYS; i++ )    // Jan 2017 -> June 2017
-        TAI93toUTCoffset[i] = 10.0;                  // Currently, value not known past June 30th 2017
+        TAI93toUTCoffset[i] = -10.0;                  // Currently, value not known past June 30th 2017
     
     return EXIT_SUCCESS;
 }
@@ -4617,11 +4617,13 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     ARGUMENTS:
         IN
-            1. double* array         -- The array to perform the search on
-            2. double target         -- The value to search for
-            3. hsize_t size          -- The number of elements in array
+            1. double* array                   -- The array to perform the search on
+            2. double target                   -- The value to search for
+            3. hsize_t size                    -- The number of elements in array
+            4. short unsigned int firstGreater -- Set to nonzero to return the first element GREATER than target (if exact match not found).
+                                                  Set to 0 to return element BEFORE the first element that is greater than target.
         OUT
-            4. long int* targetIndex -- The index of where the target value is. If target doesn't exist in the array,
+            5. long int* targetIndex -- The index of where the target value is. If target doesn't exist in the array,
                                         this will return the first element in array that is larger than target.
 
     EFFECTS:
@@ -4633,7 +4635,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
        -1 if an error occured.
 
 */
-herr_t binarySearchDouble ( const double* array, double target, hsize_t size, long int* targetIndex )
+herr_t binarySearchDouble ( const double* array, double target, hsize_t size, short unsigned int firstGreater, long int* targetIndex )
 {
     long int left = 0;
     long int right = (long int)(size - 1);
@@ -4683,6 +4685,11 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, lo
         return -1;
     }
 
+    if ( firstGreater == 0 && middle > 0 )
+    {
+        middle--;
+    }
+    
     *targetIndex = middle;
     return 1;
 
@@ -4782,13 +4789,13 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     /* Perform a binary search on the timeData array to find the start and end indices */
     long int startIdx, endIdx;
 
-    status = binarySearchDouble ( timeData, startTAI93, (hsize_t) numElems, &startIdx );
+    status = binarySearchDouble ( timeData, startTAI93, (hsize_t) numElems, 1, &startIdx );
     if ( status == -1 )
     {
         FATAL_MSG("Failed to find MOPITT start index.\n");
         goto cleanupFail;
     }
-    status = binarySearchDouble ( timeData, endTAI93, (hsize_t) numElems, &endIdx );
+    status = binarySearchDouble ( timeData, endTAI93, (hsize_t) numElems, 0, &endIdx );
     if ( status == -1 )
     {
         FATAL_MSG("Failed to find MOPITT end index.\n");

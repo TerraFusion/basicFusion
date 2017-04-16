@@ -1,6 +1,9 @@
 # All variables suffixed with 1 denote HDF4, 2 HDF5
 # This makefile is currently set up to be run on the 
 # Blue Waters computer.
+
+# THIS MAKEFILE IS CURRENTLY NON-FUNCTIONAL. DO NOT USE
+
 CC=cc
 CFLAGS=-c -g -O0 -Wall -std=c11
 LINKFLAGS= -g -std=c11

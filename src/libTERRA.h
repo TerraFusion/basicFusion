@@ -124,7 +124,7 @@ herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* data
 
 herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
 herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
-herr_t binarySearchDouble ( const double* array, double target, hsize_t size, long int* targetIndex );
+herr_t binarySearchDouble ( const double* array, double target, hsize_t size, short unsigned int firstGreater, long int* targetIndex );
 herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp );
 herr_t H5allocateMemDouble ( hid_t inputFile, const char* datasetPath, void** buffer, long int* size );
 herr_t initializeTimeOffset();
