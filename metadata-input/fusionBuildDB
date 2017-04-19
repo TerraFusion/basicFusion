@@ -1,0 +1,284 @@
+#!/usr/bin/python
+#
+"""buildDB - Build the timespan database from orbits data-file and instrument-file-names data-files
+
+Usage:
+    buildDB [-ohqv] [--trace=FILENAME] [--discards=DISCARDFILE] DB_FILE ORBIT_FILE INSTRUMENT_FILES...
+    buildDB -h | --help
+
+Arguments:
+    DB_FILE     Path the the database
+    ORBIT_FILE  Path to the orbit data file
+    INSTRUMENT_FILES Paths to a file with a list of all instrument files
+
+Options:
+    -h --help                 Show help
+    -o                        Overwrite existing database
+    -q                        Quiet mode - omit warnings/anomalies to stdout
+    -anomalies=<file>         send input anomalies to <file>
+    -v                        verbose, print command/args, file, times, etc on inserts
+    --trace=<file>            capture trace/debug output to file
+    --discards=<file>         capture discards/filters to the named file
+
+"""
+
+from __future__ import print_function
+import sqlite3
+import gzip
+import sys
+import logging
+from logging import *
+import os
+from docopt import docopt
+import time
+import calendar
+from pytz import timezone
+from datetime import datetime
+from time import mktime, strptime #, gmtime, strftime
+
+args = docopt(__doc__)
+
+# global rows and insert strings to collect all the rows
+# the inserts at once, misr last (see populate orbit calc)
+ROWS = {"instruments": [], "orbits": [], "MOD": [], "AST": [], "CER": [], "MOP": [], "MIS": [], "dirs": dict()}
+# originally one table per instrument - now single fileinfo table but separate inserts still aids debug/test
+INSERTS = {\
+    "orbits": 'insert  into orbits (orbit, path, stime, etime) values (?, ?, ?, ?)',
+    "MOD": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "AST": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "CER": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "MOP": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "MIS": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "dirs": 'insert  into dirs (dir, id) values(?,?)',
+    "instruments": 'insert  into instruments (id, name) values(?, ?)'
+}
+# Filter specs: matches get dropped
+TAILFILTERS = ['.met', '.xml']
+HEADFILTERS = ['#', 'MISBR']
+FILTERS = zip(HEADFILTERS, [str.startswith for i in range(len(HEADFILTERS))]) + \
+    zip(TAILFILTERS, [str.endswith for i in range(len(TAILFILTERS))])
+# Timezone reference for all timesh
+TZ = timezone('UTC')
+INSTRUMENTS = ["dirs", "orbits", "MOD", "AST", "CER", "MOP", "MIS"]
+
+def mktime_utc(timefmt, timestr):
+    return calendar.timegm(TZ.localize(datetime.strptime(timestr, timefmt)).timetuple())
+
+class Timer:    
+    def __enter__(self):
+        self.start = time.clock()
+        return self
+    def __exit__(self, *args):
+        self.end = time.clock()
+        self.interval = self.end - self.start
+        print ('time: {}'.format(self.interval))
+
+def usage():
+    print (__doc__)
+    return
+
+def nolog(msg, *args, **kwargs):
+    return
+
+if args.get('-q', False):
+    warn = nolog
+
+discards = args.get('--discards', False)
+if discards:
+    discards = open(args['--discards'], 'w')
+
+
+def db_optimize(cursor):
+    cursor.execute('PRAGMA synchronous = OFF;')
+    cursor.execute('PRAGMA journal_mode = OFF;')
+    cursor.execute('PRAGMA locking_mode = EXCLUSIVE;')
+    cursor.execute('PRAGMA temp_store = MEMORY;')
+    cursor.execute('PRAGMA count_changes = OFF;')
+    cursor.execute('PRAGMA PAGE_SIZE = 4096;')
+    cursor.execute('PRAGMA default_cache_size=1000000; ')
+    cursor.execute('PRAGMA cache_size=1000000;')
+    cursor.execute('PRAGMA auto_vacuum=0;')
+    cursor.execute('PRAGMA mmap_size=2147483648;')
+    cursor.execute('PRAGMA compile_options;')
+    return cursor
+
+def createDB(dbfile):
+    dbconnection = sqlite3.connect(dbfile)
+    cursor = dbconnection.cursor()
+    cursor = db_optimize(cursor)
+
+    tstrs = {'CREATE TABLE orbits (orbit integer, path integer, stime integer, etime integer)'}
+    tstrs.add('CREATE TABLE dirs (id integer primary key autoincrement, dir text unique)')
+    tstrs.add('CREATE TABLE instruments (id integer primary key autoincrement, name text unique)')
+    for inst in {"fileinfo", "mopitt", "aster", "ceres", "miser"}:
+        tstrs.add('CREATE TABLE {} (stime integer, etime integer, \
+            directory integer, fname text, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
+    for query in tstrs:
+        cursor = cursor.execute(query)
+    return dbconnection, cursor
+
+odict = dict()
+def addOrbits(orbitsfile):
+    timeFmt = '%Y-%m-%dT%H:%M:%SZ'
+    with gzip.open(orbitsfile, 'r') as infile:
+        for line in infile:
+            line = line.decode("utf-8-sig").strip()
+            orbitnum, pathnum, starttime, endtime = line.split()
+            orbitnum = int(orbitnum)
+            stime = mktime_utc(timeFmt, starttime)
+            etime = mktime_utc(timeFmt, endtime)
+            ROWS["orbits"].append((orbitnum, pathnum, stime, etime,))
+            odict[orbitnum] = (stime, etime, pathnum)
+        if args.get('-v', False):
+            [debug("found orbit {} path {} start {} end {}".format(*r)) for r in ROWS['orbits']]
+    return
+
+def addDir(directory):
+    ddict = ROWS['dirs']
+    ddict[directory] = ddict.get(directory, len(ddict))
+    
+def addmod(directory, fname):
+    sformat = '%Y%j%H%M'
+    ss = fname.split('.')
+    stime = mktime_utc(sformat, ss[1][1:]+ss[2])
+    etime = stime + 5*60
+    directory = ROWS['dirs'][directory]
+    ROWS["MOD"].append((directory, fname, stime, etime, INSTRUMENTS.index('MOD'),))
+    return
+
+def addmop(directory, fname):
+    sformat = '%Y%m%d'
+    ss = fname.split('-')
+    stime = mktime_utc(sformat, ss[1])
+    etime = stime + 24*60*60 # TODO CHECK THIS 24 hours?
+    directory = ROWS['dirs'][directory]
+    ROWS["MOP"].append((directory, fname, stime, etime, INSTRUMENTS.index('MOP'),))
+    return
+
+def addcer(directory, fname):
+    timeFmt = '%Y%m%d'
+    ss = fname.split('.')
+    stime = mktime_utc(timeFmt, ss[-1])
+    etime = stime + 24*60*60 # TODO CHECK THIS 24 hrs?
+    directory = ROWS['dirs'][directory]
+    ROWS["CER"].append((directory, fname, stime, etime, INSTRUMENTS.index('CER'),))
+    return
+   
+def addast(directory, fname):
+    sformat = '003%d%m%Y%H%M%S'
+    ss = fname.split('_')
+    stime = mktime_utc(sformat, ss[2])
+    etime = stime + 9  # TODO CHECK 9 sec?
+    directory = ROWS['dirs'][directory]
+    ROWS["AST"].append((directory, fname, stime, etime, INSTRUMENTS.index('AST'),))
+    return
+#Orbit 40110: StartTime: 20070703210915, EndTime: 20070703224808
+
+def addmisr(directory, fname):
+    ss = fname.split('_')
+    startstring = ss[6]
+    orbit = int(startstring[1:])
+    directory = ROWS['dirs'][directory]
+    if odict.has_key(orbit):
+        ROWS["MIS"].append((directory, fname, odict[orbit][0], odict[orbit][1], INSTRUMENTS.index('MIS'),))
+    else:
+        warn("addmisr: no data for orbit %d trying to add %s", orbit, directory+"/"+fname)
+    return
+
+def addInstrumentFile(instFile):
+    debug("addInstrumentFile(%s)", instFile)
+    # THe mapping of filename match to DB add routines
+    match_list = {"MOD": addmod, "AST": addast, "CER": addcer, "MOP": addmop, "MIS": addmisr}
+    last_directory = ''
+
+    with gzip.open(instFile, 'r') as infile:
+        count = 0
+        timeprev = time.time()
+        report_interval = 50000
+        for line in infile:
+            count += 1
+            # report occasionally
+            if (count % report_interval) == 0:
+                timenow = time.time()
+                rate = report_interval/(timenow-timeprev)
+                print('Processing file {}, {} processed, rate: {}/s'.format(instFile, count, int(rate)))
+                timeprev = timenow
+            line = str(line.decode("utf-8-sig").strip())
+            if len(line) == 0:
+                continue
+            for match, func in FILTERS:
+                if func(line, match):
+                    if discards:
+                        print(line, file=discards)
+                    break
+            else:
+                if line.startswith('/') and line.endswith(':'):
+                    # looks like a path
+                    warn("addInstrumentFile: new directory %s for following files", line)
+                    last_directory = line
+                    continue
+                try:
+                    directory, _, fname = line.rpartition('/')
+                    addFunc = match_list.get(fname[0:3], False)
+                    if len(directory) == 0:  # use last seen directory
+                        directory = last_directory.rstrip(':')
+                    addDir(directory)
+                    addFunc(directory, fname)
+                except Exception as e:
+                    debug("file %s: line %d: add failed: '%s'", instFile, count, line)
+    return
+
+def main():
+
+    # First the orbits - some instruments need orbit data
+    debug("parsing orbits %s", args['ORBIT_FILE'])    
+    addOrbits(args['ORBIT_FILE'])
+
+    for ifile in args['INSTRUMENT_FILES']: # also poulates dirs
+        debug("parsing instrument file %s", ifile)
+        addInstrumentFile(ifile)
+
+    # dirs is currently a dict name->idx, make dirs to list of (idx, dirname) tuples
+    drows = [(k,v) for k,v in ROWS['dirs'].iteritems()]
+    ROWS['dirs'] = drows
+    # make an orbit#->stime, etime dict
+    #otimes = [(k,v) for k,v in ROWS['orbits'].iteritems()]
+
+    #[drows.append((dname, didx,)) for didx, dname in ROWS['dirs'].iteritems()]
+    # Now populate the DB from the tables, dirs first, MIS last, as it requires orbit calculation
+    try:
+        if args['-o']:
+            os.remove(args['DB_FILE'])
+    except:
+        None
+    connection, cursor = createDB(args['DB_FILE'])
+    
+    idata = [ (k, INSTRUMENTS.index(k)) for k in INSTRUMENTS[2:] ]
+
+        
+    for table in INSTRUMENTS:
+        #debug("execute: {}, ex: {}".format(INSERTS[table], ROWS[table][0]))
+        if args.get('-v', False):
+            [debug("table {0} data {1}".format(table, r)) for r in ROWS[table]]
+        cursor.executemany(INSERTS[table], ROWS[table])
+        connection.commit()
+    cursor.close()
+    return
+
+if __name__ == '__main__':
+    if args.get('-v', False):
+        print(' '.join(sys.argv))
+    logLevel = logging.NOTSET
+    if 'LOGLEVEL' in os.environ:
+        logLevel = getattr(logging, os.environ['LOGLEVEL'])
+     
+    tracefile =  args.get('--trace', False)
+    if tracefile:
+        logoutput = open(tracefile, 'wa')
+    else:
+        logoutput = sys.stdout
+    
+    logging.basicConfig(level=logLevel, stream=logoutput, 
+	format=sys.argv[0].split('/')[-1]+': %(message)s')
+    main()
+    sys.exit(0)
