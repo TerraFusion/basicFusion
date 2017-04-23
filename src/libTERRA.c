@@ -445,23 +445,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     /*******************************************************************************************
      *Reading the dataset is now complete. We have freed all related memory for the input data *
      *(except of course the data_out array) and can now work on writing this data to a new file*
-     *******************************************************************************************/
-   
-
-    /*
-     * Need to convert TAI93 times contained in the data_out buffer to UTC time.
-     */
-
-    if ( strncmp( outDatasetName, "Time", 4 ) == 0 )
-    {
-        status = TAItoUTCconvert( data_out, datasetDims[0] );
-        if ( status == FAIL )
-        {
-            FATAL_MSG("Failed to convert from TAI to UTC.\n");
-            goto cleanupFail;
-        }
-    } 
-     
+     *******************************************************************************************/ 
     
     newmemspace = H5Screate_simple(rank, datasetDims, NULL );   
  
@@ -4734,7 +4718,7 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, sh
     DESCRIPTION:
         This function takes as input the starting and ending times of the orbit (given as OInfo_t struct), the input hid_t
         HDF5 file/group identifier, the path to the time dataset (relative to inputFile), and gives the starting and ending
-        
+        indices.
 
     ARGUMENTS:
         IN
@@ -4818,6 +4802,8 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
         FATAL_MSG("Failed to get TAI93 timestamp.\n");
         goto cleanupFail;
     }
+
+
 
     /* Perform a binary search on the timeData array to find the start and end indices */
     long int startIdx, endIdx;
