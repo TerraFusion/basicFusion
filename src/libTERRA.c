@@ -2630,8 +2630,13 @@ herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* b
     DESCRIPTION:
         This function takes a path (relative or absolute) to one of the instrument files
         and returns a string containing the date information contained in the file name.
-        The string returned is allocated on the heap. IT IS THE DUTY OF THE CALLER 
-        to free this memory when done to avoid memory leaks.
+        The string returned is allocated on the heap. 
+
+            !!!NOTE!!!
+
+        IT IS THE DUTY OF THE CALLER 
+        to free pathname when done to avoid memory leaks.
+
         The instrument argument is defined as follows:
         0 = MOPITT
         1 = CERES
@@ -4497,24 +4502,12 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     TAI93 += (double)(numLeapYears * 86400);        // Account for additional days during leap years
 
-    unsigned short isLeapYear = 0;
-    // Find if the current year is a leap year
-    if ( date.year % 4 == 0 )           // divisible by 4
+    int leapYear = isLeapYear( (int) date.year);
+    if ( isLeapYear < 0 )
     {
-        if ( date.year % 100 == 0 )     // divisible by 100
-        {
-            if ( date.year % 400 == 0 )
-                isLeapYear = 1;
-            else                        // not divisible by 400
-                isLeapYear = 0;
-        }
-
-        else                            // not divisible by 100
-            isLeapYear = 1;
+        FATAL_MSG("Failed to determine if it is a leap year.\n");
+        return EXIT_FAILURE;
     }
-    else                                // not divisible by 4
-        isLeapYear = 0;
-
     // Account for the number of seconds in a month
     // Note that we increment TAI93 based on how many FULL months have passed.
 
@@ -4563,7 +4556,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     }
 
     // Add extra day if leap year and month is March or after
-    if ( isLeapYear && month >= 3){
+    if ( leapYear && month >= 3){
         TAI93 += 86400.0;
     }
 
@@ -4608,6 +4601,46 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 }
 
 /*
+ * isLeapyear
+ * DESCRIPTION:
+ *      Determins if the given year is a leap year.
+ * ARGUMENTS:
+ *      IN
+ *      int year
+ * RETURN:
+ *      -1 upon failure
+ *      0 if not a leap year.
+ *      1 if it is a leap year.
+ */
+int isLeapYear( int year )
+{
+    if ( year < 0 )
+    {
+        FATAL_MSG("I highly doubt there were satellites flying about before the year 0.\n");
+        return -1;
+    }
+    int retVal = 0;
+
+    if ( year % 4 == 0 )           // divisible by 4
+    {
+        if ( year % 100 == 0 )     // divisible by 100
+        {
+            if ( year % 400 == 0 )
+                retVal = 1;
+            else                        // not divisible by 400
+                retVal = 0;
+        }
+
+        else                            // not divisible by 100
+            retVal = 1;
+    }
+    else                                // not divisible by 4
+        retVal = 0;
+
+    return retVal;
+}
+
+/*
         binarySearchDouble
 
     DESCRIPTION:
@@ -4647,7 +4680,7 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, sh
         if ( array[middle] < target )
         {
             left = middle+1;
-            /* If the search was unable to find an exact match, set middle to the first index that is greater than target.
+            /* If the search was unable to find an exact match (case where left > right), set middle to the first index that is greater than target.
                This is useful information for subsetting. It is possible that middle will be set to the very beginning or to
                the very end of the array. This is okay, this is also useful information.
              */

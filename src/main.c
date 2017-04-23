@@ -776,7 +776,7 @@ int getNextLine ( char* string, FILE* const inputFile )
     return EXIT_SUCCESS;    
 }
 
-#if 0
+#if 1
 int validateInFiles( char* inFileList, OInfo_t orbitInfo )
 {
     short fail = 0;
@@ -789,8 +789,7 @@ int validateInFiles( char* inFileList, OInfo_t orbitInfo )
     const char ASTERcheck[] = "AST_L1T_";
     const char MISRcheck1[] = "MISR_AM1_GRP";
     const char MISRcheck2[] = "MISR_AM1_AGP";
-    char* MOPITTtime = NULL;
-    char* CEREStime = NULL;
+    char* MODIStime = NULL;
     char tempString[STR_LEN];
     int i;
     herr_t status;
@@ -807,211 +806,19 @@ int validateInFiles( char* inFileList, OInfo_t orbitInfo )
         return EXIT_FAILURE;
     }
 
-    /********************************************
-     *                  MOPITT                  *
-     ********************************************/
 
-    /* MOPITT file granularity is 24 hours. Thus the granularity of the dates that we need to check
-       is a day. Don't need to check any more accurately than a day.
+    /* MOPITT and CERES don't need to be checked. The validity of those files will be
+     * checked in the subsetting functions.
      */
-    // MOPITT filename has YYYYMMDD, check using that
-    status = getNextLine( string, inputFile);
-    if ( status == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to get input file line.\n");
-        goto cleanupFail;
-    }
-    /* strstr will fail if unexpected input is present */
-    if ( strstr( string, MOPITTcheck ) == NULL )
-    {
-        FATAL_MSG("Received an unexpected input line for MOPITT.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n",string,MOPITTcheck);
-        goto cleanupFail;
-    }
-
     do
     {
-        // extract the time from MOPITT file path
-        MOPITTtime = getTime( string, 0 );
-        if ( MOPITTtime == NULL )
-        {
-            FATAL_MSG("Failed to extract MOPITT time.\n");
-            goto cleanupFail;
-        }        
-
-        // If the MOPITT date is same as orbit date, then file is valid
-        // extract year
-        for ( i = 0; i < 4; i++ )
-        {
-            tempString[i] = MOPITTtime[i];
-        }
-        int MOPITTyear = atoi(tempString);
-        if ( MOPITTyear == 0 )
-        {
-            FATAL_MSG("failed to extract MOPITT year.\n");
-            goto cleanupFail;
-        }
-
-        // extract month
-        memset(tempString, 0, STR_LEN);
-        for ( i = 0; i < 2; i++ )
-        {
-            tempString[i] = MOPITTtime[i+4];
-        }
-        int MOPITTmonth = atoi(tempString);
-        if ( MOPITTmonth == 0 )
-        {
-            FATAL_MSG("failed to extract MOPITT month.\n");
-            goto cleanupFail;
-        }
-
-        // extract day
-        memset(tempString, 0, STR_LEN);
-        for ( i = 0; i < 2; i++ )
-        {
-            tempString[i] = MOPITTtime[i+6];
-        }
-        int MOPITTday = atoi(tempString);
-        
-        if ( MOPITTday == 0 )
-        {
-            FATAL_MSG("failed to extract MOPITT day.\n");
-            goto cleanupFail;
-        }
-
-        free(MOPITTtime); MOPITTtime = 0;
-
-        // check if the orbit start or orbit end times are within the MOPITT granule
-        if ( !((orbitInfo.start_year == MOPITTyear && orbitInfo.start_month == MOPITTmonth && orbitInfo.start_day == MOPITTday ) ||
-             (orbitInfo.end_year == MOPITTyear && orbitInfo.end_month == MOPITTmonth && orbitInfo.end_day == MOPITTday ) ) )
-        {
-            FATAL_MSG("MOPITT file does not reside within the given orbit.\n\tOffending file:%s\n\tOrbit start: %d/%d/%d\n\tOrbit end: %d/%d/%d\n\tDates given in YYYY/MM/DD\n", string, orbitInfo.start_year, orbitInfo.start_month, orbitInfo.start_day,orbitInfo.end_year, orbitInfo.end_month, orbitInfo.end_day);
-            goto cleanupFail;
-        }
-
-        status = getNextLine( string, inputFile);
+        status = getNextLine(string, inputFile );
         if ( status == EXIT_FAILURE )
         {
-            FATAL_MSG("Failed to get input file line. Exiting program.\n");
+            FATAL_MSG("Failed to get next line.\n");
             goto cleanupFail;
         }
-
-    } while ( strstr( string, MOPITTcheck ) != NULL );
-
-
-    /********************************************
-     *                  CERES                   *
-     ********************************************/
-
-    /* CERES file time accuracy is down to the hour, so bounds checking only needs to be accurate up to hour */
-
-    if ( strstr( string, CEREScheck ) == NULL )
-    {
-        FATAL_MSG("Received an unexpected input line for CERES.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n",string,CEREScheck);
-        goto cleanupFail;
-    }
-
-    do
-    {
-        // extract the time from MOPITT file path
-        CEREStime = getTime( string, 1 );
-        if ( CEREStime == NULL )
-        {
-            FATAL_MSG("Failed to extract MOPITT time.\n");
-            goto cleanupFail;
-        }
-
-        // If the CERES date is same as orbit date, then file is valid
-        // extract year
-        memset(tempString, 0, STR_LEN);
-        for ( i = 0; i < 4; i++ )
-        {
-            tempString[i] = CEREStime[i+7];
-        }
-        int CERESyear = atoi(tempString);
-        if ( CERESyear == 0 )
-        {
-            FATAL_MSG("failed to extract CERES year.\n");
-            goto cleanupFail;
-        }
-
-        // extract month
-        memset(tempString, 0, STR_LEN);
-        for ( i = 0; i < 2; i++ )
-        {
-            tempString[i] = CEREStime[i+11];
-        }
-        int CERESmonth = atoi(tempString);
-        if ( CERESmonth == 0 )
-        {
-            FATAL_MSG("failed to extract CERES month.\n");
-            goto cleanupFail;
-        }
-
-        // extract day
-        memset(tempString, 0, STR_LEN);
-        for ( i = 0; i < 2; i++ )
-        {
-            tempString[i] = CEREStime[i+13];
-        }
-        int CERESday = atoi(tempString);
-
-        if ( CERESday == 0 )
-        {
-            FATAL_MSG("failed to extract CERES day.\n");
-            goto cleanupFail;
-        }
-
-        // extract hour
-        memset(tempString, 0, STR_LEN);
-        for ( i = 0; i < 2; i++ )
-        {
-            tempString[i] = CEREStime[i+15];
-        }
-        int CEREShour = atoi(tempString);
-    
-        if ( CEREShour == 0 )
-        {
-            FATAL_MSG("failed to extract CERES hour.\n");
-            goto cleanupFail;
-        }
-
-
-        // TODO create function that increments the times
-        free(CEREStime); CEREStime = 0;
-        int CERESendYear = CERESyear;
-        int CERESendMonth = CERESmonth;
-        int CERESendDay = CERESday;
-        int CERESendHour = CEREShour;
-
-        // CERES SSF file has granularity of 1 hour. Increment the start time by an hour.
-        CERESendHour++;
-
-        //if ( )
-
-        // check if the orbit start or orbit end times are within the CERES granule
-        if ( ! ((CERESyear >= orbitInfo.start_year && CERESyear <= orbitInfo.end_year &&
-             CERESmonth >= orbitInfo.start_month && CERESmonth <= orbitInfo.end_month &&
-             CERESday >= orbitInfo.start_day && CERESday <= orbitInfo.end_day &&
-             CEREShour >= orbitInfo.start_hour && CEREShour <= orbitInfo.end_hour) 
-             ||
-             (CERESyear >= orbitInfo.start_hour) ))
-        {
-            FATAL_MSG("CERES file does not reside within the given orbit.\n\tOffending file:%s\n\tOrbit start: %d/%d/%d\n\tOrbit end: %d/%d/%d\n\tDates given in YYYY/MM/DD\n", string, orbitInfo.start_year, orbitInfo.start_month, orbitInfo.start_day,orbitInfo.end_year, orbitInfo.end_month, orbitInfo.end_day);
-            goto cleanupFail;
-        }
-
-        status = getNextLine( string, inputFile);
-        if ( status == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to get input file line. Exiting program.\n");
-            goto cleanupFail;
-        }
-
-
-    } while ( strstr( string, CEREScheck ) != NULL );
-
-    
-
+    } while ( strstr(string, MODIScheck1) == NULL );
 
 
 
@@ -1020,7 +827,162 @@ int validateInFiles( char* inFileList, OInfo_t orbitInfo )
      ********************************************/
 
     /* MODIS files have starting accuracy up to the minute */
+
+    MODIStime = getTime(string, 2);
+    if ( MODIStime == NULL )
+    {
+        FATAL_MSG("Failed to get MODIS time.\n");
+        goto cleanupFail;
+    }
+    /* get MODIS year */
+    for ( int i = 0; i < 4; i++ )
+        tempString[i] = MODIStime[i];
+
+    int MODISyear = atoi(tempString);
+    if ( MODISyear == 0)
+    {
+        FATAL_MSG("Failed to get MODIS year.\n");
+        goto cleanupFail;
+    }
+
+    memset(tempString, 0, STR_LEN);
+
+    /* get MODIS proper day */
+    for ( int i = 0; i < 3; i++ )
+        tempString[i] = MODIStime[i+4];
+
+    int MODISproperDay = atoi(tempString);
+    if ( MODISproperDay == 0 )
+    {
+        FATAL_MSG("Failed to find proper MODIS day.\n");
+        goto cleanupFail;
+    }
+
+    int MODISmonth;
+    int MODISday;
+
+    int leapYear = isLeapYear(MODISyear);
+    if ( leapYear < 0 )
+    {
+        FATAL_MSG("Failed to determine if it is a leap year.\n");
+        goto cleanupFail;
+    }
+
+    /* Using the MODIS proper day (which is a running total count of the days in the year)
+     * find the day of the month.
+     */
+
+    if ( MODISproperDay >= 1 && MODISproperDay <= 31 )
+    {
+        MODISmonth = 1;
+        MODISday = MODISproperDay;
+    }
+    else if ( MODISproperDay > 31 && MODISproperDay <= 59 + leapYear )
+    {
+        MODISmonth = 2;
+        MODISday = MODISproperDay - 31;
+    }
+    else if ( MODISproperDay > 59 + leapYear && MODISproperDay <= 90 + leapYear )
+    {
+        MODISmonth = 3;
+        MODISday = MODISproperDay - 59 + leapYear ;
+    }
+    else if ( MODISproperDay > 90  + leapYear&& MODISproperDay <= 120 + leapYear )
+    {
+        MODISmonth = 4;
+        MODISday = MODISproperDay - 90 + leapYear;
+    }
+    else if ( MODISproperDay > 120 + leapYear && MODISproperDay <= 151 + leapYear )
+    {
+        MODISmonth = 5;
+        MODISday = MODISproperDay - 120 + leapYear;
+    }
+    else if ( MODISproperDay > 151 + leapYear && MODISproperDay <= 181 + leapYear )
+    {
+        MODISmonth = 6;
+        MODISday = MODISproperDay - 151 + leapYear;
+    }
+    else if ( MODISproperDay > 181 + leapYear && MODISproperDay <= 212 + leapYear )
+    {
+        MODISmonth = 7;
+        MODISday = MODISproperDay - 181 + leapYear;
+    }
+    else if ( MODISproperDay > 212 + leapYear && MODISproperDay <= 243 + leapYear )
+    {
+        MODISmonth = 8;
+        MODISday = MODISproperDay - 212 + leapYear;
+    }
+    else if ( MODISproperDay > 243 + leapYear && MODISproperDay <= 273 + leapYear )
+    {
+        MODISmonth = 9;
+        MODISday = MODISproperDay - 243 + leapYear;
+    }
+    else if ( MODISproperDay > 273 + leapYear && MODISproperDay <= 304 + leapYear )
+    {
+        MODISmonth = 10;
+        MODISday = MODISproperDay - 273 + leapYear;
+    }
+    else if ( MODISproperDay > 304 + leapYear && MODISproperDay <= 334 + leapYear )
+    {
+        MODISmonth = 11;
+        MODISday = MODISproperDay - 304 + leapYear;
+    }
+    else if ( MODISproperDay > 334 + leapYear && MODISproperDay <= 365 + leapYear )
+    {
+        MODISmonth = 12;
+        MODISday = MODISproperDay - 334 + leapYear;
+    }
+    else
+    {
+        FATAL_MSG("Failed to find the MODIS day.\n");
+        goto cleanupFail;
+    }
+
+    /* Find the MODIS hour */
+
+    memset(tempString, 0, STR_LEN);
+
+    for ( int i = 0; i < 2; i++ )
+        tempString[i] = MODIStime[i+8];
+
+    int MODIShour = atoi(tempString);
+    if ( MODIShour == 0 )
+    {
+        FATAL_MSG("Failed to find MODIS hour.\n");
+        goto cleanupFail;
+    }
+
+    /* find MODIS minute */
+    memset(tempString, 0, STR_LEN);
     
+    
+    for ( int i = 0; i < 2; i++ )
+        tempString[i] = MODIStime[i+10];
+
+    int MODISminute = atoi(tempString);
+    if ( MODISminute == 0 )
+    {
+        FATAL_MSG("Failed to find MODIS minute.\n");
+        goto cleanupFail;
+    }
+
+    /* Perform boundary checking */
+
+    if ( ! (( MODISyear >= orbitInfo.start_year && MODISyear <= orbitInfo.end_year) &&
+            ( MODISmonth >= orbitInfo.start_month && MODISmonth <= orbitInfo.end_month ) &&
+            ( MODISday >= orbitInfo.start_day && MODISday <= orbitInfo.end_day ) &&
+            ( MODIShour >= orbitInfo.start_hour && MODIShour <= orbitInfo.end_hour ) &&
+            ( MODISminute >= orbitInfo.start_minute && MODISminute <= orbitInfo.end_minute ) ) )
+    {
+        FATAL_MSG("MODIS granule's starting time does not reside within orbit's start and end time.\n");
+        goto cleanupFail;
+    }
+
+    /* next step is to make sure that the following MODIS files in the current MODIS group (either MOD03 or HKM AND QKM AND MOD03)
+     * have the same date and time as the 1KM file. Note, each grouping of (1KM AND MOD03) OR (1KM AND HKM AND QKM AND MOD03)
+     * is considered to be one group. The files MUST be ordered according to one of the two choices for a group.
+     */
+
 
     if ( 0 )
     {
@@ -1028,9 +990,7 @@ int validateInFiles( char* inFileList, OInfo_t orbitInfo )
         fail = 1;
     }
 
-    if (MOPITTtime) free(MOPITTtime);
-    if (CEREStime) free(CEREStime);
-
+    if (MODIStime) free(MODIStime);
     if ( fail ) 
         return EXIT_FAILURE;
     else
