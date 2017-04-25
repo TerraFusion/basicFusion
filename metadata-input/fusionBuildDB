@@ -14,7 +14,7 @@ Arguments:
 Options:
     -h --help                 Show help
     -o                        Overwrite existing database
-    -q                        Quiet mode - omit warnings/anomalies to stdout
+    -q                        Quiet mode - omit warnings/debug to stdout
     --anomalies=<file>        send input anomalies (failures that are not discards) to file
     -v                        verbose, print command/args, file, times, etc on inserts
     --trace=<file>            capture trace/debug output to file
@@ -82,6 +82,7 @@ def nolog(msg, *args, **kwargs):
 
 if args.get('-q', False):
     warn = nolog
+    debug = nolog
 
 discards = args.get('--discards', False)
 if discards:
@@ -229,7 +230,7 @@ def addInstrumentFile(instFile):
                     addDir(directory)
                     addFunc(directory, fname)
                 except Exception as e:
-                    debug("file %s: line %d: add failed: '%s'", instFile, count, line)
+                    warn("file %s: line %d: add failed: '%s'", instFile, count, line)
                     if anomalies:
                         print("{}:{}: {}".format(instFile, count, line), file=anomalies)
     return
