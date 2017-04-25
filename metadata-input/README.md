@@ -92,6 +92,16 @@ CER_BDS_Terra-FM2_Edition4_400403.20070702
 Data that does not match the above metadata formats or immediately preceeding directory-path notations are discarded.   See the   HEADFILTERS and TAILFILTERS definitions in fusionBuildDB for details.
 Discards can be captured during database build with the --discards option,see fusionBuildDB --help for details.
 
+## Build Examples
+See .vscode/launch.json for the various run configurations used to build under vscode.  These examples are taken from there:
+- Full Build
+```
+fusionBuildDB -o -q --discards=discards.txt --anomalies=errors.txt accesslist.sqlite data/Orbit_Path_Time.txt.gz data/MODIS.list.gz data/ASTER.list.gz data/MOPITT.list.gz data/MISR.list.gz data/CERES.list.gz
+```
+- One-orbit test Build
+```
+fusionBuildDB -o -v --discards=discards.txt --trace=trace.txt --anomalies=errors.txt oneorbit.sqlite data/Orbit_Path_Time.txt.gz testdata/one-orbit-files.txt.gz
+```
 ## Query Examples
 With the start and end time of all files in the DB many useful queries can be constructed in sql.   The BETWEEN operator can find times that lie within a particular span, and overlapping timespans can be selected on 2 ranges with start1/end1 and start2/end2 by selecting on *start1 <= end2 and end1 >= start2*
 
