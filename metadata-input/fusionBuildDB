@@ -1,9 +1,9 @@
- #!/usr/bin/python
-#
+#!/usr/bin/python
+
 """buildDB - Build the timespan database from orbits data-file and instrument-file-names data-files
 
 Usage:
-    buildDB [-ohqv] [--trace=FILENAME] [--discards=DISCARDFILE] DB_FILE ORBIT_FILE INSTRUMENT_FILES...
+    buildDB [-ohqv] [--trace=FILENAME] [--discards=DISCARDFILE] [--anomalies=ERRORFILE] DB_FILE ORBIT_FILE INSTRUMENT_FILES...
     buildDB -h | --help
 
 Arguments:
@@ -15,7 +15,7 @@ Options:
     -h --help                 Show help
     -o                        Overwrite existing database
     -q                        Quiet mode - omit warnings/anomalies to stdout
-    -anomalies=<file>         send input anomalies to <file>
+    --anomalies=<file>        send input anomalies (failures that are not discards) to file
     -v                        verbose, print command/args, file, times, etc on inserts
     --trace=<file>            capture trace/debug output to file
     --discards=<file>         capture discards/filters to the named file
@@ -86,6 +86,10 @@ if args.get('-q', False):
 discards = args.get('--discards', False)
 if discards:
     discards = open(args['--discards'], 'w')
+
+anomalies = args.get('--anomalies', False)
+if anomalies:
+    anomalies = open(args['--anomalies'], 'w')
 
 
 def db_optimize(cursor):
@@ -209,7 +213,7 @@ def addInstrumentFile(instFile):
             for match, func in FILTERS:
                 if func(line, match):
                     if discards:
-                        print(line, file=discards)
+                        print("{}:{}: {}".format(instFile, count,line), file=discards)
                     break
             else:
                 if line.startswith('/') and line.endswith(':'):
@@ -226,6 +230,8 @@ def addInstrumentFile(instFile):
                     addFunc(directory, fname)
                 except Exception as e:
                     debug("file %s: line %d: add failed: '%s'", instFile, count, line)
+                    if anomalies:
+                        print("{}:{}: {}".format(instFile, count, line), file=anomalies)
     return
 
 def main():
