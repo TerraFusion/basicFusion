@@ -28,6 +28,10 @@ startsInOrbit() { # pass orbit arg
   echo  -n " where stime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 )"
 }
 
+endsInOrbit() { # pass orbit arg
+  echo  -n " where etime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 )"
+}
+
 forInstrument() #arg: MIS|AST|MOD|CER|...
 {
   echo -n " and (select id from instruments where name = \"$1\" ) = instrument"
@@ -72,13 +76,19 @@ instrumentOverlappingOrbit(){
   DB $1 $(selectFiles) $(overlapsOrbit $2) $(forInstrument $3)
 }
 
-allStartsInOrbit() { 
+allStartingInOrbit() { 
   # args: $1=database $2=orbit#
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
   DB $1 $(selectFiles) $(startsInOrbit $2)
 }
 
-instrumentStartsInOrbit() { 
+allEndingInOrbit() { 
+  # args: $1=database $2=orbit#
+  # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
+  DB $1 $(selectFiles) $(endsInOrbit $2)
+}
+
+instrumentStartingInOrbit() { 
   # args: $1=database $2=orbit#, $3=AST|MOD|MIS|CER|MOP
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
   DB $1 $(selectFiles) $(startsInOrbit $2) $(forInstrument $3)
