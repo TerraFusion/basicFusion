@@ -3,5 +3,6 @@ tags
 OLD/
 trace.txt
 discards.txt
+errors.txt
 .vscode/
 !.vscode/launch.json
