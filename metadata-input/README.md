@@ -102,8 +102,25 @@ fusionBuildDB -o -q --discards=discards.txt --anomalies=errors.txt accesslist.sq
 ```
 fusionBuildDB -o -v --discards=discards.txt --trace=trace.txt --anomalies=errors.txt oneorbit.sqlite data/Orbit_Path_Time.txt.gz testdata/one-orbit-files.txt.gz
 ```
-## Query Examples
+## Query Support for Scripts
 With the start and end time of all files in the DB many useful queries can be constructed in sql.   The BETWEEN operator can find times that lie within a particular span, and overlapping timespans can be selected on 2 ranges with start1/end1 and start2/end2 by selecting on *start1 <= end2 and end1 >= start2*
+
+### Command-line and Script Support
+The file queries.bash includes a number or reusable query functions for bash.
+These include by orbit, and by instrument/orbit. Use these by inclusion in any bash script or source them directly into another bash script with:
+```
+. ./queries.bash
+```
+Some of the queries available in queries.bash:
+- files overlapping orbit
+- files starting in orbit
+- files ending in orbit
+- precedessor to a file in-time on same instrument
+- successor to a file in-time on same instrument
+
+Others can be constructed using the primitives
+
+## Notes for Writing Customized Queries
 
 ### Converting between human and epoch times:
 The date command can be used to convert between human-style date strings and epoch integer times.    For example:
@@ -118,7 +135,6 @@ Thu Feb 24 18:25:07 CST 2000
 The *ORDER BY* sql constructs can be used to order by instrument, time, filename, or various combinations.   For example, to order result per-instrument by start-time:
 ```
 % sqlite3 accesslist.sqlite select fname from modis order by instrument, stime, asc
-
 ```
 
 
