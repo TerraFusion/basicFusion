@@ -11,7 +11,7 @@
 #   expected and that there are no unknown errors in the output file.
 
 if [ "$#" -ne 2 ]; then
-	printf "Usage:\n\t$0 [relative/absolute path to all 5 instruments] [output file]\n\n"
+	printf "Usage:\n\t$0 [relative/absolute path to all 5 instruments] [relative/absolute output file path]\n\n"
 	exit 1
 fi
 
@@ -30,9 +30,76 @@ MISRNUM=0
 # the file it generated (OUTFILE) but rather the file you point it to.
 DEBUGFILE=$OUTFILE
 
+# Check if the path given in OUTFILE is relative and valid. If it is, convert it to the corresponding absolute
+# path
+
+if [ "${OUTFILE:0:1}" != "/" ]; then        # the path is not absolute
+    TMPSTRING=$(echo "$OUTFILE" | grep /)
+    ISPATH=${#TMPSTRING}
+
+    if [ $ISPATH -eq 0 ]; then              # Does OUTFILE refer to a path, or is it just a filename?
+        OUTFILE="$(pwd)"/"$OUTFILE"         # If just a filename, file will be stored at current directory
+   
+        
+    else                                    # else OUTFILE refers to a path. Convert to absolute and check if
+                                            # path is valid
+        FILENAME=$(echo ${OUTFILE##*/})
+        RELPATH=$(echo ${OUTFILE%/*})
+        ABSPATH=$( { cd "$RELPATH" || exit 1; } && pwd && exit 0) 
+        FAIL=$?
+    
+        if [ $FAIL -eq 1 ]; then
+            printf "\e[4m\e[91mFatal Error\e[0m: Bad path given for output file.\n" >&2
+            exit 1
+        fi
+        OUTFILE="$ABSPATH"/"$FILENAME"
+    fi
+
+else                                        # else check that the absolute path is valid
+
+    RELPATH=$(echo ${OUTFILE%/*})
+    ( { cd "$RELPATH" || exit 1; } && exit 0 )
+    FAIL=$?
+
+    if [ $FAIL -eq 1 ]; then
+        printf "\e[4m\e[91mFatal Error\e[0m: Bad path given for output file.\n" >&2
+        exit 1
+    fi
+
+fi
+
+# Check if the path given in INPATH is relative and valid. If it is, convert it to the corresponding absolute
+# path
+
+if [ "${INPATH:0:1}" != "/" ]; then        # the path is not absolute
+
+
+    ABSPATH=$( { cd "$INPATH" || exit 1; } && pwd && exit 0)
+    FAIL=$?
+
+    if [ $FAIL -eq 1 ]; then
+        printf "\e[4m\e[91mFatal Error\e[0m: Bad path given for input file directory.\n" >&2
+        exit 1
+    fi
+    INPATH="$ABSPATH"
+else                                        # else check that the absolute path is valid
+
+    ( { cd "$INPATH" || exit 1; } && exit 0 )
+    FAIL=$?
+
+    if [ $FAIL -eq 1 ]; then
+        printf "\e[4m\e[91mFatal Error\e[0m: Bad path given for input file directory.\n" >&2
+        exit 1
+    fi
+
+fi
+
 # Check if the provided INPATH actually contains directories for all 5 instruments.
 # Note that the following if statements do not take into account if the INPATH
 # is a symbolic link.
+
+printf "Reading files from: $INPATH\n"
+printf "Generating output file at: $OUTFILE\n"
 
 
 if [ ! -d "$INPATH/MOPITT" ]; then
@@ -72,7 +139,7 @@ if [ ${#temp} -lt 2 ]; then
 	FAIL=1
 fi
 
-temp=$(ls "$INPATH/CERES" | grep "CER_BDS_Terra" )
+temp=$(ls "$INPATH/CERES" | grep "CER_SSF_Terra" )
 if [ ${#temp} -lt 2 ]; then
         printf "\e[4m\e[91mFatal Error\e[0m: No valid CERES HDF files found.\n" >&2
 	FAIL=1
@@ -128,8 +195,8 @@ done <"$CURDIR"/__tempFiles/MOPITT.txt
 printf "# CERES\n" >> "$OUTFILE"
 cd "../CERES"
 # grep -v removes any files with "met" in them, they're unwanted
-ls | grep "CER_BDS_Terra.*FM1.*" | grep -v "met" >> "$CURDIR"/__tempFiles/CERESFM1.txt
-ls | grep "CER_BDS_Terra.*FM2.*" | grep -v "met" >> "$CURDIR"/__tempFiles/CERESFM2.txt
+ls | grep "CER_SSF_Terra.*FM1.*" | grep -v "met" >> "$CURDIR"/__tempFiles/CERESFM1.txt
+ls | grep "CER_SSF_Terra.*FM2.*" | grep -v "met" >> "$CURDIR"/__tempFiles/CERESFM2.txt
 # iterate over this file, prepending the path of the file into our
 # OUTFILE
 
@@ -224,6 +291,7 @@ cd "../MISR"
 ls | grep "MISR_AM1_GRP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_GRP.txt
 ls | grep "MISR_AM1_AGP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_AGP.txt
 ls | grep "MISR_AM1_GP" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_GP.txt
+ls | grep "MISR_HRLL_" | grep "hdf" >> "$CURDIR"/__tempFiles/MISR_HRLL.txt
 # iterate over this file, prepending the path of the file into our
 # OUTFILE
 
@@ -239,6 +307,10 @@ while read -r line; do
     echo "$(pwd)/$line" >> "$OUTFILE"
     let "MISRNUM++"
 done <"$CURDIR"/__tempFiles/MISR_GP.txt
+while read -r line; do
+    echo "$(pwd)/$line" >> "$OUTFILE"
+    let "MISRNUM++"
+done <"$CURDIR"/__tempFiles/MISR_HRLL.txt
 
 ##################################################
 #           PREPROCESSING ERROR CHECKS           #
@@ -266,7 +338,7 @@ if [ -z "$tempLine" ]; then
     printf "\tNo MOPITT \"MOP01\" files were found in generated file list.\n" >&2
     FAIL=1
 fi
-tempLine=$(cat "$DEBUGFILE" | grep "CER_BDS_Terra")
+tempLine=$(cat "$DEBUGFILE" | grep "CER_SSF_Terra")
 if [ -z "$tempLine" ]; then
     printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
     printf "\tNo CERES files were found in generated file list.\n" >&2
@@ -883,11 +955,21 @@ while read -r line; do
                 exit 1
             fi
         elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
+            if [[ "$(echo "$curfilename" | cut -f2,2 -d'_')" != "HRLL" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "MISR files are out of order.\n" >&2
+                printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
+                printf "\tExpected to see HRLL file after GP file.\n" >&2
+                printf "Exiting script.\n" >&2
+                rm -r "$CURDIR"/__tempFiles
+                exit 1
+            fi
+        elif [[ "$(echo "$prevfilename" | cut -f2,2 -d'_')" == "HRLL" ]]; then
             if [[ "$curCam" != "AA" ]]; then
                 printf "\e[4m\e[91mFatal Error\e[0m: " >&2
                 printf "MISR files are out of order.\n" >&2
                 printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
-                printf "\tExpected to see AA file after GP file.\n" >&2
+                printf "\tExpected to see AA file after HRLL file.\n" >&2
                 printf "Exiting script.\n" >&2
                 rm -r "$CURDIR"/__tempFiles
                 exit 1

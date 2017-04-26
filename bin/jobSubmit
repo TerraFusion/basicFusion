@@ -5,15 +5,20 @@ inputFiles=/projects/sciteam/jq0/TerraFusion/basicFusion/testFiles
 # Path to the basicFusion directory
 PROJDIR=/u/sciteam/clipp/basicFusion
 while [[ "$input" != "y" && "$input" != "Y" && "$input" != "n" && "$input" != "N" ]]; do
-    printf "Should data be unpacked? Unpacked data will be significantly larger! [y/n]: "
+    printf "Should data be packed? Packed data will be significantly smaller! [y/n]: "
     read input
 done
 
 if [[ "$input" == "y" || "$input" == "Y" ]]; then
-    export TERRA_DATA_UNPACK=1
+    export TERRA_DATA_PACK=1
 else
-    unset TERRA_DATA_UNPACK
+    unset TERRA_DATA_PACK
 fi
+
+while [[ $inFile != 1 && $inFile != 2 ]]; do
+    printf "Use inputFiles.txt already present in your exe directory [1] or generate new one [2]? "
+    read inFile
+done
 
 cd "$PROJDIR"/bin
 
@@ -28,14 +33,28 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 
-printf "\e[92m\e[4mGenerating input file list\e[0m\n"
-./generateInput.sh "$inputFiles" "$PROJDIR"/exe/inputFiles.txt
-status=$?
-if [ "$status" -ne 0 ]; then
-    printf "\e[91m\e[4mFatal error\e[0m: generateInput.sh returned with an exit status of $status.\nAborting script.\n"
-    exit 1
+input=0
+
+
+
+if [[ $inFile == 2 ]]; then
+    printf "\e[92m\e[4mGenerating input file list\e[0m\n"
+    ./generateInput.sh "$inputFiles" "$PROJDIR"/exe/autoGenInputFiles.txt
+    status=$?
+    if [ "$status" -ne 0 ]; then
+        printf "\e[91m\e[4mFatal error\e[0m: generateInput.sh returned with an exit status of $status.\nAborting script.\n"
+        exit 1
+    fi
+
+    # Modify first line in batchscript.pbs to contain proper variable declaration for the proper inputFiles.txt file
+    var="FILELISTNAME=autoGenInputFiles.txt"
+else
+    var="FILELISTNAME=inputFiles.txt"
 fi
 
+# replace 4th line in batchscript.pbs with var
+sed -i "4s/.*/$var/" "$PROJDIR"/bin/batchscript.pbs
+
 printf "\e[92m\e[4mSubmitting job to scheduler\e[0m\n"
-qsub -v TERRA_DATA_UNPACK "$PROJDIR"/bin/batchscript.pbs
+qsub -v TERRA_DATA_PACK "$PROJDIR"/bin/batchscript.pbs
 

@@ -3,9 +3,10 @@
 #include <stdlib.h>
 #include <hdf5.h>
 #include <assert.h>
+#include "interp/aster/ASTERLatLon.h"
 #include "libTERRA.h"
 
-/* Auther: MuQun Yang myang6@hdfgroup.org*/
+/* Author: MuQun Yang myang6@hdfgroup.org*/
 /* MY 2016-12-20, KEEP the following  comments for the time being since these are how we need to unpack ASTER data. 
 float unc[5][15] =
 {
@@ -28,7 +29,15 @@ int obtain_gain_index(int32 sd_id,short gain_index[15]);
 char* obtain_gain_info(char *whole_string);
 short get_band_index(char *band_index_str);
 short get_gain_stat(char *gain_stat_str);
+int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t VNIRgeoGroupID,char*latname,char*lonname,int32 h4_type,hid_t h5_type,int32 inFileID, hid_t outputFileID); 
 
+
+/*
+    argv[0] = program name
+    argv[1] = granule file path
+    argv[2] = granule name (granule1, granule2 etc)
+    argv[3] = output file name
+*/
 
 int ASTER( char* argv[] ,int aster_count,int unpack)
 {
@@ -51,6 +60,8 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     char* fileTime = NULL;
     int fail = 0;
  
+    herr_t errStatus = 0;
+
     /*********************** 
      * SWIR data variables *
      ***********************/
@@ -94,6 +105,10 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
      ******************************/
         /* Group IDs */
     hid_t geoGroupID = 0;
+
+    hid_t SWIRgeoGroupID = 0;
+    hid_t TIRgeoGroupID  = 0;
+    hid_t VNIRgeoGroupID = 0;
         /* Dataset IDs */
     hid_t latDataID = 0;
     hid_t lonDataID = 0;
@@ -106,7 +121,8 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     */
     char *vnir_grp_name ="VNIR";
     int32 vnir_grp_ref = -1;
-
+// JUST FOR DEBUGGING
+//unpack=0;
 
          /*
           *    * Open the HDF file for reading.
@@ -165,6 +181,8 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             ASTERrootGroupID = 0;
             goto cleanupFail;
         }
+        /* Add the GranuleTime and FilePath attributes to this group */
+        
     }
 
     else {
@@ -313,6 +331,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData5ID = 0;
             goto cleanupFail;
         }
+
     
         imageData6ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData6",
                         DFNT_UINT8, inFileID , unc[gain_index[6]][6]); 
@@ -331,6 +350,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData7ID = 0;
             goto cleanupFail;
         }
+
     
         imageData8ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData8",
                         DFNT_UINT8, inFileID , unc[gain_index[8]][8]); 
@@ -340,6 +360,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData8ID = 0;
             goto cleanupFail;
         }
+
     
         imageData9ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData9",
                         DFNT_UINT8, inFileID ,unc[gain_index[9]][9]); 
@@ -349,6 +370,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData9ID = 0;
             goto cleanupFail;
         }
+
     
         /* VNIR */
         if(vnir_grp_ref >0) {
@@ -369,6 +391,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
                 imageData2ID = 0;
                 goto cleanupFail;
             }
+
     
             imageData3NID = readThenWrite_ASTER_Unpack( VNIRgroupID, "ImageData3N",
                         DFNT_UINT8, inFileID,unc[gain_index[2]][2] ); 
@@ -378,6 +401,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
                 imageData3NID = 0;
                 goto cleanupFail;
             }
+
 
             /* We don't see ImageData3B in the current orbit, however, the table indeed indicates the 3B band.
                So here we check if there is an SDS with the name "ImangeData3B" and then do the conversation. 
@@ -393,6 +417,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
                     imageData3BID = 0;
                     goto cleanupFail;
                 }
+
             }
         }// end if(vnir_grp_ref)
     
@@ -405,6 +430,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData10ID = 0;
             goto cleanupFail;
         }
+
     
         imageData11ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData11",
                         DFNT_UINT16, inFileID, unc[gain_index[11]][11] ); 
@@ -414,6 +440,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData11ID = 0;
             goto cleanupFail;
         }
+
     
         imageData12ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData12",
                     DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
@@ -423,6 +450,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData12ID = 0;
             goto cleanupFail;
         }
+
     
         imageData13ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData13",
                         DFNT_UINT16, inFileID, unc[gain_index[12]][12] ); 
@@ -432,6 +460,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData13ID = 0;
             goto cleanupFail;
         }
+
     
         imageData14ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData14",
                         DFNT_UINT16, inFileID,unc[gain_index[13]][13] ); 
@@ -444,7 +473,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     } // end if(unpacked =1)
 
     else {
-        imageData4ID = readThenWrite( SWIRgroupID, "ImageData4",
+        imageData4ID = readThenWrite(NULL, SWIRgroupID, "ImageData4",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData4ID == EXIT_FAILURE )
         {
@@ -453,7 +482,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData5ID = readThenWrite( SWIRgroupID, "ImageData5",
+        imageData5ID = readThenWrite(NULL, SWIRgroupID, "ImageData5",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData5ID == EXIT_FAILURE )
         {
@@ -462,7 +491,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData6ID = readThenWrite( SWIRgroupID, "ImageData6",
+        imageData6ID = readThenWrite(NULL, SWIRgroupID, "ImageData6",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData6ID == EXIT_FAILURE )
         {
@@ -471,7 +500,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData7ID = readThenWrite( SWIRgroupID, "ImageData7",
+        imageData7ID = readThenWrite(NULL, SWIRgroupID, "ImageData7",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData7ID == EXIT_FAILURE )
         {
@@ -480,7 +509,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData8ID = readThenWrite( SWIRgroupID, "ImageData8",
+        imageData8ID = readThenWrite(NULL, SWIRgroupID, "ImageData8",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData8ID == EXIT_FAILURE )
         {
@@ -489,7 +518,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData9ID = readThenWrite( SWIRgroupID, "ImageData9",
+        imageData9ID = readThenWrite(NULL, SWIRgroupID, "ImageData9",
                         DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
         if ( imageData9ID == EXIT_FAILURE )
         {
@@ -500,7 +529,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     
         /* VNIR */
         if(vnir_grp_ref >0) {
-            imageData1ID = readThenWrite( VNIRgroupID, "ImageData1",
+            imageData1ID = readThenWrite(NULL, VNIRgroupID, "ImageData1",
                             DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
             if ( imageData1ID == EXIT_FAILURE )
             {
@@ -510,7 +539,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
 
             }
     
-            imageData2ID = readThenWrite( VNIRgroupID, "ImageData2",
+            imageData2ID = readThenWrite(NULL, VNIRgroupID, "ImageData2",
                             DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
             if ( imageData2ID == EXIT_FAILURE )
             {
@@ -519,7 +548,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
                 goto cleanupFail;
             }
     
-            imageData3NID = readThenWrite( VNIRgroupID, "ImageData3N",
+            imageData3NID = readThenWrite(NULL, VNIRgroupID, "ImageData3N",
                             DFNT_UINT8, H5T_STD_U8LE, inFileID ); 
             if ( imageData3NID == EXIT_FAILURE )
             {
@@ -535,7 +564,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             imageData3Bindex = SDnametoindex(inFileID,"ImageData3B");
             if(imageData3Bindex != FAIL) {
 
-                imageData3BID = readThenWrite( VNIRgroupID, "ImageData3B",
+                imageData3BID = readThenWrite(NULL, VNIRgroupID, "ImageData3B",
                                             DFNT_UINT8, H5T_STD_U8LE, inFileID);
                 if ( imageData3BID == EXIT_FAILURE )
                 {
@@ -549,7 +578,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
        } // end if(vnir_grp_ref >0) 
     
         /* TIR */
-        imageData10ID = readThenWrite( TIRgroupID, "ImageData10",
+        imageData10ID = readThenWrite(NULL, TIRgroupID, "ImageData10",
                         DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
         if ( imageData10ID == EXIT_FAILURE )
         {
@@ -558,7 +587,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData11ID = readThenWrite( TIRgroupID, "ImageData11",
+        imageData11ID = readThenWrite(NULL, TIRgroupID, "ImageData11",
                         DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
         if ( imageData11ID == EXIT_FAILURE )
         {
@@ -567,7 +596,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData12ID = readThenWrite( TIRgroupID, "ImageData12",
+        imageData12ID = readThenWrite(NULL, TIRgroupID, "ImageData12",
                         DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
         if ( imageData12ID == EXIT_FAILURE )
         {
@@ -576,7 +605,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData13ID = readThenWrite( TIRgroupID, "ImageData13",
+        imageData13ID = readThenWrite(NULL, TIRgroupID, "ImageData13",
                         DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
         if ( imageData13ID == EXIT_FAILURE )
         {
@@ -585,7 +614,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
             goto cleanupFail;
         }
     
-        imageData14ID = readThenWrite( TIRgroupID, "ImageData14",
+        imageData14ID = readThenWrite(NULL, TIRgroupID, "ImageData14",
                         DFNT_UINT16, H5T_STD_U16LE, inFileID ); 
         if ( imageData14ID == EXIT_FAILURE )
         {
@@ -596,9 +625,110 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
 
 
     }// else (packed)
+
+    // Copy the dimensions
+    if(vnir_grp_ref >0)
+    {
+        errStatus = copyDimension( inFileID, "ImageData1", outputFile, imageData1ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( inFileID, "ImageData2", outputFile, imageData2ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension( inFileID, "ImageData3N", outputFile, imageData3NID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        if ( imageData3BID)
+        {
+            errStatus = copyDimension( inFileID, "ImageData3B", outputFile, imageData3BID);
+            if ( errStatus == FAIL )
+            {
+                FATAL_MSG("Failed to copy dimensions.\n");
+                goto cleanupFail;
+            }
+        }
+    }
+
+    errStatus = copyDimension( inFileID, "ImageData4", outputFile, imageData4ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData5", outputFile, imageData5ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData6", outputFile, imageData6ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData7", outputFile, imageData7ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData8", outputFile, imageData8ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData9", outputFile, imageData9ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData10", outputFile, imageData10ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData11", outputFile, imageData11ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData12", outputFile, imageData12ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData13", outputFile, imageData13ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+    errStatus = copyDimension( inFileID, "ImageData14", outputFile, imageData14ID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
+
     
         /* geolocation */
-    latDataID = readThenWrite( geoGroupID, "Latitude",
+    latDataID = readThenWrite(NULL, geoGroupID, "Latitude",
                     DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID ); 
     if ( latDataID == EXIT_FAILURE )
     {
@@ -606,6 +736,13 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         latDataID = 0;
         goto cleanupFail;
     }
+    errStatus = copyDimension( inFileID, "Latitude", outputFile, latDataID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
     
     // MY 2016-01-26: add latitude units.
     if(H5LTset_attribute_string(geoGroupID,"Latitude","units","degrees_north")<0) {
@@ -613,7 +750,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         goto cleanupFail;
     }
     
-    lonDataID = readThenWrite( geoGroupID, "Longitude",
+    lonDataID = readThenWrite(NULL, geoGroupID, "Longitude",
                     DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID ); 
     if ( lonDataID == EXIT_FAILURE )
     {
@@ -621,12 +758,52 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         lonDataID = 0;
         goto cleanupFail;
     }
+    errStatus = copyDimension( inFileID, "Longitude", outputFile, lonDataID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimensions.\n");
+        goto cleanupFail;
+    }
+
     
     if(H5LTset_attribute_string(geoGroupID,"Longitude","units","degrees_east")<0) {
         FATAL_MSG("Unable to insert ASTER longitude units attribute.\n");
         goto cleanupFail;
     }
   
+    // Adding high-resolution lat/lon dataset
+    if(unpack == 1) {
+
+        createGroup( &SWIRgroupID, &SWIRgeoGroupID, "Geolocation" );
+        if ( SWIRgeoGroupID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to create ASTER SWIR Geolocation group.\n");
+            SWIRgeoGroupID = 0;
+            goto cleanupFail;
+        }
+
+        createGroup( &TIRgroupID, &TIRgeoGroupID, "Geolocation" );
+        if ( TIRgeoGroupID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to create ASTER TIR Geolocation group.\n");
+            TIRgeoGroupID = 0;
+            goto cleanupFail;
+        }
+
+        if(vnir_grp_ref >0) {
+            createGroup( &VNIRgroupID, &VNIRgeoGroupID, "Geolocation" );
+            if ( VNIRgeoGroupID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to create ASTER VNIR Geolocation group.\n");
+                VNIRgeoGroupID = 0;
+                goto cleanupFail;
+            }
+    
+        }
+        readThenWrite_ASTER_HR_LatLon(SWIRgeoGroupID,TIRgeoGroupID,VNIRgeoGroupID,"Latitude","Longitude",DFNT_FLOAT64,H5T_NATIVE_DOUBLE,inFileID, outputFile);
+
+    }
+
     /* release identifiers */
     if ( 0 )
     {
@@ -644,6 +821,9 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     if ( VNIRgroupID ) H5Gclose(VNIRgroupID);
     if ( TIRgroupID ) H5Gclose(TIRgroupID);
     if ( geoGroupID ) H5Gclose(geoGroupID);
+    if ( SWIRgeoGroupID ) H5Gclose(SWIRgeoGroupID);
+    if ( VNIRgeoGroupID ) H5Gclose(VNIRgeoGroupID);
+    if ( TIRgeoGroupID ) H5Gclose(TIRgeoGroupID);
     if ( imageData4ID ) H5Dclose(imageData4ID);
     if ( imageData5ID ) H5Dclose(imageData5ID);
     if ( imageData6ID ) H5Dclose(imageData6ID);
@@ -868,4 +1048,253 @@ int obtain_gain_index(int32 sd_id,short gain_index[15]) {
    }
 
    return ret_value;
+}
+
+int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t VNIRgeoGroupID,char*latname,char*lonname,int32 h4_type,hid_t h5_type,int32 inFileID, hid_t outputFileID) {
+
+    hid_t dummy_output_file_id = 0;
+    int32 latRank,lonRank;
+    int32 latDimSizes[DIM_MAX];
+    int32 lonDimSizes[DIM_MAX];
+    double* latBuffer = NULL;
+    double* lonBuffer = NULL;
+    hid_t datasetID;
+    hid_t SWIR_ImageLine_DimID;
+    hid_t SWIR_ImagePixel_DimID;
+    hid_t TIR_ImageLine_DimID;
+    hid_t TIR_ImagePixel_DimID;
+    hid_t VNIR_ImageLine_DimID;
+    hid_t VNIR_ImagePixel_DimID;
+    herr_t status;
+
+    int i = 0;
+    int nSWIR_ImageLine = 0;
+    int nSWIR_ImagePixel = 0;
+    int nTIR_ImageLine = 0;
+    int nTIR_ImagePixel = 0;
+    int nVNIR_ImageLine = 0;
+    int nVNIR_ImagePixel = 0;
+
+
+    double* lat_swir_buffer = NULL;
+    double* lon_swir_buffer = NULL;
+    double* lat_tir_buffer = NULL;
+    double* lon_tir_buffer = NULL;
+    double* lat_vnir_buffer = NULL;
+    double* lon_vnir_buffer = NULL;
+
+    char* ll_swir_dimnames[2]={"ImageLine_SWIR_Swath","ImagePixel_SWIR_Swath"};
+    char* ll_tir_dimnames[2]={"ImageLine_TIR_Swath","ImagePixel_TIR_Swath"};
+    char* ll_vnir_dimnames[2]={"ImageLine_VNIR_Swath","ImagePixel_VNIR_Swath"};
+    
+
+    status = H4readData( inFileID, latname,
+        (void**)&latBuffer, &latRank, latDimSizes, h4_type,NULL,NULL,NULL );
+    if ( status < 0 )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  latname );
+        if ( latBuffer != NULL ) free(latBuffer);
+        return -1;
+    }
+
+    status = H4readData( inFileID, lonname,
+        (void**)&lonBuffer, &lonRank, lonDimSizes, h4_type,NULL,NULL,NULL );
+    if ( status < 0 )
+    {
+        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  lonname );
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    if(latRank !=2 || lonRank!=2) {
+        fprintf( stderr, "[%s:%s:%d] The latitude and longitude array rank must be 2.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    if(latDimSizes[0]!=lonDimSizes[0] || latDimSizes[1]!=lonDimSizes[1]) {
+        fprintf( stderr, "[%s:%s:%d] The latitude and longitude array rank must share the same dimension sizes.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+   
+    /* END READ DATA. BEGIN Computing DATA */
+
+    SWIR_ImageLine_DimID = H5Dopen2(outputFileID,ll_swir_dimnames[0],H5P_DEFAULT);
+    nSWIR_ImageLine = obtainDimSize(SWIR_ImageLine_DimID);
+    SWIR_ImagePixel_DimID = H5Dopen2(outputFileID,ll_swir_dimnames[1],H5P_DEFAULT);
+    nSWIR_ImagePixel = obtainDimSize(SWIR_ImagePixel_DimID);
+
+    lat_swir_buffer = (double*)malloc(sizeof(double)*nSWIR_ImageLine*nSWIR_ImagePixel);
+    if(lat_swir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_swir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    
+    lon_swir_buffer = (double*)malloc(sizeof(double)*nSWIR_ImageLine*nSWIR_ImagePixel);
+    if(lon_swir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_swir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        if (lat_swir_buffer != NULL) free(lat_swir_buffer);
+        return -1;
+    }
+   
+    asterLatLonPlanar(latBuffer,lonBuffer,lat_swir_buffer,lon_swir_buffer,nSWIR_ImageLine,nSWIR_ImagePixel);
+
+    // SWIR Latitude
+    if (Generate2D_Dataset(SWIRgeoGroupID,latname,h5_type,lat_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lat_swir_buffer);
+    if(H5LTset_attribute_string(SWIRgeoGroupID,latname,"units","degrees_north")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+
+    //SWIR Longitude
+    if (Generate2D_Dataset(SWIRgeoGroupID,lonname,h5_type,lon_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lon_swir_buffer);
+    if(H5LTset_attribute_string(SWIRgeoGroupID,lonname,"units","degrees_east")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+    H5Dclose(SWIR_ImageLine_DimID);
+    H5Dclose(SWIR_ImagePixel_DimID);
+ 
+    // TIR
+    TIR_ImageLine_DimID = H5Dopen2(outputFileID,ll_tir_dimnames[0],H5P_DEFAULT);
+    nTIR_ImageLine = obtainDimSize(TIR_ImageLine_DimID);
+    TIR_ImagePixel_DimID = H5Dopen2(outputFileID,ll_tir_dimnames[1],H5P_DEFAULT);
+    nTIR_ImagePixel = obtainDimSize(TIR_ImagePixel_DimID);
+
+
+    lat_tir_buffer = (double*)malloc(sizeof(double)*nTIR_ImageLine*nTIR_ImagePixel);
+    if(lat_tir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_tir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    
+    lon_tir_buffer = (double*)malloc(sizeof(double)*nTIR_ImageLine*nTIR_ImagePixel);
+    if(lon_tir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_tir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        if (lat_tir_buffer != NULL) free(lat_tir_buffer);
+        return -1;
+    }
+   
+    asterLatLonPlanar(latBuffer,lonBuffer,lat_tir_buffer,lon_tir_buffer,nTIR_ImageLine,nTIR_ImagePixel);
+
+    // TIR Latitude
+    if (Generate2D_Dataset(TIRgeoGroupID,latname,h5_type,lat_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lat_tir_buffer);
+    if(H5LTset_attribute_string(TIRgeoGroupID,latname,"units","degrees_north")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+
+    //TIR Longitude
+    if (Generate2D_Dataset(TIRgeoGroupID,lonname,h5_type,lon_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lon_tir_buffer);
+    if(H5LTset_attribute_string(TIRgeoGroupID,lonname,"units","degrees_east")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+    H5Dclose(TIR_ImageLine_DimID);
+    H5Dclose(TIR_ImagePixel_DimID);
+ 
+    // Possible VNIR
+    if(VNIRgeoGroupID!=0) {
+
+    VNIR_ImageLine_DimID = H5Dopen2(outputFileID,ll_vnir_dimnames[0],H5P_DEFAULT);
+    nVNIR_ImageLine = obtainDimSize(VNIR_ImageLine_DimID);
+    VNIR_ImagePixel_DimID = H5Dopen2(outputFileID,ll_vnir_dimnames[1],H5P_DEFAULT);
+    nVNIR_ImagePixel = obtainDimSize(VNIR_ImagePixel_DimID);
+
+
+    lat_vnir_buffer = (double*)malloc(sizeof(double)*nVNIR_ImageLine*nVNIR_ImagePixel);
+    if(lat_vnir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_vnir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        return -1;
+    }
+    
+    lon_vnir_buffer = (double*)malloc(sizeof(double)*nVNIR_ImageLine*nVNIR_ImagePixel);
+    if(lon_vnir_buffer == NULL) {
+        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_vnir_buffer.\n", __FILE__, __func__,__LINE__);
+        if ( latBuffer != NULL ) free(latBuffer);
+        if ( lonBuffer != NULL ) free(lonBuffer);
+        if (lat_vnir_buffer != NULL) free(lat_vnir_buffer);
+        return -1;
+    }
+   
+    asterLatLonPlanar(latBuffer,lonBuffer,lat_vnir_buffer,lon_vnir_buffer,nVNIR_ImageLine,nVNIR_ImagePixel);
+
+    // VNIR Latitude
+    if (Generate2D_Dataset(VNIRgeoGroupID,latname,h5_type,lat_vnir_buffer,VNIR_ImageLine_DimID,VNIR_ImagePixel_DimID,nVNIR_ImageLine,nVNIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lat_vnir_buffer);
+    if(H5LTset_attribute_string(VNIRgeoGroupID,latname,"units","degrees_north")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+
+    //VNIR Longitude
+    if (Generate2D_Dataset(VNIRgeoGroupID,lonname,h5_type,lon_vnir_buffer,VNIR_ImageLine_DimID,VNIR_ImagePixel_DimID,nVNIR_ImageLine,nVNIR_ImagePixel)<0) {
+        // TODO: error handlingg
+
+        fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+        return -1;
+    }
+    free(lon_vnir_buffer);
+    if(H5LTset_attribute_string(VNIRgeoGroupID,lonname,"units","degrees_east")<0) {
+        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+        //TODO: error handling
+        return -1;
+    }
+    H5Dclose(VNIR_ImageLine_DimID);
+    H5Dclose(VNIR_ImagePixel_DimID);
+ 
+
+    }
+    
+    free(latBuffer);
+    free(lonBuffer);
+ 
+    return SUCCEED;
+    
 }

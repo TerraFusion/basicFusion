@@ -8,7 +8,14 @@
 /projects/TDataFus/oneorbit/MOPITT/MOP01-20070703-L1V3.50.0.he5
 
 # CERES file:
-/projects/TDataFus/oneorbit/CERES/CER_BDS_Terra-FM1_Edition3_032040.20070703
+#/projects/TDataFus/oneorbit/CERES/CER_BDS_Terra-FM1_Edition3_032040.20070703
+#/projects/TDataFus/oneorbit/CERES/CER_BDS_Terra-FM2_Edition3_032040.20070703
+/projects/TDataFus/kent/oneorbit/CERES/FM1/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070316
+/projects/TDataFus/kent/oneorbit/CERES/FM1/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070317
+/projects/TDataFus/kent/oneorbit/CERES/FM1/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070318
+/projects/TDataFus/kent/oneorbit/CERES/FM2/CER_SSF_Terra-FM2-MODIS_Edition4A_400403.2007070316
+/projects/TDataFus/kent/oneorbit/CERES/FM2/CER_SSF_Terra-FM2-MODIS_Edition4A_400403.2007070317
+
 
 # MODIS file:
 # MODIS input requires 4 different files.
@@ -120,3 +127,4 @@
 /projects/TDataFus/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DF_F03_0024.hdf
 /projects/TDataFus/oneorbit/MISR/AGP/MISR_AM1_AGP_P022_F01_24.hdf
 /projects/TDataFus/oneorbit/MISR/MISR_AM1_GP_GMP_P022_O040110_F03_0013.hdf
+/projects/TDataFus/oneorbit/MISR/AGP_HR/MISR_HRLL_P022.hdf

@@ -3,11 +3,11 @@
 # Blue Waters computer.
 CC=gcc
 CFLAGS=-c -g -O0 -Wall -std=c99
-LINKFLAGS= -g -std=c99 -Wl,-rpath,/u/sciteam/clipp/basicFusion/hdflib/lib
 INCLUDE1=/u/sciteam/clipp/basicFusion/hdflib/include
 INCLUDE2=${INCLUDE1}
 LIB1=/u/sciteam/clipp/basicFusion/hdflib/lib
 LIB2=${LIB2}
+LINKFLAGS= -g -std=c99 -Wl,-rpath,$(LIB1)
 TARGET=./exe/TERRArepackage
 SRCDIR=./src
 OBJDIR=./obj
