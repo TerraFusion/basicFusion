@@ -50,7 +50,7 @@ INSERTS = {\
     "MOP": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
     "MIS": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
     "dirs": 'insert  into dirs (dir, id) values(?,?)',
-    "instruments": 'insert  into instruments (id, name) values(?, ?)'
+    "instruments": 'insert into instruments (id, name) values(?, ?)'
 }
 # Filter specs: matches get dropped
 TAILFILTERS = ['.met', '.xml']
@@ -59,7 +59,7 @@ FILTERS = zip(HEADFILTERS, [str.startswith for i in range(len(HEADFILTERS))]) + 
     zip(TAILFILTERS, [str.endswith for i in range(len(TAILFILTERS))])
 # Timezone reference for all timesh
 TZ = timezone('UTC')
-INSTRUMENTS = ["dirs", "orbits", "MOD", "AST", "CER", "MOP", "MIS"]
+INSTRUMENTS = ["dirs", "orbits", "instruments", "MOD", "AST", "CER", "MOP", "MIS"]  # INSTRUMENTS is overloaded, rename?
 
 def mktime_utc(timefmt, timestr):
     return calendar.timegm(TZ.localize(datetime.strptime(timestr, timefmt)).timetuple())
@@ -114,7 +114,7 @@ def createDB(dbfile):
 
     tstrs = {'CREATE TABLE orbits (orbit integer, path integer, stime integer, etime integer)'}
     tstrs.add('CREATE TABLE dirs (id integer primary key autoincrement, dir text unique)')
-    tstrs.add('CREATE TABLE instruments (id integer primary key autoincrement, name text unique)')
+    tstrs.add('CREATE TABLE instruments (id integer primary key, name text unique)')
     for inst in {"fileinfo"}:
         tstrs.add('CREATE TABLE {} (stime integer, etime integer, \
             directory integer, fname text, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
@@ -236,6 +236,14 @@ def addInstrumentFile(instFile):
     return
 
 def main():
+    
+    # 1. Parse the orbits file, into it's ROWS entry.
+    # 2. Gather up all the data in the ROWS from the inputs,
+    #    populating directories along the way.
+    # 3. Create/adjust the directory and instrument data into their ROWS
+    # 4. Insert into the DB from data in ROWS all at once, saves massive
+    #    amounts of time compared to insert while parsing.
+
 
     # First the orbits - some instruments need orbit data
     debug("parsing orbits %s", args['ORBIT_FILE'])    
@@ -251,7 +259,10 @@ def main():
     # make an orbit#->stime, etime dict
     #otimes = [(k,v) for k,v in ROWS['orbits'].iteritems()]
 
-    #[drows.append((dname, didx,)) for didx, dname in ROWS['dirs'].iteritems()]
+    # Make the instruments rows list
+    dinst = [(INSTRUMENTS.index(i), i) for i in INSTRUMENTS[INSTRUMENTS.index('MOD'):]]
+    ROWS['instruments'] = dinst
+
     # Now populate the DB from the tables, dirs first, MIS last, as it requires orbit calculation
     try:
         if args['-o']:
@@ -259,11 +270,8 @@ def main():
     except:
         None
     connection, cursor = createDB(args['DB_FILE'])
-    idata = [ (k, INSTRUMENTS.index(k)) for k in INSTRUMENTS[2:] ]
     for table in INSTRUMENTS:
         #debug("execute: {}, ex: {}".format(INSERTS[table], ROWS[table][0]))
-        if args.get('-v', False):
-            [debug("table {0} data {1}".format(table, r)) for r in ROWS[table]]
         cursor.executemany(INSERTS[table], ROWS[table])
         connection.commit()
     cursor.close()
