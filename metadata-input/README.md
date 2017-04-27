@@ -95,6 +95,8 @@ Discards can be captured during database build with the --discards option,see fu
 ## Build Examples
 See .vscode/launch.json for the various run configurations used to build under vscode.  These examples are taken from there:
 - Full Build
+<<<<<<< HEAD
+=======
 ```
 fusionBuildDB -o -q --discards=discards.txt --anomalies=errors.txt accesslist.sqlite data/Orbit_Path_Time.txt.gz data/MODIS.list.gz data/ASTER.list.gz data/MOPITT.list.gz data/MISR.list.gz data/CERES.list.gz
 ```
@@ -142,72 +144,29 @@ These constructs can be combined to construct powerful queries from the shell di
 
 ### Time-based queries:
 * Find the orbit data for a date on the command line:
+>>>>>>> 21c6522bce946fbc4cb78f784e88d6e235ebfa1d
 ```
-% sqlite3 accesslist.sqlite 'select orbit from orbits where '"`date -d'2000-02-25 00:25:07' -u +%s`"' between stime and etime'
-1000
+fusionBuildDB -o -q --discards=discards.txt --anomalies=errors.txt accesslist.sqlite data/Orbit_Path_Time.txt.gz data/MODIS.list.gz data/ASTER.list.gz data/MOPITT.list.gz data/MISR.list.gz data/CERES.list.gz
+```
+- One-orbit test Build
+```
+fusionBuildDB -o -v --discards=discards.txt --trace=trace.txt --anomalies=errors.txt oneorbit.sqlite data/Orbit_Path_Time.txt.gz testdata/one-orbit-files.txt.gz
+```
+## Query Support for Scripts
+With the start and end time of all files in the DB many useful queries can be constructed in sql.   The BETWEEN operator can find times that lie within a particular span, and overlapping timespans can be selected on 2 ranges with start1/end1 and start2/end2 by selecting on *start1 <= end2 and end1 >= start2*
 
-% sqlite3 accesslist.sqlite 'select stime,  etime from orbits where '"`date -d'2000-02-25 00:25:07' -u +%s`"' between stime and etime' | tr \| ' '
-951438307 951444240
+### Command-line and Script Support
+The file queries.bash includes a number or reusable query functions for bash.
+These include by orbit, and by instrument/orbit. Use these by inclusion in any bash script or source them directly into another bash script with:
+```
+. ./queries.bash
+```
+Some of the queries available in queries.bash:
+- files overlapping orbit
+- files starting in orbit
+- files ending in orbit
+- precedessor to a file in-time on same instrument
+- successor to a file in-time on same instrument
 
-% sqlite3 accesslist.sqlite 'select path from orbits where '"`date -d'2000-02-25 00:25:07' -u +%s`"' between stime and etime'
-100
-```
-* Find all the files that overlap some time span:
-```
-% sqlite3 oneorbit.sqlite 'select dir, fname from modis inner join dirs on dirs.id == directory where '"`date -d'Tue Jul  3 11:09:15 CDT 2007' -u +%s`"' <= etime and '"`date -d'Tue Jul  3 12:48:08 CDT 2007' -u +%s`"' >= stime' | tr \| /
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1610.006.2014231113627.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1610.006.2012239144154.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1615.006.2014231113638.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1615.006.2012239144035.hdf
- ... (many lines)
-``` 
-
-### Orbit-oriented queries:
-* Find all files that overlap orbit 40110:
-```
-% sqlite3 oneorbit.sqlite 'select dir, fname from modis inner join dirs on dirs.id == directory where (select stime from orbits where orbit = '40110' ) <= etime and (select etime from orbits where orbit = '40110' ) >= stime' | tr \| /
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1610.006.2014231113627.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1610.006.2012239144154.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1615.006.2014231113638.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1615.006.2012239144035.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1620.006.2014231113646.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1620.006.2012239144326.hdf
- ...
-```
-* Find the files that overlap the start of some orbit:
-```
-% sqlite3 oneorbit.sqlite 'select dir, fname from modis inner join dirs on dirs.id == directory where (select stime from orbits where orbit = '40110' ) between stime and etime' | tr \| /
-/projects/sciteam/jq0/TerraFusion/oneorbit/CERES/CER_BDS_Terra-FM1_Edition3_032040.20070703
-/projects/sciteam/jq0/TerraFusion/oneorbit/MOPITT/MOP01-20070703-L1V3.50.0.he5
-/projects/sciteam/jq0/TerraFusion/oneorbit/MOPITT/MOP01-20070703-L1V3.50.0.he5.xml
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AF_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AN_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_BA_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_BF_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_CA_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_CF_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DA_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DF_F03_0024.hdf
-
-```
-* Find the files that overlap the *end* of some orbit:
-```
-% sqlite3 oneorbit.sqlite 'select dir, fname from modis inner join dirs on dirs.id == directory where (select etime from orbits where orbit = '40110' ) between stime and etime' | tr \| /
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD021KM.A2007184.1745.006.2014231114122.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MODIS/MOD03.A2007184.1745.006.2012239144155.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/CERES/CER_BDS_Terra-FM1_Edition3_032040.20070703
-/projects/sciteam/jq0/TerraFusion/oneorbit/MOPITT/MOP01-20070703-L1V3.50.0.he5
-/projects/sciteam/jq0/TerraFusion/oneorbit/MOPITT/MOP01-20070703-L1V3.50.0.he5.xml
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AF_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AN_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_BA_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_BF_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_CA_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_CF_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DA_F03_0024.hdf
-/projects/sciteam/jq0/TerraFusion/oneorbit/MISR/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_DF_F03_0024.hdf
-
-```
+Others can be constructed using the primitives
 
