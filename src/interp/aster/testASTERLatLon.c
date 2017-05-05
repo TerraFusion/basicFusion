@@ -1,7 +1,7 @@
 /**
  * ASTERLatLon.c
  * Authors: Yizhao Gao <ygao29@illinois.edu>
- * Date: {04/25/2017}
+ * Date: {05/05/2017}
  */
 
 #include <stdlib.h>
@@ -93,7 +93,9 @@ int main(int argc, char ** argv) {
 	
 	gettimeofday(&tBegin, NULL);
 	
-	asterLatLonPlanar(inLat, inLon, cLat, cLon, nRow, nCol);
+	//asterLatLonPlanar(inLat, inLon, cLat, cLon, nRow, nCol);
+	
+	asterLatLonSpherical(inLat, inLon, cLat, cLon, nRow, nCol);
 
 	gettimeofday(&tEnd, NULL);
 	printf("Time:\t%lfms\n", ((&tEnd)->tv_sec - (&tBegin)->tv_sec) * 1000 + (double)((&tEnd)->tv_usec - (&tBegin)->tv_usec) / 1000);
