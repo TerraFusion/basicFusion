@@ -53,11 +53,17 @@ INSERTS = {\
     "dirs": 'insert  into dirs (dir, id) values(?,?)',
     "instruments": 'insert into instruments (id, name) values(?, ?)'
 }
-# Filter specs: matches get dropped
+# Filter specs: matches get dropped.   These match on the beginning/end of LINES
 TAILFILTERS = ['.met', '.xml']
 HEADFILTERS = ['#', 'MISBR']
+# These match any part of the line, so be careful
+INFILTERS = ['MOD06']
+def stringin(line, match):
+    return line.find(match) >= 0
 FILTERS = zip(HEADFILTERS, [str.startswith for i in range(len(HEADFILTERS))]) + \
-    zip(TAILFILTERS, [str.endswith for i in range(len(TAILFILTERS))])
+    zip(TAILFILTERS, [str.endswith for i in range(len(TAILFILTERS))]) + \
+    zip(INFILTERS, [stringin for i in range(len(INFILTERS))])
+
 # Timezone reference for all timesh
 TZ = timezone('UTC')
 INSTRUMENTS = ["dirs", "orbits", "instruments", "MOD", "AST", "CER", "MOP", "MIS"]  # INSTRUMENTS is overloaded, rename?
