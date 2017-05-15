@@ -19,6 +19,10 @@ selectFiles() {
   echo -n " select dir, fname from fileinfo inner join dirs on dirs.id == directory"
 }
 
+dbInfo() { # get the info table - build metadata
+  sqlite3 $1 'select * from dbinfo;'
+}
+
 overlapsOrbit() { # pass orbit arg
   echo  -n " where (select stime from orbits where orbit = $1 ) <= etime 
   and (select etime from orbits where orbit = $1 ) >= stime"

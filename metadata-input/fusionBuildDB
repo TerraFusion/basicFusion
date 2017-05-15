@@ -35,6 +35,7 @@ import calendar
 from pytz import timezone
 from datetime import datetime
 from time import mktime, strptime #, gmtime, strftime
+from socket import gethostname
 
 args = docopt(__doc__)
 
@@ -107,13 +108,21 @@ def db_optimize(cursor):
     cursor.execute('PRAGMA compile_options;')
     return cursor
 
-def createDB(dbfile):
+def createDB(dbfile, commandLine):
     dbconnection = sqlite3.connect(dbfile)
     cursor = dbconnection.cursor()
     cursor = db_optimize(cursor)
 
+    # add creation metadata.
+    now = time.asctime()
+    host = gethostname()
+    path = os.path.abspath('.')
+    creationInfo = 'Created ' + now + ' from ' + \
+        host + ':' + path + ' with: ' + commandLine
     tstrs = {'CREATE TABLE orbits (orbit integer, path integer, stime integer, etime integer)'}
     tstrs.add('CREATE TABLE dirs (id integer primary key autoincrement, dir text unique)')
+    tstrs.add('CREATE TABLE dbinfo (info text)')
+    tstrs.add('insert into dbinfo values (\" ' + creationInfo + '\")')
     tstrs.add('CREATE TABLE instruments (id integer primary key, name text unique)')
     for inst in {"fileinfo"}:
         tstrs.add('CREATE TABLE {} (stime integer, etime integer, \
@@ -269,7 +278,7 @@ def main():
             os.remove(args['DB_FILE'])
     except:
         None
-    connection, cursor = createDB(args['DB_FILE'])
+    connection, cursor = createDB(args['DB_FILE'], " ".join(sys.argv))
     for table in INSTRUMENTS:
         #debug("execute: {}, ex: {}".format(INSERTS[table], ROWS[table][0]))
         cursor.executemany(INSERTS[table], ROWS[table])
