@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Collection>
+    <ShortName>TERRAFUSION</ShortName>
+    <VersionId>1</VersionId>
+    <InsertTime>2006-06-30T00:00:00.000Z</InsertTime>
+    <LastUpdate>2011-01-21T17:10:13.000Z</LastUpdate>
+    <LongName>The Terra Fusion data from ASTER, CERES, MISR, MODIS, MOPTT</LongName>
+    <DataSetId>GHRSST Level 2P USA NASA MODIS Aqua SST:1</DataSetId>
+    <Description>TThe Terra Fusion project was created to fuse the MOPITT, CERES, MISR, ASTER and MODIS data into one, unified HDF5 "Basic Fusion" file set. One Basic Fusion (BF) granule contains data from each instrument over a certain time period. The BF granularity is defined as one Terra orbit.</Description>
+    <RevisionDate>2011-06-21T07:08:05.192Z</RevisionDate>
+    <ProcessingCenter>NCSA</ProcessingCenter>
+    <ProcessingLevelId>2P</ProcessingLevelId>
+    <ArchiveCenter>PO.DAAC</ArchiveCenter>
+    <DataFormat>NETCDF</DataFormat>
+    <SpatialKeywords>
+        <Keyword>Global</Keyword>
+    </SpatialKeywords>
+    <TemporalKeywords/>
+    <Temporal>
+        <RangeDateTime>
+            <BeginningDateTime>2006-06-30T00:00:07.000Z</BeginningDateTime>
+        </RangeDateTime>
+    </Temporal>
+    <Contacts>
+        <Contact>
+            <Role>Archiver</Role>
+            <OrganizationName>National Center of Supercomputing Applications / Department of Atmospheric Sciences</OrganizationName>
+            <OrganizationAddresses/>
+            <OrganizationPhones>
+                <Phone>
+                    <Number>235-567-8910</Number>
+                    <Type>Primary</Type>
+                </Phone>
+            </OrganizationPhones>
+            <OrganizationEmails>
+                <Email>gdi@illinois.edu</Email>
+            </OrganizationEmails>
+            <ContactPersons>
+                <ContactPerson>
+                    <FirstName>Larry</FirstName>
+                    <MiddleName>none</MiddleName>
+                    <LastName>Di GiroLamo</LastName>
+                    <JobPosition>Technical Contact</JobPosition>
+                </ContactPerson>
+            </ContactPersons>
+        </Contact>
+    </Contacts>
+    <ScienceKeywords>
+        <ScienceKeyword>
+            <CategoryKeyword>ATMOSPHERIC SCIENCE</CategoryKeyword>
+            <TopicKeyword>ATMOSPHERE</TopicKeyword>
+            <TermKeyword>CLOUD DETECTION</TermKeyword>
+            <VariableLevel1Keyword>
+                <Value>RADIANCE</Value>
+            </VariableLevel1Keyword>
+            <DetailedVariableKeyword>CHLOROPHYLL</DetailedVariableKeyword>
+        </ScienceKeyword>
+    </ScienceKeywords>
+    <Platforms>
+        <Platform>
+            <ShortName>TERRA</ShortName>
+            <LongName>TERRA</LongName>
+            <Type>SPACECRAFT</Type>
+            <Characteristics/>
+            <Instruments>
+                <Instrument>
+                    <ShortName>MOPITT</ShortName>
+                    <LongName>Measurements of Pollution in the Troposphere</LongName>
+                    <Characteristics/>
+                    <Sensors>
+                        <Sensor>
+                            <ShortName>MOPIT</ShortName>
+                            <LongName>MOPITT sensor</LongName>
+                            <Characteristics/>
+                        </Sensor>
+                    </Sensors>
+                    <OperationModes/>
+                </Instrument>
+                <Instrument>
+                    <ShortName>CERES</ShortName>
+                    <LongName>Clouds and the Earth's Radiant Energy System</LongName>
+                    <Characteristics/>
+                    <Sensors>
+                        <Sensor>
+                            <ShortName>CERES</ShortName>
+                            <LongName>CERES sensor</LongName>
+                            <Characteristics/>
+                        </Sensor>
+                    </Sensors>
+                    <OperationModes/>
+                </Instrument>
+                <Instrument>
+                    <ShortName>MISR</ShortName>
+                    <LongName>Multi-angle Imaging SpectroRadiometer</LongName>
+                    <Characteristics/>
+                    <Sensors>
+                        <Sensor>
+                            <ShortName>MISR</ShortName>
+                            <LongName>MISR imaging instrument</LongName>
+                            <Characteristics/>
+                        </Sensor>
+                    </Sensors>
+                    <OperationModes/>
+                </Instrument>
+                <Instrument>
+                    <ShortName>ASTER</ShortName>
+                    <LongName> Advanced Spaceborne Thermal Emission and Reflection Radiometer</LongName>
+                    <Characteristics/>
+                    <Sensors>
+                        <Sensor>
+                            <ShortName>ASTER</ShortName>
+                            <LongName>ASTER imaging instrument</LongName>
+                            <Characteristics/>
+                        </Sensor>
+                    </Sensors>
+                    <OperationModes/>
+                </Instrument>
+                <Instrument>
+                    <ShortName>MODIS</ShortName>
+                    <LongName>Moderate-Resolution Imaging Spectroradiometer</LongName>
+                    <Characteristics/>
+                    <Sensors>
+                        <Sensor>
+                            <ShortName>MODIS</ShortName>
+                            <LongName>Moderate-Resolution Imaging Spectroradiometer</LongName>
+                            <Characteristics/>
+                        </Sensor>
+                    </Sensors>
+                    <OperationModes/>
+                </Instrument>
+            </Instruments>
+        </Platform>
+    </Platforms>
+    <OnlineAccessURLs>
+        <OnlineAccessURL>
+            <URL>https://www2.acom.ucar.edu/mopitt</URL>
+            <URLDescription>MOPITT mission</URLDescription>
+        </OnlineAccessURL>
+        <OnlineAccessURL>
+            <URL>https://ceres.larc.nasa.gov/</URL>
+            <URLDescription>CERES mission</URLDescription>
+        </OnlineAccessURL>
+        <OnlineAccessURL>
+            <URL>https://terra.nasa.gov/about/terra-instruments/misr</URL>
+            <URLDescription>MISR mission</URLDescription>
+        </OnlineAccessURL>
+        <OnlineAccessURL>
+            <URL>https://modis.gsfc.nasa.gov/</URL>
+            <URLDescription>ASTER Mission</URLDescription>
+        </OnlineAccessURL>
+        <OnlineAccessURL>
+            <URL>https://asterweb.jpl.nasa.gov/</URL>
+            <URLDescription>MODIS Mission</URLDescription>
+        </OnlineAccessURL>
+    </OnlineAccessURLs>
+    <OnlineResources>
+        <OnlineResource>
+            <URL>http://www.ncsa.illinois.edu/</URL>
+            <Description>NCSA homepage</Description>
+            <Type>Organization Home Page</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://www.hdfgroup.org/</URL>
+            <Description>HDF group Home Page</Description>
+            <Type>Organization Home Page</Type>
+        </OnlineResource>
+    </OnlineResources>
+   
+</Collection>
