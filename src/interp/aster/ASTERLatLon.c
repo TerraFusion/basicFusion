@@ -1,7 +1,7 @@
 /**
  * ASTERLatLon.c
  * Authors: Yizhao Gao <ygao29@illinois.edu>
- * Date: {05/05/2017}
+ * Date: {05/22/2017}
  */
 
 #include <stdio.h>
@@ -30,16 +30,24 @@
 
 void asterLatLonPlanar(double * inLat, double * inLon, double * cLat, double * cLon, int nRow, int nCol) {
 
+	double iLat[121];
+	double iLon[121];
+	
+	for(int i = 0; i < 121; i++) {
+		iLat[i] = inLat[i];
+		iLon[i] = inLon[i];
+	}
+
 //Longitude +360 if the image crosses 180/-180 lon
 	int above90 = 0;
 	int belowM90 = 0;
 	int adjust = 0;
 
 	for(int i = 0; i < 121; i++) {
-		if(inLon[i] > 90) {
+		if(iLon[i] > 90) {
 			above90 = 1;
 		}
-		else if(inLon[i] < -90) {
+		else if(iLon[i] < -90) {
 			belowM90 = 1;
 		}
 	}
@@ -51,8 +59,8 @@ void asterLatLonPlanar(double * inLat, double * inLon, double * cLat, double * c
 	if(adjust == 1) {
 //		printf("Adjust\n");
 		for(int i = 0; i < 121; i++) {
-			if(inLon[i] < -90) {
-				inLon[i] += 360;
+			if(iLon[i] < -90) {
+				iLon[i] += 360;
 			}
 		}
 	}
@@ -93,15 +101,15 @@ void asterLatLonPlanar(double * inLat, double * inLon, double * cLat, double * c
 
 		for(int l = 0; l < 11; l++) {
 			
-			step1Lat[l * nCol + s] = (1 - x) * inLat[l * 11 + c] + x * inLat[l * 11 + c + 1];
-			step1Lon[l * nCol + s] = (1 - x) * inLon[l * 11 + c] + x * inLon[l * 11 + c + 1];
+			step1Lat[l * nCol + s] = (1 - x) * iLat[l * 11 + c] + x * iLat[l * 11 + c + 1];
+			step1Lon[l * nCol + s] = (1 - x) * iLon[l * 11 + c] + x * iLon[l * 11 + c + 1];
 			
 		}
 	}
 
 	for(int l = 0; l < 11; l++) {
-		step1Lat[l * nCol + nCol - 1] = inLat[l * 11 + 10];
-		step1Lon[l * nCol + nCol - 1] = inLon[l * 11 + 10];
+		step1Lat[l * nCol + nCol - 1] = iLat[l * 11 + 10];
+		step1Lon[l * nCol + nCol - 1] = iLon[l * 11 + 10];
 	}
 
 //Step 2
@@ -155,6 +163,14 @@ void asterLatLonPlanar(double * inLat, double * inLon, double * cLat, double * c
  */
 
 void asterLatLonPlanarOLD(double * inLat, double * inLon, double * cLat, double * cLon, int nRow, int nCol) {
+	
+	double iLat[121];
+	double iLon[121];
+	
+	for(int i = 0; i < 121; i++) {
+		iLat[i] = inLat[i];
+		iLon[i] = inLon[i];
+	}
 
 //Longitude +360 if the image crosses 180/-180 lon
 	int above90 = 0;
@@ -162,10 +178,10 @@ void asterLatLonPlanarOLD(double * inLat, double * inLon, double * cLat, double 
 	int adjust = 0;
 
 	for(int i = 0; i < 121; i++) {
-		if(inLon[i] > 90) {
+		if(iLon[i] > 90) {
 			above90 = 1;
 		}
-		else if(inLon[i] < -90) {
+		else if(iLon[i] < -90) {
 			belowM90 = 1;
 		}
 	}
@@ -177,8 +193,8 @@ void asterLatLonPlanarOLD(double * inLat, double * inLon, double * cLat, double 
 	if(adjust == 1) {
 //		printf("Adjust\n");
 		for(int i = 0; i < 121; i++) {
-			if(inLon[i] < -90) {
-				inLon[i] += 360;
+			if(iLon[i] < -90) {
+				iLon[i] += 360;
 			}
 		}
 	}
@@ -211,22 +227,22 @@ void asterLatLonPlanarOLD(double * inLat, double * inLon, double * cLat, double 
 
 			if(r == 10) {
 				if(c == 10) {
-					cLat[l * nCol + s] = inLat[120];
-					cLon[l * nCol + s] = inLon[120];
+					cLat[l * nCol + s] = iLat[120];
+					cLon[l * nCol + s] = iLon[120];
 				}
 				else {
-					cLat[l * nCol + s] = (1 - x) * inLat[r * 11 + c] + x * inLat[r * 11 + c + 1]; 
-					cLon[l * nCol + s] = (1 - x) * inLon[r * 11 + c] + x * inLon[r * 11 + c + 1];
+					cLat[l * nCol + s] = (1 - x) * iLat[r * 11 + c] + x * iLat[r * 11 + c + 1]; 
+					cLon[l * nCol + s] = (1 - x) * iLon[r * 11 + c] + x * iLon[r * 11 + c + 1];
 				}
 			}
 			else {
 				if(c == 10) {
-					cLat[l * nCol + s] = (1 - y) * inLat[r * 11 + c] + y * inLat[r * 11 + c + 11];
-					cLon[l * nCol + s] = (1 - y) * inLon[r * 11 + c] + y * inLon[r * 11 + c + 11];
+					cLat[l * nCol + s] = (1 - y) * iLat[r * 11 + c] + y * iLat[r * 11 + c + 11];
+					cLon[l * nCol + s] = (1 - y) * iLon[r * 11 + c] + y * iLon[r * 11 + c + 11];
 				}
 				else {
-					cLat[l * nCol + s] = (1 - x) * (1 - y) * inLat[r * 11 + c] + x * (1 - y) * inLat[r * 11 + c + 1] + (1 - x) * y * inLat[r * 11 + c + 11] + x * y * inLat[r * 11 + c + 12]; 
-					cLon[l * nCol + s] = (1 - x) * (1 - y) * inLon[r * 11 + c] + x * (1 - y) * inLon[r * 11 + c + 1] + (1 - x) * y * inLon[r * 11 + c + 11] + x * y * inLon[r * 11 + c + 12];
+					cLat[l * nCol + s] = (1 - x) * (1 - y) * iLat[r * 11 + c] + x * (1 - y) * iLat[r * 11 + c + 1] + (1 - x) * y * iLat[r * 11 + c + 11] + x * y * iLat[r * 11 + c + 12]; 
+					cLon[l * nCol + s] = (1 - x) * (1 - y) * iLon[r * 11 + c] + x * (1 - y) * iLon[r * 11 + c + 1] + (1 - x) * y * iLon[r * 11 + c + 11] + x * y * iLon[r * 11 + c + 12];
 				}
 			}	
 		}
@@ -286,11 +302,14 @@ void asterLatLonSpherical(double * inLat, double * inLon, double * cLat, double 
 		printf("Out of memeory for step1Lon\n");
 		exit(1);	
 	}
-
+	
+	double iLat[121];
+	double iLon[121];
+	
 	// Convert oriLat and oriLon to radians
 	for(int i = 0; i < 11 * 11; i++) {
-		inLat[i] = inLat[i] * M_PI / 180; 
-		inLon[i] = inLon[i] * M_PI / 180; 
+		iLat[i] = inLat[i] * M_PI / 180; 
+		iLon[i] = inLon[i] * M_PI / 180; 
 	}
 
 //Step 1
@@ -304,10 +323,10 @@ void asterLatLonSpherical(double * inLat, double * inLon, double * cLat, double 
 
 		for(int l = 0; l < 11; l++) {
 			
-			phi1 = inLat[l * 11 + c];
-			phi2 = inLat[l * 11 + c + 1];
-			lambda1 = inLon[l * 11 + c];
-			lambda2 = inLon[l * 11 + c + 1];
+			phi1 = iLat[l * 11 + c];
+			phi2 = iLat[l * 11 + c + 1];
+			lambda1 = iLon[l * 11 + c];
+			lambda2 = iLon[l * 11 + c + 1];
 
 			dPhi = (phi2 - phi1);
 			dLambda = (lambda2 - lambda1);
@@ -332,8 +351,8 @@ void asterLatLonSpherical(double * inLat, double * inLon, double * cLat, double 
 	}
 
 	for(int l = 0; l < 11; l++) {
-		step1Lat[l * nCol + nCol - 1] = inLat[l * 11 + 10];
-		step1Lon[l * nCol + nCol - 1] = inLon[l * 11 + 10];
+		step1Lat[l * nCol + nCol - 1] = iLat[l * 11 + 10];
+		step1Lon[l * nCol + nCol - 1] = iLon[l * 11 + 10];
 	}
 
 //Step 2

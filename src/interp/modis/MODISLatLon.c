@@ -1,7 +1,7 @@
 /**
  * MODISLatLon.c
  * Authors: Yizhao Gao <ygao29@illinois.edu>
- * Date: {04/11/2017}
+ * Date: {05/22/2017}
  */
 
 #include <stdio.h>
@@ -232,12 +232,24 @@ void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol
 
 	int i, j;
 
+	double * oLat;
+	double * oLon;
+	if(NULL == (oLat = (double *)malloc(sizeof(double) * nRow * nCol))) {
+		printf("Out of memeory for oLat\n");
+		exit(1);
+	}
+
+	if(NULL == (oLon = (double *)malloc(sizeof(double) * nRow * nCol))) {
+		printf("Out of memeory for oLon\n");
+		exit(1);
+	}
+
 
 	// Convert oriLat and oriLon to radians
 	for(i = 0; i < nRow; i++) {
 		for(j = 0; j < nCol; j++) {
-			oriLat[i * nCol + j] = oriLat[i * nCol + j] * M_PI / 180; 
-			oriLon[i * nCol + j] = oriLon[i * nCol + j] * M_PI / 180; 
+			oLat[i * nCol + j] = oriLat[i * nCol + j] * M_PI / 180; 
+			oLon[i * nCol + j] = oriLon[i * nCol + j] * M_PI / 180; 
 		}
 	}
 
@@ -252,15 +264,15 @@ void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol
 	for(i = 0; i < nRow; i++) {
 		for(j = 0; j < nCol; j++) {
 
-			step1Lat[i * 2 * nCol + 2 * j] = oriLat[i * nCol + j];
-			step1Lon[i * 2 * nCol + 2 * j] = oriLon[i * nCol + j];
+			step1Lat[i * 2 * nCol + 2 * j] = oLat[i * nCol + j];
+			step1Lon[i * 2 * nCol + 2 * j] = oLon[i * nCol + j];
 
 			if(j == nCol - 1) {
 	
-				phi1 = oriLat[i * nCol + j - 1];
-				phi2 = oriLat[i * nCol + j];
-				lambda1 = oriLon[i * nCol + j - 1];
-				lambda2 = oriLon[i * nCol + j];
+				phi1 = oLat[i * nCol + j - 1];
+				phi2 = oLat[i * nCol + j];
+				lambda1 = oLon[i * nCol + j - 1];
+				lambda2 = oLon[i * nCol + j];
 
 				dPhi = (phi2 - phi1);
 				dLambda = (lambda2 - lambda1);
@@ -284,10 +296,10 @@ void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol
 
 			else {
 
-				phi1 = oriLat[i * nCol + j];
-				phi2 = oriLat[i * nCol + j + 1];
-				lambda1 = oriLon[i * nCol + j];
-				lambda2 = oriLon[i * nCol + j + 1];
+				phi1 = oLat[i * nCol + j];
+				phi2 = oLat[i * nCol + j + 1];
+				lambda1 = oLon[i * nCol + j];
+				lambda2 = oLon[i * nCol + j + 1];
 
 				bX = cos(phi2) * cos(lambda2 - lambda1);
 				bY = cos(phi2) * sin(lambda2 - lambda1);
@@ -429,6 +441,8 @@ void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol
 		}
 	}
 
+	free(oLat);
+	free(oLon);
 	free(step1Lat);
 	free(step1Lon);	
 
