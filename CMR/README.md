@@ -1,4 +1,6 @@
-This folder contains sample xml files for metadata of the fusion product under the ECHO10 specification
+This folder contains sample CDL and XML files for metadata of the fusion product under the ECHO10 specification.
 
+* InputGranules.cdl: Hand-crafted CDL file with InputGranules attribute
+* InputGranules.xml: Expected output XML file for InputGranules.cdl input
 * MI1B2E_echo10.xml: MISR granule metadata from search.earthdata.nasa.gov
 * sample_echo10.xml: Hand-crafted TerraFusion collection metadata

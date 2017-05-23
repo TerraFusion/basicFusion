@@ -1,0 +1,36 @@
+<Granule>
+  <!-- Generate from CDL. -->
+  <InputGranules>
+    <InputGranule>
+    MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf</InputGranule>
+    <InputGranule>
+    AST_L1T_00307032007162020_20150520034221_121033.hdf</InputGranule>
+  </InputGranules>
+  <!-- Generate via CMR search call on MISR input. -->
+  <Temporal>
+    <RangeDateTime>
+      <BeginningDateTime>
+      2007-07-03T16:26:13.1449200Z</BeginningDateTime>
+      <EndingDateTime>2007-07-03T17:15:40.1449200Z</EndingDateTime>
+    </RangeDateTime>
+  </Temporal>
+  <Spatial>
+    <HorizontalSpatialDomain>
+      <Orbit>
+        <AscendingCrossing>95.3140</AscendingCrossing>
+        <StartLat>65.522508</StartLat>
+        <StartDirection>A</StartDirection>
+        <EndLat>-60.842273</EndLat>
+        <EndDirection>D</EndDirection>
+      </Orbit>
+    </HorizontalSpatialDomain>
+  </Spatial>
+  <OrbitCalculatedSpatialDomains>
+    <OrbitCalculatedSpatialDomain>
+      <OrbitNumber>40110</OrbitNumber>
+      <EquatorCrossingLongitude>-97.0360</EquatorCrossingLongitude>
+      <EquatorCrossingDateTime>
+      2007-07-03T16:58:03.3673180Z</EquatorCrossingDateTime>
+    </OrbitCalculatedSpatialDomain>
+  </OrbitCalculatedSpatialDomains>
+</Granule>
