@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <hdf5.h>
 #include <assert.h>
+#include <ctype.h>
 #include "interp/aster/ASTERLatLon.h"
 #include "libTERRA.h"
 
@@ -56,11 +57,17 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
 
     hid_t ASTERrootGroupID = 0;
     hid_t ASTERgranuleGroupID = 0;
-    
+    hid_t solar_geometryGroup = 0;
+    hid_t pointingAngleGroup = 0;
     char* fileTime = NULL;
+    char* productmeta0 = NULL; 
+    char* sensorName [3] = { NULL, NULL, NULL};
+    char* tempStr = NULL;
+    char* pointer2 = NULL;
     int fail = 0;
  
     herr_t errStatus = 0;
+    herr_t status = 0;
 
     /*********************** 
      * SWIR data variables *
@@ -112,7 +119,6 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         /* Dataset IDs */
     hid_t latDataID = 0;
     hid_t lonDataID = 0;
-
 
     /* 
       MY 2016-12-20:
@@ -219,6 +225,26 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     }
 
     free ( fileTime ); fileTime = NULL;
+
+    
+    /* LTC May 23, 2017: Create the Solar_Geometry group */
+    createGroup( &ASTERgranuleGroupID, &solar_geometryGroup, "Solar_Geometry");
+    if ( solar_geometryGroup == EXIT_FAILURE )
+    {
+        solar_geometryGroup = 0;
+        FATAL_MSG("Failed to create the Solar_Geometry group.\n");
+        goto cleanupFail;
+    }
+
+    /* LTC May 23, 2017: Create the PointingAngle group */
+    createGroup( &ASTERgranuleGroupID, &pointingAngleGroup, "PointingAngle");
+    if ( pointingAngleGroup == EXIT_FAILURE )
+    {
+        pointingAngleGroup = 0;
+        FATAL_MSG("Failed to create the PointingAngle group.\n");
+        goto cleanupFail;
+    }
+
     /* SWIR group */
     createGroup( &ASTERgranuleGroupID, &SWIRgroupID, "SWIR" );
     if ( SWIRgroupID == EXIT_FAILURE )
@@ -260,6 +286,284 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
      *                              INSERT DATASETS                                *
      *******************************************************************************/
     
+
+    /* LTC May 23, 2017: Add the SOLARDIRECTION values obtained from the productmetadata.0 (attribute of input ASTER file group)
+     * as two, single-element HDF datasets.
+     */
+
+    // First open the productmetadata.0 attribute
+    
+    char prodmet0Name[] = "productmetadata.0";
+    int32 meta0IDX = SDfindattr(inFileID, prodmet0Name);
+    if ( meta0IDX == FAIL )
+    {
+        FATAL_MSG("Failed to get index of attribute.\n");
+        goto cleanupFail;
+    }
+
+    // Get the size of the attribute
+    int32 numElems;
+    int32 ntype;
+    intn statusn = SDattrinfo(inFileID, meta0IDX, prodmet0Name, &ntype, &numElems);
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to get the number of elements of the attribute.\n");
+        goto cleanupFail;
+    }
+
+    productmeta0 = calloc( numElems, 1 );
+    if ( productmeta0 == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
+
+    // read the attribute
+    statusn = SDreadattr(inFileID, meta0IDX, productmeta0);
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to read the productmetadata.0 attribute.\n");
+        goto cleanupFail;
+    }
+
+    // find the beginning of the POINTINGANGLES group
+    char* productmeta0SubStr1 = strstr( productmeta0, "POINTINGANGLES" );
+    if ( productmeta0SubStr1 == NULL )
+    {
+        FATAL_MSG("Failed to find the beginning of POINTINGANGLES metadata group.\n");
+        goto cleanupFail;
+    }
+
+    // find the end of the POINTINGANGLES group
+    char* productmeta0SubStr2 = strstr( productmeta0SubStr1+14, "END_GROUP");
+    if ( productmeta0SubStr2 == NULL )
+    {
+        FATAL_MSG("Failed to find the end of POINTINGANGLES metadata group.\n");
+        goto cleanupFail;
+    }
+    productmeta0SubStr2 = strstr( productmeta0SubStr2, "POINTINGANGLES");
+    if ( productmeta0SubStr2 == NULL )
+    {
+        FATAL_MSG("Failed to find the end of POINTINGANGLES metadata group.\n");
+        goto cleanupFail;
+    }
+
+    /* Next step is to find all of the SENSORNAME and POINTINGANGLE objects within the POINTINGANGLES group. */
+    float pointAngleVal [3] = { 1000.0f, 1000.0f, 1000.0f };
+
+    int i;
+    int j;
+    char* pointer1 = productmeta0SubStr1;
+
+
+    for ( i = 0; i < 3; i++ )
+    {
+        
+        pointer1 = strstr( pointer1, "SENSORNAME");
+        if ( pointer1 == NULL || pointer1 > productmeta0SubStr2 )
+        {
+            // If another SENSORNAME is not found within the POINTINGANGLES group, then exit out of the loop
+            break;
+        }
+
+        pointer1 = strstr( pointer1, "VALUE");
+        if ( pointer1 == NULL || pointer1 > productmeta0SubStr2 )
+        {
+            FATAL_MSG("Failed to find substring.\n");
+            if ( pointer1 > productmeta0SubStr2 )
+                fprintf(stderr, "\tThe desired substring was found to reside outside of the POINTINGANGLES group.\n");
+            goto cleanupFail;
+        }
+
+        pointer1 = strstr( pointer1, "\"");
+        if ( pointer1 == NULL || pointer1 > productmeta0SubStr2 )
+        {
+            FATAL_MSG("Failed to find substring.\n"); 
+            if ( pointer1 > productmeta0SubStr2 )
+                fprintf(stderr, "\tThe desired substring was found to reside outside of the POINTINGANGLES group.\n");
+            goto cleanupFail;
+        }
+
+        // pointer1 points to the double quote. we want the first letter.
+        pointer1++;
+
+        // assert that pointer1 points to a capital alphabetic character
+        if ( *pointer1 - 65 < 0 || *pointer1 - 65 > 25 )
+        {
+            FATAL_MSG("Expected an alphabetic character, but did not receive it.\n");
+            goto cleanupFail;
+        }
+        pointer2 = strstr(pointer1, "\"");
+        if ( pointer2 == NULL || pointer2 > productmeta0SubStr2 )
+        {
+            FATAL_MSG("Failed to find substring.\n");
+            if ( pointer2 > productmeta0SubStr2 )
+                fprintf(stderr, "\tThe desired substring was found to reside outside of the POINTINGANGLES group.\n");
+            goto cleanupFail;
+        }
+
+        pointer2--;
+
+        // copy sensorname over
+        sensorName[i] = calloc( pointer2 - pointer1 + 2, 1);
+        
+        for ( j = 0; j < pointer2 - pointer1 + 1; j++ )
+        {
+            sensorName[i][j] = pointer1[j];
+        }
+
+        // check to make sure that the name that was just copied over is either "SWIR", "TIR" or "VIR"
+        if ( strcmp( sensorName[i], "SWIR") && strcmp( sensorName[i], "TIR" ) && strcmp( sensorName[i], "VNIR" ) )
+        {
+            FATAL_MSG("The retrieved sensor name is neither \"SWIR\", \"TIR\" nor \"VIR\"\n");
+            goto cleanupFail;
+        }
+
+        // find the pointing angle value
+        pointer1 = strstr(pointer2, "POINTINGANGLE");
+        if ( pointer1 == NULL || pointer1 > productmeta0SubStr2 )
+        {
+            FATAL_MSG("Failed to find substring.\n");
+            if ( pointer1 > productmeta0SubStr2 )
+                fprintf(stderr, "\tThe desired substring was found to reside outside of the POINTINGANGLES group.\n");
+            goto cleanupFail;
+        }
+
+        pointer1 = strstr(pointer1, "VALUE");
+        if ( pointer1 == NULL || pointer1 > productmeta0SubStr2 )
+        {
+            FATAL_MSG("Failed to find substring.\n");
+            if ( pointer1 > productmeta0SubStr2 )
+                fprintf(stderr, "\tThe desired substring was found to reside outside of the POINTINGANGLES group.\n");
+            goto cleanupFail;
+        }
+
+        while ( !isdigit(*pointer1) )
+            pointer1++;
+     
+        pointer2 = pointer1;
+
+        // while pointer2 is digit or is a period
+        while ( isdigit(*pointer2) || !(*pointer2 - 46) )
+            pointer2++;
+
+        pointer2--;
+
+        tempStr = calloc( pointer2 - pointer1 + 2, 1 );
+        for ( j = 0; j < pointer2 - pointer1 + 1; j++ )
+        {
+            tempStr[j] = pointer1[j];
+        }
+
+        pointAngleVal[i] = atof(tempStr);
+
+        free(tempStr); tempStr = NULL;
+
+        pointer1 = pointer2;
+    } // end for
+    
+    const hsize_t tempInt = 1;
+
+    for ( j = 0; j < i; j++)
+    {
+        status = H5LTmake_dataset_float( pointingAngleGroup, sensorName[j], 1, &tempInt, &(pointAngleVal[j]) );
+        if ( status != 0 )
+        {
+            FATAL_MSG("Failed to add a pointing angle dataset.\n");
+            goto cleanupFail;
+        }
+    }
+
+    // Find the SOLARDIRECTION object in the productmetadata.0
+    pointer1 = productmeta0SubStr2;
+
+    pointer1 = strstr(pointer1, "SOLARDIRECTION");
+    if ( pointer1 == NULL )
+    {
+        FATAL_MSG("Failed to find the SOLARDIRECTION object in productmetadata.0\n");
+        goto cleanupFail;
+    }
+
+    pointer1 = strstr(pointer1, "VALUE");
+    if ( pointer1 == NULL )
+    {
+        FATAL_MSG("Failed to find desired substring.\n");
+        goto cleanupFail;
+    }
+
+    pointer1 = strstr(pointer1, "(");
+    if ( pointer1 == NULL )
+    {
+        FATAL_MSG("Failed to find desired substring.\n");
+        goto cleanupFail;
+    }
+
+    // find the first solar direction value
+    while( !isdigit(*pointer1) ) pointer1++;
+
+    pointer2 = pointer1;
+
+    while ( isdigit(*pointer2) || *pointer2 == 46 ) pointer2++;
+
+    pointer2--;
+
+    tempStr = calloc( pointer2 - pointer1 + 2, 1 );
+
+    for ( i = 0; i < pointer2 - pointer1 + 1; i++ )
+    {
+        tempStr[i] = pointer1[i];
+    }
+
+    float solarDir[2];
+
+    solarDir[0] = atof(tempStr);
+    free(tempStr); tempStr = NULL;
+    pointer1 = pointer2+1;
+
+    if ( solarDir[0] < 0.0f || solarDir[0] > 360.0f )
+    {
+        FATAL_MSG("The SolarAzimuth value read was outside of the expected bounds.\n");
+        goto cleanupFail;
+    }
+
+    // find the second solar direction value
+    while( !isdigit(*pointer1) ) pointer1++;
+    
+    pointer2 = pointer1;
+    while ( isdigit(*pointer2) || *pointer2 == 46 ) pointer2++;
+
+    pointer2--;
+
+    tempStr = calloc( pointer2 - pointer1 + 2, 1 );
+
+    for ( i = 0; i < pointer2 - pointer1 + 1; i++ )
+    {
+        tempStr[i] = pointer1[i];
+    }
+
+    solarDir[1] = atof(tempStr);
+    free(tempStr); tempStr = NULL;
+    
+    if ( solarDir[1] < -90.0f || solarDir[1] > 90.0f )
+    {
+        FATAL_MSG("The SolarElevation value read was outside of the expected bounds.\n");
+        goto cleanupFail;
+    }
+
+    status = H5LTmake_dataset_float( solar_geometryGroup, "SolarAzimuth", 1, &tempInt, &(solarDir[0]) );
+    if ( status != 0 )
+    {
+        FATAL_MSG("Failed to add a solar geometry dataset.\n");
+        goto cleanupFail;
+    }
+
+    status = H5LTmake_dataset_float( solar_geometryGroup, "SolarElevation", 1, &tempInt, &(solarDir[1]) );
+    if ( status != 0 )
+    {
+        FATAL_MSG("Failed to add a solar geometry dataset.\n");
+        goto cleanupFail;
+    }
+
     /* MY 2016-12-20: The following if-block will unpack the ASTER radiance data. I would like to clean up the code a little bit later.*/
     if(unpack == 1) {
 
@@ -811,6 +1115,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         fail = 1;
     }
 
+    if ( solar_geometryGroup ) H5Gclose(solar_geometryGroup);
     if ( inHFileID ) Vend(inHFileID);
     if ( inHFileID ) Hclose(inHFileID);
     if ( inFileID ) SDend(inFileID);
@@ -841,9 +1146,13 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     if ( imageData3BID ) H5Dclose(imageData3BID);
     if ( latDataID ) H5Dclose(latDataID);
     if ( lonDataID ) H5Dclose(lonDataID);
-   
+    if ( productmeta0 ) free (productmeta0);
+    if ( pointingAngleGroup) H5Gclose(pointingAngleGroup);
     if ( fail ) return EXIT_FAILURE;
- 
+    if ( sensorName[0] ) free(sensorName[0]);
+    if ( sensorName[1] ) free(sensorName[1]);
+    if ( sensorName[2] ) free(sensorName[2]);
+    if ( tempStr ) free(tempStr);
     return EXIT_SUCCESS;
     
 }
@@ -1143,7 +1452,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
         return -1;
     }
    
-    asterLatLonPlanar(latBuffer,lonBuffer,lat_swir_buffer,lon_swir_buffer,nSWIR_ImageLine,nSWIR_ImagePixel);
+    asterLatLonSpherical(latBuffer,lonBuffer,lat_swir_buffer,lon_swir_buffer,nSWIR_ImageLine,nSWIR_ImagePixel);
 
     // SWIR Latitude
     if (Generate2D_Dataset(SWIRgeoGroupID,latname,h5_type,lat_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0) {
@@ -1199,7 +1508,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
         return -1;
     }
    
-    asterLatLonPlanar(latBuffer,lonBuffer,lat_tir_buffer,lon_tir_buffer,nTIR_ImageLine,nTIR_ImagePixel);
+    asterLatLonSpherical(latBuffer,lonBuffer,lat_tir_buffer,lon_tir_buffer,nTIR_ImageLine,nTIR_ImagePixel);
 
     // TIR Latitude
     if (Generate2D_Dataset(TIRgeoGroupID,latname,h5_type,lat_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0) {
@@ -1257,7 +1566,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
         return -1;
     }
    
-    asterLatLonPlanar(latBuffer,lonBuffer,lat_vnir_buffer,lon_vnir_buffer,nVNIR_ImageLine,nVNIR_ImagePixel);
+    asterLatLonSpherical(latBuffer,lonBuffer,lat_vnir_buffer,lon_vnir_buffer,nVNIR_ImageLine,nVNIR_ImagePixel);
 
     // VNIR Latitude
     if (Generate2D_Dataset(VNIRgeoGroupID,latname,h5_type,lat_vnir_buffer,VNIR_ImageLine_DimID,VNIR_ImagePixel_DimID,nVNIR_ImageLine,nVNIR_ImagePixel)<0) {

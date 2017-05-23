@@ -98,7 +98,7 @@ int main( int argc, char* argv[] )
     char* CERESargs[4] = {NULL};
     char* MODISargs[7] = {NULL};
     char* ASTERargs[4] = {NULL};
-    char* MISRargs[12] = {NULL};
+    char* MISRargs[13] = {NULL};
     
     int status = EXIT_SUCCESS;
     int fail = 0;
@@ -748,7 +748,8 @@ printf("CERES: the ending index is %d\n",*ceres_end_index_ptr);
     if ( ASTERargs[1] ) free ( ASTERargs[1] );
     if ( ASTERargs[2] ) free ( ASTERargs[2] );
     if ( TAI93toUTCoffset ) free(TAI93toUTCoffset);
-    for ( int j = 1; j <= 12; j++ ) if ( MISRargs[j] ) free (MISRargs[j]);
+    for ( int j = 1; j <= 12; j++ )
+        if ( MISRargs[j] ) free (MISRargs[j]);
     if ( fail ) return -1;
     
     return 0;
@@ -776,7 +777,7 @@ int getNextLine ( char* string, FILE* const inputFile )
     return EXIT_SUCCESS;    
 }
 
-#if 1
+#if 0
 int validateInFiles( char* inFileList, OInfo_t orbitInfo )
 {
     short fail = 0;
