@@ -417,13 +417,13 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
 
         // Copy the dimensions over
-        errStatus = copyDimension( _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
+        errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension( _1KMFileID, "EV_1KM_RefSB_Uncert_Indexes", outputFile, _1KMUncertID);
+        errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB_Uncert_Indexes", outputFile, _1KMUncertID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
@@ -530,13 +530,13 @@ int MODIS( char* argv[],int modis_count, int unpack)
     }
 
     // Copy the dimensions over
-    errStatus = copyDimension( _1KMFileID, "EV_1KM_Emissive", outputFile, _1KMEmissive );
+    errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_Emissive", outputFile, _1KMEmissive );
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
         goto cleanupFail;
     }
-    errStatus = copyDimension( _1KMFileID, "EV_1KM_Emissive_Uncert_Indexes", outputFile, _1KMEmissiveUncert);
+    errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_Emissive_Uncert_Indexes", outputFile, _1KMEmissiveUncert);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -650,13 +650,13 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
 
         // Copy the dimensions over
-        errStatus = copyDimension( _1KMFileID, "EV_250_Aggr1km_RefSB", outputFile, _250Aggr1km );
+        errStatus = copyDimension( NULL, _1KMFileID, "EV_250_Aggr1km_RefSB", outputFile, _250Aggr1km );
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension( _1KMFileID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", outputFile, _250Aggr1kmUncert);
+        errStatus = copyDimension( NULL, _1KMFileID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", outputFile, _250Aggr1kmUncert);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
@@ -765,13 +765,13 @@ int MODIS( char* argv[],int modis_count, int unpack)
         }
 
         // Copy the dimensions over
-        errStatus = copyDimension( _1KMFileID, "EV_500_Aggr1km_RefSB", outputFile, _500Aggr1km );
+        errStatus = copyDimension( NULL, _1KMFileID, "EV_500_Aggr1km_RefSB", outputFile, _500Aggr1km );
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension( _1KMFileID, "EV_500_Aggr1km_RefSB_Uncert_Indexes", outputFile, _500Aggr1kmUncert);
+        errStatus = copyDimension( NULL, _1KMFileID, "EV_500_Aggr1km_RefSB_Uncert_Indexes", outputFile, _500Aggr1kmUncert);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
@@ -807,7 +807,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     }
 
     // copy dimensions over
-    errStatus = copyDimension( MOD03FileID, "Latitude", outputFile, latitudeDatasetID);
+    errStatus = copyDimension( NULL, MOD03FileID, "Latitude", outputFile, latitudeDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -839,7 +839,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     }
 
     // Copy dimensions over
-    errStatus = copyDimension( MOD03FileID, "Longitude", outputFile, longitudeDatasetID);
+    errStatus = copyDimension( NULL, MOD03FileID, "Longitude", outputFile, longitudeDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -859,7 +859,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    errStatus = copyDimension( MOD03FileID, "SensorZenith", outputFile, SensorZenithDatasetID);
+    errStatus = copyDimension( NULL, MOD03FileID, "SensorZenith", outputFile, SensorZenithDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -885,7 +885,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    errStatus = copyDimension( MOD03FileID, "SensorAzimuth", outputFile, SensorAzimuthDatasetID);
+    errStatus = copyDimension( NULL, MOD03FileID, "SensorAzimuth", outputFile, SensorAzimuthDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -910,7 +910,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    errStatus = copyDimension( MOD03FileID, "SolarZenith", outputFile, SolarZenithDatasetID);
+    errStatus = copyDimension( NULL, MOD03FileID, "SolarZenith", outputFile, SolarZenithDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -936,7 +936,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    errStatus = copyDimension( MOD03FileID, "SolarAzimuth", outputFile, SolarAzimuthDatasetID);
+    errStatus = copyDimension( NULL, MOD03FileID, "SolarAzimuth", outputFile, SolarAzimuthDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -1192,13 +1192,13 @@ int MODIS( char* argv[],int modis_count, int unpack)
         }
 
         // Copy the dimensions over
-        errStatus = copyDimension( _500mFileID, "EV_250_Aggr500_RefSB", outputFile, _250Aggr500);
+        errStatus = copyDimension( NULL, _500mFileID, "EV_250_Aggr500_RefSB", outputFile, _250Aggr500);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension( _500mFileID, "EV_250_Aggr500_RefSB_Uncert_Indexes", outputFile, _250Aggr500Uncert);
+        errStatus = copyDimension( NULL, _500mFileID, "EV_250_Aggr500_RefSB_Uncert_Indexes", outputFile, _250Aggr500Uncert);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
@@ -1296,13 +1296,13 @@ int MODIS( char* argv[],int modis_count, int unpack)
         }
 
         // Copy the dimensions over
-        errStatus = copyDimension( _500mFileID, "EV_500_RefSB", outputFile, _500RefSB);
+        errStatus = copyDimension( NULL, _500mFileID, "EV_500_RefSB", outputFile, _500RefSB);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension( _500mFileID, "EV_500_RefSB_Uncert_Indexes", outputFile, _500RefSBUncert);
+        errStatus = copyDimension( NULL, _500mFileID, "EV_500_RefSB_Uncert_Indexes", outputFile, _500RefSBUncert);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
@@ -1411,13 +1411,13 @@ int MODIS( char* argv[],int modis_count, int unpack)
         }
 
         // Copy the dimensions over
-        errStatus = copyDimension( _250mFileID, "EV_250_RefSB", outputFile, _250RefSB);
+        errStatus = copyDimension( NULL, _250mFileID, "EV_250_RefSB", outputFile, _250RefSB);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension( _250mFileID, "EV_250_RefSB_Uncert_Indexes", outputFile, _250RefSBUncert);
+        errStatus = copyDimension( NULL, _250mFileID, "EV_250_RefSB_Uncert_Indexes", outputFile, _250RefSBUncert);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");

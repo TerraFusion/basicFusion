@@ -3646,6 +3646,24 @@ int change_dim_attr_NAME_value(hid_t h5dset_id)
 
     ARGUMENTS:
         IN
+            char* outDimName      -- Name of the output dimension scale. Datasets passed to this function should be
+                                     given a unique dimension scale name in the case that their HDF4 dimensions have the
+                                     same name (across multiple HDF4 files) but are not identical dimensions (different
+                                     dimension size, different values inside the dimension). This string will be appended
+                                     to the name of the input HDF4 dataset in the output HDF5 dataset. For instance, if
+                                     the input HDF4 dimension is named:
+                                        "inHDF4dimName"
+                                     and outDimName is:
+                                        "_g1"
+                                     The name of the dimension in the HDF5 file will be:
+                                        "inHDF4dimName_g1"
+
+                                     Pass NULL in for this argument if a unique dimension is not required. If NULL is passed,
+                                     this function will attempt to share the generated HDF5 dimension for all objects that
+                                     reference it in the input HDF4 files.
+
+                                     This string must be null terminated, or else a seg fault may occur.
+
             int32 h4fileID        -- The HDF4 file ID returned by SDstart
             char* h4datasetName   -- The name of the HDF4 dataset from which to copy from
             hid_t h5dimGroupID    -- The HDF5 group ID in which to store and/or find the dimension scales
@@ -3661,7 +3679,7 @@ int change_dim_attr_NAME_value(hid_t h5dset_id)
 
 */
 
-herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID )
+herr_t copyDimension( char* outDimName, int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID )
 {
     hsize_t tempInt = 0;
     char* correct_dsetname = NULL;
@@ -3678,6 +3696,9 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
     hid_t memspace = 0;
     htri_t dsetExists = 0;
     short wasHardCodeCopy = 0;
+    char* catString = NULL;
+    char* temp = NULL;
+    char tempStack[STR_LEN] = {'\0'};
 
     /* Get dataset index */
     int32 sds_index = SDnametoindex(h4fileID, h4datasetName );
@@ -3736,23 +3757,47 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
             goto cleanupFail;
         }
 
+
+        /* If outDimName is provided, we need to apped this string to the dimName variable.*/
+       
+        correct_dsetname = correct_name(dimName);
+
+        if ( outDimName ) 
+        {
+            // store allocated memory in temp pointer
+            strcpy(tempStack, dimName);
+            temp = calloc ( sizeof(tempStack) + sizeof(outDimName) + 1, 1 );
+            // copy dimName to the temp pointer memory
+            strcpy(temp, tempStack);
+            // concatenate dimName with outDimName
+            strcat(temp,outDimName);
+            // Fix the name to comply with netCDF standards
+            catString = correct_name(temp);
+            // free the temp memory (catString is separately allocated memory, malloc'ed in the correct_name function
+            free(temp); temp = NULL;
+        }
+        else
+        {
+            catString = correct_name(dimName);
+        }
         /* Since dimension scales are shared, it is possible this dimension already exists in HDF5 file (previous
            call to this function created it). Check to see if it does. If so, use the dimension that eixsts.
         */
+        
+        free(correct_dsetname); correct_dsetname = NULL;
 
-        correct_dsetname = correct_name(dimName);
-        dsetExists = H5Lexists(h5dimGroupID, correct_dsetname, H5P_DEFAULT);
+        dsetExists = H5Lexists(h5dimGroupID, catString, H5P_DEFAULT);
         // if dsetExists is <= 0, then dimension does not yet exist.
         if ( dsetExists <= 0 )
         {
             /* If the dimension is one of the following, we will do an explicit dimension scale copy (hard code
              * the scale values)
              */
-            if ( strstr( dimName, "Band_250M" ) != NULL )
+            if ( strstr( catString, "Band_250M" ) != NULL )
             {
                 tempInt = 2;
                 float floatBuffer[2] = {1.0f, 2.0f};
-                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, dimName, floatBuffer);
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
                 if ( h5dimID == EXIT_FAILURE )
                 {
                     h5dimID = 0;
@@ -3765,11 +3810,11 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
                  */
                 wasHardCodeCopy = 1;
             }
-            else if ( strstr( dimName, "Band_500M" ) != NULL )
+            else if ( strstr( catString, "Band_500M" ) != NULL )
             {
                 tempInt = 5;
                 float floatBuffer[5] = {3.0f, 4.0f, 5.0f, 6.0f, 7.0f};
-                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, dimName, floatBuffer);
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
                 if ( h5dimID == EXIT_FAILURE )
                 {
                     h5dimID = 0;
@@ -3778,11 +3823,11 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
                 }
                 wasHardCodeCopy = 1;
             }
-            else if ( strstr( dimName, "Band_1KM_RefSB" ) != NULL )
+            else if ( strstr( catString, "Band_1KM_RefSB" ) != NULL )
             {
                 float floatBuffer[15] = { 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 13.5f, 14.0f, 14.5f, 15.0f, 16.0f, 17.0f, 18.0f, 19.0f, 26.0f };
                 tempInt = 15;
-                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, dimName, floatBuffer);
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
                 if ( h5dimID == EXIT_FAILURE )
                 {
                     h5dimID = 0;
@@ -3791,11 +3836,11 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
                 }
                 wasHardCodeCopy = 1;
             }
-            else if ( strstr( dimName, "Band_1KM_Emissive" ) != NULL )
+            else if ( strstr( catString, "Band_1KM_Emissive" ) != NULL )
             {
                 float floatBuffer[16] = { 20.0f, 21.0f, 22.0f, 23.0f, 24.0f, 25.0f, 27.0f, 28.0f, 29.0f, 30.0f, 31.0f, 32.0f, 33.0f, 34.0f, 35.0f, 36.0f };
                 tempInt = 16;
-                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, dimName, floatBuffer);
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
                 if ( h5dimID == EXIT_FAILURE )
                 {
                     h5dimID = 0;
@@ -3840,7 +3885,7 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
                     /* make a new dataset for our dimension scale */
 
                     tempInt = size;
-                    h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, h5type, dimName, dimBuffer);
+                    h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, h5type, catString, dimBuffer);
                     if ( h5dimID == EXIT_FAILURE )
                     {
                         h5dimID = 0;
@@ -3859,7 +3904,7 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
                     tempSize2 = (hsize_t) size;
                     memspace = H5Screate_simple( 1, &tempSize2, NULL );
 
-                    h5dimID = H5Dcreate( h5dimGroupID, correct_dsetname, H5T_NATIVE_INT, memspace,
+                    h5dimID = H5Dcreate( h5dimGroupID, catString, H5T_NATIVE_INT, memspace,
                                          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
                     if ( h5dimID < 0 )
                     {
@@ -3874,7 +3919,7 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
                 } // end else
             } // end else
 
-            errStatus = H5DSset_scale(h5dimID, correct_dsetname);
+            errStatus = H5DSset_scale(h5dimID, catString);
             if ( errStatus != 0 )
             {
                 FATAL_MSG("Failed to set dataset as a dimension scale.\n");
@@ -3898,7 +3943,7 @@ herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, h
 
         else
         {
-            h5dimID = H5Dopen2(h5dimGroupID, correct_dsetname, H5P_DEFAULT);
+            h5dimID = H5Dopen2(h5dimGroupID, catString, H5P_DEFAULT);
             if ( h5dimID < 0 )
             {
                 h5dimID = 0;
@@ -3933,6 +3978,9 @@ cleanupFail:
     if ( dimBuffer ) free(dimBuffer);
     if ( correct_dsetname ) free(correct_dsetname);
     if ( memspace ) H5Sclose(memspace);
+    if ( catString ) free(catString);
+    if ( temp ) free(temp);
+
     if ( fail ) return FAIL;
 
     return SUCCEED;

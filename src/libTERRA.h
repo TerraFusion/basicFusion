@@ -18,6 +18,10 @@ do { \
     fprintf(stderr, __VA_ARGS__); \
     } while(0)
 
+#ifndef STR_LEN
+#define STR_LEN 500
+#endif
+
 typedef struct OInfo
 {
     unsigned int orbit_number;
@@ -119,7 +123,7 @@ char* getTime( char* pathname, int instrument );
 int isLeapYear(int year);
 int  h4type_to_h5type( const int32 h4type, hid_t* h5memtype);
 int change_dim_attr_NAME_value(hid_t h5dset_id);
-herr_t copyDimension( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID );
+herr_t copyDimension( char* outDimName, int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID );
 herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID,int32 s_size,char*,int );
 herr_t attachDimension(hid_t h5fileID, char* dimname, hid_t h5dsetID, int dim_index);
 size_t obtainDimSize(hid_t dsetID);

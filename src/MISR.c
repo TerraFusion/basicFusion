@@ -236,7 +236,7 @@ int MISR( char* argv[],int unpack )
             }
 
             // Copy over the dimensions
-            errStatus = copyDimension( h4FileID, radiance_name[j], outputFile, h5DataFieldID);
+            errStatus = copyDimension( NULL, h4FileID, radiance_name[j], outputFile, h5DataFieldID);
             if ( errStatus == FAIL )
             {
                 FATAL_MSG("Failed to copy dimensions.\n");
@@ -271,7 +271,7 @@ int MISR( char* argv[],int unpack )
             }
 
             // Copy over the dimensions
-            errStatus = copyDimension( gmpFileID, band_geom_name[i*4+j], outputFile, h5SensorGeomFieldID);
+            errStatus = copyDimension( NULL, gmpFileID, band_geom_name[i*4+j], outputFile, h5SensorGeomFieldID);
             if ( errStatus == FAIL )
             {
                 FATAL_MSG("Failed to copy dimensions.\n");
@@ -340,7 +340,7 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( geoFileID, geo_name[0], outputFile, latitudeID);
+    errStatus = copyDimension( NULL, geoFileID, geo_name[0], outputFile, latitudeID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -368,7 +368,7 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( geoFileID, geo_name[1], outputFile, longitudeID);
+    errStatus = copyDimension( NULL, geoFileID, geo_name[1], outputFile, longitudeID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -405,7 +405,7 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( hgeoFileID, geo_name[0], outputFile, hr_latitudeID);
+    errStatus = copyDimension( NULL, hgeoFileID, geo_name[0], outputFile, hr_latitudeID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -433,7 +433,7 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( hgeoFileID, geo_name[1], outputFile, hr_longitudeID);
+    errStatus = copyDimension( NULL, hgeoFileID, geo_name[1], outputFile, hr_longitudeID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -460,7 +460,7 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
     // Copy over the dimensions
-    errStatus = copyDimension( gmpFileID, solar_geom_name[0], outputFile, solarAzimuthID);
+    errStatus = copyDimension( NULL, gmpFileID, solar_geom_name[0], outputFile, solarAzimuthID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -497,7 +497,7 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( gmpFileID, solar_geom_name[1], outputFile, solarZenithID);
+    errStatus = copyDimension( NULL, gmpFileID, solar_geom_name[1], outputFile, solarZenithID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
