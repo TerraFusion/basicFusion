@@ -459,6 +459,7 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
 
         free(tempStr); tempStr = NULL;
 
+
         pointer1 = pointer2;
     } // end for
     
@@ -520,11 +521,6 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     free(tempStr); tempStr = NULL;
     pointer1 = pointer2+1;
 
-    if ( solarDir[0] < 0.0f || solarDir[0] > 360.0f )
-    {
-        FATAL_MSG("The SolarAzimuth value read was outside of the expected bounds.\n");
-        goto cleanupFail;
-    }
 
     // find the second solar direction value
     while( !isdigit(*pointer1) ) pointer1++;
@@ -544,12 +540,6 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
     solarDir[1] = atof(tempStr);
     free(tempStr); tempStr = NULL;
     
-    if ( solarDir[1] < -90.0f || solarDir[1] > 90.0f )
-    {
-        FATAL_MSG("The SolarElevation value read was outside of the expected bounds.\n");
-        goto cleanupFail;
-    }
-
     status = H5LTmake_dataset_float( solar_geometryGroup, "SolarAzimuth", 1, &tempInt, &(solarDir[0]) );
     if ( status != 0 )
     {
@@ -563,6 +553,8 @@ int ASTER( char* argv[] ,int aster_count,int unpack)
         FATAL_MSG("Failed to add a solar geometry dataset.\n");
         goto cleanupFail;
     }
+
+    /* DONE WITH POINTING ANGLES AND SOLAR GEOMETRY */
 
     /* MY 2016-12-20: The following if-block will unpack the ASTER radiance data. I would like to clean up the code a little bit later.*/
     if(unpack == 1) {
