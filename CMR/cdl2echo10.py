@@ -11,6 +11,8 @@ import numpy as np
 import pycurl, json
 from StringIO import StringIO
 import urllib2
+import re
+from datetime import datetime
 #from pyCMR.pyCMR import searchCollection, searchGranule
 
 #ECHO10 requirement lists, Contacts seem to be optional
@@ -872,29 +874,52 @@ def get_default_fill_value(datatype) :
       raise CDLContentError("Unrecognised data type '%s'" % datatype)
 
 
-def get_granule_data(filenames):
+#Extract temporal and spatial data by calling CMR Search API
+def get_granule_st_data(filenames):
     search_url = "https://cmr.earthdata.nasa.gov/search/granules"
-    results = []
+    result = None
     for file in filenames:
-        print("File: " + file)
-        buffer = StringIO()
-        data = json.dumps({"pretty" : True, "readable_granule_name": file,"echo_compatible":True})
-        c = pycurl.Curl()
-        c.setopt(pycurl.URL, search_url)
-        c.setopt(pycurl.POST, 1)
-        c.setopt(pycurl.POSTFIELDS, data)
-        c.setopt(c.WRITEDATA, buffer)
-        c.perform()
-        temp_tree = etree.fromstring(buffer.getvalue())
-        e = temp_tree.findall('references/reference/location')
-        first_url = e[0].text
-        response = urllib2.urlopen(first_url)
-        #print("result: " + str(response.read()))
-        result = etree.fromstring(response.read())
-        results.append(result)
-    return results
-    
-def write_to_xml(ncdataset, destfile):    
+        if(re.match('MISR_*', file, flags=0)):
+            print("File: " + file)
+            buffer = StringIO()
+            data = json.dumps({"pretty" : True, "readable_granule_name": file,"echo_compatible":True})
+            c = pycurl.Curl()
+            c.setopt(pycurl.URL, search_url)
+            c.setopt(pycurl.POST, 1)
+            c.setopt(pycurl.POSTFIELDS, data)
+            c.setopt(c.WRITEDATA, buffer)
+            c.perform()
+            temp_tree = etree.fromstring(buffer.getvalue())
+            e = temp_tree.findall('references/reference/location')
+            first_url = e[0].text
+            response = urllib2.urlopen(first_url)
+            #print("result: " + str(response.read()))
+            result = etree.fromstring(response.read())
+            break
+    return result
+
+#Extract filesize and production date time
+def get_data_granule(file_path):
+    #Format date time
+    formatted_dstring = str(datetime.fromtimestamp(os.path.getmtime(file_path)))
+    formatted_dstring = formatted_dstring.replace(" ", "T")
+    formatted_dstring += 'Z'
+    #formatted_dstring = str(d_time.date.year) + "-" + str(d_time.date.month) + "-" + str(d_time.date.day) + "T" + str(d_time.time.hour) + ":" + str(d_time.time.minute) + ":" + str(d_time.time.microsecond) + "Z"
+    print("formatted dt: " + str(formatted_dstring))
+    #get file size
+    f_size = os.path.getsize(file_path) / (1024*1024.0)
+    print("file size: " + str(f_size) + "MB") 
+    #construct xml element
+    e = etree.Element('DataGranule')
+    fs = etree.Element('SizeMBDataGranule')
+    fs.text = str(f_size)
+    dt = etree.Element('ProductionDateTime')
+    dt.text = formatted_dstring
+    e.append(fs)
+    e.append(dt)
+    return e
+
+def write_to_xml(cdlfile, ncdataset, destfile):    
     '''print("ncdimensions: " + str(ncdataset.dimensions))
     print("ncdataset attr: " + str(ncdataset.ncattrs()))
     print("ncdataset vars: " + str(ncdataset.variables.keys()))
@@ -923,12 +948,13 @@ def write_to_xml(ncdataset, destfile):
             ig = etree.Element('InputGranule')
             ig.text = fname
             igranules.append(ig)
-        results = get_granule_data(filenames)
+        result = get_granule_st_data(filenames)
         root.append(igranules)
-        root.append(results[0].find('DataGranule'))
-        root.append(results[0].find('Temporal'))
-        root.append(results[0].find('Spatial'))
-        root.append(results[0].find('OrbitCalculatedSpatialDomains'))
+        root.append(get_data_granule(cdlfile.replace('cdl', 'h5')))
+        if(result is not None):
+            root.append(result.find('Temporal'))
+            root.append(result.find('Spatial'))
+            root.append(result.find('OrbitCalculatedSpatialDomains'))
         et = etree.ElementTree(root)
         et.write(destfile, pretty_print=True)
            
@@ -953,10 +979,9 @@ def main() :
       kwargs = dict(zip(keys,vals))
    cdlparser = CDL3Parser(**kwargs)
    ncdataset, ncfile = cdlparser.parse_file(cdlfile)
-   write_to_xml(ncdataset,destfile)
-   print("ncfile: " + str(ncfile))
+   write_to_xml(cdlfile, ncdataset,destfile)
    ncdataset.close()   # wrap in try block since dataset may get closed by parser
-   print("removed")
+   print(str(ncfile) + " removed")
    os.remove(ncfile)   # remove nc file
    
 
