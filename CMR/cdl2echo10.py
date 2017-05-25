@@ -955,8 +955,13 @@ def write_to_xml(cdlfile, ncdataset, destfile):
             root.append(result.find('Temporal'))
             root.append(result.find('Spatial'))
             root.append(result.find('OrbitCalculatedSpatialDomains'))
-        et = etree.ElementTree(root)
-        et.write(destfile, pretty_print=True)
+        #Inefficiencies here for pretty print
+        destf = open(destfile, 'wb')
+        destf.write(etree.tostring(root, pretty_print=True))
+        destf.close()
+        parser = etree.XMLParser(remove_blank_text = True)
+        tree = etree.parse(destfile, parser)
+        tree.write(destfile, pretty_print=True)
            
 #---------------------------------------------------------------------------------------------------
 def main() :
