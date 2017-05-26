@@ -67,7 +67,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
     char* pointer2 = NULL;
     char* strCat = NULL;
     int fail = 0;
-
+    int i;
     herr_t errStatus = 0;
     herr_t status = 0;
 
@@ -121,6 +121,11 @@ int ASTER( char* argv[],int aster_count,int unpack)
     /* Dataset IDs */
     hid_t latDataID = 0;
     hid_t lonDataID = 0;
+
+    char* radianceNames[15] = {"ImageData1", "ImageData2", "ImageData3N", "ImageData3B", "ImageData4", "ImageData5", "ImageData6",
+                               "ImageData7", "ImageData8", "ImageData9", "ImageData10", "ImageData11", "ImageData12",
+                               "ImageData13", "ImageData14" 
+                              };
 
     /*
       MY 2016-12-20:
@@ -359,7 +364,6 @@ int ASTER( char* argv[],int aster_count,int unpack)
     /* Next step is to find all of the SENSORNAME and POINTINGANGLE objects within the POINTINGANGLES group. */
     float pointAngleVal [3] = { 1000.0f, 1000.0f, 1000.0f };
 
-    int i;
     int j;
     char* pointer1 = productmeta0SubStr1;
 
@@ -568,7 +572,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
     /* DONE WITH POINTING ANGLES AND SOLAR GEOMETRY */
 
 
-    /* LTC May 24, 2017: We need to create a string that contains "_g%d" where "%d" is the number of the current granule.
+    /* LTC May 24, 2017: We need to create a string that contains suffix "_g%d" where "%d" is the number of the current granule.
      * This is needed for the copyDimensions function calls to create unique dimensions for each of the datasets.
      */
 
@@ -949,6 +953,47 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
 
     }// else (packed)
+
+    /* LTC May 26, 2017: Add the units attribute to all of the radiance fields */
+
+    if ( imageData1ID )
+    {
+        for ( i = 0; i < 4; i++ )
+        {
+            status = H5LTset_attribute_string( VNIRgroupID, radianceNames[i], "Units", "Watts/m^2/micrometer/steradian");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to set string attribute. i = %d\n", i);
+                goto cleanupFail;
+            }
+        }
+    }
+
+    if ( imageData4ID )
+    {
+        for ( i = 0; i < 6; i++ )
+        {
+            status = H5LTset_attribute_string( SWIRgroupID, radianceNames[i+4], "Units", "Watts/m^2/micrometer/steradian");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to set string attribute. i = %d\n", i);
+                goto cleanupFail;
+            }
+        }
+    }
+
+    if ( imageData10ID )
+    {
+        for ( i = 0; i < 5; i++ )
+        {
+            status = H5LTset_attribute_string( TIRgroupID, radianceNames[i+10], "Units", "Watts/m^2/micrometer/steradian");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to set string attribute. i = %d\n", i);
+                goto cleanupFail;
+            }
+        }
+    }
 
     // Copy the dimensions
     if(vnir_grp_ref >0)
