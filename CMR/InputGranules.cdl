@@ -1,0 +1,19 @@
+netcdf InputGranules {
+//
+// InputGranules attribute in fusion product will be useful to search and
+// re-use metadata of base product because NASA CMR allows you to search
+// metadata by granule name.
+//
+// Input granule can be searched with file name.
+// curl "https://cmr.earthdata.nasa.gov/search/granules?readable_granule_name\[\]=MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf"
+//
+// The above call will return a unique granule id like "G136805412-LARC"
+// curl "https://cmr.earthdata.nasa.gov/search/concepts/G136805412-LARC.echo10"
+//
+// The above API call will return granule metadata in ECHO10 that includes
+// <Orbit/> information. Fusion product can reuse the same <Orbit/> information
+// for CMR ingestion.
+
+// global attributes:
+   :InputGranules = "MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf,AST_L1T_00307032007162020_20150520034221_121033.hdf";
+}
