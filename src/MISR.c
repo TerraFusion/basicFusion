@@ -39,7 +39,7 @@ int MISR( char* argv[],int unpack )
     char *hgeo_gname="HRGeolocation";
     char *data_gname="Data Fields";
     char *sensor_geom_gname ="Sensor_Geometry";
-    hid_t status = 0;
+    herr_t status = 0;
     int32 statusn = 0;
     int fail = 0;
     herr_t errStatus = 0;
@@ -223,9 +223,18 @@ int MISR( char* argv[],int unpack )
             }
 
 
+
             tempFloat = -999.0f;
             if ( correctedName == NULL )
                 correctedName = correct_name(radiance_name[j]);
+
+            // Set the units attribute
+            status = H5LTset_attribute_string( h5DataGroupID, correctedName, "Units", "Watts/m^2/micrometer/steradian");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to set string attribute. i = %d j = %d\n", i, j);
+                goto cleanupFail;
+            }
 
             errStatus = H5LTset_attribute_float( h5DataGroupID, correctedName,"_FillValue",&tempFloat,1);
 
