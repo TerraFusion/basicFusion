@@ -5,6 +5,7 @@
   </InputGranules>
   <DataGranule>
     <SizeMBDataGranule>0.0060453414917</SizeMBDataGranule>
+    <ProducerGranuleId>InputGranules.h5</ProducerGranuleId>
     <ProductionDateTime>2017-05-25T10:45:10.994598Z</ProductionDateTime>
   </DataGranule>
   <Temporal>

@@ -909,13 +909,20 @@ def get_data_granule(file_path):
     #get file size
     f_size = os.path.getsize(file_path) / (1024*1024.0)
     print("file size: " + str(f_size) + "MB") 
-    #construct xml element
+    #construct xml elements
     e = etree.Element('DataGranule')
     fs = etree.Element('SizeMBDataGranule')
-    fs.text = str(f_size)
+    fs.text = str(f_size) 
+    pgi = etree.Element('ProducerGranuleId')
+    #check if it's a path in filename
+    if(file_path.count('/') == 0):
+        pgi.text = file_path
+    else:
+        pgi.text = file_path[file_path.rfind('/') + 1 : ]
     dt = etree.Element('ProductionDateTime')
     dt.text = formatted_dstring
     e.append(fs)
+    e.append(pgi)
     e.append(dt)
     return e
 
