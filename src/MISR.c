@@ -15,11 +15,11 @@ int MISR( char* argv[],int unpack )
      *      VARIABLES       *
      ****************************************/
 
-        /* File IDs */
+    /* File IDs */
 
-    char *camera_name[9]={"AA","AF","AN","BA","BF","CA","CF","DA","DF"};
-    char *band_name[4]={"RedBand","BlueBand","GreenBand","NIRBand"};
-    char *radiance_name[4]={"Red Radiance/RDQI","Blue Radiance/RDQI","Green Radiance/RDQI","NIR Radiance/RDQI"};
+    char *camera_name[9]= {"AA","AF","AN","BA","BF","CA","CF","DA","DF"};
+    char *band_name[4]= {"RedBand","BlueBand","GreenBand","NIRBand"};
+    char *radiance_name[4]= {"Red Radiance/RDQI","Blue Radiance/RDQI","Green Radiance/RDQI","NIR Radiance/RDQI"};
     char *band_geom_name[36] =     {"AaAzimuth","AaGlitter","AaScatter","AaZenith",
                                     "AfAzimuth","AfGlitter","AfScatter","AfZenith",
                                     "AnAzimuth","AnGlitter","AnScatter","AnZenith",
@@ -28,7 +28,8 @@ int MISR( char* argv[],int unpack )
                                     "CaAzimuth","CaGlitter","CaScatter","CaZenith",
                                     "CfAzimuth","CfGlitter","CfScatter","CfZenith",
                                     "DaAzimuth","DaGlitter","DaScatter","DaZenith",
-                                    "DfAzimuth","DfGlitter","DfScatter","DfZenith"};
+                                    "DfAzimuth","DfGlitter","DfScatter","DfZenith"
+                                   };
 
     char *solar_geom_name[2] = {"SolarAzimuth","SolarZenith"};
     char *geo_name[2] = {"GeoLatitude","GeoLongitude"};
@@ -49,7 +50,7 @@ int MISR( char* argv[],int unpack )
     /******************
      * geo data files *
      ******************/
-        /* File IDs */
+    /* File IDs */
     int32 h4FileID = 0;
     int32 inHFileID = 0;
     int32 h4_status = 0;
@@ -57,18 +58,18 @@ int MISR( char* argv[],int unpack )
     int32 gmpFileID = 0;
     int32 hgeoFileID = 0;
 
-        /* Group IDs */
+    /* Group IDs */
     hid_t MISRrootGroupID = 0;
     hid_t geoGroupID = 0;
     hid_t hr_geoGroupID = 0;
-        /* Dataset IDs */
+    /* Dataset IDs */
     hid_t latitudeID = 0;
     hid_t longitudeID = 0;
     hid_t hr_latitudeID = 0;
     hid_t hr_longitudeID = 0;
 
 
-        /* Group IDs */
+    /* Group IDs */
     hid_t gmpSolarGeoGroupID = 0;
 
     hid_t solarAzimuthID = 0;
@@ -80,7 +81,7 @@ int MISR( char* argv[],int unpack )
 
     hid_t h5DataFieldID = 0;
     hid_t h5SensorGeomFieldID = 0;
-        
+
 // Just for debugging purpose
 //unpack = 0;
     createGroup( &outputFile, &MISRrootGroupID, "MISR" );
@@ -90,18 +91,21 @@ int MISR( char* argv[],int unpack )
         return EXIT_FAILURE;
     }
 
-    if(H5LTset_attribute_string(outputFile,"MISR","FilePath",argv[1])<0) {
+    if(H5LTset_attribute_string(outputFile,"MISR","FilePath",argv[1])<0)
+    {
         FATAL_MSG("Cannot add the time stamp\n");
         goto cleanupFail;
     }
 
     // Extract the time substring from the file path
     fileTime = getTime( argv[1], 4 );
-    if(H5LTset_attribute_string(outputFile,"MISR","GranuleTime",fileTime)<0) {
+    if(H5LTset_attribute_string(outputFile,"MISR","GranuleTime",fileTime)<0)
+    {
         FATAL_MSG("Cannot add the time stamp\n");
         goto cleanupFail;
     }
-    free(fileTime); fileTime = NULL;
+    free(fileTime);
+    fileTime = NULL;
 
     geoFileID = SDstart( argv[10], DFACC_READ );
     if ( geoFileID == -1 )
@@ -127,8 +131,9 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
 
-        /* Loop all 9 cameras */
-    for(int i = 0; i<9;i++) {
+    /* Loop all 9 cameras */
+    for(int i = 0; i<9; i++)
+    {
 
         h4FileID = SDstart(argv[i+1],DFACC_READ);
         if ( h4FileID < 0 )
@@ -143,14 +148,15 @@ int MISR( char* argv[],int unpack )
 
         /* Need to use the H interface to obtain scale_factor */
         inHFileID = Hopen(argv[i+1],DFACC_READ, 0);
-        if(inHFileID <0) {
+        if(inHFileID <0)
+        {
             inHFileID = 0;
             FATAL_MSG("Failed to start the H interface.\n");
             goto cleanupFail;
         }
-         /*
-          *          *    * Initialize the V interface.
-          *                   *       */
+        /*
+         *          *    * Initialize the V interface.
+         *                   *       */
         h4_status = Vstart (inHFileID);
         if (h4_status < 0)
         {
@@ -176,10 +182,12 @@ int MISR( char* argv[],int unpack )
         }
 
         /* Need to get all the four band data */
-        for (int j = 0; j<4;j++) {
+        for (int j = 0; j<4; j++)
+        {
 
             // If we choose to unpack the data.
-            if(unpack == 1) {
+            if(unpack == 1)
+            {
 
                 float scale_factor = -1.;
                 scale_factor = Obtain_scale_factor(inHFileID,band_name[j]);
@@ -189,18 +197,19 @@ int MISR( char* argv[],int unpack )
                     goto cleanupFail;
                 }
                 h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j],  &correctedName,DFNT_UINT16,
-                                                h4FileID,scale_factor);
+                                 h4FileID,scale_factor);
                 if ( h5DataFieldID == EXIT_FAILURE )
                 {
                     FATAL_MSG("MISR readThenWrite Unpacking function failed.\n");
                     h5DataFieldID = 0;
                     goto cleanupFail;
                 }
-             tempFloat = -999.0;
- 
+                tempFloat = -999.0;
+
 
             }
-            else {
+            else
+            {
                 //correctedName = correct_name(radiance_name[j]);
 
                 h5DataFieldID =  readThenWrite( NULL, h5DataGroupID, radiance_name[j], DFNT_UINT16,
@@ -212,7 +221,7 @@ int MISR( char* argv[],int unpack )
                     goto cleanupFail;
                 }
             }
- 
+
 
             tempFloat = -999.0f;
             if ( correctedName == NULL )
@@ -225,18 +234,19 @@ int MISR( char* argv[],int unpack )
                 FATAL_MSG("Failed to write an HDF5 attribute.\n");
                 goto cleanupFail;
             }
-            
+
             // Copy over the dimensions
-            errStatus = copyDimension( h4FileID, radiance_name[j], outputFile, h5DataFieldID);
+            errStatus = copyDimension( NULL, h4FileID, radiance_name[j], outputFile, h5DataFieldID);
             if ( errStatus == FAIL )
             {
                 FATAL_MSG("Failed to copy dimensions.\n");
                 goto cleanupFail;
             }
-           
-            H5Dclose(h5DataFieldID); h5DataFieldID = 0;
-            if(correctedName!=NULL) 
-               free(correctedName); 
+
+            H5Dclose(h5DataFieldID);
+            h5DataFieldID = 0;
+            if(correctedName!=NULL)
+                free(correctedName);
             correctedName = NULL;
         } // End for (first inner j loop)
 
@@ -249,18 +259,19 @@ int MISR( char* argv[],int unpack )
         }
 
         /* Inserting the "AaAzimuth", "AaGlitter", "AaScatter"... etc. */
-        for (int j = 0; j<4;j++) {
+        for (int j = 0; j<4; j++)
+        {
             h5SensorGeomFieldID = readThenWrite( NULL,h5SensorGeomGroupID,band_geom_name[i*4+j],DFNT_FLOAT64,
-                                                H5T_NATIVE_DOUBLE,gmpFileID);
+                                                 H5T_NATIVE_DOUBLE,gmpFileID);
             if ( h5SensorGeomFieldID == EXIT_FAILURE )
-            {   
+            {
                 FATAL_MSG("MISR readThenWrite function failed.\n");
                 h5SensorGeomFieldID = 0;
                 goto cleanupFail;
             }
 
             // Copy over the dimensions
-            errStatus = copyDimension( gmpFileID, band_geom_name[i*4+j], outputFile, h5SensorGeomFieldID);
+            errStatus = copyDimension( NULL, gmpFileID, band_geom_name[i*4+j], outputFile, h5SensorGeomFieldID);
             if ( errStatus == FAIL )
             {
                 FATAL_MSG("Failed to copy dimensions.\n");
@@ -274,26 +285,32 @@ int MISR( char* argv[],int unpack )
             {
                 FATAL_MSG("Failed to write an HDF5 attribute.\n");
                 goto cleanupFail;
-            }        
-            status = H5Dclose(h5SensorGeomFieldID); h5SensorGeomFieldID = 0;
+            }
+            status = H5Dclose(h5SensorGeomFieldID);
+            h5SensorGeomFieldID = 0;
             if ( status ) WARN_MSG("H5Dclose\n");
-            free(correctedName); correctedName = NULL;
+            free(correctedName);
+            correctedName = NULL;
 
 
         } // End for (second inner j loop)
 
-        statusn = SDend(h4FileID); h4FileID = 0;
+        statusn = SDend(h4FileID);
+        h4FileID = 0;
         if ( statusn ) WARN_MSG("SDend.\n");
-         /* No need inHFileID, close H and V interfaces */
+        /* No need inHFileID, close H and V interfaces */
         h4_status = Vend(inHFileID);
         if ( h4_status ) WARN_MSG("Vend\n");
         h4_status = Hclose(inHFileID);
         if ( h4_status ) WARN_MSG("Hclose\n");
-        status = H5Gclose(h5DataGroupID); h5DataGroupID = 0;
+        status = H5Gclose(h5DataGroupID);
+        h5DataGroupID = 0;
         if ( status ) WARN_MSG("H5Gclose\n");
-        status = H5Gclose(h5SensorGeomGroupID); h5SensorGeomGroupID = 0;
+        status = H5Gclose(h5SensorGeomGroupID);
+        h5SensorGeomGroupID = 0;
         if ( status ) WARN_MSG("H5Gclose\n");
-        status = H5Gclose(h5GroupID); h5GroupID = 0;
+        status = H5Gclose(h5GroupID);
+        h5GroupID = 0;
         if ( status ) WARN_MSG("H5Gclose\n");
     }
 
@@ -323,7 +340,7 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( geoFileID, geo_name[0], outputFile, latitudeID);
+    errStatus = copyDimension( NULL, geoFileID, geo_name[0], outputFile, latitudeID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -331,7 +348,8 @@ int MISR( char* argv[],int unpack )
     }
 
 
-    free(correctedName); correctedName = NULL;
+    free(correctedName);
+    correctedName = NULL;
 
     longitudeID = readThenWrite( NULL,geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
     if ( longitudeID == EXIT_FAILURE )
@@ -350,14 +368,15 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( geoFileID, geo_name[1], outputFile, longitudeID);
+    errStatus = copyDimension( NULL, geoFileID, geo_name[1], outputFile, longitudeID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
         goto cleanupFail;
     }
 
-    free(correctedName); correctedName = NULL;
+    free(correctedName);
+    correctedName = NULL;
 
     //HR latlon
     createGroup( &MISRrootGroupID, &hr_geoGroupID, hgeo_gname );
@@ -386,7 +405,7 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( hgeoFileID, geo_name[0], outputFile, hr_latitudeID);
+    errStatus = copyDimension( NULL, hgeoFileID, geo_name[0], outputFile, hr_latitudeID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -394,7 +413,8 @@ int MISR( char* argv[],int unpack )
     }
 
 
-    free(correctedName); correctedName = NULL;
+    free(correctedName);
+    correctedName = NULL;
 
     hr_longitudeID = readThenWrite( NULL,hr_geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
     if ( hr_longitudeID == EXIT_FAILURE )
@@ -413,14 +433,15 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( hgeoFileID, geo_name[1], outputFile, hr_longitudeID);
+    errStatus = copyDimension( NULL, hgeoFileID, geo_name[1], outputFile, hr_longitudeID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
         goto cleanupFail;
     }
 
-    free(correctedName); correctedName = NULL;
+    free(correctedName);
+    correctedName = NULL;
 
     createGroup( &MISRrootGroupID, &gmpSolarGeoGroupID, solar_geom_gname );
     if ( gmpSolarGeoGroupID == EXIT_FAILURE )
@@ -439,7 +460,7 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
     // Copy over the dimensions
-    errStatus = copyDimension( gmpFileID, solar_geom_name[0], outputFile, solarAzimuthID);
+    errStatus = copyDimension( NULL, gmpFileID, solar_geom_name[0], outputFile, solarAzimuthID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -464,7 +485,8 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
 
-    free(correctedName); correctedName = NULL;
+    free(correctedName);
+    correctedName = NULL;
 
     solarZenithID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
     if ( solarZenithID == EXIT_FAILURE )
@@ -475,7 +497,7 @@ int MISR( char* argv[],int unpack )
     }
 
     // Copy over the dimensions
-    errStatus = copyDimension( gmpFileID, solar_geom_name[1], outputFile, solarZenithID);
+    errStatus = copyDimension( NULL, gmpFileID, solar_geom_name[1], outputFile, solarZenithID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -491,15 +513,16 @@ int MISR( char* argv[],int unpack )
         goto cleanupFail;
     }
 
-    free(correctedName); correctedName = NULL;
+    free(correctedName);
+    correctedName = NULL;
 
     if ( 0 )
     {
-        cleanupFail:
+cleanupFail:
         fail = 1;
     }
 
-    
+
     if (MISRrootGroupID) status = H5Gclose(MISRrootGroupID);
     if ( geoFileID ) statusn = SDend(geoFileID);
     if ( hgeoFileID ) statusn = SDend(hgeoFileID);
@@ -521,7 +544,7 @@ int MISR( char* argv[],int unpack )
     if ( gmpSolarGeoGroupID ) status = H5Gclose(gmpSolarGeoGroupID);
     if ( solarAzimuthID ) status = H5Dclose(solarAzimuthID);
     if ( solarZenithID ) status = H5Dclose(solarZenithID);
-    if ( correctedName ) free(correctedName);    
+    if ( correctedName ) free(correctedName);
     if ( fileTime ) free(fileTime);
     if ( fail ) return EXIT_FAILURE;
 
@@ -529,7 +552,8 @@ int MISR( char* argv[],int unpack )
 }
 
 
-float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
+float Obtain_scale_factor(int32 h4_file_id, char* band_name)
+{
 
     int32 band_group_ref = -1;
     int32 sub_group_ref = -1;
@@ -552,21 +576,24 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
     band_group_ref = H4ObtainLoneVgroupRef(h4_file_id,band_name);
     assert(band_group_ref >0);
 
-    
+
     band_group_id = Vattach(h4_file_id, band_group_ref, "r");
     num_gobjects = Vntagrefs(band_group_id);
     assert(num_gobjects >0);
 
 
-    for (int i = 0; i < num_gobjects; i++) {
+    for (int i = 0; i < num_gobjects; i++)
+    {
 
-        if (Vgettagref (band_group_id, i, &sub_group_tag, &sub_group_ref) == FAIL) {
+        if (Vgettagref (band_group_id, i, &sub_group_tag, &sub_group_ref) == FAIL)
+        {
             FATAL_MSG("Vgetagref failed.\n");
             Vdetach (band_group_id);
             return -1.0;
         }
 
-        if (Visvg (band_group_id, sub_group_ref) == TRUE) {
+        if (Visvg (band_group_id, sub_group_ref) == TRUE)
+        {
 
             sub_group_id = Vattach(h4_file_id, sub_group_ref, "r");
             status = Vgetnamelen(sub_group_id, &name_len);
@@ -578,34 +605,40 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                 return -1.0;
             }
             status = Vgetname (sub_group_id, sub_group_name);
-            if(status == FAIL) {
+            if(status == FAIL)
+            {
                 FATAL_MSG("Vgetname failed !\n");
                 Vdetach(sub_group_id);
                 Vdetach(band_group_id);
                 free(sub_group_name);
                 return -1.0;
             }
-            if(strncmp(sub_group_name,grid_attr_group_name,strlen(grid_attr_group_name))==0) {
-                
-                 int num_sgobjects = Vntagrefs(sub_group_id);
-                 assert(num_sgobjects >0);
+            if(strncmp(sub_group_name,grid_attr_group_name,strlen(grid_attr_group_name))==0)
+            {
 
-                 for(int j = 0; j<num_sgobjects;j++) {
-                    if (Vgettagref (sub_group_id, j, &sub_group_obj_tag, &sub_group_obj_ref) == FAIL) {
-                          FATAL_MSG("Vgetagref failed.\n");
-                          Vdetach (sub_group_id);
-                          Vdetach(band_group_id);
-                          free(sub_group_name);
-                          return -1.0;
+                int num_sgobjects = Vntagrefs(sub_group_id);
+                assert(num_sgobjects >0);
+
+                for(int j = 0; j<num_sgobjects; j++)
+                {
+                    if (Vgettagref (sub_group_id, j, &sub_group_obj_tag, &sub_group_obj_ref) == FAIL)
+                    {
+                        FATAL_MSG("Vgetagref failed.\n");
+                        Vdetach (sub_group_id);
+                        Vdetach(band_group_id);
+                        free(sub_group_name);
+                        return -1.0;
                     }
 
-                    if(Visvs(sub_group_id,sub_group_obj_ref)==TRUE) {
+                    if(Visvs(sub_group_id,sub_group_obj_ref)==TRUE)
+                    {
 
                         char vdata_name[VSNAMELENMAX];
                         int32 vdata_id = -1;
 
                         vdata_id = VSattach (h4_file_id, sub_group_obj_ref, "r");
-                        if (vdata_id == FAIL){ 
+                        if (vdata_id == FAIL)
+                        {
                             FATAL_MSG("VSattach failed.\n");
                             Vdetach (sub_group_id);
                             Vdetach(band_group_id);
@@ -613,7 +646,8 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                             return -1.0;
                         }
 
-                        if (VSgetname (vdata_id, vdata_name) == FAIL) {
+                        if (VSgetname (vdata_id, vdata_name) == FAIL)
+                        {
                             VSdetach (vdata_id);
                             Vdetach (sub_group_id);
                             Vdetach(band_group_id);
@@ -622,7 +656,8 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                             return -1.0;
                         }
 
-                        if(strncmp(scale_factor_name,vdata_name,strlen(scale_factor_name)) == 0){
+                        if(strncmp(scale_factor_name,vdata_name,strlen(scale_factor_name)) == 0)
+                        {
 
                             int32 fieldsize=-1;
                             int32 nelms = -1;
@@ -630,7 +665,8 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
 
                             // Obtain field size
                             fieldsize = VFfieldesize (vdata_id, 0);
-                            if (fieldsize == FAIL) {
+                            if (fieldsize == FAIL)
+                            {
                                 VSdetach (vdata_id);
                                 Vdetach (sub_group_id);
                                 Vdetach(band_group_id);
@@ -639,7 +675,8 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                                 return -1.0;
                             }
                             fieldtype = VFfieldtype(vdata_id,0);
-                            if(fieldtype == FAIL) {
+                            if(fieldtype == FAIL)
+                            {
                                 VSdetach (vdata_id);
                                 Vdetach (sub_group_id);
                                 Vdetach(band_group_id);
@@ -650,17 +687,19 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
 
                             // Obtain number of elements
                             nelms = VSelts (vdata_id);
-                            if (nelms == FAIL) {
+                            if (nelms == FAIL)
+                            {
                                 VSdetach (vdata_id);
                                 Vdetach (sub_group_id);
                                 Vdetach(band_group_id);
                                 free(sub_group_name);
                                 FATAL_MSG("VSelts failed.\n");
-                                 return -1.0;
+                                return -1.0;
                             }
 
                             // Initialize the seeking process
-                            if (VSseek (vdata_id, 0) == FAIL) {
+                            if (VSseek (vdata_id, 0) == FAIL)
+                            {
                                 VSdetach (vdata_id);
                                 Vdetach (sub_group_id);
                                 Vdetach(band_group_id);
@@ -669,8 +708,9 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
                                 return -1.0;
                             }
 
- // The field to seek is CERE_META_FIELD_NAME
-                            if (VSsetfields (vdata_id, "AttrValues") == FAIL) {
+// The field to seek is CERE_META_FIELD_NAME
+                            if (VSsetfields (vdata_id, "AttrValues") == FAIL)
+                            {
                                 VSdetach (vdata_id);
                                 Vdetach (sub_group_id);
                                 Vdetach(band_group_id);
@@ -681,7 +721,8 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
 
                             // Read this vdata field value
                             if (VSread(vdata_id, (uint8 *) &sc, 1,FULL_INTERLACE)
-                                == FAIL) {
+                                    == FAIL)
+                            {
                                 VSdetach (vdata_id);
                                 Vdetach (sub_group_id);
                                 Vdetach(band_group_id);
@@ -715,8 +756,9 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
 
 #if 0
 //float Obtain_scale_factor(int32 h4_file_id, char* band_name, char *radiance_name) {
-float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
- 
+float Obtain_scale_factor(int32 h4_file_id, char* band_name)
+{
+
     int32 band_group_ref = -1;
     int32 sub_group_ref = -1;
     int32 sub_group_tag = -1;
@@ -731,7 +773,7 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
     uint16 name_len = 0;
 
     int32 status = -1;
-    
+
     /* Obtain the vgroup reference number of this band */
     band_group_ref = H4ObtainLoneVgroupRef(h4_file_id,band_name);
     assert(band_group_ref >0);
@@ -739,27 +781,31 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name) {
     band_group_id = Vattach(h4_file_id, band_group_ref, "r");
     num_gobjects = Vntagrefs(band_group_id);
     assert(num_gobjects >0);
-    
-    for (int i = 0; i < num_gobjects; i++) {
-    
-        
-        if (Vgettagref (band_group_id, i, &sub_group_tag, &sub_group_ref) == FAIL) {
+
+    for (int i = 0; i < num_gobjects; i++)
+    {
+
+
+        if (Vgettagref (band_group_id, i, &sub_group_tag, &sub_group_ref) == FAIL)
+        {
             Vdetach (band_group_id);
             return -1.0;
         }
 
-        if (Visvg (band_group_id, sub_group_ref) == TRUE) {
-            
+        if (Visvg (band_group_id, sub_group_ref) == TRUE)
+        {
+
             sub_group_id = Vattach (h4_file_id, sub_group_ref, "r");
             status = Vgetnamelen(sub_group_id, &name_len);
             sub_group_name = (char *) HDmalloc(sizeof(char *) * (name_len+1));
             if (sub_group_name == NULL)
             {
-             fprintf(stderr, "Not enough memory for vgroup_name!\n");
-             return -1.0;
+                fprintf(stderr, "Not enough memory for vgroup_name!\n");
+                return -1.0;
             }
             status = Vgetname (sub_group_id, sub_group_name);
-            if(strncmp(sub_group_name,grid_attr_group_name,strlen(grid_attr_group_name))==0) {
+            if(strncmp(sub_group_name,grid_attr_group_name,strlen(grid_attr_group_name))==0)
+            {
                 sc_attr_index = Vfindattr(sub_group_id,scale_factor_name);
                 assert(sc_attr_index !=FAIL);
                 status = Vgetattr(sub_group_id,sc_attr_index,&sc);
