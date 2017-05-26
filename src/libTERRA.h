@@ -56,6 +56,7 @@ typedef struct GDateInfo
  *********************/
 extern hid_t outputFile;
 extern double* TAI93toUTCoffset; // The array containing the TAI93 to UTC offset values
+int numDigits(int digit);
 
 int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum );
 //int CERES( char* argv[] ,int index,int ceres_fm_count);

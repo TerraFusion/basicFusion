@@ -2553,7 +2553,6 @@ herr_t convert_SD_Attrs(int32 sd_id,hid_t h5parobj_id,char*h5obj_name,char*sds_n
     char    dummy_sds_name[H4_MAX_NC_NAME];
     char    attr_name[H4_MAX_NC_NAME];
     char*   attr_values= NULL;
-    herr_t   h5_status;
 
 
     if(sds_name == NULL)
@@ -5326,4 +5325,21 @@ int utc_time_diff(struct tm start_date, struct tm end_date)
     seconds = (int)(difftime(end_time, start_time)) ;
 
     return seconds;
+}
+
+
+/* This function is self-explanatory */
+int numDigits(int digit)
+{
+    if ( digit < 0 ) digit = ( digit == INT_MAX ) ? INT_MIN : -digit;
+    if ( digit < 10 ) return 1;
+    if ( digit < 100 ) return 2;
+    if ( digit < 1000) return 3;
+    if ( digit < 10000) return 4;
+    if ( digit < 100000) return 5;
+    if ( digit < 1000000) return 6;
+    if ( digit < 10000000) return 7;
+    if ( digit < 100000000) return 8;
+    if ( digit < 1000000000) return 9;
+    return 10;
 }

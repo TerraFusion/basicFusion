@@ -635,7 +635,7 @@ cleanupFail:
         goto cleanupFail;
     }
     // copy the dimension scales
-    status = copyDimension( fileID, "Time_Of_Observation", outputFile, timeDatasetID );
+    status = copyDimension( NULL, fileID, "Time_Of_Observation", outputFile, timeDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -657,7 +657,7 @@ cleanupFail:
         goto cleanupFail;
     }
     // copy the dimension scales
-    status = copyDimension( fileID, "CERES viewing zenith at surface", outputFile, viewZenithDatasetID );
+    status = copyDimension( NULL, fileID, "CERES viewing zenith at surface", outputFile, viewZenithDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -679,7 +679,7 @@ cleanupFail:
         goto cleanupFail;
     }
     // copy the dimension scales
-    status = copyDimension( fileID, "CERES solar zenith at surface", outputFile, solarZenithDatasetID );
+    status = copyDimension( NULL, fileID, "CERES solar zenith at surface", outputFile, solarZenithDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -701,7 +701,7 @@ cleanupFail:
         goto cleanupFail;
     }
     // copy the dimension scales
-    status = copyDimension( fileID, "CERES relative azimuth at surface", outputFile, relativeAzimuthDatasetID );
+    status = copyDimension( NULL, fileID, "CERES relative azimuth at surface", outputFile, relativeAzimuthDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -723,7 +723,7 @@ cleanupFail:
         goto cleanupFail;
     }
     // copy the dimension scales
-    status = copyDimension( fileID, "CERES viewing azimuth at surface wrt North", outputFile, viewAzimuthDatasetID );
+    status = copyDimension( NULL, fileID, "CERES viewing azimuth at surface wrt North", outputFile, viewAzimuthDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -754,7 +754,7 @@ cleanupFail:
         goto cleanupFail;
     }
     // copy the dimension scales
-    status = copyDimension( fileID, "CERES SW filtered radiance - upwards", outputFile, SWFilteredDatasetID );
+    status = copyDimension( NULL, fileID, "CERES SW filtered radiance - upwards", outputFile, SWFilteredDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -784,7 +784,7 @@ cleanupFail:
         goto cleanupFail;
     }
 
-    status = copyDimension( fileID, "CERES WN filtered radiance - upwards", outputFile, WNFilteredDatasetID );
+    status = copyDimension( NULL, fileID, "CERES WN filtered radiance - upwards", outputFile, WNFilteredDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -813,7 +813,7 @@ cleanupFail:
         FATAL_MSG("Failed to insert CERES TOT Filtered Radiances Upwards attributes.\n");
         goto cleanupFail;
     }
-    status = copyDimension( fileID, "CERES TOT filtered radiance - upwards", outputFile, TOTFilteredDatasetID );
+    status = copyDimension( NULL, fileID, "CERES TOT filtered radiance - upwards", outputFile, TOTFilteredDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -867,7 +867,7 @@ cleanupFail:
             goto cleanupFail;
         }
     }
-    status = copyDimension( fileID, "Radiance and Mode flags", outputFile, RadianceModeFlagDatasetID );
+    status = copyDimension( NULL, fileID, "Radiance and Mode flags", outputFile, RadianceModeFlagDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -899,7 +899,7 @@ cleanupFail:
         goto cleanupFail;
     }
     // copy the dimension scales
-    status = copyDimension( fileID, "CERES SW radiance - upwards", outputFile, SWUnfilteredDatasetID );
+    status = copyDimension( NULL, fileID, "CERES SW radiance - upwards", outputFile, SWUnfilteredDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -928,7 +928,7 @@ cleanupFail:
         FATAL_MSG("Failed to insert CERES TOT Filtered Radiances Upwards attributes.\n");
         goto cleanupFail;
     }
-    status = copyDimension( fileID, "CERES LW radiance - upwards", outputFile, LWUnfilteredDatasetID );
+    status = copyDimension( NULL, fileID, "CERES LW radiance - upwards", outputFile, LWUnfilteredDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -958,7 +958,7 @@ cleanupFail:
         goto cleanupFail;
     }
 
-    status = copyDimension( fileID, "CERES WN radiance - upwards", outputFile, WNUnfilteredDatasetID );
+    status = copyDimension( NULL, fileID, "CERES WN radiance - upwards", outputFile, WNUnfilteredDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -987,7 +987,7 @@ cleanupFail:
         FATAL_MSG("Failed to insert CERES Colatitude of CERES FOV at TOA attributes.\n");
         goto cleanupFail;
     }
-    status = copyDimension( fileID, "Colatitude of CERES FOV at TOA", outputFile, colatitudeDatasetID );
+    status = copyDimension( NULL, fileID, "Colatitude of CERES FOV at TOA", outputFile, colatitudeDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
@@ -1016,7 +1016,7 @@ cleanupFail:
         goto cleanupFail;
     }
 
-    status = copyDimension( fileID, "Longitude of CERES FOV at TOA", outputFile, longitudeDatasetID );
+    status = copyDimension( NULL, fileID, "Longitude of CERES FOV at TOA", outputFile, longitudeDatasetID );
     if ( status == FAIL )
     {
         FATAL_MSG("Failed to copy dimensions.\n");
