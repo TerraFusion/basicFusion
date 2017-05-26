@@ -133,7 +133,11 @@ int ASTER( char* argv[],int aster_count,int unpack)
         Some files will not have it.
     */
     char *vnir_grp_name ="VNIR";
+    char* swir_grp_name = "SWIR";
+    char* tir_grp_name = "TIR";
     int32 vnir_grp_ref = -1;
+    int32 swir_grp_ref = -1;
+    int32 tir_grp_ref = -1;
 // JUST FOR DEBUGGING
 //unpack=0;
 
@@ -165,6 +169,19 @@ int ASTER( char* argv[],int aster_count,int unpack)
         FATAL_MSG("Failed to obtain lone V group reference.\n");
         goto cleanupFail;
     }
+    swir_grp_ref = H4ObtainLoneVgroupRef(inHFileID,swir_grp_name);
+    if ( swir_grp_ref < 0 )
+    {
+        FATAL_MSG("Failed to obtain lone V group reference.\n");
+        goto cleanupFail;
+    }
+    tir_grp_ref = H4ObtainLoneVgroupRef(inHFileID,tir_grp_name);
+    if ( tir_grp_ref < 0 )
+    {
+        FATAL_MSG("Failed to obtain lone V group reference.\n");
+        goto cleanupFail;
+    }
+
 
     /* No need inHFileID, close H and V interfaces */
     h4_status = Vend(inHFileID);
@@ -623,7 +640,6 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
         */
 
-
         short gain_index[15];
         float band_unc = 0;
 
@@ -635,65 +651,68 @@ int ASTER( char* argv[],int aster_count,int unpack)
         }
         /* obtain the Unit conversion coefficient */
         band_unc  = unc[gain_index[4]][4];
-
-        /* SWIR */
-        imageData4ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData4",
-                       DFNT_UINT8, inFileID,unc[gain_index[4]][4] );
-        if ( imageData4ID == EXIT_FAILURE )
+        
+        if ( swir_grp_ref > 0 )
         {
-            FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
-            imageData4ID = 0;
-            goto cleanupFail;
+
+            /* SWIR */
+            imageData4ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData4",
+                           DFNT_UINT8, inFileID,unc[gain_index[4]][4] );
+            if ( imageData4ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
+                imageData4ID = 0;
+                goto cleanupFail;
+            }
+
+            imageData5ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData5",
+                           DFNT_UINT8, inFileID, unc[gain_index[5]][5] );
+            if ( imageData5ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
+                imageData5ID = 0;
+                goto cleanupFail;
+            }
+
+
+            imageData6ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData6",
+                           DFNT_UINT8, inFileID, unc[gain_index[6]][6]);
+            if ( imageData6ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
+                imageData6ID = 0;
+                goto cleanupFail;
+            }
+
+            imageData7ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData7",
+                           DFNT_UINT8, inFileID, unc[gain_index[7]][7] );
+            if ( imageData7ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
+                imageData7ID = 0;
+                goto cleanupFail;
+            }
+
+
+            imageData8ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData8",
+                           DFNT_UINT8, inFileID, unc[gain_index[8]][8]);
+            if ( imageData8ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
+                imageData8ID = 0;
+                goto cleanupFail;
+            }
+
+
+            imageData9ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData9",
+                           DFNT_UINT8, inFileID,unc[gain_index[9]][9]);
+            if ( imageData9ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
+                imageData9ID = 0;
+                goto cleanupFail;
+            }
         }
-
-        imageData5ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData5",
-                       DFNT_UINT8, inFileID, unc[gain_index[5]][5] );
-        if ( imageData5ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
-            imageData5ID = 0;
-            goto cleanupFail;
-        }
-
-
-        imageData6ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData6",
-                       DFNT_UINT8, inFileID, unc[gain_index[6]][6]);
-        if ( imageData6ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
-            imageData6ID = 0;
-            goto cleanupFail;
-        }
-
-        imageData7ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData7",
-                       DFNT_UINT8, inFileID, unc[gain_index[7]][7] );
-        if ( imageData7ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
-            imageData7ID = 0;
-            goto cleanupFail;
-        }
-
-
-        imageData8ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData8",
-                       DFNT_UINT8, inFileID, unc[gain_index[8]][8]);
-        if ( imageData8ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
-            imageData8ID = 0;
-            goto cleanupFail;
-        }
-
-
-        imageData9ID = readThenWrite_ASTER_Unpack( SWIRgroupID, "ImageData9",
-                       DFNT_UINT8, inFileID,unc[gain_index[9]][9]);
-        if ( imageData9ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
-            imageData9ID = 0;
-            goto cleanupFail;
-        }
-
 
         /* VNIR */
         if(vnir_grp_ref >0)
@@ -747,110 +766,116 @@ int ASTER( char* argv[],int aster_count,int unpack)
         }// end if(vnir_grp_ref)
 
         /* TIR */
-        imageData10ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData10",
-                        DFNT_UINT16, inFileID,unc[gain_index[10]][10] );
-        if ( imageData10ID == EXIT_FAILURE )
+        if ( tir_grp_ref > 0 )
         {
-            FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
-            imageData10ID = 0;
-            goto cleanupFail;
-        }
+            imageData10ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData10",
+                            DFNT_UINT16, inFileID,unc[gain_index[10]][10] );
+            if ( imageData10ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
+                imageData10ID = 0;
+                goto cleanupFail;
+            }
 
 
-        imageData11ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData11",
-                        DFNT_UINT16, inFileID, unc[gain_index[11]][11] );
-        if ( imageData11ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
-            imageData11ID = 0;
-            goto cleanupFail;
-        }
+            imageData11ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData11",
+                            DFNT_UINT16, inFileID, unc[gain_index[11]][11] );
+            if ( imageData11ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
+                imageData11ID = 0;
+                goto cleanupFail;
+            }
 
 
-        imageData12ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData12",
-                        DFNT_UINT16, inFileID, unc[gain_index[12]][12] );
-        if ( imageData12ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
-            imageData12ID = 0;
-            goto cleanupFail;
-        }
+            imageData12ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData12",
+                            DFNT_UINT16, inFileID, unc[gain_index[12]][12] );
+            if ( imageData12ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
+                imageData12ID = 0;
+                goto cleanupFail;
+            }
 
 
-        imageData13ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData13",
-                        DFNT_UINT16, inFileID, unc[gain_index[12]][12] );
-        if ( imageData13ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
-            imageData13ID = 0;
-            goto cleanupFail;
-        }
+            imageData13ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData13",
+                            DFNT_UINT16, inFileID, unc[gain_index[12]][12] );
+            if ( imageData13ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
+                imageData13ID = 0;
+                goto cleanupFail;
+            }
 
 
-        imageData14ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData14",
-                        DFNT_UINT16, inFileID,unc[gain_index[13]][13] );
-        if ( imageData14ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
-            imageData14ID = 0;
-            goto cleanupFail;
+            imageData14ID = readThenWrite_ASTER_Unpack( TIRgroupID, "ImageData14",
+                            DFNT_UINT16, inFileID,unc[gain_index[13]][13] );
+            if ( imageData14ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
+                imageData14ID = 0;
+                goto cleanupFail;
+            }
         }
     } // end if(unpacked =1)
 
     else
     {
-        imageData4ID = readThenWrite(NULL, SWIRgroupID, "ImageData4",
-                                     DFNT_UINT8, H5T_STD_U8LE, inFileID );
-        if ( imageData4ID == EXIT_FAILURE )
+        if ( swir_grp_ref > 0 )
         {
-            FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
-            imageData4ID = 0;
-            goto cleanupFail;
-        }
+            imageData4ID = readThenWrite(NULL, SWIRgroupID, "ImageData4",
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+            if ( imageData4ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
+                imageData4ID = 0;
+                goto cleanupFail;
+            }
 
-        imageData5ID = readThenWrite(NULL, SWIRgroupID, "ImageData5",
-                                     DFNT_UINT8, H5T_STD_U8LE, inFileID );
-        if ( imageData5ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
-            imageData5ID = 0;
-            goto cleanupFail;
-        }
+            imageData5ID = readThenWrite(NULL, SWIRgroupID, "ImageData5",
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+            if ( imageData5ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
+                imageData5ID = 0;
+                goto cleanupFail;
+            }
 
-        imageData6ID = readThenWrite(NULL, SWIRgroupID, "ImageData6",
-                                     DFNT_UINT8, H5T_STD_U8LE, inFileID );
-        if ( imageData6ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
-            imageData6ID = 0;
-            goto cleanupFail;
-        }
+            imageData6ID = readThenWrite(NULL, SWIRgroupID, "ImageData6",
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+            if ( imageData6ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
+                imageData6ID = 0;
+                goto cleanupFail;
+            }
 
-        imageData7ID = readThenWrite(NULL, SWIRgroupID, "ImageData7",
-                                     DFNT_UINT8, H5T_STD_U8LE, inFileID );
-        if ( imageData7ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
-            imageData7ID = 0;
-            goto cleanupFail;
-        }
+            imageData7ID = readThenWrite(NULL, SWIRgroupID, "ImageData7",
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+            if ( imageData7ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
+                imageData7ID = 0;
+                goto cleanupFail;
+            }
 
-        imageData8ID = readThenWrite(NULL, SWIRgroupID, "ImageData8",
-                                     DFNT_UINT8, H5T_STD_U8LE, inFileID );
-        if ( imageData8ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
-            imageData8ID = 0;
-            goto cleanupFail;
-        }
+            imageData8ID = readThenWrite(NULL, SWIRgroupID, "ImageData8",
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+            if ( imageData8ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
+                imageData8ID = 0;
+                goto cleanupFail;
+            }
 
-        imageData9ID = readThenWrite(NULL, SWIRgroupID, "ImageData9",
-                                     DFNT_UINT8, H5T_STD_U8LE, inFileID );
-        if ( imageData9ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
-            imageData9ID = 0;
-            goto cleanupFail;
+            imageData9ID = readThenWrite(NULL, SWIRgroupID, "ImageData9",
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+            if ( imageData9ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
+                imageData9ID = 0;
+                goto cleanupFail;
+            }
         }
 
         /* VNIR */
@@ -906,51 +931,53 @@ int ASTER( char* argv[],int aster_count,int unpack)
         } // end if(vnir_grp_ref >0)
 
         /* TIR */
-        imageData10ID = readThenWrite(NULL, TIRgroupID, "ImageData10",
-                                      DFNT_UINT16, H5T_STD_U16LE, inFileID );
-        if ( imageData10ID == EXIT_FAILURE )
+        if ( tir_grp_ref > 0 )
         {
-            FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
-            imageData10ID = 0;
-            goto cleanupFail;
-        }
+            imageData10ID = readThenWrite(NULL, TIRgroupID, "ImageData10",
+                                          DFNT_UINT16, H5T_STD_U16LE, inFileID );
+            if ( imageData10ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
+                imageData10ID = 0;
+                goto cleanupFail;
+            }
 
-        imageData11ID = readThenWrite(NULL, TIRgroupID, "ImageData11",
-                                      DFNT_UINT16, H5T_STD_U16LE, inFileID );
-        if ( imageData11ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
-            imageData11ID = 0;
-            goto cleanupFail;
-        }
+            imageData11ID = readThenWrite(NULL, TIRgroupID, "ImageData11",
+                                          DFNT_UINT16, H5T_STD_U16LE, inFileID );
+            if ( imageData11ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
+                imageData11ID = 0;
+                goto cleanupFail;
+            }
 
-        imageData12ID = readThenWrite(NULL, TIRgroupID, "ImageData12",
-                                      DFNT_UINT16, H5T_STD_U16LE, inFileID );
-        if ( imageData12ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
-            imageData12ID = 0;
-            goto cleanupFail;
-        }
+            imageData12ID = readThenWrite(NULL, TIRgroupID, "ImageData12",
+                                          DFNT_UINT16, H5T_STD_U16LE, inFileID );
+            if ( imageData12ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
+                imageData12ID = 0;
+                goto cleanupFail;
+            }
 
-        imageData13ID = readThenWrite(NULL, TIRgroupID, "ImageData13",
-                                      DFNT_UINT16, H5T_STD_U16LE, inFileID );
-        if ( imageData13ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
-            imageData13ID = 0;
-            goto cleanupFail;
-        }
+            imageData13ID = readThenWrite(NULL, TIRgroupID, "ImageData13",
+                                          DFNT_UINT16, H5T_STD_U16LE, inFileID );
+            if ( imageData13ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
+                imageData13ID = 0;
+                goto cleanupFail;
+            }
 
-        imageData14ID = readThenWrite(NULL, TIRgroupID, "ImageData14",
-                                      DFNT_UINT16, H5T_STD_U16LE, inFileID );
-        if ( imageData14ID == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
-            imageData14ID = 0;
-            goto cleanupFail;
+            imageData14ID = readThenWrite(NULL, TIRgroupID, "ImageData14",
+                                          DFNT_UINT16, H5T_STD_U16LE, inFileID );
+            if ( imageData14ID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
+                imageData14ID = 0;
+                goto cleanupFail;
+            }
         }
-
 
     }// else (packed)
 
@@ -1027,73 +1054,79 @@ int ASTER( char* argv[],int aster_count,int unpack)
         }
     }
 
-    errStatus = copyDimension(strCat, inFileID, "ImageData4", outputFile, imageData4ID);
-    if ( errStatus == FAIL )
+    if ( swir_grp_ref > 0 )
     {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension(strCat, inFileID, "ImageData5", outputFile, imageData5ID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension(strCat, inFileID, "ImageData6", outputFile, imageData6ID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension(strCat, inFileID, "ImageData7", outputFile, imageData7ID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension(strCat, inFileID, "ImageData8", outputFile, imageData8ID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension(strCat, inFileID, "ImageData9", outputFile, imageData9ID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension(strCat, inFileID, "ImageData10", outputFile, imageData10ID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension(strCat, inFileID, "ImageData11", outputFile, imageData11ID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension(strCat, inFileID, "ImageData12", outputFile, imageData12ID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension(strCat, inFileID, "ImageData13", outputFile, imageData13ID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    errStatus = copyDimension(strCat, inFileID, "ImageData14", outputFile, imageData14ID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
+        errStatus = copyDimension(strCat, inFileID, "ImageData4", outputFile, imageData4ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension(strCat, inFileID, "ImageData5", outputFile, imageData5ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension(strCat, inFileID, "ImageData6", outputFile, imageData6ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension(strCat, inFileID, "ImageData7", outputFile, imageData7ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension(strCat, inFileID, "ImageData8", outputFile, imageData8ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension(strCat, inFileID, "ImageData9", outputFile, imageData9ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
     }
 
+    if ( tir_grp_ref > 0 )
+    {
+        errStatus = copyDimension(strCat, inFileID, "ImageData10", outputFile, imageData10ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension(strCat, inFileID, "ImageData11", outputFile, imageData11ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension(strCat, inFileID, "ImageData12", outputFile, imageData12ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension(strCat, inFileID, "ImageData13", outputFile, imageData13ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+        errStatus = copyDimension(strCat, inFileID, "ImageData14", outputFile, imageData14ID);
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimensions.\n");
+            goto cleanupFail;
+        }
+    }
 
 
     /* geolocation */
