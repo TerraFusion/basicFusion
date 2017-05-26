@@ -1401,9 +1401,6 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
     return ret_value;
 }
 
-/* TODO
- * This function is giving error about the dimnames not existing. Need to fix.
- */
 int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t VNIRgeoGroupID,char*latname,char*lonname,int32 h4_type,hid_t h5_type,int32 inFileID, hid_t outputFileID, char* granuleAppend )
 {
 

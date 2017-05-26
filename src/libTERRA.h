@@ -59,9 +59,7 @@ extern double* TAI93toUTCoffset; // The array containing the TAI93 to UTC offset
 int numDigits(int digit);
 
 int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum );
-//int CERES( char* argv[] ,int index,int ceres_fm_count);
 int CERES( char* argv[],int index,int ceres_fm_count,int32*,int32*,int32*);
-//int CERES( char* argv[] ,int index);
 int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 int MODIS( char* argv[],int modis_count,int unpack );
 int ASTER( char* argv[],int aster_count,int unpack );
