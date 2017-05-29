@@ -1,0 +1,60 @@
+#!/bin/bash
+
+PROG=$(basename $0)
+
+usage() {
+cat << EOF
+
+  $PROG:   Generate Terra Fusion metadata input files from local filesystem
+
+  usage: $PROG [output-dir] [input-dirs ...]
+  
+  Examples:
+    # Make ASTER.gz MODIS.gz CERES.gz  MOPITT.gz MISR.gz in cwd directory from cwd
+    $PROG . ASTER MODIS CERES MOPITT MISR
+
+    # Make ASTER.gz in /tmp
+    $PROG /tmp ~/data/ASTER
+EOF
+}
+
+error() {
+  echo "$PROG: $*"
+  usage
+  exit -1
+}
+
+#
+# Args checks
+#
+NARGS=$#
+if [[ 'NARGS' -lt 2 ]];  then
+    error "illegal number of parameters"
+fi
+
+ODIR=$1
+[[ -d $ODIR ]] && [[ -w $ODIR ]] || error "output-dir requires a writable directory"
+
+shift
+for dir in $*; do
+  OFILE=${ODIR}/${DATESTR}-$(basename $dir).gz
+  [[ -f $OFILE ]] && error "$OFILE exists"
+done
+
+# Checks done, do the work
+DATESTR=$(date -u +%y%m%d%H%M%S)
+
+for dir in $*; do
+  OFILE=${ODIR}/${DATESTR}-$(basename $dir).gz
+  # Run the hpss queries in parallel to save time
+  ( echo "ls -lR $dir" /hpsstools/scrub_batch | awk '{print $1, $5}' | gzip > $OFILE && echo "Created $OFILE") &
+  #find $dir -type f -printf "%p %s\n" | gzip > $OFILE
+  #echo "Created $OFILE"
+done
+
+wait  # wait for the subproc's
+exit 0
+
+done
+
+
