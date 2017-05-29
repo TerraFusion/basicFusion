@@ -12,6 +12,7 @@
 
 
 int getNextLine ( char* string, FILE* const inputFile );
+herr_t updateGranList( char** granList, const char newGran[], size_t* curSize );
 
 int main( int argc, char* argv[] )
 {
@@ -43,8 +44,12 @@ int main( int argc, char* argv[] )
     char* ASTERargs[4] = {NULL};
     char* MISRargs[13] = {NULL};
 
+    char* granuleList = NULL;
+    size_t granListSize = 0;
+    char* granTempPtr = NULL;
     int status = EXIT_SUCCESS;
     int fail = 0;
+    herr_t errStatus;
 
     /* Main will assert that the lines found in the inputFiles.txt file match
      * the expected input files. This will be done using string.h's strstr() function.
@@ -64,6 +69,7 @@ int main( int argc, char* argv[] )
     char ASTERcheck[] = "AST_L1T_";
     char MISRcheck1[] = "MISR_AM1_GRP";
     char MISRcheck2[] = "MISR_AM1_AGP";
+
 
     /* MY 2016-12-21: this is added on GZ's requet. This is for solar geometry */
     char MISRcheck3[] = "MISR_AM1_GP";
@@ -223,6 +229,21 @@ int main( int argc, char* argv[] )
         goto cleanupFail;
     }
 
+    /* strrchr finds last occurance of character in a string */
+    granTempPtr = strrchr( string, '/' );
+    if ( granTempPtr == NULL )
+    {
+        FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+        goto cleanupFail;
+    }
+    errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+    if ( errStatus == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to update the granule list.\n");
+        goto cleanupFail;
+    }
+
+    /* strcmp returns 0 if the strings match */
     if ( strcmp(string, "MOP N/A" ) )
     {
         int MOPITTgranule = 1;
@@ -264,7 +285,19 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
-
+            
+            granTempPtr = strrchr( string, '/' );
+            if ( granTempPtr == NULL )
+            {
+                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+            if ( errStatus == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to update the granule list.\n");
+                goto cleanupFail;
+            }
             /* LTC Apr-7-2017 Note that if the current granule was skipped, MOPITTgranule will be decremented by MOPITT.c
                so that it contains the correct running total for number of granules that have been read.*/
             MOPITTgranule++;
@@ -283,6 +316,20 @@ int main( int argc, char* argv[] )
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
+            goto cleanupFail;
+        }
+    
+        
+        granTempPtr = strrchr( string, '/' );
+        if ( granTempPtr == NULL )
+        {
+            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+            goto cleanupFail;
+        }
+        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+        if ( errStatus == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to update the granule list.\n");
             goto cleanupFail;
         }
     }
@@ -454,6 +501,20 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
+            
+            granTempPtr = strrchr( string, '/' );
+            if ( granTempPtr == NULL )
+            {
+                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+            if ( errStatus == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to update the granule list.\n");
+                goto cleanupFail;
+            }
+
             if(CERESargs[2]) free(CERESargs[2]);
             CERESargs[2] = NULL;
             if(CERESargs[3]) free(CERESargs[3]);
@@ -472,6 +533,20 @@ int main( int argc, char* argv[] )
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
+            goto cleanupFail;
+        }
+
+        
+        granTempPtr = strrchr( string, '/' );
+        if ( granTempPtr == NULL )
+        {
+            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+            goto cleanupFail;
+        }
+        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+        if ( errStatus == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to update the granule list.\n");
             goto cleanupFail;
         }
     }
@@ -519,6 +594,20 @@ int main( int argc, char* argv[] )
                 FATAL_MSG("Failed to get MODIS line. Exiting program.\n");
                 goto cleanupFail;
             }
+            
+            
+            granTempPtr = strrchr( string, '/' );
+            if ( granTempPtr == NULL )
+            {
+                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+            if ( errStatus == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to update the granule list.\n");
+                goto cleanupFail;
+            }
 
             /*This may be MOD02HKM or MOD03, so need to check */
             if(strstr(string,MODIScheck2) !=NULL)  /*Has MOD02HKM*/
@@ -537,6 +626,19 @@ int main( int argc, char* argv[] )
                     goto cleanupFail;
                 }
 
+                
+                granTempPtr = strrchr( string, '/' );
+                if ( granTempPtr == NULL )
+                {
+                    FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                    goto cleanupFail;
+                }
+                errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+                if ( errStatus == EXIT_FAILURE )
+                {
+                    FATAL_MSG("Failed to update the granule list.\n");
+                    goto cleanupFail;
+                }
 
                 if ( strstr( string, MODIScheck3 ) == NULL )
                 {
@@ -556,6 +658,19 @@ int main( int argc, char* argv[] )
                     goto cleanupFail;
                 }
 
+
+                granTempPtr = strrchr( string, '/' );
+                if ( granTempPtr == NULL )
+                {
+                    FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                    goto cleanupFail;
+                }
+                errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+                if ( errStatus == EXIT_FAILURE )
+                {
+                    FATAL_MSG("Failed to update the granule list.\n");
+                    goto cleanupFail;
+                }
 
                 if ( strstr( string, MODIScheck4 ) == NULL )
                 {
@@ -636,6 +751,19 @@ int main( int argc, char* argv[] )
             }
 
 
+            granTempPtr = strrchr( string, '/' );
+            if ( granTempPtr == NULL )
+            {
+                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+            if ( errStatus == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to update the granule list.\n");
+                goto cleanupFail;
+            }
+
             modis_count++;
 
         }
@@ -651,6 +779,20 @@ int main( int argc, char* argv[] )
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
+            goto cleanupFail;
+        }
+
+
+        granTempPtr = strrchr( string, '/' );
+        if ( granTempPtr == NULL )
+        {
+            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+            goto cleanupFail;
+        }
+        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+        if ( errStatus == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to update the granule list.\n");
             goto cleanupFail;
         }
     }
@@ -705,6 +847,20 @@ int main( int argc, char* argv[] )
                     FATAL_MSG("Failed to get ASTER line. Exiting program.\n");
                     goto cleanupFail;
                 }
+
+
+                granTempPtr = strrchr( string, '/' );
+                if ( granTempPtr == NULL )
+                {
+                    FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                    goto cleanupFail;
+                }
+                errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+                if ( errStatus == EXIT_FAILURE )
+                {
+                    FATAL_MSG("Failed to update the granule list.\n");
+                    goto cleanupFail;
+                }
             }
 
             // Assume MISR is after ASTER
@@ -728,6 +884,20 @@ int main( int argc, char* argv[] )
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
+            goto cleanupFail;
+        }
+
+
+        granTempPtr = strrchr( string, '/' );
+        if ( granTempPtr == NULL )
+        {
+            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+            goto cleanupFail;
+        }
+        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+        if ( errStatus == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to update the granule list.\n");
             goto cleanupFail;
         }
     }
@@ -757,6 +927,20 @@ int main( int argc, char* argv[] )
                 FATAL_MSG("Failed to get MISR line. Exiting program.\n");
                 goto cleanupFail;
             }
+
+
+            granTempPtr = strrchr( string, '/' );
+            if ( granTempPtr == NULL )
+            {
+                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+            if ( errStatus == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to update the granule list.\n");
+                goto cleanupFail;
+            }
         }
 
         if ( strstr( string, MISRcheck2 ) == NULL )
@@ -781,6 +965,20 @@ int main( int argc, char* argv[] )
             goto cleanupFail;
         }
 
+
+        granTempPtr = strrchr( string, '/' );
+        if ( granTempPtr == NULL )
+        {
+            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+            goto cleanupFail;
+        }
+        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+        if ( errStatus == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to update the granule list.\n");
+            goto cleanupFail;
+        }
+
         MISRargs[11] = malloc ( strlen( string ) +1);
         memset(MISRargs[11],0,strlen(string)+1);
         strncpy( MISRargs[11], string, strlen(string) );
@@ -795,6 +993,20 @@ int main( int argc, char* argv[] )
         if ( strstr( string, MISRcheck4 ) == NULL )
         {
             FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MISRcheck4);
+            goto cleanupFail;
+        }
+
+
+        granTempPtr = strrchr( string, '/' );
+        if ( granTempPtr == NULL )
+        {
+            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+            goto cleanupFail;
+        }
+        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+        if ( errStatus == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to update the granule list.\n");
             goto cleanupFail;
         }
 
@@ -839,6 +1051,8 @@ cleanupFail:
     if ( new_orbit_info_b) fclose(new_orbit_info_b);
     for ( int j = 1; j <= 12; j++ )
         if ( MISRargs[j] ) free (MISRargs[j]);
+    if ( granuleList ) free(granuleList);
+
     if ( fail ) return -1;
 
     return 0;
@@ -862,6 +1076,101 @@ int getNextLine ( char* string, FILE* const inputFile )
     size_t len = strlen( string )-1;
     if ( string[len] == '\n' || string[len] == ' ')
         string[len] = '\0';
+
+    return EXIT_SUCCESS;
+}
+
+/*
+ *      updateGranList
+ *
+ * DESCRIPTION:
+ *      This function handles creating a list of input granules as a string. It takes a running total of all currently visited
+ *      granules, "granList", a new granule to add, "newGran", and appends newGran to granList. This handles all of the necessary
+ *      memory operations for a variable length string. Adding a new granule to the list is an amortized constant operation.
+ *
+ * ARGUMETS:
+ *      IN:
+ *          const char newGran     -- A null terminated string containing the new granule. Should not have any newline characters.
+ *                                    absence of the null terminator risks memory access violations!
+ *      
+ *      IN/OUT:
+ *          char** granList        -- A pointer to a character array. This function updates the character array pointer as needed
+ *                                    when allocating memory. The granList double pointer should point to a NULL value the first
+ *                                    time this function is called because granList will be dereferenced once to contain the
+ *                                    return value of malloc.
+ *          size_t* curSize        -- The current size in bytes of the memory pointed to by *granList. Is updated when new memory
+ *                                    is allocated. *curSize should be zero when first calling this function.
+ *
+ * EFFECTS:
+ *      Allocates new memory as needed. Updates *granList and *curSize variables as needed.
+ *
+ *      IT IS THE DUTY OF THE CALLER to free the granList memory when finished!
+ *
+ * RETURN:
+ *      EXIT_FAILURE.
+ *      EXIT_SUCCESS.
+ */
+
+herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
+{
+    if ( granList == NULL || curSize == NULL || newGran == NULL )
+    {
+        FATAL_MSG("No arguments to this function can be NULL.\n\tgranList = %p\n\tcurSize = %p\n\tnewGran = %p\n", granList,
+                   curSize, newGran);
+        return EXIT_FAILURE;
+    }
+    size_t granLen = strlen( newGran );
+    if ( granLen < 2 )
+    {
+        FATAL_MSG("The newGran argument contains no string!\n");
+        return EXIT_FAILURE;
+    }
+
+    size_t granListSize = 0;
+
+    if ( *granList != NULL )
+        granListSize = strlen(*granList);
+
+    if ( *granList == NULL )
+    {
+        if ( *curSize != 0 )
+        {
+            FATAL_MSG("A NULL pointer was passed for the string but the size was indicated to be non-zero.\n");
+            return EXIT_FAILURE;
+        }
+
+        *granList = calloc( granLen+2, 1 );
+        if ( *granList == NULL )
+        {
+            FATAL_MSG("Failed to allocate memory.\n");
+            return EXIT_FAILURE;
+        }
+
+        *curSize = granLen+2;
+    }
+
+    else if ( granListSize + granLen + 2 > *curSize )
+    {
+        
+        granListSize = strlen(*granList);
+        // granLen+2 to account for newline and null terminator that will be added
+        void* tempPtr = realloc( *granList, max((*curSize) * 2 , granListSize+granLen+2));
+        if ( tempPtr == NULL )
+        {
+            FATAL_MSG("Failed to allocate memory.\n");
+            return EXIT_FAILURE;
+        }
+        *granList = (char*) tempPtr;
+
+        *curSize = max( (*curSize) * 2 , granListSize+granLen+2);
+    }
+
+    strncat( *granList, newGran, granLen );
+
+    // Set the newline and null terminator on the ends of the granule list
+    size_t newGranListSize = strlen(*granList);
+    (*granList)[newGranListSize]   = '\n';
+    (*granList)[newGranListSize+1] = '\0';
 
     return EXIT_SUCCESS;
 }
