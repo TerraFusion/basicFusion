@@ -1,13 +1,16 @@
-# DON'T DELETE THIS FILE. 
-# This is a template for roger.
-CC=/sw/hdf5-1.8.16/bin/h5cc
+# All variables suffixed with 1 denote HDF4, 2 HDF5
+# This makefile is currently set up to be run on the 
+# Blue Waters computer.
+# NOTE: If you get errors about "missing separator" when running make, be sure
+# that your tabs are TABS, not SPACES. make requires actual tabs for indenting, not just spaces.
+CC=gcc
 CFLAGS=-c -g -O0 -Wall -std=c99
-LINKFLAGS= -g -std=c99 
-INCLUDE1=/sw/hdf-4.2.12/include
-INCLUDE2=
-LIB1=/sw/hdf-4.2.12/lib
-LIB2=
-TARGET=./exe/TERRArepackage
+LINKFLAGS= -g -std=c99 -Wl,-rpath,/u/sciteam/clipp/basicFusion/hdflib/lib
+INCLUDE1=/u/sciteam/clipp/basicFusion/hdflib/include
+INCLUDE2=${INCLUDE1}
+LIB1=/u/sciteam/clipp/basicFusion/hdflib/lib
+LIB2=${LIB2}
+TARGET=./bin/basicFusion
 SRCDIR=./src
 OBJDIR=./obj
 MODISINTERP_DIR=./src/interp/modis
@@ -45,7 +48,6 @@ $(OBJDIR)/MODISLatLon.o: $(MODISINTERP_DIR)/MODISLatLon.c
 
 $(OBJDIR)/ASTERLatLon.o: $(ASTERINTERP_DIR)/ASTERLatLon.c
 	$(CC) $(CFLAGS) -I$(INCLUDE1) $(ASTERINTERP_DIR)/ASTERLatLon.c -o $(OBJDIR)/ASTERLatLon.o
-
 
 clean:
 	rm -f $(TARGET) $(OBJDIR)/*.o

@@ -3,7 +3,7 @@
 inputFiles=/projects/sciteam/jq0/TerraFusion/basicFusion/testFiles
 #inputFiles=/projects/sciteam/jq0/TerraFusion/oneorbit
 # Path to the basicFusion directory
-PROJDIR=/u/sciteam/clipp/basicFusion
+PROJDIR=~/basicFusion
 while [[ "$input" != "y" && "$input" != "Y" && "$input" != "n" && "$input" != "N" ]]; do
     printf "Should data be packed? Packed data will be significantly smaller! [y/n]: "
     read input

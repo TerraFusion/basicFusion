@@ -23,8 +23,8 @@ FILELISTNAME=inputFiles.txt
 
 
 
-PROJDIR=/u/sciteam/clipp/basicFusion/
-EXENAME=TERRArepackage
+PROJDIR=~/basicFusion/
+EXENAME=basicFusion
 OUTFILENAME=$PBS_JOBID.h5
 STD_OUTFILENAME=$PBS_JOBID.out.txt
 
