@@ -1026,6 +1026,15 @@ int main( int argc, char* argv[] )
     else
         printf("No MISR files found.\n");
 
+    /* Attach the granuleList as an attribute to the root HDF5 object */
+    errStatus = H5LTset_attribute_string( outputFile, "/", "Input Granules", granuleList);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set Input Granules attribute in root group.\n");
+        goto cleanupFail;
+    }
+    
+
     printf("Data transfer successful.\n");
 
     /* free all memory */
