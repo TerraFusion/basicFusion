@@ -16,7 +16,8 @@ DB() {
 }
 
 selectFiles() {
-  echo -n " select dir, fname from fileinfo inner join dirs on dirs.id == directory"
+  echo -n "with files as (select dir, fname, fsize from fileinfo inner join dirs on dirs.id == directory" $* ")" \
+    "select dir, fname from files union select 'total bytes', sum(fsize) from files"
 }
 
 dbInfo() { # get the info table - build metadata
@@ -71,39 +72,39 @@ follows() {
 allOverlappingOrbit() { 
   # args: $1=database $2=orbit#
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
-  DB $1 $(selectFiles) $(overlapsOrbit $2)
+  DB $1 $(selectFiles $(overlapsOrbit $2))
 }
 
 instrumentOverlappingOrbit(){
   # args:  $1=database $2=orbit# $3=AST|MOD|MIS|CER|MOP
   # example: instrumentOverlapsForOrbit fusionMetaDB.sqlite 4110 MIS 
-  DB $1 $(selectFiles) $(overlapsOrbit $2) $(forInstrument $3)
+  DB $1 $(selectFiles $(overlapsOrbit $2) $(forInstrument $3))
 }
 
 allStartingInOrbit() { 
   # args: $1=database $2=orbit#
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
-  DB $1 $(selectFiles) $(startsInOrbit $2)
+  DB $1 $(selectFiles $(startsInOrbit $2))
 }
 
 allEndingInOrbit() { 
   # args: $1=database $2=orbit#
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
-  DB $1 $(selectFiles) $(endsInOrbit $2)
+  DB $1 $(selectFiles $(endsInOrbit $2))
 }
 
 instrumentStartingInOrbit() { 
   # args: $1=database $2=orbit#, $3=AST|MOD|MIS|CER|MOP
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
-  DB $1 $(selectFiles) $(startsInOrbit $2) $(forInstrument $3)
+  DB $1 $(selectFiles $(startsInOrbit $2) $(forInstrument $3))
 }
 
 preceedingFile() {
   # args: $1=database $2=filename as returned by other query
-  DB $1 $(selectFiles) $(preceeds $2)
+  DB $1 $(selectFiles $(preceeds $2))
 }
 
 followingFile() {
   # args: $1=database $2=filename as returned by other query
-  DB $1 $(selectFiles) $(follows $2)
+  DB $1 $(selectFiles $(follows $2))
 }
