@@ -66,10 +66,12 @@ int ASTER( char* argv[],int aster_count,int unpack)
     char* tempStr = NULL;
     char* pointer2 = NULL;
     char* strCat = NULL;
+    char* tmpCharPtr = NULL;
     int fail = 0;
     int i;
     herr_t errStatus = 0;
     herr_t status = 0;
+    int iStatus = 0;
 
     /***********************
      * SWIR data variables *
@@ -183,6 +185,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
     }
 
 
+
     /* No need inHFileID, close H and V interfaces */
     h4_status = Vend(inHFileID);
     h4_status = Hclose(inHFileID);
@@ -213,7 +216,6 @@ int ASTER( char* argv[],int aster_count,int unpack)
             ASTERrootGroupID = 0;
             goto cleanupFail;
         }
-        /* Add the GranuleTime and FilePath attributes to this group */
 
     }
 
@@ -237,8 +239,15 @@ int ASTER( char* argv[],int aster_count,int unpack)
         goto cleanupFail;
     }
 
+    tmpCharPtr = strrchr( argv[1], '/' );
+    if ( tmpCharPtr == NULL )
+    {
+        FATAL_MSG("Failed to find character within a string.\n");
+        goto cleanupFail;
+    }
+
     /* MY 2016-12-20: Add the granule time information. Now just add the file name */
-    if(H5LTset_attribute_string(ASTERrootGroupID,argv[2],"FilePath",argv[1])<0)
+    if(H5LTset_attribute_string(ASTERrootGroupID,argv[2],"GranuleName",tmpCharPtr+1)<0)
     {
         FATAL_MSG("Failed to add ASTER string attribute.\n");
         goto cleanupFail;
@@ -275,12 +284,15 @@ int ASTER( char* argv[],int aster_count,int unpack)
     }
 
     /* SWIR group */
-    createGroup( &ASTERgranuleGroupID, &SWIRgroupID, "SWIR" );
-    if ( SWIRgroupID == EXIT_FAILURE )
+    if ( swir_grp_ref > 0 )
     {
-        FATAL_MSG("Failed to create ASTER SWIR group.\n");
-        SWIRgroupID = 0;
-        goto cleanupFail;
+        createGroup( &ASTERgranuleGroupID, &SWIRgroupID, "SWIR" );
+        if ( SWIRgroupID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to create ASTER SWIR group.\n");
+            SWIRgroupID = 0;
+            goto cleanupFail;
+        }
     }
 
     /* Only add the VNIR group if it exists.*/
@@ -295,14 +307,18 @@ int ASTER( char* argv[],int aster_count,int unpack)
         }
     }
 
-    /* TIR group */
-    createGroup( &ASTERgranuleGroupID, &TIRgroupID, "TIR" );
-    if ( TIRgroupID == EXIT_FAILURE )
+    if ( tir_grp_ref > 0 )
     {
-        FATAL_MSG("Failed to create ASTER TIR group.\n");
-        TIRgroupID = 0;
-        goto cleanupFail;
+        /* TIR group */
+        createGroup( &ASTERgranuleGroupID, &TIRgroupID, "TIR" );
+        if ( TIRgroupID == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to create ASTER TIR group.\n");
+            TIRgroupID = 0;
+            goto cleanupFail;
+        }
     }
+
     /* geolocation group */
     createGroup( &ASTERgranuleGroupID, &geoGroupID, "Geolocation" );
     if ( geoGroupID == EXIT_FAILURE )
@@ -641,8 +657,8 @@ int ASTER( char* argv[],int aster_count,int unpack)
         */
 
         short gain_index[15];
-        float band_unc = 0;
-
+        float band_unc = 0.0f;
+ 
         /* Obtain the index of the gain */
         if(obtain_gain_index(inFileID,gain_index)==-1)
         {
@@ -1179,20 +1195,26 @@ int ASTER( char* argv[],int aster_count,int unpack)
     if(unpack == 1)
     {
 
-        createGroup( &SWIRgroupID, &SWIRgeoGroupID, "Geolocation" );
-        if ( SWIRgeoGroupID == EXIT_FAILURE )
+        if ( swir_grp_ref > 0 )
         {
-            FATAL_MSG("Failed to create ASTER SWIR Geolocation group.\n");
-            SWIRgeoGroupID = 0;
-            goto cleanupFail;
+            createGroup( &SWIRgroupID, &SWIRgeoGroupID, "Geolocation" );
+            if ( SWIRgeoGroupID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to create ASTER SWIR Geolocation group.\n");
+                SWIRgeoGroupID = 0;
+                goto cleanupFail;
+            }
         }
 
-        createGroup( &TIRgroupID, &TIRgeoGroupID, "Geolocation" );
-        if ( TIRgeoGroupID == EXIT_FAILURE )
+        if ( tir_grp_ref > 0 )
         {
-            FATAL_MSG("Failed to create ASTER TIR Geolocation group.\n");
-            TIRgeoGroupID = 0;
-            goto cleanupFail;
+            createGroup( &TIRgroupID, &TIRgeoGroupID, "Geolocation" );
+            if ( TIRgeoGroupID == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to create ASTER TIR Geolocation group.\n");
+                TIRgeoGroupID = 0;
+                goto cleanupFail;
+            }
         }
 
         if(vnir_grp_ref >0)
@@ -1206,8 +1228,13 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
         }
-        readThenWrite_ASTER_HR_LatLon(SWIRgeoGroupID,TIRgeoGroupID,VNIRgeoGroupID,"Latitude","Longitude",DFNT_FLOAT64,H5T_NATIVE_DOUBLE,inFileID, outputFile, strstr(strCat, "_g"));
+        iStatus = readThenWrite_ASTER_HR_LatLon(SWIRgeoGroupID,TIRgeoGroupID,VNIRgeoGroupID,"Latitude","Longitude",DFNT_FLOAT64,H5T_NATIVE_DOUBLE,inFileID, outputFile, strstr(strCat, "_g"));
 
+        if ( iStatus == EXIT_FAILURE )
+        {
+            FATAL_MSG("HR_LatLon failed.\n");
+            goto cleanupFail;
+        }
     }
 
     /* release identifiers */
@@ -1535,8 +1562,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
             FATAL_MSG("Failed to allocate memory.\n");
             goto cleanupFail;
         }
-        strcpy(ll_swir_dimnames[i], prefix1[i]);
-        strcat(ll_swir_dimnames[i], granuleAppend);
+        sprintf(ll_swir_dimnames[i], "%s%s", prefix1[i], granuleAppend);
     }   
     for ( i = 0; i < 2; i++ )
     {
@@ -1546,8 +1572,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
             FATAL_MSG("Failed to allocate memory.\n");
             goto cleanupFail;
         }
-        strcpy(ll_tir_dimnames[i], prefix2[i]);
-        strcat(ll_tir_dimnames[i], granuleAppend);
+        sprintf(ll_tir_dimnames[i], "%s%s", prefix2[i], granuleAppend);
     }  
     for ( i = 0; i < 2; i++ )
     {
@@ -1557,8 +1582,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
             FATAL_MSG("Failed to allocate memory.\n");
             goto cleanupFail;
         }
-        strcpy(ll_vnir_dimnames[i], prefix3[i]);
-        strcat(ll_vnir_dimnames[i], granuleAppend);
+        sprintf(ll_vnir_dimnames[i], "%s%s", prefix3[i], granuleAppend);
     }  
 
 
@@ -1591,105 +1615,121 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
 
     /* END READ DATA. BEGIN Computing DATA */
 
-    SWIR_ImageLine_DimID = H5Dopen2(outputFileID,ll_swir_dimnames[0],H5P_DEFAULT);
-    nSWIR_ImageLine = obtainDimSize(SWIR_ImageLine_DimID);
-    SWIR_ImagePixel_DimID = H5Dopen2(outputFileID,ll_swir_dimnames[1],H5P_DEFAULT);
-    nSWIR_ImagePixel = obtainDimSize(SWIR_ImagePixel_DimID);
+    if ( SWIRgeoGroupID )
+    {
+        SWIR_ImageLine_DimID = H5Dopen2(outputFileID,ll_swir_dimnames[0],H5P_DEFAULT);
+        if ( SWIR_ImageLine_DimID < 0 )
+        {
+            FATAL_MSG("Failed to open dataset.\n");
+            goto cleanupFail;
+        }
+        nSWIR_ImageLine = obtainDimSize(SWIR_ImageLine_DimID);
+        SWIR_ImagePixel_DimID = H5Dopen2(outputFileID,ll_swir_dimnames[1],H5P_DEFAULT);
+        if ( SWIR_ImagePixel_DimID < 0 )
+        {
+            FATAL_MSG("Failed to open dataset.\n");
+            goto cleanupFail;
+        }
+        nSWIR_ImagePixel = obtainDimSize(SWIR_ImagePixel_DimID);
 
-    lat_swir_buffer = (double*)malloc(sizeof(double)*nSWIR_ImageLine*nSWIR_ImagePixel);
-    if(lat_swir_buffer == NULL)
-    {
-        FATAL_MSG("Cannot allocate lat_swir_buffer.\n");
-        goto cleanupFail;
-    }
+        lat_swir_buffer = (double*)malloc(sizeof(double)*nSWIR_ImageLine*nSWIR_ImagePixel);
+        if(lat_swir_buffer == NULL)
+        {
+            FATAL_MSG("Cannot allocate lat_swir_buffer.\n");
+            goto cleanupFail;
+        }
 
-    lon_swir_buffer = (double*)malloc(sizeof(double)*nSWIR_ImageLine*nSWIR_ImagePixel);
-    if(lon_swir_buffer == NULL)
-    {
-        FATAL_MSG("Cannot allocate lon_swir_buffer.\n");
-        goto cleanupFail;
-    }
+        lon_swir_buffer = (double*)malloc(sizeof(double)*nSWIR_ImageLine*nSWIR_ImagePixel);
+        if(lon_swir_buffer == NULL)
+        {
+            FATAL_MSG("Cannot allocate lon_swir_buffer.\n");
+            goto cleanupFail;
+        }
 
-    asterLatLonSpherical(latBuffer,lonBuffer,lat_swir_buffer,lon_swir_buffer,nSWIR_ImageLine,nSWIR_ImagePixel);
+        asterLatLonSpherical(latBuffer,lonBuffer,lat_swir_buffer,lon_swir_buffer,nSWIR_ImageLine,nSWIR_ImagePixel);
 
-    // SWIR Latitude
-    if (Generate2D_Dataset(SWIRgeoGroupID,latname,h5_type,lat_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0)
-    {
-        FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
-        goto cleanupFail;
-    }
-    free(lat_swir_buffer); lat_swir_buffer = NULL;
-    if(H5LTset_attribute_string(SWIRgeoGroupID,latname,"units","degrees_north")<0)
-    {
-        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
-        goto cleanupFail;
-    }
+        // SWIR Latitude
+        if (Generate2D_Dataset(SWIRgeoGroupID,latname,h5_type,lat_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0)
+        {
+            FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
+            goto cleanupFail;
+        }
+        free(lat_swir_buffer); lat_swir_buffer = NULL;
+        if(H5LTset_attribute_string(SWIRgeoGroupID,latname,"units","degrees_north")<0)
+        {
+            FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+            goto cleanupFail;
+        }
 
-    //SWIR Longitude
-    if (Generate2D_Dataset(SWIRgeoGroupID,lonname,h5_type,lon_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0)
-    {
-        FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
-        goto cleanupFail;
+        //SWIR Longitude
+        if (Generate2D_Dataset(SWIRgeoGroupID,lonname,h5_type,lon_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0)
+        {
+            FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
+            goto cleanupFail;
+        }
+        free(lon_swir_buffer); lon_swir_buffer = NULL;
+        if(H5LTset_attribute_string(SWIRgeoGroupID,lonname,"units","degrees_east")<0)
+        {
+            FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+            goto cleanupFail;
+        }
+        H5Dclose(SWIR_ImageLine_DimID); SWIR_ImageLine_DimID = 0;
+        H5Dclose(SWIR_ImagePixel_DimID); SWIR_ImagePixel_DimID = 0;
     }
-    free(lon_swir_buffer); lon_swir_buffer = NULL;
-    if(H5LTset_attribute_string(SWIRgeoGroupID,lonname,"units","degrees_east")<0)
-    {
-        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
-        goto cleanupFail;
-    }
-    H5Dclose(SWIR_ImageLine_DimID); SWIR_ImageLine_DimID = 0;
-    H5Dclose(SWIR_ImagePixel_DimID); SWIR_ImagePixel_DimID = 0;
 
     // TIR
-    TIR_ImageLine_DimID = H5Dopen2(outputFileID,ll_tir_dimnames[0],H5P_DEFAULT);
-    nTIR_ImageLine = obtainDimSize(TIR_ImageLine_DimID);
-    TIR_ImagePixel_DimID = H5Dopen2(outputFileID,ll_tir_dimnames[1],H5P_DEFAULT);
-    nTIR_ImagePixel = obtainDimSize(TIR_ImagePixel_DimID);
+    if ( TIRgeoGroupID )
+    {
+        TIR_ImageLine_DimID = H5Dopen2(outputFileID,ll_tir_dimnames[0],H5P_DEFAULT);
+        nTIR_ImageLine = obtainDimSize(TIR_ImageLine_DimID);
+        TIR_ImagePixel_DimID = H5Dopen2(outputFileID,ll_tir_dimnames[1],H5P_DEFAULT);
+        nTIR_ImagePixel = obtainDimSize(TIR_ImagePixel_DimID);
 
 
-    lat_tir_buffer = (double*)malloc(sizeof(double)*nTIR_ImageLine*nTIR_ImagePixel);
-    if(lat_tir_buffer == NULL)
-    {
-        FATAL_MSG("Cannot allocate lat_tir_buffer.\n");
-        goto cleanupFail;
-    }
+        lat_tir_buffer = (double*)malloc(sizeof(double)*nTIR_ImageLine*nTIR_ImagePixel);
+        if(lat_tir_buffer == NULL)
+        {
+            FATAL_MSG("Cannot allocate lat_tir_buffer.\n");
+            goto cleanupFail;
+        }
 
-    lon_tir_buffer = (double*)malloc(sizeof(double)*nTIR_ImageLine*nTIR_ImagePixel);
-    if(lon_tir_buffer == NULL)
-    {
-        FATAL_MSG("Cannot allocate lon_tir_buffer.\n");
-        goto cleanupFail;
-    }
+        lon_tir_buffer = (double*)malloc(sizeof(double)*nTIR_ImageLine*nTIR_ImagePixel);
+        if(lon_tir_buffer == NULL)
+        {
+            FATAL_MSG("Cannot allocate lon_tir_buffer.\n");
+            goto cleanupFail;
+        }
 
-    asterLatLonSpherical(latBuffer,lonBuffer,lat_tir_buffer,lon_tir_buffer,nTIR_ImageLine,nTIR_ImagePixel);
+        asterLatLonSpherical(latBuffer,lonBuffer,lat_tir_buffer,lon_tir_buffer,nTIR_ImageLine,nTIR_ImagePixel);
 
-    // TIR Latitude
-    if (Generate2D_Dataset(TIRgeoGroupID,latname,h5_type,lat_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0)
-    {
-        FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
-        goto cleanupFail;
-    }
-    free(lat_tir_buffer); lat_tir_buffer = NULL;
-    if(H5LTset_attribute_string(TIRgeoGroupID,latname,"units","degrees_north")<0)
-    {
-        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
-        goto cleanupFail;
-    }
+        // TIR Latitude
+        if (Generate2D_Dataset(TIRgeoGroupID,latname,h5_type,lat_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0)
+        {
+            FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
+            goto cleanupFail;
+        }
+        free(lat_tir_buffer); lat_tir_buffer = NULL;
+        if(H5LTset_attribute_string(TIRgeoGroupID,latname,"units","degrees_north")<0)
+        {
+            FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+            goto cleanupFail;
+        }
 
-    //TIR Longitude
-    if (Generate2D_Dataset(TIRgeoGroupID,lonname,h5_type,lon_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0)
-    {
-        FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
-        goto cleanupFail;
+        //TIR Longitude
+        if (Generate2D_Dataset(TIRgeoGroupID,lonname,h5_type,lon_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0)
+        {
+            FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
+            goto cleanupFail;
+        }
+        free(lon_tir_buffer); lon_tir_buffer = NULL;
+        if(H5LTset_attribute_string(TIRgeoGroupID,lonname,"units","degrees_east")<0)
+        {
+            FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
+            goto cleanupFail;
+        }
+        H5Dclose(TIR_ImageLine_DimID); TIR_ImageLine_DimID = 0;
+        H5Dclose(TIR_ImagePixel_DimID); TIR_ImagePixel_DimID = 0;
     }
-    free(lon_tir_buffer); lon_tir_buffer = NULL;
-    if(H5LTset_attribute_string(TIRgeoGroupID,lonname,"units","degrees_east")<0)
-    {
-        FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
-        goto cleanupFail;
-    }
-    H5Dclose(TIR_ImageLine_DimID); TIR_ImageLine_DimID = 0;
-    H5Dclose(TIR_ImagePixel_DimID); TIR_ImagePixel_DimID = 0;
 
     // Possible VNIR
     if(VNIRgeoGroupID!=0)

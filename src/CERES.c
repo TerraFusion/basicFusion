@@ -12,105 +12,8 @@
 int obtain_start_end_index(int* sindex_ptr,int* endex_ptr,double *jd,int32 size,OInfo_t orbit_info);
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax );
 //int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
-int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info)
-{
-
-    /* open the input file */
-    int32 sd_id,sds_id, sds_index,status;
-    int32 rank;
-    int32 dimsizes[DIM_MAX];
-    int32 start[DIM_MAX] = {0};
-    int32 ntype;                    // number type for the data stored in the data set
-    int32 num_attrs;                // number of attributes
-
-    char* datasetName = "Time of observation";
-    sd_id = SDstart( argv[2], DFACC_READ );
-    if ( sd_id < 0 )
-    {
-        FATAL_MSG("Unable to open CERES file.\n");
-        return (EXIT_FAILURE);
-    }
-
-    /* get the index of the dataset from the dataset's name */
-    sds_index = SDnametoindex( sd_id, datasetName );
-    if( sds_index < 0 )
-    {
-        printf("SDnametoindex\n");
-        SDend(sd_id);
-        return EXIT_FAILURE;
-    }
-
-    sds_id = SDselect( sd_id, sds_index );
-    if ( sds_id < 0 )
-    {
-        printf("SDselect\n");
-        SDend(sd_id);
-        return EXIT_FAILURE;
-    }
 
 
-    for ( int i = 0; i < DIM_MAX; i++ )
-    {
-        dimsizes[i] = 1;
-    }
-
-    /* get info about dataset (rank, dim size, number type, num attributes ) */
-    status = SDgetinfo( sds_id, NULL, &rank, dimsizes, &ntype, &num_attrs);
-    if ( status < 0 )
-    {
-        fprintf( stderr, "[%s:%s:%d] SDgetinfo: Failed to get info from dataset.\n", __FILE__, __func__, __LINE__);
-        SDendaccess(sds_id);
-        SDend(sd_id);
-        return EXIT_FAILURE;
-    }
-
-
-    if(rank !=1 || ntype !=DFNT_FLOAT64)
-    {
-        fprintf( stderr, "[%s:%s:%d] the time dimension rank must be 1 and the datatype must be double.\n", __FILE__, __func__, __LINE__);
-        SDendaccess(sds_id);
-        SDend(sd_id);
-        return EXIT_FAILURE;
-    }
-
-    double *julian_date = malloc(sizeof julian_date *dimsizes[0]);
-
-    status = SDreaddata( sds_id, start, NULL, dimsizes, (VOIDP)julian_date);
-
-    if ( status < 0 )
-    {
-        fprintf( stderr, "[%s:%s:%d] SDreaddata: Failed to read data.\n", __FILE__, __func__, __LINE__);
-        SDendaccess(sds_id);
-        SDend(sd_id);
-        if ( julian_date != NULL ) free(julian_date);
-        return EXIT_FAILURE;
-    }
-
-//printf("julian_date[0] is %lf \n",julian_date[0]);
-
-    if(obtain_start_end_index(start_index_ptr,end_index_ptr,julian_date,dimsizes[0],orbit_info) == EXIT_FAILURE)
-    {
-        fprintf( stderr, "[%s:%s:%d] Obtain_start_end_index: Failed to obtain the start and end index.\n", __FILE__, __func__, __LINE__);
-        SDendaccess(sds_id);
-        SDend(sd_id);
-        if ( julian_date != NULL ) free(julian_date);
-        return EXIT_FAILURE;
-
-
-    }
-#if DEBUG
-    printf("starting index is %d\n",*start_index_ptr);
-    printf("ending index is %d\n",*end_index_ptr);
-#endif
-
-
-
-    SDendaccess(sds_id);
-    SDend(sd_id);
-    if ( julian_date != NULL ) free(julian_date);
-    return 0;
-
-}
 int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_stride,int32*c_count)
 {
 
@@ -138,6 +41,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
     char* fileTime = NULL;
     char* correctName = NULL;
     short fail = 0;
+    char* tmpCharPtr = NULL;
 
     char* inTimePosName[NUM_TIME] = {"Time of observation", "Colatitude of CERES FOV at surface",
                                      "Longitude of CERES FOV at surface"
@@ -182,7 +86,6 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
     //create root CERES group
     if (index == 1)
     {
-//printf("ceres_fm_count is %d\n",ceres_fm_count);
         if(ceres_fm_count == 1)
         {
             if ( createGroup( &outputFile, &rootID_g, "CERES" ) )
@@ -203,11 +106,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
             }
         }
 
-        if(H5LTset_attribute_string(outputFile,"CERES","FilePath",argv[2])<0)
-        {
-            FATAL_MSG("Failed to add CERES time stamp.\n");
-            goto cleanupFail;
-        }
+        
 
         fileTime = getTime( argv[2], 1 );
 
@@ -226,11 +125,24 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
             goto cleanupFail;
         }
 
-
         if ( createGroup( &granuleID_g, &FMID_g, "FM1" ) )
         {
             FATAL_MSG("CERES create granule group failure.\n");
             FMID_g = 0;
+            goto cleanupFail;
+        }
+
+        
+        /* Insert granule name as attribute into FM1 or FM2 group */
+        tmpCharPtr = strrchr( argv[2], '/' );
+        if ( tmpCharPtr == NULL )
+        {
+            FATAL_MSG("Failed to find character within a string.\n");
+            goto cleanupFail;
+        }
+        if(H5LTset_attribute_string(granuleID_g,"FM1","GranuleName",tmpCharPtr + 1)<0)
+        {
+            FATAL_MSG("Failed to add CERES granule name.\n");
             goto cleanupFail;
         }
     }
@@ -256,6 +168,20 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
             FATAL_MSG("CERES create granule group failure.\n");
             goto cleanupFail;
         }
+
+        
+        /* Insert granule name as attribute into FM1 or FM2 group */
+        tmpCharPtr = strrchr( argv[2], '/' );
+        if ( tmpCharPtr == NULL )
+        {
+            FATAL_MSG("Failed to find character within a string.\n");
+            goto cleanupFail;
+        }
+        if(H5LTset_attribute_string(granuleID_g,"FM2","GranuleName",tmpCharPtr + 1)<0)
+        {
+            FATAL_MSG("Failed to add CERES granule name.\n");
+            goto cleanupFail;
+        }
     }
 
     else
@@ -263,6 +189,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         FATAL_MSG("The CERES granule index should be either 1 or 2.\n");
         goto cleanupFail;
     }
+
 
 
     // create the data fields group
@@ -1046,6 +973,105 @@ cleanupFail:
     //return EXIT_SUCCESS;
 }
 
+int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info)
+{
+
+    /* open the input file */
+    int32 sd_id,sds_id, sds_index,status;
+    int32 rank;
+    int32 dimsizes[DIM_MAX];
+    int32 start[DIM_MAX] = {0};
+    int32 ntype;                    // number type for the data stored in the data set
+    int32 num_attrs;                // number of attributes
+
+    char* datasetName = "Time of observation";
+    sd_id = SDstart( argv[2], DFACC_READ );
+    if ( sd_id < 0 )
+    {
+        FATAL_MSG("Unable to open CERES file.\n");
+        return (EXIT_FAILURE);
+    }
+
+    /* get the index of the dataset from the dataset's name */
+    sds_index = SDnametoindex( sd_id, datasetName );
+    if( sds_index < 0 )
+    {
+        printf("SDnametoindex\n");
+        SDend(sd_id);
+        return EXIT_FAILURE;
+    }
+
+    sds_id = SDselect( sd_id, sds_index );
+    if ( sds_id < 0 )
+    {
+        printf("SDselect\n");
+        SDend(sd_id);
+        return EXIT_FAILURE;
+    }
+
+
+    for ( int i = 0; i < DIM_MAX; i++ )
+    {
+        dimsizes[i] = 1;
+    }
+
+    /* get info about dataset (rank, dim size, number type, num attributes ) */
+    status = SDgetinfo( sds_id, NULL, &rank, dimsizes, &ntype, &num_attrs);
+    if ( status < 0 )
+    {
+        fprintf( stderr, "[%s:%s:%d] SDgetinfo: Failed to get info from dataset.\n", __FILE__, __func__, __LINE__);
+        SDendaccess(sds_id);
+        SDend(sd_id);
+        return EXIT_FAILURE;
+    }
+
+
+    if(rank !=1 || ntype !=DFNT_FLOAT64)
+    {
+        fprintf( stderr, "[%s:%s:%d] the time dimension rank must be 1 and the datatype must be double.\n", __FILE__, __func__, __LINE__);
+        SDendaccess(sds_id);
+        SDend(sd_id);
+        return EXIT_FAILURE;
+    }
+
+    double *julian_date = malloc(sizeof julian_date *dimsizes[0]);
+
+    status = SDreaddata( sds_id, start, NULL, dimsizes, (VOIDP)julian_date);
+
+    if ( status < 0 )
+    {
+        fprintf( stderr, "[%s:%s:%d] SDreaddata: Failed to read data.\n", __FILE__, __func__, __LINE__);
+        SDendaccess(sds_id);
+        SDend(sd_id);
+        if ( julian_date != NULL ) free(julian_date);
+        return EXIT_FAILURE;
+    }
+
+//printf("julian_date[0] is %lf \n",julian_date[0]);
+
+    if(obtain_start_end_index(start_index_ptr,end_index_ptr,julian_date,dimsizes[0],orbit_info) == EXIT_FAILURE)
+    {
+        fprintf( stderr, "[%s:%s:%d] Obtain_start_end_index: Failed to obtain the start and end index.\n", __FILE__, __func__, __LINE__);
+        SDendaccess(sds_id);
+        SDend(sd_id);
+        if ( julian_date != NULL ) free(julian_date);
+        return EXIT_FAILURE;
+
+
+    }
+#if DEBUG
+    printf("starting index is %d\n",*start_index_ptr);
+    printf("ending index is %d\n",*end_index_ptr);
+#endif
+
+
+
+    SDendaccess(sds_id);
+    SDend(sd_id);
+    if ( julian_date != NULL ) free(julian_date);
+    return 0;
+
+}
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax )
 {
 

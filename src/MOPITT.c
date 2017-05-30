@@ -58,6 +58,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     float tempFloat = 0.0f;
     char* correctName = NULL;
     char* fileTime = NULL;
+    char* tmpCharPtr = NULL;
 
     // open the input file
     if ( openFile( &file, argv[1], H5F_ACC_RDONLY ) )
@@ -112,9 +113,11 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     }
 
     /* Create the granule group */
-    if ( *granuleNum == 1 )
+    if ( *granuleNum == 1 || *granuleNum == 2 )
     {
-        status = createGroup( &MOPITTroot, &granuleID, "granule1" );
+        char granName[9] = {'\0'};
+        sprintf(granName,"granule%d",*granuleNum);
+        status = createGroup( &MOPITTroot, &granuleID, granName );
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to create granule group number %d.\n", *granuleNum );
@@ -124,43 +127,22 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
 
         /* Set the attributes for the granule group indicating information about the original file */
 
-        if(H5LTset_attribute_string(MOPITTroot,"granule1","FilePath",argv[1])<0)
+        tmpCharPtr = strrchr(argv[1], '/');
+        if ( tmpCharPtr == NULL )
         {
-            fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to find a specific character within a string.\n");
+            goto cleanupFail;
+        }
+        if(H5LTset_attribute_string(MOPITTroot,granName,"GranuleName", tmpCharPtr+1 )<0)
+        {
+            FATAL_MSG("Unable to set attribute string.\n");
             goto cleanupFail;
         }
 
         fileTime = getTime( argv[1], 0 );
-        if(H5LTset_attribute_string(MOPITTroot,"granule1","GranuleTime",fileTime)<0)
+        if(H5LTset_attribute_string(MOPITTroot,granName,"GranuleTime",fileTime)<0)
         {
-            fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
-            goto cleanupFail;
-        }
-        free(fileTime);
-        fileTime = NULL;
-    }
-    else if ( *granuleNum == 2 )
-    {
-        status = createGroup( &MOPITTroot, &granuleID, "granule2" );
-        if ( status == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to create granule group number %d.\n", *granuleNum );
-            granuleID = 0;
-            goto cleanupFail;
-        }
-
-        /* Set the attributes for the granule group indicating information about the original file */
-
-        if(H5LTset_attribute_string(MOPITTroot,"granule2","FilePath",argv[1])<0)
-        {
-            fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
-            goto cleanupFail;
-        }
-
-        fileTime = getTime( argv[1], 0 );
-        if(H5LTset_attribute_string(MOPITTroot,"granule2","GranuleTime",fileTime)<0)
-        {
-            fprintf( stderr, "[%s:%s:%d] Unable to set attribute string.\n", __FILE__,__func__,__LINE__);
+            FATAL_MSG("Unable to set attribute string.\n");
             goto cleanupFail;
         }
         free(fileTime);
