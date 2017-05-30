@@ -9,6 +9,12 @@
 float Obtain_scale_factor(int32 h4_file_id, char* band_name);
 /* May provide a list for all MISR group and variable names */
 
+/*
+ * argv[1] through argv[9]: GRP
+ * argv[10]: AGP
+ * argv[11]: GP
+ * argv[12]: HRLL
+ */
 int MISR( char* argv[],int unpack )
 {
     /****************************************
@@ -47,6 +53,10 @@ int MISR( char* argv[],int unpack )
     double tempDouble = 0.0;
     char* correctedName = NULL;
     char* fileTime = NULL;
+    char* tmpCharPtr = NULL;
+    char* granList = NULL;
+    size_t granSize = 0;
+    int i;
     /******************
      * geo data files *
      ******************/
@@ -91,11 +101,37 @@ int MISR( char* argv[],int unpack )
         return EXIT_FAILURE;
     }
 
-    if(H5LTset_attribute_string(outputFile,"MISR","FilePath",argv[1])<0)
+    /* TODO
+ *      Need to fix this. MISR should create a "granule" group under the MISR group to keep track of multiple files.
+ *      We will need to put the granule list inside of the granule group instead of the MISR group once code for
+ *      handling multiple granules is developed. For now, this will just be attached to the MISR group.
+ */
+    for ( i = 1; i < 13; i++ )
     {
-        FATAL_MSG("Cannot add the time stamp\n");
+        if ( argv[i] )
+        {
+            tmpCharPtr = strrchr(argv[i], '/');
+            if ( tmpCharPtr == NULL )
+            {
+                FATAL_MSG("Failed to find a specific character within the string.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList(&granList, tmpCharPtr+1, &granSize);
+            if ( errStatus == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to append granule to granule list.\n");
+                goto cleanupFail;
+            }
+
+        }
+    }
+
+    if(H5LTset_attribute_string(outputFile,"MISR","GranuleName",granList)<0)
+    {
+        FATAL_MSG("Cannot add granule list.\n");
         goto cleanupFail;
     }
+
 
     // Extract the time substring from the file path
     fileTime = getTime( argv[1], 4 );
@@ -132,7 +168,7 @@ int MISR( char* argv[],int unpack )
     }
 
     /* Loop all 9 cameras */
-    for(int i = 0; i<9; i++)
+    for( i = 0; i<9; i++)
     {
 
         h4FileID = SDstart(argv[i+1],DFACC_READ);
@@ -555,6 +591,7 @@ cleanupFail:
     if ( solarZenithID ) status = H5Dclose(solarZenithID);
     if ( correctedName ) free(correctedName);
     if ( fileTime ) free(fileTime);
+    if ( granList ) free(granList);
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;

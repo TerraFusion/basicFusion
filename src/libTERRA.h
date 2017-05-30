@@ -125,6 +125,8 @@ herr_t copy_h5_attrs(int32 h4_type,int32 n_values,char* attr_name,char* attr_val
 herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* buffer );
 
 /* general utility functions */
+
+herr_t updateGranList( char** granList, const char newGran[], size_t* curSize );
 char* getTime( char* pathname, int instrument );
 int isLeapYear(int year);
 int  h4type_to_h5type( const int32 h4type, hid_t* h5memtype);

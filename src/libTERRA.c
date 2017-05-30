@@ -5343,3 +5343,99 @@ int numDigits(int digit)
     if ( digit < 1000000000) return 9;
     return 10;
 }
+
+
+/*
+ *      updateGranList
+ *
+ * DESCRIPTION:
+ *      This function handles creating a list of input granules as a string. It takes a running total of all currently visited
+ *      granules, "granList", a new granule to add, "newGran", and appends newGran to granList. This handles all of the necessary
+ *      memory operations for a variable length string. Adding a new granule to the list is an amortized constant operation.
+ *
+ * ARGUMETS:
+ *      IN:
+ *          const char newGran     -- A null terminated string containing the new granule. Should not have any newline characters.
+ *                                    absence of the null terminator risks memory access violations!
+ *      
+ *      IN/OUT:
+ *          char** granList        -- A pointer to a character array. This function updates the character array pointer as needed
+ *                                    when allocating memory. The granList double pointer should point to a NULL value the first
+ *                                    time this function is called because granList will be dereferenced once to contain the
+ *                                    return value of malloc.
+ *          size_t* curSize        -- The current size in bytes of the memory pointed to by *granList. Is updated when new memory
+ *                                    is allocated. *curSize should be zero when first calling this function.
+ *
+ * EFFECTS:
+ *      Allocates new memory as needed. Updates *granList and *curSize variables as needed.
+ *
+ *      IT IS THE DUTY OF THE CALLER to free the granList memory when finished!
+ *
+ * RETURN:
+ *      EXIT_FAILURE.
+ *      EXIT_SUCCESS.
+ */
+
+herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
+{
+    if ( granList == NULL || curSize == NULL || newGran == NULL )
+    {
+        FATAL_MSG("No arguments to this function can be NULL.\n\tgranList = %p\n\tcurSize = %p\n\tnewGran = %p\n", granList,
+                   curSize, newGran);
+        return EXIT_FAILURE;
+    }
+    size_t granLen = strlen( newGran );
+    if ( granLen < 2 )
+    {
+        FATAL_MSG("The newGran argument contains no string!\n");
+        return EXIT_FAILURE;
+    }
+
+    size_t granListSize = 0;
+
+    if ( *granList != NULL )
+        granListSize = strlen(*granList);
+
+    if ( *granList == NULL )
+    {
+        if ( *curSize != 0 )
+        {
+            FATAL_MSG("A NULL pointer was passed for the string but the size was indicated to be non-zero.\n");
+            return EXIT_FAILURE;
+        }
+
+        *granList = calloc( granLen+2, 1 );
+        if ( *granList == NULL )
+        {
+            FATAL_MSG("Failed to allocate memory.\n");
+            return EXIT_FAILURE;
+        }
+
+        *curSize = granLen+2;
+    }
+
+    else if ( granListSize + granLen + 2 > *curSize )
+    {
+        
+        granListSize = strlen(*granList);
+        // granLen+2 to account for newline and null terminator that will be added
+        void* tempPtr = realloc( *granList, max((*curSize) * 2 , granListSize+granLen+2));
+        if ( tempPtr == NULL )
+        {
+            FATAL_MSG("Failed to allocate memory.\n");
+            return EXIT_FAILURE;
+        }
+        *granList = (char*) tempPtr;
+
+        *curSize = max( (*curSize) * 2 , granListSize+granLen+2);
+    }
+
+    strncat( *granList, newGran, granLen );
+
+    // Set the newline and null terminator on the ends of the granule list
+    size_t newGranListSize = strlen(*granList);
+    (*granList)[newGranListSize]   = '\n';
+    (*granList)[newGranListSize+1] = '\0';
+
+    return EXIT_SUCCESS;
+}

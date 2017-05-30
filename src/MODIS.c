@@ -52,6 +52,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     herr_t errStatus = 0;
     char* dimName = NULL;
     void* dimBuffer = NULL;
+    char* tmpCharPtr = NULL;
     //char netCDF_pureDim_NAME_val[] = "This is a netCDF dimension but not a netCDF variable.";
 
     /**********************
@@ -223,20 +224,81 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-
-    if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"FilePath",argv[1])<0)
+   
+    /* Add 1KM granule name */ 
+    tmpCharPtr = strrchr(argv[1], '/');
+    if ( tmpCharPtr == NULL )
     {
-        fprintf(stderr, "[%s:%s:%d] Cannot add the file path attribute.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to find a specific character within the string.\n");
         goto cleanupFail;
     }
+
+    if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleName_1KM", tmpCharPtr+1)<0)
+    {
+        FATAL_MSG("Cannot add the file path attribute.\n");
+        goto cleanupFail;
+    }
+
+
+    /* Add HKM granule name */
+    if ( argv[2] != NULL )
+    {
+        tmpCharPtr = strrchr(argv[2], '/');
+        if ( tmpCharPtr == NULL )
+        {
+            FATAL_MSG("Failed to find a specific character within the string.\n");
+            goto cleanupFail;
+        }
+
+        if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleName_HKM", tmpCharPtr+1)<0)
+        {
+            FATAL_MSG("Cannot add the file path attribute.\n");
+            goto cleanupFail;
+        }
+    }
+
+    /* add QKM granule name */
+    
+    if ( argv[3] != NULL )
+    {
+        tmpCharPtr = strrchr(argv[3], '/');
+        if ( tmpCharPtr == NULL )
+        {
+            FATAL_MSG("Failed to find a specific character within the string.\n");
+            goto cleanupFail;
+        }
+
+        if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleName_QKM", tmpCharPtr+1)<0)
+        {
+            FATAL_MSG("Cannot add the file path attribute.\n");
+            goto cleanupFail;
+        }
+    }
+
+    /* Add MOD03 granule name */
+
+    tmpCharPtr = strrchr(argv[4], '/');
+    if ( tmpCharPtr == NULL )
+    {
+        FATAL_MSG("Failed to find a specific character within the string.\n");
+        goto cleanupFail;
+    }
+
+    if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleName_MOD03", tmpCharPtr+1)<0)
+    {
+        FATAL_MSG("Cannot add the file path attribute.\n");
+        goto cleanupFail;
+    }
+
 
     // Extract the time substring from the file path
     fileTime = getTime( argv[1], 2 );
     if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleTime",fileTime)<0)
     {
-        fprintf(stderr, "[%s:%s:%d] Cannot add the time stamp.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Cannot add the time stamp.\n");
         goto cleanupFail;
     }
+
     free(fileTime);
     fileTime = NULL;
 
