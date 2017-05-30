@@ -132,7 +132,7 @@ def createDB(dbfile, commandLine):
     tstrs.add('CREATE TABLE instruments (id integer primary key, name text unique)')
     for inst in {"fileinfo"}:
         tstrs.add('CREATE TABLE {} (stime integer, etime integer, \
-            directory integer, fname text, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
+            directory integer, fname text, fsize integer, instrument integer,  FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
     for query in tstrs:
         cursor = cursor.execute(query)
     return dbconnection, cursor
@@ -233,12 +233,13 @@ def addInstrumentFile(instFile):
                     break
             else:
                 if line.startswith('/') and line.endswith(':'):
-                    # looks like a path
+                    # looks like a path from hpss
                     warn("addInstrumentFile: new directory %s for following files", line)
                     last_directory = line
                     continue
                 try:
-                    directory, _, fname = line.rpartition('/')
+                    filepart, _, size = line.rpartition(' ')
+                    directory, _, fname = filepart.rpartition('/')
                     addFunc = match_list.get(fname[0:3], False)
                     if len(directory) == 0:  # use last seen directory
                         directory = last_directory.rstrip(':')
