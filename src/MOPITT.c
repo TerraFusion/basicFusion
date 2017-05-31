@@ -612,7 +612,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     /* missing_invalid */
     /*#################*/
 
-    attrID = attributeCreate( radianceGroup, "missing_invalid", H5T_NATIVE_FLOAT );
+    attrID = attributeCreate( radianceDataset, "missing_invalid", H5T_NATIVE_FLOAT );
     if ( attrID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create missing_invalid attribute.\n",__FILE__,__func__,__LINE__);
@@ -678,7 +678,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     /* missing_nodata */
     /*################*/
 
-    attrID = attributeCreate( radianceGroup, "missing_nodata", H5T_NATIVE_FLOAT );
+    attrID = attributeCreate( radianceDataset, "missing_nodata", H5T_NATIVE_FLOAT );
     if ( attrID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create missing_invalid attribute.\n",__FILE__,__func__,__LINE__);
@@ -754,7 +754,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     }
 
 
-    attrID = attributeCreate( radianceGroup, "radiance_unit", stringType );
+    attrID = attributeCreate( radianceDataset, "radiance_unit", stringType );
     if ( attrID == EXIT_FAILURE )
     {
         fprintf( stderr, "[%s:%s:%d] Unable to create radiance_unit attribute.\n",__FILE__,__func__,__LINE__);
