@@ -7,7 +7,6 @@
 #define XMAX 2
 #define YMAX 720
 #define DIM_MAX 10
-
 //int get_subset_index(int start_fix,int start_index,int end_index,GDateInfo_t orbit_time,double* jd);
 int obtain_start_end_index(int* sindex_ptr,int* endex_ptr,double *jd,int32 size,OInfo_t orbit_info);
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax );
@@ -42,7 +41,8 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
     char* correctName = NULL;
     short fail = 0;
     char* tmpCharPtr = NULL;
-
+    const char* UNITS1 = {"Watts/m^2/steradian"};
+    const char* UNITS2 = {"Watts/m^2/micrometer/steradian"};
     char* inTimePosName[NUM_TIME] = {"Time of observation", "Colatitude of CERES FOV at surface",
                                      "Longitude of CERES FOV at surface"
                                     };
@@ -674,7 +674,7 @@ cleanupFail:
     }
 
     // The valid_range is hard-coded. This is not good from software point-of-view. Maybe OK if this is from user's guide.
-    status = CERESinsertAttrs( SWFilteredDatasetID, "CERES SW filtered radiance - upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
+    status = CERESinsertAttrs( SWFilteredDatasetID, "CERES SW filtered radiance - upwards", UNITS1, -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert attributes for SW Filtered Radiances Upwards.\n");
@@ -704,7 +704,7 @@ cleanupFail:
         goto cleanupFail;
     }
 
-    status = CERESinsertAttrs( WNFilteredDatasetID, "CERES WN filtered radiance - upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
+    status = CERESinsertAttrs( WNFilteredDatasetID, "CERES WN filtered radiance - upwards", UNITS2, -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert CERES WN Filtered Radiances Upwards attributes.\n");
@@ -734,7 +734,7 @@ cleanupFail:
         goto cleanupFail;
     }
 
-    status = CERESinsertAttrs( TOTFilteredDatasetID, "CERES TOT filtered radiance - upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
+    status = CERESinsertAttrs( TOTFilteredDatasetID, "CERES TOT filtered radiance - upwards", UNITS1, -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert CERES TOT Filtered Radiances Upwards attributes.\n");
@@ -819,7 +819,7 @@ cleanupFail:
     }
 
     // The valid_range is hard-coded. This is not good from software point-of-view. Maybe OK if this is from user's guide.
-    status = CERESinsertAttrs( SWUnfilteredDatasetID, "CERES SW radiance - upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
+    status = CERESinsertAttrs( SWUnfilteredDatasetID, "CERES SW radiance - upwards", UNITS1, -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert attributes for SW iltered Radiances Upwards.\n");
@@ -849,7 +849,7 @@ cleanupFail:
         goto cleanupFail;
     }
 
-    status = CERESinsertAttrs( LWUnfilteredDatasetID, "CERES LW radiance - upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
+    status = CERESinsertAttrs( LWUnfilteredDatasetID, "CERES LW radiance - upwards", UNITS1, -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert CERES TOT Filtered Radiances Upwards attributes.\n");
@@ -878,7 +878,7 @@ cleanupFail:
         goto cleanupFail;
     }
 
-    status = CERESinsertAttrs( WNUnfilteredDatasetID, "CERES WN radiance - upwards", "Watts per square meter per steradian", -10.0f, 510.0f );
+    status = CERESinsertAttrs( WNUnfilteredDatasetID, "CERES WN radiance - upwards", UNITS1, -10.0f, 510.0f );
     if ( status != EXIT_SUCCESS )
     {
         FATAL_MSG("Failed to insert CERES WN Radiances Upwards attributes.\n");

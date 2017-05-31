@@ -60,12 +60,17 @@ int ASTER( char* argv[],int aster_count,int unpack)
     hid_t ASTERgranuleGroupID = 0;
     hid_t solar_geometryGroup = 0;
     hid_t pointingAngleGroup = 0;
+    hid_t tempDsetID = 0;
+    hid_t simplSpace = 0;
+    hid_t solarGeomDim = 0;
+    hid_t pointingDsetID = 0;
+    char* dimName = NULL;
     char* fileTime = NULL;
     char* productmeta0 = NULL;
     char* sensorName [3] = { NULL, NULL, NULL};
     char* tempStr = NULL;
     char* pointer2 = NULL;
-    char* strCat = NULL;
+    char* granuleSuffix = NULL;
     char* tmpCharPtr = NULL;
     int fail = 0;
     int i;
@@ -199,6 +204,16 @@ int ASTER( char* argv[],int aster_count,int unpack)
         inFileID = 0;
         goto cleanupFail;
     }
+
+
+    /* LTC May 24, 2017: We need to create a string that contains suffix "_g%d" where "%d" is the number of the current granule.
+     * This is needed for the copyDimensions function calls to create unique dimensions for each of the datasets.
+     */
+
+    // integer division is a floor operation
+    int numDigit = numDigits(aster_count);
+    granuleSuffix = calloc ( 2 + numDigit + 1, 1 ); // 2 for "_g", numDigit for the integer, 1 for null terminator
+    sprintf(granuleSuffix, "_g%d", aster_count);
 
     /********************************************************************************
      *                                GROUP CREATION                                *
@@ -336,6 +351,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
     /* LTC May 23, 2017: Add the SOLARDIRECTION values obtained from the productmetadata.0 (attribute of input ASTER file group)
      * as two, single-element HDF datasets.
      */
+
 
     // First open the productmetadata.0 attribute
 
@@ -509,8 +525,51 @@ int ASTER( char* argv[],int aster_count,int unpack)
         pointer1 = pointer2;
     } // end for
 
-    const hsize_t tempInt = 1;
+    hsize_t tempInt = 1;
 
+    /* We need to attach dimensions to the pointing angle datasets, so make those first. */
+    /* Make pointing angle dimension */
+    
+    dimName = calloc( strlen("PointingAngle") + strlen(granuleSuffix) + 1, 1 );
+    if ( dimName == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
+    sprintf(dimName, "PointingAngle%s", granuleSuffix);
+    // create dataspace
+    simplSpace = H5Screate_simple( 1, &tempInt, NULL );
+    if ( simplSpace < 0 )
+    {
+        FATAL_MSG("Failed to create a dataspace.\n");
+        simplSpace = 0;
+        goto cleanupFail;
+    }
+    // create dataset
+    tempDsetID = H5Dcreate2( outputFile, dimName, H5T_NATIVE_FLOAT, simplSpace, H5P_DEFAULT, H5P_DEFAULT,
+                                   H5P_DEFAULT);
+    if ( tempDsetID < 0 )
+    {
+        FATAL_MSG("Failed to create dataset.\n");
+        tempDsetID = 0;
+        goto cleanupFail;
+    }
+    // set dataset as a dimension scale
+    status = H5DSset_scale( tempDsetID, "Placeholder" );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set dataset as dimension scale.\n");
+        goto cleanupFail;
+    }
+    
+    iStatus = change_dim_attr_NAME_value(tempDsetID);
+    if ( iStatus == FAIL )
+    {
+        FATAL_MSG("Failed to set the NAME attribute for a dimension.\n");
+        goto cleanupFail;
+    }
+
+    /* Make the pointingAngle datasets and then attach the dimension scale we just made */
     for ( j = 0; j < i; j++)
     {
         status = H5LTmake_dataset_float( pointingAngleGroup, sensorName[j], 1, &tempInt, &(pointAngleVal[j]) );
@@ -519,7 +578,62 @@ int ASTER( char* argv[],int aster_count,int unpack)
             FATAL_MSG("Failed to add a pointing angle dataset.\n");
             goto cleanupFail;
         }
+
+        // Attach pure dimension
+        pointingDsetID = H5Dopen2( pointingAngleGroup, sensorName[j], H5P_DEFAULT );
+        if ( pointingDsetID < 0 )
+        {
+            FATAL_MSG("Failed to open dataset.\n");
+            pointingDsetID = 0;
+            goto cleanupFail;
+        }
+    
+        status = H5DSattach_scale( pointingDsetID, tempDsetID, 0); 
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach scale to dataset.\n");
+            goto cleanupFail;
+        }
+        H5Dclose(pointingDsetID); pointingDsetID = 0;
+        
     }
+
+    free(dimName); dimName = NULL;
+    H5Dclose(tempDsetID); tempDsetID = 0;
+
+    /* Create a Solar_Geometry dimension (same process as the dimension for pointing_angle) */
+    dimName = calloc( strlen("Solar_Geometry") + strlen(granuleSuffix) + 1, 1 );
+    if ( dimName == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
+    sprintf(dimName, "Solar_Geometry%s", granuleSuffix);
+
+    solarGeomDim = H5Dcreate2( outputFile, dimName, H5T_NATIVE_FLOAT, simplSpace, H5P_DEFAULT, H5P_DEFAULT,
+                                   H5P_DEFAULT);
+    if ( solarGeomDim < 0 )
+    {
+        FATAL_MSG("Failed to create dataset.\n");
+        tempDsetID = 0;
+        goto cleanupFail;
+    }
+
+    status = H5DSset_scale( solarGeomDim, "Placeholder" );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set dataset as dimension scale.\n");
+        goto cleanupFail;
+    }
+
+    iStatus = change_dim_attr_NAME_value(solarGeomDim);
+    if ( iStatus == FAIL )
+    {
+        FATAL_MSG("Failed to set the NAME attribute for a dimension.\n");
+        goto cleanupFail;
+    }
+
+    free(dimName); dimName = NULL;
 
     // Find the SOLARDIRECTION object in the productmetadata.0
     pointer1 = productmeta0SubStr2;
@@ -595,24 +709,52 @@ int ASTER( char* argv[],int aster_count,int unpack)
         goto cleanupFail;
     }
 
+    tempDsetID = H5Dopen2( solar_geometryGroup, "SolarAzimuth", H5P_DEFAULT );
+    if ( tempDsetID < 0 )
+    {
+        FATAL_MSG("Failed to open dataset.\n");
+        goto cleanupFail;
+    }
+
+    status = H5DSattach_scale( tempDsetID, solarGeomDim, 0);
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach scale to dataset.\n");
+        goto cleanupFail;
+    }
+
+    H5Dclose(tempDsetID); tempDsetID = 0;
+
+
     status = H5LTmake_dataset_float( solar_geometryGroup, "SolarElevation", 1, &tempInt, &(solarDir[1]) );
     if ( status != 0 )
     {
         FATAL_MSG("Failed to add a solar geometry dataset.\n");
+        tempDsetID = 0;
         goto cleanupFail;
     }
 
+    tempDsetID = H5Dopen2( solar_geometryGroup, "SolarElevation", H5P_DEFAULT );
+    if ( tempDsetID < 0 )
+    {
+        FATAL_MSG("Failed to open dataset.\n");
+        tempDsetID = 0;
+        goto cleanupFail;
+    }
+
+    status = H5DSattach_scale( tempDsetID, solarGeomDim, 0);
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to attach scale to dataset.\n");
+        goto cleanupFail;
+    }
+
+    H5Dclose(tempDsetID); tempDsetID = 0;
+
+
+
     /* DONE WITH POINTING ANGLES AND SOLAR GEOMETRY */
 
-
-    /* LTC May 24, 2017: We need to create a string that contains suffix "_g%d" where "%d" is the number of the current granule.
-     * This is needed for the copyDimensions function calls to create unique dimensions for each of the datasets.
-     */
-
-    // integer division is a floor operation
-    int numDigit = numDigits(aster_count);
-    strCat = calloc ( 2 + numDigit + 1, 1 ); // 2 for "_g", numDigit for the integer, 1 for null terminator
-    sprintf(strCat, "_g%d", aster_count);
 
     /* MY 2016-12-20: The following if-block will unpack the ASTER radiance data. I would like to clean up the code a little bit later.*/
     if(unpack == 1)
@@ -1041,19 +1183,19 @@ int ASTER( char* argv[],int aster_count,int unpack)
     // Copy the dimensions
     if(vnir_grp_ref >0)
     {
-        errStatus = copyDimension(strCat, inFileID, "ImageData1", outputFile, imageData1ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData1", outputFile, imageData1ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData2", outputFile, imageData2ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData2", outputFile, imageData2ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData3N", outputFile, imageData3NID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData3N", outputFile, imageData3NID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
@@ -1061,7 +1203,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
         }
         if ( imageData3BID)
         {
-            errStatus = copyDimension(strCat, inFileID, "ImageData3B", outputFile, imageData3BID);
+            errStatus = copyDimension(granuleSuffix, inFileID, "ImageData3B", outputFile, imageData3BID);
             if ( errStatus == FAIL )
             {
                 FATAL_MSG("Failed to copy dimensions.\n");
@@ -1072,37 +1214,37 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
     if ( swir_grp_ref > 0 )
     {
-        errStatus = copyDimension(strCat, inFileID, "ImageData4", outputFile, imageData4ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData4", outputFile, imageData4ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData5", outputFile, imageData5ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData5", outputFile, imageData5ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData6", outputFile, imageData6ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData6", outputFile, imageData6ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData7", outputFile, imageData7ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData7", outputFile, imageData7ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData8", outputFile, imageData8ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData8", outputFile, imageData8ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData9", outputFile, imageData9ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData9", outputFile, imageData9ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
@@ -1112,31 +1254,31 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
     if ( tir_grp_ref > 0 )
     {
-        errStatus = copyDimension(strCat, inFileID, "ImageData10", outputFile, imageData10ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData10", outputFile, imageData10ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData11", outputFile, imageData11ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData11", outputFile, imageData11ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData12", outputFile, imageData12ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData12", outputFile, imageData12ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData13", outputFile, imageData13ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData13", outputFile, imageData13ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
             goto cleanupFail;
         }
-        errStatus = copyDimension(strCat, inFileID, "ImageData14", outputFile, imageData14ID);
+        errStatus = copyDimension(granuleSuffix, inFileID, "ImageData14", outputFile, imageData14ID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions.\n");
@@ -1228,7 +1370,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
         }
-        iStatus = readThenWrite_ASTER_HR_LatLon(SWIRgeoGroupID,TIRgeoGroupID,VNIRgeoGroupID,"Latitude","Longitude",DFNT_FLOAT64,H5T_NATIVE_DOUBLE,inFileID, outputFile, strstr(strCat, "_g"));
+        iStatus = readThenWrite_ASTER_HR_LatLon(SWIRgeoGroupID,TIRgeoGroupID,VNIRgeoGroupID,"Latitude","Longitude",DFNT_FLOAT64,H5T_NATIVE_DOUBLE,inFileID, outputFile, granuleSuffix);
 
         if ( iStatus == EXIT_FAILURE )
         {
@@ -1277,12 +1419,18 @@ cleanupFail:
     if ( lonDataID ) H5Dclose(lonDataID);
     if ( productmeta0 ) free (productmeta0);
     if ( pointingAngleGroup) H5Gclose(pointingAngleGroup);
-    if ( fail ) return EXIT_FAILURE;
     if ( sensorName[0] ) free(sensorName[0]);
     if ( sensorName[1] ) free(sensorName[1]);
     if ( sensorName[2] ) free(sensorName[2]);
     if ( tempStr ) free(tempStr);
-    if ( strCat ) free(strCat);
+    if ( granuleSuffix ) free(granuleSuffix);
+    if ( tempDsetID ) H5Dclose(tempDsetID);
+    if ( dimName ) free(dimName);
+    if ( simplSpace ) H5Sclose(simplSpace);
+    if ( solarGeomDim ) H5Dclose(solarGeomDim);
+    if ( pointingDsetID ) H5Dclose(pointingDsetID);
+
+    if ( fail ) return EXIT_FAILURE;
     return EXIT_SUCCESS;
 
 }
