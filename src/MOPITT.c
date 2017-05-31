@@ -6,7 +6,7 @@
 #define LATITUDE "HDFEOS/SWATHS/MOP01/Geolocation Fields/Latitude"
 #define LONGITUDE "HDFEOS/SWATHS/MOP01/Geolocation Fields/Longitude"
 #define TIME "HDFEOS/SWATHS/MOP01/Geolocation Fields/Time"
-#define RADIANCE_UNIT "Watts meter-2 Sr-1"
+#define RADIANCE_UNIT "Watts/m^2/steradian"
 #define LAT_LON_UNIT "degree"
 #define TIME_UNIT "seconds UTC"
 
