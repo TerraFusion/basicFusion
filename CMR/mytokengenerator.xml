@@ -1,0 +1,14 @@
+<token>
+  <!-- Use your NASA UAT Earthdata Login username and password. -->
+  <username>hyoklee</username>
+  <password>******</password>
+  <client_id>curl</client_id>
+  <!-- Use your computer's IP address. -->
+  <user_ip_address>206.221.145.35</user_ip_address>
+</token>
+<!-- 
+
+     References
+
+     1. https://wiki.earthdata.nasa.gov/display/CMR/CMR+Data+Partner+User+Guide 
+-->
