@@ -41,7 +41,7 @@ args = docopt(__doc__)
 
 # global rows and insert strings to collect all the rows
 # the inserts at once, misr last (see populate orbit calc)
-ROWS = {"instruments": [], "orbits": [], "MOD": [], "AST": [], "CER": [], "MOP": [], "MIS": [], "dirs": dict()}
+ROWS = {"instruments": [], "orbits": [], "MOD": [], "AST": [], "CER": [], "MOP": [], "MIS": [], "dirs": dict(), "MIS_ADD": []}
 # originally one table per instrument - now single fileinfo table but separate inserts still aids debug/test
 INSERTS = {\
     "orbits": 'insert  into orbits (orbit, path, stime, etime) values (?, ?, ?, ?)',
@@ -51,7 +51,8 @@ INSERTS = {\
     "MOP": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
     "MIS": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
     "dirs": 'insert  into dirs (dir, id) values(?,?)',
-    "instruments": 'insert into instruments (id, name) values(?, ?)'
+    "instruments": 'insert into instruments (id, name) values(?, ?)',
+    "MIS_ADD": 'insert  into mis_add_fileinfo (path, fname, directory, instrument) values(?, ?, ?, ?)'
 }
 # Filter specs: matches get dropped.   These match on the beginning/end of LINES
 TAILFILTERS = ['.met', '.xml']
@@ -66,7 +67,7 @@ FILTERS = zip(HEADFILTERS, [str.startswith for i in range(len(HEADFILTERS))]) + 
 
 # Timezone reference for all timesh
 TZ = timezone('UTC')
-INSTRUMENTS = ["dirs", "orbits", "instruments", "MOD", "AST", "CER", "MOP", "MIS"]  # INSTRUMENTS is overloaded, rename?
+INSTRUMENTS = ["dirs", "orbits", "instruments", "MOD", "AST", "CER", "MOP", "MIS", "MIS_ADD"]  # INSTRUMENTS is overloaded, rename?
 
 def mktime_utc(timefmt, timestr):
     return calendar.timegm(TZ.localize(datetime.strptime(timestr, timefmt)).timetuple())
@@ -128,11 +129,12 @@ def createDB(dbfile, commandLine):
     tstrs = {'CREATE TABLE orbits (orbit integer, path integer, stime integer, etime integer)'}
     tstrs.add('CREATE TABLE dirs (id integer primary key autoincrement, dir text unique)')
     tstrs.add('CREATE TABLE dbinfo (info text)')
+    tstrs.add('CREATE TABLE mis_add_fileinfo (path integer, fname text, directory integer, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))')
     tstrs.add('insert into dbinfo values (\" ' + creationInfo + '\")')
     tstrs.add('CREATE TABLE instruments (id integer primary key, name text unique)')
     for inst in {"fileinfo"}:
         tstrs.add('CREATE TABLE {} (stime integer, etime integer, \
-            directory integer, fname text, fsize integer, instrument integer,  FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
+            directory integer, fname text, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
     for query in tstrs:
         cursor = cursor.execute(query)
     return dbconnection, cursor
@@ -196,7 +198,11 @@ def addast(directory, fname):
 
 def addmisr(directory, fname):
     ss = fname.split('_')
-    startstring = ss[6]
+    startstring = None
+    if('GMP' in ss):
+        startstring = ss[5]
+    else:
+        startstring = ss[6]
     orbit = int(startstring[1:])
     directory = ROWS['dirs'][directory]
     if odict.has_key(orbit):
@@ -205,10 +211,24 @@ def addmisr(directory, fname):
         warn("addmisr: no data for orbit %d trying to add %s", orbit, directory+"/"+fname)
     return
 
+def addmisradd(directory, fname):
+    #2 cases: HRLL and AGP
+    ss = fname.split('_')
+    startstring = None
+    if('HRLL' in ss):
+        startstring = ss[2]
+        startstring = startstring.replace('.hdf', '')
+    else:
+        startstring = ss[3]
+    path = startstring[1:]
+    directory = ROWS['dirs'][directory]
+    ROWS["MIS_ADD"].append((path, fname, directory, INSTRUMENTS.index('MIS'),))
+    return
+
 def addInstrumentFile(instFile):
     debug("addInstrumentFile(%s)", instFile)
     # THe mapping of filename match to DB add routines
-    match_list = {"MOD": addmod, "AST": addast, "CER": addcer, "CER_SSF": addcer, MOP": addmop, "MIS": addmisr}
+    match_list = {"MOD": addmod, "AST": addast, "CER": addcer, "MOP": addmop, "MIS": addmisr, "CER_SSF":addcer}
     last_directory = ''
 
     with gzip.open(instFile, 'r') as infile:
@@ -233,14 +253,17 @@ def addInstrumentFile(instFile):
                     break
             else:
                 if line.startswith('/') and line.endswith(':'):
-                    # looks like a path from hpss
+                    # looks like a path
                     warn("addInstrumentFile: new directory %s for following files", line)
                     last_directory = line
                     continue
                 try:
-                    filepart, _, size = line.rpartition(' ')
-                    directory, _, fname = filepart.rpartition('/')
-                    addFunc = match_list.get(fname[0:3], False)
+                    directory, _, fname = line.rpartition('/')
+                    #Handle special MISR case
+                    if(('HRLL' in fname) or ('AGP' in fname)):
+                        addFunc = addmisradd
+                    else:
+                        addFunc = match_list.get(fname[0:3], False)
                     if len(directory) == 0:  # use last seen directory
                         directory = last_directory.rstrip(':')
                     addDir(directory)
