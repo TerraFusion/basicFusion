@@ -58,7 +58,7 @@ INSERTS = {\
 TAILFILTERS = ['.met', '.xml']
 HEADFILTERS = ['#', 'MISBR', 'CER_BDS']
 # These match any part of the line, so be careful
-INFILTERS = ['MOD06']
+INFILTERS = ['MOD06', 'TERRAIN']
 def stringin(line, match):
     return line.find(match) >= 0
 FILTERS = zip(HEADFILTERS, [str.startswith for i in range(len(HEADFILTERS))]) + \
