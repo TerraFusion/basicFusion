@@ -874,29 +874,51 @@ def get_default_fill_value(datatype) :
       raise CDLContentError("Unrecognised data type '%s'" % datatype)
 
 
-#Extract temporal and spatial data by calling CMR Search API
-def get_granule_st_data(filenames):
-    search_url = "https://cmr.earthdata.nasa.gov/search/granules"
+
+def parse_platform_data(results):
+    ps = etree.Element('Platforms')
+    p = etree.Element('Platform')
+    sn = etree.Element('ShortName')
+    sn.text = 'TERRA'
+    insts = etree.Element('Instruments')
+    i_names = []
+    for  r in results:
+        instruments = r.findall('Platforms/Platform/Instruments/Instrument')
+        for instru in instruments:
+            name = instru.find('ShortName')
+            if(name.text in i_names):
+                continue
+            else:
+                i_names.append(name.text)
+                insts.append(instru)
+    p.append(sn)
+    p.append(insts)
+    ps.append(p)
+    return ps    
+
+#Extract temporal, spatial and platform data by calling CMR Search API
+def get_granule_stp_data(filenames):
+    search_url = "https://cmr.earthdata.nasa.gov/search/granules?pretty=True&echo_compatible=True&readable_granule_name="
     result = None
+    results = []
     for file in filenames:
-        if(re.match('MISR_*', file, flags=0)):
-            print("File: " + file)
-            buffer = StringIO()
-            data = json.dumps({"pretty" : True, "readable_granule_name": file,"echo_compatible":True})
-            c = pycurl.Curl()
-            c.setopt(pycurl.URL, search_url)
-            c.setopt(pycurl.POST, 1)
-            c.setopt(pycurl.POSTFIELDS, data)
-            c.setopt(c.WRITEDATA, buffer)
-            c.perform()
-            temp_tree = etree.fromstring(buffer.getvalue())
-            e = temp_tree.findall('references/reference/location')
+        search_result = urllib2.urlopen(search_url + file)
+        temp_tree = etree.fromstring(search_result.read())
+        e = temp_tree.findall('references/reference/location')
+        #print(etree.tostring(temp_tree))
+        if(e):
             first_url = e[0].text
+            print('Link of ' + file + ': ' + first_url)
             response = urllib2.urlopen(first_url)
-            #print("result: " + str(response.read()))
-            result = etree.fromstring(response.read())
-            break
-    return result
+            r = etree.fromstring(response.read())
+            if(re.match('MISR_*', file, flags=0)):
+                result = r
+                #print("result: " + etree.tostring(r))
+            results.append(r)
+    #Add platform data
+    platform_node = parse_platform_data(results)
+    
+    return result, platform_node
 
 #Extract filesize and production date time
 def get_data_granule(file_path):
@@ -955,13 +977,17 @@ def write_to_xml(cdlfile, ncdataset, destfile):
             ig = etree.Element('InputGranule')
             ig.text = fname
             igranules.append(ig)
-        result = get_granule_st_data(filenames)
+        result, platform_data = get_granule_stp_data(filenames)
+        print('test: ' + etree.tostring(platform_data))
         root.append(igranules)
         root.append(get_data_granule(cdlfile.replace('cdl', 'h5')))
         if(result is not None):
             root.append(result.find('Temporal'))
             root.append(result.find('Spatial'))
             root.append(result.find('OrbitCalculatedSpatialDomains'))
+            #root.append(platform_data)
+        #add platform data
+        root.append(platform_data)
         #Inefficiencies here for pretty print
         destf = open(destfile, 'wb')
         destf.write(etree.tostring(root, pretty_print=True))
