@@ -42,7 +42,7 @@ forInstrument() #arg: MIS|AST|MOD|CER|...
 
 getExtraFiles()
 {
-    echo -n "UNION ALL select dir, fname from mis_add_fileinfo inner join dirs on dirs.id == directory inner join orbits on orbits.path == mis_add_fileinfo.path where orbits.orbit == $1"
+    echo -n "UNION ALL select dir, fname from mis_add_fileinfo inner join dirs on dirs.id == directory inner join orbits on orbits.path == mis_add_fileinfo.path where (select stime from orbits where orbit = $1 ) <= orbits.etime and (select etime from orbits where orbit = $1 ) >= orbits.stime"
 }
 
 # predecessor to file from same instrument
