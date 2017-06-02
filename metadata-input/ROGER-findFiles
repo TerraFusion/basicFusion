@@ -1,0 +1,9 @@
+#!/bin/bash
+
+mkdir -p tmp
+rm -f tmp/fileList.txt # prevent appending to a non-empty file
+for i in ASTER MODIS CERES MOPITT MISR; do
+
+find "/projects/TDataFus/gyzhao/TF/data/$i" -type f >> ./data/$i.list
+
+done

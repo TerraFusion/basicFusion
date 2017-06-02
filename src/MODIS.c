@@ -53,7 +53,17 @@ int MODIS( char* argv[],int modis_count, int unpack)
     char* dimName = NULL;
     void* dimBuffer = NULL;
     char* tmpCharPtr = NULL;
-    //char netCDF_pureDim_NAME_val[] = "This is a netCDF dimension but not a netCDF variable.";
+    char* _1KMlatPath = NULL;
+    char* _1KMlonPath = NULL;
+    char* _1KMcoordPath = NULL;
+    char* HKMlatPath = NULL;
+    char* HKMlonPath = NULL;
+    char* HKMcoordPath = NULL;
+    char* QKMlatPath = NULL;
+    char* QKMlonPath = NULL;  
+    char* QKMcoordPath = NULL;  
+
+    ssize_t pathSize = 0;
 
     /**********************
      * 1KM data variables *
@@ -380,6 +390,124 @@ int MODIS( char* argv[],int modis_count, int unpack)
       ------------------------------------*/
 
 
+    /*_______________latitude data under geolocation_______________*/
+
+    latitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
+                                       "Latitude",
+                                       DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
+    if ( latitudeDatasetID == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to transfer latitude data.\n");
+        latitudeDatasetID = 0;
+        goto cleanupFail;
+    }
+
+    /* save the latitude HDF5 path */
+    pathSize = H5Iget_name( latitudeDatasetID, NULL, 0 );
+    if ( pathSize < 0 )
+    {
+        FATAL_MSG("Failed to get the size of the latitude path name.\n");
+        goto cleanupFail;
+    } 
+    _1KMlatPath = calloc(pathSize+1, 1 );
+    if ( _1KMlatPath == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
+
+    pathSize = H5Iget_name(latitudeDatasetID, _1KMlatPath, pathSize+1 );
+    if ( pathSize < 0 )
+    {
+        FATAL_MSG("Failed to retrieve latitude path name.\n");
+        goto cleanupFail;
+    } 
+
+    /* Set latitude units */
+    status = H5LTset_attribute_string(MODIS1KMgeolocationGroupID,"Latitude","units","degrees_north");
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set latitude units attribute.\n");
+        goto cleanupFail;
+    }
+
+    // copy dimensions over
+    errStatus = copyDimension( NULL, MOD03FileID, "Latitude", outputFile, latitudeDatasetID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+
+        goto cleanupFail;
+    }
+
+    if ( latitudeDatasetID) status = H5Dclose( latitudeDatasetID );
+    if ( status < 0 ) WARN_MSG("H5Dclose\n");
+    latitudeDatasetID = 0;
+
+    /*_______________longitude data under geolocation______________*/
+    longitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
+                                        "Longitude",
+                                        DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
+    if ( longitudeDatasetID == EXIT_FAILURE )
+    {
+        FATAL_MSG("Failed to transfer longitude data.\n");
+        longitudeDatasetID = 0;
+        goto cleanupFail;
+    }
+    status = H5LTset_attribute_string(MODIS1KMgeolocationGroupID,"Longitude","units","degrees_east");
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set longitude units attribute.\n");
+        goto cleanupFail;
+    }
+
+    /* save the longitude HDF5 path */
+    pathSize = H5Iget_name( longitudeDatasetID, NULL, 0 );
+    if ( pathSize < 0 )
+    {
+        FATAL_MSG("Failed to get the size of the longitude path name.\n");
+        goto cleanupFail;
+    }
+    _1KMlonPath = calloc(pathSize+1, 1 );
+    if ( _1KMlatPath == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
+
+    pathSize = H5Iget_name(longitudeDatasetID, _1KMlonPath, pathSize+1 );
+    if ( pathSize < 0 )
+    {
+        FATAL_MSG("Failed to retrieve longitude path name.\n");
+        goto cleanupFail;
+    }
+
+    // Copy dimensions over
+    errStatus = copyDimension( NULL, MOD03FileID, "Longitude", outputFile, longitudeDatasetID);
+    if ( errStatus == FAIL )
+    {
+        FATAL_MSG("Failed to copy dimension.\n");
+        goto cleanupFail;
+    }
+    if ( longitudeDatasetID) status = H5Dclose( longitudeDatasetID);
+    longitudeDatasetID = 0;
+    if ( status < 0 ) WARN_MSG("H5Dclose\n");
+
+    
+    // Concatenate latitude and longitude path into one string
+    _1KMcoordPath = calloc( strlen(_1KMlatPath) + strlen(_1KMlonPath) + 2, 1 );
+    if ( _1KMcoordPath == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
+    strcpy(_1KMcoordPath, _1KMlonPath);
+    strcat(_1KMcoordPath, " ");
+    strcat(_1KMcoordPath, _1KMlatPath);
+
+    free(_1KMlonPath); _1KMlonPath = NULL;
+    free(_1KMlatPath); _1KMlatPath = NULL;
+
 
     /*_______________EV_1KM_RefSB data_______________*/
 
@@ -440,8 +568,16 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
     }
 
-    if ( unpack == 0 || argv[2] != NULL )
+    if ( _1KMDatasetID ) // _1KMDatasetID and _1KMUncertID should be mutually inclusive
     {
+        /* Add the geolocation HDF5 paths to the 1KM radiance datasets (path has already been saved) */
+        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", "Coordinates", _1KMcoordPath);
+        if ( errStatus < 0 )
+        {
+            FATAL_MSG("Failed to set string attribute.\n");
+            goto cleanupFail;
+        }
+ 
         // ATTRIBUTES
         status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","units","Watts/m^2/micrometer/steradian");
         if ( status < 0 )
@@ -463,6 +599,26 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_1KM_RefSB valid_min attribute.\n");
             goto cleanupFail;
         }
+ 
+        // Copy the dimensions over
+        errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
+        if ( errStatus == FAIL )
+        {
+            FATAL_MSG("Failed to copy dimension.\n");
+            goto cleanupFail;
+        }
+
+        H5Dclose(_1KMDatasetID);
+        _1KMDatasetID = 0;
+        
+        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes", "Coordinates", 
+                                              _1KMcoordPath);
+        if ( errStatus < 0 )
+        {
+            FATAL_MSG("Failed to set string attribute.\n");
+            goto cleanupFail;
+        }
+     
         status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB_Uncert_Indexes","units","percent");
         if ( status < 0 )
         {
@@ -476,33 +632,17 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_1KM_RefSB_Uncert_Indexes _FillValue attribute.\n");
             goto cleanupFail;
         }
-
-
-        // Copy the dimensions over
-        errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
-        if ( errStatus == FAIL )
-        {
-            FATAL_MSG("Failed to copy dimension.\n");
-            goto cleanupFail;
-        }
+        
         errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB_Uncert_Indexes", outputFile, _1KMUncertID);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
+    
+        H5Dclose(_1KMUncertID);
+        _1KMUncertID = 0;
     }
-
-
-
-    // Close the identifiers related to these datasets
-    if ( _1KMDatasetID ) status = H5Dclose(_1KMDatasetID);
-    _1KMDatasetID = 0;
-    if ( status < 0 ) { WARN_MSG("H5Dclose\n");}
-
-    if ( _1KMUncertID) status = H5Dclose(_1KMUncertID);
-    _1KMUncertID = 0;
-    if ( status < 0 ) {WARN_MSG("H5Dclose\n");}
 
 
     /*___________EV_1KM_Emissive___________*/
@@ -844,72 +984,10 @@ int MODIS( char* argv[],int modis_count, int unpack)
     // Release identifiers associated with these datasets
     if ( _500Aggr1km) status = H5Dclose(_500Aggr1km);
     _500Aggr1km = 0;
-    if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
     if ( _500Aggr1kmUncert) status = H5Dclose(_500Aggr1kmUncert);
     _500Aggr1kmUncert = 0;
-    if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
-    /*_______________latitude data under geolocation_______________*/
-
-    latitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
-                                       "Latitude",
-                                       DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-    if ( latitudeDatasetID == EXIT_FAILURE )
-    {
-        fprintf( stderr, "[%s:%s:%d] Failed to transfer latitude data.\n",__FILE__,__func__,__LINE__);
-        latitudeDatasetID = 0;
-        goto cleanupFail;
-    }
-    status = H5LTset_attribute_string(MODIS1KMgeolocationGroupID,"Latitude","units","degrees_north");
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to set latitude units attribute.\n");
-        goto cleanupFail;
-    }
-
-    // copy dimensions over
-    errStatus = copyDimension( NULL, MOD03FileID, "Latitude", outputFile, latitudeDatasetID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimension.\n");
-
-        goto cleanupFail;
-    }
-
-    if ( latitudeDatasetID) status = H5Dclose( latitudeDatasetID );
-    if ( status < 0 ) WARN_MSG("H5Dclose\n");
-    latitudeDatasetID = 0;
-
-
-
-    /*_______________longitude data under geolocation______________*/
-    longitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
-                                        "Longitude",
-                                        DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-    if ( longitudeDatasetID == EXIT_FAILURE )
-    {
-        fprintf( stderr, "[%s:%s:%d] Failed to transfer longitude data.\n",__FILE__,__func__,__LINE__);
-        longitudeDatasetID = 0;
-        goto cleanupFail;
-    }
-    status = H5LTset_attribute_string(MODIS1KMgeolocationGroupID,"Longitude","units","degrees_east");
-    if ( status < 0 )
-    {
-        FATAL_MSG("Failed to set longitude units attribute.\n");
-        goto cleanupFail;
-    }
-
-    // Copy dimensions over
-    errStatus = copyDimension( NULL, MOD03FileID, "Longitude", outputFile, longitudeDatasetID);
-    if ( errStatus == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimension.\n");
-        goto cleanupFail;
-    }
-    if ( longitudeDatasetID) status = H5Dclose( longitudeDatasetID);
-    longitudeDatasetID = 0;
-    if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
     /*_______________Sensor Zenith under the granule group______________*/
     SensorZenithDatasetID = readThenWrite_MODIS_GeoMetry_Unpack(MODISgranuleGroupID,"SensorZenith",
@@ -1641,6 +1719,15 @@ cleanupFail:
     if ( dsetID ) SDendaccess(dsetID);
     if ( dimName != NULL ) free(dimName);
     if ( dimBuffer ) free(dimBuffer);
+    if ( _1KMlatPath ) free(_1KMlatPath);
+    if ( _1KMlonPath ) free(_1KMlonPath);
+    if ( HKMlatPath ) free (HKMlatPath);
+    if ( HKMlonPath ) free (HKMlonPath);
+    if ( QKMlatPath ) free(QKMlatPath);
+    if ( QKMlonPath ) free(QKMlonPath);
+    if ( _1KMcoordPath ) free(_1KMcoordPath );
+    if ( HKMcoordPath ) free(HKMcoordPath);
+    if ( QKMcoordPath ) free (QKMcoordPath);
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;
