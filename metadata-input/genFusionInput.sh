@@ -35,7 +35,7 @@ orderFiles() {
     # MOPITT #
     ##########
     # grep -v removes any "xml" files
-    # put results of ls into a temporary text file
+    # put results of ls into a variable
     MOPGREP=$(cat "$UNORDEREDFILE" | grep -e "MOP.*he5" -e 'MOP N/A' | grep -v "xml"  | sort)
     # iterate over this file, prepending the path of the file into our
     # OUTFILE
@@ -164,20 +164,586 @@ orderFiles() {
     while read -r line; do
         echo "$line" >> "$OUTFILE"
         let "MISRNUM++"
+        if [[ $line == *"_DF_"* ]]; then
+            pathnum=$(cut -d'_' -f 6 <<< "$line")
+            orbitnum=$(cut -d'_' -f 7 <<< "$line")
+            echo $(grep "$pathnum" <<< "$MISAGPGREP") >> "$OUTFILE"
+            echo $(grep "$orbitnum" <<< "$MISGPGREP") >> "$OUTFILE"
+            echo $(grep "$pathnum" <<< "$MISHRLLGREP") >> "$OUTFILE"
+        fi
     done <<< "$MISGRPGREP"
-    while read -r line; do
-        echo "$line" >> "$OUTFILE"
-        let "MISRNUM++"
-    done <<< "$MISAGPGREP"
-    while read -r line; do
-        echo "$line" >> "$OUTFILE"
-        let "MISRNUM++"
-    done <<< "$MISGPGREP"
-    while read -r line; do
-        echo "$line" >> "$OUTFILE"
-        let "MISRNUM++"
-    done <<< "$MISHRLLGREP"
 
+}
+
+# Args:
+# 1 = ordered input file
+#
+verifyFiles()
+{
+    DEBUGFILE="$1"
+    prevDate=""
+    prevRes=""
+    prevGroupDate=""
+    curGroupDate=""
+    instrumentSection=""
+    MODISVersionMismatch=0
+    ASTERVersionMismatch=0
+    MISRVersionMismatch=0
+
+    # Read through the DEBUGFILE file.
+    # Remember, DEBUGFILE is the variable our script will do the debugging on. It may
+    # or may not be set to the OUTFILE variable.
+    linenum=1
+
+    while read -r line; do
+        # Check to make sure that each line is either a comment, a newline or a path.
+        # If it is none of them, throw an error. This line would cause the C program
+        # downstream to crash because if the line isn't a comment or newline,
+        # it will interpret it as a file path.
+        
+        if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." && ${line:0:1} != "#" && ${line:0:1} != "\n" && ${line:0:1} != "\0" && ${#line} != 0 && "$line" != "MOP N/A" && "$line" != "CER N/A" && "$line" != "MIS N/A" && "$line" != "MOD N/A" && "$line" != "AST N/A" ]]; then
+            printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+            printf "\tAt line number: $linenum\n"
+            printf "\t\"$line\" is an invalid line.\nExiting script.\n" >&2
+            exit 1
+        fi
+        # continue if we have a non-valid line (comment or otherwise)
+        if [[ ${#line} == 0 || ${line:0:1} == "#" ]]; then
+            let "linenum++"
+            continue
+        fi
+        
+
+        # check to see if we have entered into a new instrument section.
+        # Note that internally we represent the current instrument we're reading
+        # by the first 3 characters of the respective filename. For instance, MOPITT
+        # would be "MOP", MODIS would be "MOD", MISR would be "MIS" etc.
+        # Remember, these are coming from the FILENAMES themselves.
+        curfilename=$(echo ${line##*/})
+        
+        if [ "$instrumentSection" != "${curfilename:0:3}" ]; then
+            instrumentSection=${curfilename:0:3}
+            # unset prevDate because we are starting a new section.
+            unset prevDate
+            unset prevGroupDate
+            unset prevRes
+            unset curGroupDate
+        fi
+
+        # note about the "prev" variables:
+        #   If only one file is present for that instrment, no checking will need
+        #   to be done. This code accounts for that.
+
+                           ##########
+                           # MOPITT #
+                           ##########
+
+        if [ "$instrumentSection" == "MOP" ]; then
+            
+            # line now contains a valid file path. Check to see if prevDate has been set.
+            # If it has not, set it to the value of line and continue to the next line
+            if [ -z "$prevDate" ]; then
+                # get the date information from line
+                # first find the filename itself (truncate line by cutting off the path)
+                prevfilename=$(echo ${line##*/})
+                #set prevDate to the date contained in filename
+                prevDate=${prevfilename:6:8}
+                # continue while loop
+                let "linenum++"
+                continue
+            fi
+
+            # we now have the previous date and the current line. Now we need to find the
+            # current date from the variable "curfilename" and compare that with the previous date
+            curDate=${curfilename:6:8}
+            if [[ "$curDate" < "$prevDate" || "$curDate" == "$prevDate" ]]; then
+                printf "\e[4m\e[93mWarning\e[0m: " >&2
+                printf "MOPITT files found to be out of order.\n" >&2
+                printf "\t\"$prevfilename\" (Date: $prevDate)\n\tcame before\n\t\"$curfilename\" (Date: $curDate)\n\tDates should be strictly increasing downward.\n" >&2
+            fi
+
+            prevDate="$curDate"
+            prevfilename="$curfilename"
+
+                          #########
+                          # CERES #
+                          #########
+
+        elif [ "$instrumentSection" == "CER" ]; then
+            # line now contains a valid file path. Check to see if prevDate has been set.
+            # If it has not, set it to the value of line and continue to the next line
+            if [ -z "$prevDate" ]; then
+                # get the date information from line
+                # set prevDate to the date contained in filename
+                prevfilename=$(echo ${line##*/})
+                prevDate=$(echo ${prevfilename##*.})
+                # continue while loop
+                let "linenum++"
+                continue
+            fi
+
+            
+            # we now have the previous date and the current line. Now we need to find the
+            # current date from the variable "curfilename" and compare that with the previous date
+            curDate=${curfilename##*.}
+
+            prevCam=${prevfilename:14:3}
+            curCam=${curfilename:14:3}
+
+            if [[ "$curCam" == "FM1" ]]; then
+                if [[ ${#prevGroupDate} != 0 ]]; then
+                    if [[ $curDate < $prevGroupDate || $curDate == $prevGroupDate ]]; then
+                        printf "\e[4m\e[93mWarning\e[0m: " >&2
+                        printf "CERES files found to be out of order.\n" >&2
+                        printf "\tDate of previous FM1/FM2 pair was $prevGroupDate.\n" >&2
+                        printf "\tDate of current FM1/FM2 pair is $curDate.\n" >&2
+                        printf "\tThe dates between pairs should be strictly increasing down the file list.\n" >&2
+                    fi
+                fi
+                prevGroupDate="$curDate"
+            fi
+            if [[ "$prevCam" == "$curCam" ]]; then
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "CERES FM1 followed FM1 or FM2 followed FM2.\n" >&2
+                printf "\tAn FM1 file should always be paired with an FM2 file!\n" >&2
+                printf "\tFound at line $linenum\n" >&2
+                printf "Exiting script\n"
+                exit 1
+            elif [[ "$prevCam" != "$curCam" && "$curCam" == "FM2" ]]; then
+                if [[ "$curDate" != "$prevDate" ]]; then
+                    printf "\e[4m\e[93mWarning\e[0m: " >&2
+                    printf "FM1/FM2 pair don't have the same date.\n" >&2
+                    printf "\tIf an FM1 file is followed by FM2, they must have the same date.\n"
+                    printf "\tprevDate=$prevDate curDate=$curDate"
+                    printf "\tLine $linenum\n"
+                fi
+            fi
+
+            prevDate="$curDate"
+            prevfilename="$curfilename"
+
+                          #########
+                          # MODIS #
+                          #########
+        # MODIS will have three checks. The first is to check for chronological consistency.
+        # The second is to check that the files follow in either the order of:
+        # MOD021KM
+        # MOD03
+        # or
+        # MOD021KM
+        # MOD02HKM
+        # MOD02QKM
+        # MOD03
+        #
+        # The third will throw a warning if the files have different version numbers
+
+        elif [ "$instrumentSection" == "MOD" ]; then
+            # note: "res" refers to "MOD021KM", "MOD02HKM", "MOD02QKM", or "MOD03"
+            if [ -z "$prevDate" ]; then
+                prevfilename=$(echo ${line##*/})
+                # extract the date
+                tmp=${prevfilename#*.A}
+                prevDate=$(echo "$tmp" | cut -f1,2 -d'.')
+                prevRes=$(echo ${prevfilename%%.*})
+                curGroupDate="$prevDate"
+                let "linenum++"
+                continue
+            fi
+
+            # CHECK FOR RESOLUTION CONSISTENCY
+
+            tmp=${curfilename#*.A}
+            curDate=$(echo "$tmp" | cut -f1,2 -d'.')
+            curRes=$(echo ${curfilename%%.*})
+
+            if [[ "$prevRes" == "MOD021KM" ]]; then
+                if [[ "$curRes" != "MOD03" && "$curRes" != "MOD02HKM" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MODIS resolutions are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
+                    printf "\tExpected to see MOD03 or MOD02HKM after MOD021KM.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$prevRes" == "MOD02HKM" ]]; then
+                if [[ "$curRes" != "MOD02QKM" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MODIS resolutions are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
+                    printf "\tExpected to see MOD02QKM after MOD02HKM.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$prevRes" == "MOD02QKM" ]]; then
+                if [[ "$curRes" != "MOD03" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MODIS resolutions are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
+                    printf "\tExpected to see MOD03 after MOD02QKM.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$prevRes" == "MOD03" ]]; then
+                if [[ "$curRes" != "MOD021KM" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MODIS resolutions are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
+                    printf "\tExpected to see MOD021KM after MOD03.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            else
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "Unknown error at line $LINENO. Exiting script.\n" >&2
+                exit 1
+            fi
+
+            # CHECK FOR DATE CONSISTENCY
+
+            # Internally, we will consider the file "MOD021KM" to be the indication that a new
+            # "group" has begun i.e.:
+            # MOD021KM...
+            # MOD03...
+            # or
+            # MOD021KM...
+            # MOD02HKM...
+            # MOD02QKM
+            # MOD03
+            
+            # If the current line is a MOD021KM file, we have found the beginning of a new group
+            
+            if [[ "$curRes" == "MOD021KM" ]]; then
+                prevGroupDate="$curGroupDate"
+                curGroupDate="$curDate"
+                # if prevGroupDate has not yet been set (we are on our first group)
+                if [ -z "$prevGroupDate" ]; then
+                    continue
+                # else check if the current group's date correctly follows the previous group's date
+                else
+                    if [[ "$curDate" < "$prevGroupDate" || "$curDate" == "$prevGroupDate" ]]; then
+                        printf "\e[4m\e[93mWarning\e[0m: " >&2
+                        printf "MODIS date inconsistency found.\n"
+                        printf "\tThe group proceeding \"$curfilename\" has a date of: $curGroupDate.\n" >&2
+                        printf "\tThe previous group had a date of: $prevGroupDate.\n" >&2
+                        printf "\tDates should be strictly increasing between groups!\n" >&2
+                    fi
+                fi
+            fi
+
+            # check that the current line's date is the same as the rest its group. Each file in a group should
+            # have the same date.
+            if [[ "$curDate" != "$curGroupDate" ]]; then
+                printf "\e[4m\e[93mWarning\e[0m: " >&2
+                printf "MODIS date inconsistency found.\n"
+                printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
+                printf "\tThese two dates should be equal.\n" >&2
+            fi
+
+            # CHECK FOR VERSION CONSISTENCY
+            # If there hasn't been a previous MODIS file, then skip this step
+            
+            if [[ ${#prevfilename} != 0 && $MODISVersionMismatch == 0 ]]; then
+                prevVersion=$(echo "$prevfilename" | cut -f4,4 -d'.')
+                curVersion=$(echo "$curfilename" | cut -f4,4 -d'.')
+                
+                if [[ "$prevVersion" != "$curVersion" ]]; then
+                    printf "\e[4m\e[93mWarning\e[0m: " >&2
+                    printf "MODIS file version mismatch.\n" >&2
+                    printf "\t$prevVersion and $curVersion versions were found at line $linenum\n" >&2
+                    printf "\tWill not print any more MODIS warnings of this type.\n" >&2
+                    MODISVersionMismatch=1
+                fi
+            fi
+
+            prevDate="$curDate"
+            prevRes="$curRes"
+            prevfilename="$curfilename"
+
+                    #########
+                    # ASTER #
+                    #########
+
+        elif [ "$instrumentSection" == "AST" ]; then
+            # line now contains a valid file path. Check to see if prevDate has been set.
+            # If it has not, set it to the value of line and continue to the next line
+            if [ -z "$prevDate" ]; then
+                # get the date information from line
+                #set prevDate to the date contained in filename
+                prevfilename=$(echo ${line##*/})
+                prevDate=$(echo "$prevfilename" | cut -f3,3 -d'_')
+                prevVersion=${prevDate:0:3}
+                prevDate="${prevDate:3}"
+                # continue while loop
+                let "linenum++"
+                continue
+            fi
+
+            # we now have the previous date and the current line. Now we need to find the
+            # current date from the variable "curfilename" and compare that with the previous date
+            curDate=$(echo "$curfilename" | cut -f3,3 -d'_')
+            curVersion=${curDate:0:3}
+            curDate="${curDate:3}"
+            if [[ "$curDate" < "$prevDate" || "$curDate" == "$prevDate" ]]; then
+                printf "\e[4m\e[93mWarning\e[0m: " >&2
+                printf "ASTER files found to be out of order.\n" >&2
+                printf "\t\"$prevfilename\" (Date: $prevDate)\n\tcame before\n\t\"$curfilename\" (Date: $curDate)\n\tDates should be strictly increasing downward.\n" >&2
+            fi
+
+            # CHECK FOR VERSION CONSISTENCY
+            # If there hasn't been a previous ASTER file, then skip this step
+
+            if [[ ${#prevfilename} != 0 && $ASTERVersionMismatch == 0 ]]; then
+
+                if [[ "$prevVersion" != "$curVersion" ]]; then
+                    printf "\e[4m\e[93mWarning\e[0m: " >&2
+                    printf "ASTER file version mismatch.\n" >&2
+                    printf "\t$prevVersion and $curVersion versions were found at line $linenum\n" >&2
+                    printf "\tWill not print any more ASTER warnings of this type.\n" >&2
+                    ASTERVersionMismatch=1
+                fi
+            fi
+
+
+            prevDate="$curDate"
+            prevfilename="$curfilename"
+            prevVersion="$curVersion"
+
+           
+                ########
+                # MISR #
+                ######## 
+
+        elif [ "$instrumentSection" == "MIS" ]; then
+            # note: "cam" refers to which camera, ie "AA", "AF", "AN" etc.
+            if [ -z "$prevDate" ]; then
+                prevfilename=$(echo ${line##*/})
+                # extract the date
+                prevDate=$(echo "$prevfilename" | cut -f6,7 -d'_')
+                prevCam=$(echo "$prevfilename" | cut -f8,8 -d'_' )
+                curGroupDate="$prevDate"
+                let "linenum++"
+                continue
+            fi
+
+            # CHECK FOR CAMEREA CONSISTENCY
+
+            curDate=$(echo "$curfilename" | cut -f6,7 -d'_')
+            curCam=$(echo "$curfilename" | cut -f8,8 -d'_' )
+
+            if [[ "$prevCam" == "AA" ]]; then
+                if [[ "$curCam" != "AF" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
+                    printf "\tExpected to see AF after AA.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$prevCam" == "AF" ]]; then
+                if [[ "$curCam" != "AN" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
+                    printf "\tExpected to see AN after AF.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$prevCam" == "AN" ]]; then
+                if [[ "$curCam" != "BA" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
+                    printf "\tExpected to see BA after AN.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+
+            elif [[ "$prevCam" == "BA" ]]; then
+                if [[ "$curCam" != "BF" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
+                    printf "\tExpected to see BF after BA.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$prevCam" == "BF" ]]; then
+                if [[ "$curCam" != "CA" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
+                    printf "\tExpected to see CA after BF.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$prevCam" == "CA" ]]; then
+                if [[ "$curCam" != "CF" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
+                    printf "\tExpected to see CF after CA.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$prevCam" == "CF" ]]; then
+                if [[ "$curCam" != "DA" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
+                    printf "\tExpected to see DA after CF.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$prevCam" == "DA" ]]; then
+                if [[ "$curCam" != "DF" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
+                    printf "\tExpected to see DF after DA.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$prevCam" == "DF" ]]; then
+                if [[ "$(echo "$curfilename" | cut -f7,3 -d'_')" != "AGP" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\"\n" >&2
+                    printf "\tExpected to see an AGP file after a DF camera.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "AGP" ]]; then
+                if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" != "GP" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
+                    printf "\tExpected to see GP after AGP file.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
+                if [[ "$(echo "$curfilename" | cut -f2,2 -d'_')" != "HRLL" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
+                    printf "\tExpected to see HRLL file after GP file.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            elif [[ "$(echo "$prevfilename" | cut -f2,2 -d'_')" == "HRLL" ]]; then
+                if [[ "$curCam" != "AA" ]]; then
+                    printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                    printf "MISR files are out of order.\n" >&2
+                    printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
+                    printf "\tExpected to see AA file after HRLL file.\n" >&2
+                    printf "Exiting script.\n" >&2
+                    exit 1
+                fi
+            else
+                printf "\e[4m\e[91mFatal Error\e[0m: " >&2
+                printf "Unknown error at line $LINENO. Exiting script.\n" >&2
+                rm -r "$CURDIR"/__tempFiles
+                exit 1
+            fi
+
+            # CHECK FOR DATE CONSISTENCY
+            
+           
+            if [[ "$curCam" == "AA" ]]; then
+                prevGroupDate="$curGroupDate"
+                curGroupDate="$curDate"
+                # if prevGroupDate has not yet been set (we are on our first group)
+                if [ -z "$prevGroupDate" ]; then
+                    continue
+                # else check if the current group's date correctly follows the previous group's date
+                else
+                    if [[ "$curDate" < "$prevGroupDate" || "$curDate" == "$prevGroupDate" ]]; then
+                        printf "\e[4m\e[93mWarning\e[0m: " >&2
+                        printf "MISR date inconsistency found.\n"
+                        printf "\tThe group proceeding \"$curfilename\" has a date of: $curGroupDate.\n" >&2
+                        printf "\tThe previous group had a date of: $prevGroupDate.\n" >&2
+                        printf "\tDates should be strictly increasing between groups!\n" >&2
+                    fi
+                fi
+            fi
+
+            # check that the current line's date is the same as the rest its group. Each file in a group should
+            # have the same date.
+
+            # if the current line is an AGP file, we just need to check the path number "Pxxx"
+            if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" == "AGP" ]]; then
+                # if the current line's path number is different than the previous line's
+                curpath="$(echo "$curfilename" | cut -f4,4 -d'_')"
+                prevpath="$(echo "$prevfilename" | cut -f6,6 -d'_')"
+                if [[ "$curpath" != "$prevpath" ]]; then
+                    printf "\e[4m\e[93mWarning\e[0m: " >&2
+                    printf "MISR file inconsistency found.\n"
+                    printf "\t$curfilename has a path number: $curpath != $prevpath\n" >&2
+                    printf "\tThese two path numbers should be equal.\n" >&2
+                fi
+            elif [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
+                curDate=$(echo "$curfilename" | cut -f5,6 -d'_')
+                if [[ "$curDate" != "$curGroupDate" ]]; then
+                    printf "\e[4m\e[93mWarning\e[0m: " >&2
+                    printf "MISR date inconsistency found.\n"
+                    printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
+                    printf "\tThese two dates should be equal.\n" >&2
+                fi
+            # else we need to check the dates between cur and prev
+            elif [[ "$curDate" != "$curGroupDate" && "$line" != *"AGP"* && "$line" != *"HRLL"* ]]; then
+                printf "\e[4m\e[93mWarning\e[0m: " >&2
+                printf "MISR date inconsistency found.\n"
+                printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
+                printf "\tThese two dates should be equal.\n" >&2
+            fi
+
+            # CHECK FOR VERSION CONSISTENCY
+            # If there hasn't been a previous MISR file, then skip this step
+
+            # If the current file is an AGP file, skip it
+            if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" != "AGP" ]]; then
+                # if this isn't our first MISR file and there hasn't been a version mismatch
+                # before, then
+                if [[ ${#prevfilename} != 0 && $MISRVersionMismatch == 0 ]]; then
+                    # if the previous file was an AGP file, then don't update the prevVersion
+                    # variable
+                    if [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" != "AGP" ]]; then
+                        prevVersion=$(echo ${prevfilename##*_})
+                        prevVersion=${prevVersion:0:4}
+                    fi
+
+                    curVersion=$(echo ${curfilename##*_})
+                    curVersion=${curVersion:0:4}
+
+                    if [[ "$prevVersion" != "$curVersion" ]]; then
+                        printf "\e[4m\e[93mWarning\e[0m: " >&2
+                        printf "MISR file version mismatch.\n" >&2
+                        printf "\t$prevVersion and $curVersion versions were found at line $linenum\n" >&2
+                        printf "\tWill not print any more MISR warnings of this type.\n" >&2
+                        MISRVersionMismatch=1
+                    fi
+                fi
+            fi
+
+
+            prevDate="$curDate"
+            prevCam="$curCam"
+            prevfilename="$curfilename"
+
+        else
+            printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+            printf "\tUnable to determine which was the current instrument being read.\n" >&2
+            printf "\tDebugging information follows:\n" >&2
+            printf "\t\tline=$line\n" >&2
+            printf "\t\tprevfilename=$prevfilename\n" >&2
+            printf "\t\tcurfilename=$curfilename\n" >&2
+            printf "\t\tinstrumentSection=$instrumentSection\n" >&2
+            printf "Exiting script.\n" >&2
+            exit 1
+        fi
+
+        let "linenum++"
+    done <"$DEBUGFILE"
 }
 
 if [ "$#" -ne 1 ]; then
@@ -233,5 +799,10 @@ fi
 
 orderFiles $UNORDERED $ORDERED
 
+# Perform verification checks
+verifyFiles "$ORDERED"
+
 # Add the orbit number to the top of the file
 echo -e "$1\n$(cat $ORDERED)" > "$ORDERED"
+
+
