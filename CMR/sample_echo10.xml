@@ -7,6 +7,8 @@
     <LongName>The Terra Fusion data from ASTER, CERES, MISR, MODIS, MOPTT</LongName>
     <DataSetId>GHRSST Level 2P USA NASA MODIS Aqua SST:1</DataSetId>
     <Description>TThe Terra Fusion project was created to fuse the MOPITT, CERES, MISR, ASTER and MODIS data into one, unified HDF5 "Basic Fusion" file set. One Basic Fusion (BF) granule contains data from each instrument over a certain time period. The BF granularity is defined as one Terra orbit.</Description>
+    <Orderable>false</Orderable>
+    <Visible>true</Visible>
     <RevisionDate>2011-06-21T07:08:05.192Z</RevisionDate>
     <ProcessingCenter>NCSA</ProcessingCenter>
     <ProcessingLevelId>2P</ProcessingLevelId>
