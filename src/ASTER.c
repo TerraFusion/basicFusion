@@ -1141,42 +1141,43 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
     /* LTC May 26, 2017: Add the units attribute to all of the radiance fields */
 
-    if ( imageData1ID )
+    hid_t dsetArray[15] = { imageData1ID, imageData2ID, imageData3NID, imageData3BID, imageData4ID, imageData5ID, imageData6ID,
+                            imageData7ID, imageData8ID, imageData9ID, imageData10ID, imageData11ID, imageData12ID, imageData12ID,
+                            imageData14ID };
+
+    for ( i = 0; i < 4; i++ )
     {
-        for ( i = 0; i < 4; i++ )
+        if ( !dsetArray[i] ) continue;
+
+        status = H5LTset_attribute_string( VNIRgroupID, radianceNames[i], "Units", "Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
         {
-            status = H5LTset_attribute_string( VNIRgroupID, radianceNames[i], "Units", "Watts/m^2/micrometer/steradian");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to set string attribute. i = %d\n", i);
-                goto cleanupFail;
-            }
+            FATAL_MSG("Failed to set string attribute. i = %d\n", i);
+            goto cleanupFail;
         }
     }
 
-    if ( imageData4ID )
+    for ( i = 0; i < 6; i++ )
     {
-        for ( i = 0; i < 6; i++ )
+        if ( !dsetArray[i+4] ) continue;
+
+        status = H5LTset_attribute_string( SWIRgroupID, radianceNames[i+4], "Units", "Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
         {
-            status = H5LTset_attribute_string( SWIRgroupID, radianceNames[i+4], "Units", "Watts/m^2/micrometer/steradian");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to set string attribute. i = %d\n", i);
-                goto cleanupFail;
-            }
+            FATAL_MSG("Failed to set string attribute. i = %d\n", i);
+            goto cleanupFail;
         }
     }
 
-    if ( imageData10ID )
+    for ( i = 0; i < 5; i++ )
     {
-        for ( i = 0; i < 5; i++ )
+        if ( !dsetArray[i+10] ) continue;
+
+        status = H5LTset_attribute_string( TIRgroupID, radianceNames[i+10], "Units", "Watts/m^2/micrometer/steradian");
+        if ( status < 0 )
         {
-            status = H5LTset_attribute_string( TIRgroupID, radianceNames[i+10], "Units", "Watts/m^2/micrometer/steradian");
-            if ( status < 0 )
-            {
-                FATAL_MSG("Failed to set string attribute. i = %d\n", i);
-                goto cleanupFail;
-            }
+            FATAL_MSG("Failed to set string attribute. i = %d\n", i);
+            goto cleanupFail;
         }
     }
 
@@ -1538,7 +1539,7 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
         /*
         * Allocate a buffer to hold the attribute data.
         */
-        fileattr_data = (char *)HDmalloc (n_values * sizeof(char));
+        fileattr_data = calloc (n_values + 1, 1);
         if(fileattr_data == NULL)
         {
             FATAL_MSG("Cannot allocate the buffer for fileattr_data.\n");
@@ -1569,7 +1570,7 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
         string_nogaininfo = obtain_gain_info(string_gaininfo);
 
         // Somehow valgrind complains. Need to check why.
-        gain_string_len = strlen(string_gaininfo)-strlen(string_nogaininfo);
+        gain_string_len = strlen(string_gaininfo) - strlen(string_nogaininfo);
         gain_string=malloc(gain_string_len+1);
         if(gain_string == NULL)
         {
@@ -1911,7 +1912,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
             FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
             goto cleanupFail;
         }
-        free(lat_vnir_buffer);
+        free(lat_vnir_buffer); lat_vnir_buffer = NULL;
         if(H5LTset_attribute_string(VNIRgeoGroupID,latname,"units","degrees_north")<0)
         {
             FATAL_MSG("Unable to insert ASTER latitude units attribute.\n");
