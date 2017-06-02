@@ -169,6 +169,8 @@ def addmod(directory, fname):
     return
 
 def addmop(directory, fname):
+    if('.hdf' in fname):
+        return
     sformat = '%Y%m%d'
     ss = fname.split('-')
     stime = mktime_utc(sformat, ss[1])
