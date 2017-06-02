@@ -180,7 +180,7 @@ def addmop(directory, fname):
     return
 
 def addcer(directory, fname):
-    timeFmt = '%Y%m%d'
+    timeFmt = '%Y%m%d%H'
     ss = fname.split('.')
     stime = mktime_utc(timeFmt, ss[-1])
     etime = stime + 24*60*60 # TODO CHECK THIS 24 hrs?
@@ -230,7 +230,7 @@ def addmisradd(directory, fname):
 def addInstrumentFile(instFile):
     debug("addInstrumentFile(%s)", instFile)
     # THe mapping of filename match to DB add routines
-    match_list = {"MOD": addmod, "AST": addast, "CER": addcer, "MOP": addmop, "MIS": addmisr, "CER_SSF":addcer}
+    match_list = {"MOD": addmod, "AST": addast, "CER": addcer, "CER_SSF": addcer, "MOP": addmop, "MIS": addmisr }
     last_directory = ''
 
     with gzip.open(instFile, 'r') as infile:
