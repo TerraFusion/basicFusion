@@ -228,25 +228,26 @@ int main( int argc, char* argv[] )
         goto cleanupFail;
     }
 
-    /* strrchr finds last occurance of character in a string */
-    granTempPtr = strrchr( string, '/' );
-    if ( granTempPtr == NULL )
-    {
-        FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-        goto cleanupFail;
-    }
-    errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-    if ( errStatus == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to update the granule list.\n");
-        goto cleanupFail;
-    }
 
     /* strcmp returns 0 if the strings match */
     if ( strcmp(string, "MOP N/A" ) )
     {
         int MOPITTgranule = 1;
-
+        
+        
+        /* strrchr finds last occurance of character in a string */
+        granTempPtr = strrchr( string, '/' );
+        if ( granTempPtr == NULL )
+        {
+            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+            goto cleanupFail;
+        }
+        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+        if ( errStatus == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to update the granule list.\n");
+            goto cleanupFail;
+        }
         // minor: strstr may be called twice in the loop. No need to change. KY 2017-04-10
         do
         {
@@ -319,18 +320,6 @@ int main( int argc, char* argv[] )
         }
     
         
-        granTempPtr = strrchr( string, '/' );
-        if ( granTempPtr == NULL )
-        {
-            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-            goto cleanupFail;
-        }
-        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-        if ( errStatus == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to update the granule list.\n");
-            goto cleanupFail;
-        }
     }
 
     /*********
@@ -408,8 +397,18 @@ int main( int argc, char* argv[] )
     {
         while(ceres_count != 0)
         {
-
-
+            granTempPtr = strrchr( string, '/' );
+            if ( granTempPtr == NULL )
+            {
+                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+            if ( errStatus == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to update the granule list.\n");
+                goto cleanupFail;
+            }
             if(strstr(string,MODIScheck1) != NULL)
             {
                 ceres_count = 0;
@@ -533,21 +532,7 @@ int main( int argc, char* argv[] )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
             goto cleanupFail;
-        }
-
-        
-        granTempPtr = strrchr( string, '/' );
-        if ( granTempPtr == NULL )
-        {
-            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-            goto cleanupFail;
-        }
-        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-        if ( errStatus == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to update the granule list.\n");
-            goto cleanupFail;
-        }
+        }    
     }
 
     /*********
@@ -567,6 +552,18 @@ int main( int argc, char* argv[] )
         {
 
 
+            granTempPtr = strrchr( string, '/' );
+            if ( granTempPtr == NULL )
+            {
+                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+            if ( errStatus == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to update the granule list.\n");
+                goto cleanupFail;
+            }
             /* Need to check more, now just assume ASTER is after */
             if(strstr(string,ASTERcheck)!=NULL)
             {
@@ -749,20 +746,6 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
-
-            granTempPtr = strrchr( string, '/' );
-            if ( granTempPtr == NULL )
-            {
-                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-                goto cleanupFail;
-            }
-            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-            if ( errStatus == EXIT_FAILURE )
-            {
-                FATAL_MSG("Failed to update the granule list.\n");
-                goto cleanupFail;
-            }
-
             modis_count++;
 
         }
@@ -781,19 +764,6 @@ int main( int argc, char* argv[] )
             goto cleanupFail;
         }
 
-
-        granTempPtr = strrchr( string, '/' );
-        if ( granTempPtr == NULL )
-        {
-            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-            goto cleanupFail;
-        }
-        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-        if ( errStatus == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to update the granule list.\n");
-            goto cleanupFail;
-        }
     }
     /*********
      * ASTER *
@@ -812,6 +782,18 @@ int main( int argc, char* argv[] )
             if(strstr( string, ASTERcheck ) != NULL )
             {
 
+                granTempPtr = strrchr( string, '/' );
+                if ( granTempPtr == NULL )
+                {
+                    FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                    goto cleanupFail;
+                }
+                errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+                if ( errStatus == EXIT_FAILURE )
+                {
+                    FATAL_MSG("Failed to update the granule list.\n");
+                    goto cleanupFail;
+                }
                 /* Allocate memory for the argument */
                 ASTERargs[1] = malloc( strlen(string )+1);
                 memset(ASTERargs[1],0,strlen(string)+1);
@@ -848,28 +830,11 @@ int main( int argc, char* argv[] )
                 }
 
 
-                granTempPtr = strrchr( string, '/' );
-                if ( granTempPtr == NULL )
-                {
-                    FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-                    goto cleanupFail;
-                }
-                errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-                if ( errStatus == EXIT_FAILURE )
-                {
-                    FATAL_MSG("Failed to update the granule list.\n");
-                    goto cleanupFail;
-                }
             }
 
             // Assume MISR is after ASTER
-            else if(strstr(string,MISRcheck1)!=NULL)
+            else 
                 break;
-            else
-            {
-                FATAL_MSG("either the ASTER file is wrong or the MISR_GRP file is not right after ASTER file.\n\tThe received line is %s.\n", string);
-                goto cleanupFail;
-            }
         }
 
         printf("ASTER done.\nTransferring MISR...");
@@ -886,7 +851,16 @@ int main( int argc, char* argv[] )
             goto cleanupFail;
         }
 
+    }
 
+    /********
+     * MISR *
+     ********/
+    MISRargs[0] = argv[0];
+
+    if ( strcmp(string, "MIS N/A" ) )
+    {
+        
         granTempPtr = strrchr( string, '/' );
         if ( granTempPtr == NULL )
         {
@@ -899,15 +873,7 @@ int main( int argc, char* argv[] )
             FATAL_MSG("Failed to update the granule list.\n");
             goto cleanupFail;
         }
-    }
 
-    /********
-     * MISR *
-     ********/
-    MISRargs[0] = argv[0];
-
-    if ( strcmp(string, "MIS N/A" ) )
-    {
         for ( int i = 1; i < 10; i++ )
         {
             /* get the next MISR input file */

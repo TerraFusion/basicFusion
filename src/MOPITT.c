@@ -59,6 +59,9 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     char* correctName = NULL;
     char* fileTime = NULL;
     char* tmpCharPtr = NULL;
+    char* coordinatePath = NULL;
+    char* lonPath = NULL;
+    char* latPath = NULL;
 
     // open the input file
     if ( openFile( &file, argv[1], H5F_ACC_RDONLY ) )
@@ -374,7 +377,6 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
 
 
 
-
     /*********************
      * LONGITUDE DATASET *
      *********************/
@@ -387,6 +389,27 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
         longitudeDataset = 0;
         goto cleanupFail;
     }
+
+    /* Save the HDF5 path of the longitude dataset */
+    ssize_t pathSize = H5Iget_name( longitudeDataset, NULL, 0 );
+    if ( pathSize < 0 )
+    {
+        FATAL_MSG("Failed to get the size of the longitude path name.\n");
+        goto cleanupFail;
+    } 
+    latPath = calloc(pathSize+1, 1 );
+    if ( latPath == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
+
+    pathSize = H5Iget_name(longitudeDataset, latPath, pathSize+1 );
+    if ( pathSize < 0 )
+    {
+        FATAL_MSG("Failed to retrieve longitude path name.\n");
+        goto cleanupFail;
+    } 
 
     // MY 2017-01-26: Add the CF longitude units here
     if(H5LTset_attribute_string(geolocationGroup,"Longitude","units","degrees_east")<0)
@@ -460,6 +483,26 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
         goto cleanupFail;
     }
 
+    pathSize = H5Iget_name( latitudeDataset, NULL, 0 );
+    if ( pathSize < 0 )
+    {
+        FATAL_MSG("Failed to get the size of the latitude path name.\n");
+        goto cleanupFail;
+    }
+    lonPath = calloc(pathSize+1, 1 );
+    if ( lonPath == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
+
+    pathSize = H5Iget_name(latitudeDataset, lonPath, pathSize+1 );
+    if ( pathSize < 0 )
+    {
+        FATAL_MSG("Failed to retrieve latitude path name.\n");
+        goto cleanupFail;
+    }
+
     // MY 2017-01-26: Add the CF longitude units here
     if(H5LTset_attribute_string(geolocationGroup,"Latitude","units","degrees_north")<0)
     {
@@ -520,6 +563,29 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
 
 
 
+    /* Attach the coordinates attribute to the radiance dataset (latitude and longitude HDF5 paths) */
+
+    coordinatePath = calloc( strlen(latPath) + strlen(lonPath) + 2, 1 );
+    if ( coordinatePath == NULL )
+    {
+        FATAL_MSG("Failed to allocate memory.\n");
+        goto cleanupFail;
+    }
+    strcpy(coordinatePath, lonPath);
+    strcat(coordinatePath, " ");
+    strcat(coordinatePath, latPath);
+    
+    status = H5LTset_attribute_string( radianceGroup, "MOPITTRadiances", "Coordinates", coordinatePath);
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set string attribute.\n");
+        goto cleanupFail;
+    }
+
+    free( coordinatePath); coordinatePath = NULL;
+    free( latPath ); latPath = NULL;
+    free( lonPath ); lonPath = NULL;
+    
     /****************
      * TIME DATASET *
      ****************/
@@ -904,6 +970,9 @@ cleanup:
     if ( nchanID )          H5Dclose(nchanID);
     if ( nstateID )         H5Dclose(nstateID);
     if ( granuleID )        H5Gclose(granuleID);
+    if ( coordinatePath )   free(coordinatePath);
+    if ( latPath )          free(latPath);
+    if ( lonPath )          free(lonPath);
     if ( fail )
         return EXIT_FAILURE;
 

@@ -1,0 +1,13 @@
+# declare a job name:
+#PBS -N terra_develop
+# Request 1 processor
+#PBS -l nodes=1:ppn=1
+# Request 30 minutes of wall clock time
+#PBS -l walltime=00:30:00
+#PBS -j oe
+##PBS -q devel
+cd $PBS_O_WORKDIR
+
+/home/clipp/basicFusion/exe/TERRArepackage /home/clipp/basicFusion/exe/out.h5 /home/clipp/basicFusion/exe/input2.txt /home/clipp/basicFusion/exe/orbit_info.bin > /home/clipp/basicFusion/exe/jobOut.txt
+
+exit 0
