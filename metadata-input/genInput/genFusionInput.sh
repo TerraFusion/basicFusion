@@ -200,17 +200,19 @@ verifyFiles()
         # If it is none of them, throw an error. This line would cause the C program
         # downstream to crash because if the line isn't a comment or newline,
         # it will interpret it as a file path.
-        
+       
+         
+        # continue if we have a non-valid line (comment or otherwise)
+        if [[ ${#line} == 0 || ${line:0:1} == "#" || "$line" == "MOP N/A" || "$line" == "CER N/A" || "$line" == "MIS N/A" || "$line" == "MOD N/A" || "$line" == "AST N/A" ]]; then
+            let "linenum++"
+            continue
+        fi
+
         if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." && ${line:0:1} != "#" && ${line:0:1} != "\n" && ${line:0:1} != "\0" && ${#line} != 0 ]]; then
             printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
             printf "\tAt line number: $linenum\n"
             printf "\t\"$line\" is an invalid line.\nExiting script.\n" >&2
             exit 1
-        fi
-        # continue if we have a non-valid line (comment or otherwise)
-        if [[ ${#line} == 0 || ${line:0:1} == "#" || "$line" == "MOP N/A" || "$line" == "CER N/A" || "$line" == "MIS N/A" || "$line" == "MOD N/A" || "$line" == "AST N/A" ]]; then
-            let "linenum++"
-            continue
         fi
         
 
@@ -752,13 +754,14 @@ if [ "$#" -ne 2 ]; then
 fi
 
 DB=../accesslist.sqlite
-UNORDERED=./unorderedFiles.txt
+UNORDERED=./"$2"unordered.txt
 ORDERED="$2"
 
 . ../queries.bash
 
 rm -f "$ORDERED"
 rm -f "$UNORDERED"
+
 
 MOPLINES=$(instrumentOverlappingOrbit "$DB" $1 MOP)
 CERLINES=$(instrumentOverlappingOrbit "$DB" $1 CER)
@@ -805,4 +808,4 @@ verifyFiles "$ORDERED"
 # Add the orbit number to the top of the file
 echo -e "$1\n$(cat $ORDERED)" > "$ORDERED"
 
-
+rm -f "$UNORDERED"
