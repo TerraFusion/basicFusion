@@ -1,4 +1,11 @@
 <Granule>
+  <GranuleUR>SC:MI1B2E.003:18638669aa79c2bd-a01d-4b90-ba4c-737c63492b88LAADS:901521333LAADS:901528365SC:MOP01.007:49249056</GranuleUR>
+  <InsertTime>2017-06-02T16:02:28.050000Z</InsertTime>
+  <LastUpdate>2017-06-02T16:02:28.050000Z</LastUpdate>
+  <Collection>
+    <ShortName>MOD021KM</ShortName>
+    <VersionId>6</VersionId>
+  </Collection>
   <InputGranules>
     <InputGranule>MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf</InputGranule>
     <InputGranule>AST_L1T_00307032007162020_20150520034221_121033.hdf</InputGranule>
@@ -11,6 +18,7 @@
   <DataGranule>
     <SizeMBDataGranule>0.0060453414917</SizeMBDataGranule>
     <ProducerGranuleId>InputGranules.h5</ProducerGranuleId>
+    <DayNightFlag>UNSPECIFIED</DayNightFlag>
     <ProductionDateTime>2017-05-30T15:34:38.692156Z</ProductionDateTime>
   </DataGranule>
   <Temporal>
@@ -63,4 +71,87 @@
       </Instruments>
     </Platform>
   </Platforms>
+  <TwoDCoordinateSystem>
+    <StartCoordinate1>22</StartCoordinate1>
+    <StartCoordinate2>1</StartCoordinate2>
+    <EndCoordinate2>139</EndCoordinate2>
+    <TwoDCoordinateSystemName>MISR</TwoDCoordinateSystemName>
+  </TwoDCoordinateSystem>
+  <MeasuredParameters>
+    <MeasuredParameter>
+      <ParameterName>Granule</ParameterName>
+      <QAStats>
+        <QAPercentMissingData>0</QAPercentMissingData>
+      </QAStats>
+    </MeasuredParameter>
+    <MeasuredParameter>
+      <ParameterName>Granule QA</ParameterName>
+      <QAFlags>
+        <AutomaticQualityFlag>Suspect</AutomaticQualityFlag>
+        <AutomaticQualityFlagExplanation>All MODIS data is classified suspect at this point Set QA flag to pass if geolocation can be performed on one footprint   Exhau SS4.5-6:</AutomaticQualityFlagExplanation>
+      </QAFlags>
+    </MeasuredParameter>
+    <MeasuredParameter>
+      <ParameterName>Radiance</ParameterName>
+      <QAStats>
+        <QAPercentMissingData>1</QAPercentMissingData>
+        <QAPercentOutOfBoundsData>0</QAPercentOutOfBoundsData>
+        <QAPercentInterpolatedData>0</QAPercentInterpolatedData>
+        <QAPercentCloudCover>42</QAPercentCloudCover>
+      </QAStats>
+      <QAFlags>
+        <AutomaticQualityFlag>Suspect</AutomaticQualityFlag>
+        <AutomaticQualityFlagExplanation>Process Terminated Normally - Check Science Quality Flag for Science Team quality assessment</AutomaticQualityFlagExplanation>
+        <OperationalQualityFlag>Passed</OperationalQualityFlag>
+        <OperationalQualityFlagExplanation>Process Terminated Normally - Check Science Quality Flag for Science Team quality assessment</OperationalQualityFlagExplanation>
+        <ScienceQualityFlag>Passed</ScienceQualityFlag>
+        <ScienceQualityFlagExplanation>Data has not been validated.  Consult the product quality statement.</ScienceQualityFlagExplanation>
+      </QAFlags>
+    </MeasuredParameter>
+  </MeasuredParameters>
+  <OnlineAccessURLs>
+    <OnlineAccessURL>
+      <URL>ftp://l5eil01.larc.nasa.gov//level1/MISR/MI1B2E.003/2007.07.03/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf</URL>
+      <MimeType>application/x-hdfeos</MimeType>
+    </OnlineAccessURL>
+    <OnlineAccessURL>
+      <URL>ftp://ladsweb.modaps.eosdis.nasa.gov/allData/6/MOD021KM/2007/184/MOD021KM.A2007184.1610.006.2014231113627.hdf</URL>
+      <MimeType>application/x-hdfeos</MimeType>
+    </OnlineAccessURL>
+    <OnlineAccessURL>
+      <URL>https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/6/MOD021KM/2007/184/MOD021KM.A2007184.1610.006.2014231113627.hdf</URL>
+      <MimeType>application/x-hdfeos</MimeType>
+    </OnlineAccessURL>
+    <OnlineAccessURL>
+      <URL>ftp://ladsweb.modaps.eosdis.nasa.gov/allData/6/MOD021KM/2007/184/MOD021KM.A2007184.1655.006.2014231113900.hdf</URL>
+      <MimeType>application/x-hdfeos</MimeType>
+    </OnlineAccessURL>
+    <OnlineAccessURL>
+      <URL>https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/6/MOD021KM/2007/184/MOD021KM.A2007184.1655.006.2014231113900.hdf</URL>
+      <MimeType>application/x-hdfeos</MimeType>
+    </OnlineAccessURL>
+    <OnlineAccessURL>
+      <URL>ftp://l5eil01.larc.nasa.gov//level1/MOPITT/MOP01.007/2007.07.03/MOP01-20070703-L1V3.50.0.he5</URL>
+      <MimeType>application/x-hdfeos</MimeType>
+    </OnlineAccessURL>
+  </OnlineAccessURLs>
+  <OnlineResources>
+    <OnlineResource>
+      <URL>ftp://l5eil01.larc.nasa.gov//distribution/BRWS/Browse.001/2007.07.03/MISR_AM1_GRP_ELLIPSOID_BR_GM_P022_O040110_AA_F03_0024.jpg</URL>
+      <Type>BROWSE</Type>
+      <MimeType>image/jpeg</MimeType>
+    </OnlineResource>
+    <OnlineResource>
+      <URL>ftp://l5eil01.larc.nasa.gov//level1/MISR/MI1B2E.003/2007.07.03/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf.xml</URL>
+      <Type>METADATA</Type>
+      <MimeType>text/xml</MimeType>
+    </OnlineResource>
+    <OnlineResource>
+      <URL>ftp://l5eil01.larc.nasa.gov//level1/MOPITT/MOP01.007/2007.07.03/MOP01-20070703-L1V3.50.0.he5.xml</URL>
+      <Type>METADATA</Type>
+      <MimeType>text/xml</MimeType>
+    </OnlineResource>
+  </OnlineResources>
+  <Orderable>true</Orderable>
+  <Price>0</Price>
 </Granule>

@@ -896,6 +896,51 @@ def parse_platform_data(results):
     ps.append(p)
     return ps    
 
+def generate_granule_ur(results):
+    granule_ur = etree.Element('GranuleUR')
+    ur_string = ""
+    for r in results:
+        temp_ur = r.find('GranuleUR')
+        ur_string += temp_ur.text
+    granule_ur.text = ur_string
+    return granule_ur
+
+def compile_online_refs(results):
+    codFound = False
+    oau = etree.Element('OnlineAccessURLs')
+    ORe = etree.Element('OnlineResources')
+    mp = etree.Element('MeasuredParameters')
+    tCodSys = None
+    urls = []
+    resources = []
+    mps = []
+    ref_list = []
+    for r in results:
+        uFind = r.findall('OnlineAccessURLs/OnlineAccessURL')
+        rFind = r.findall('OnlineResources/OnlineResource')
+        mFind = r.findall('MeasuredParameters/MeasuredParameter')
+        if(codFound == False):
+            tCodSys = r.find('TwoDCoordinateSystem')
+        if(uFind != None):
+            urls += uFind
+        if(rFind != None):
+            resources += rFind
+        if(mFind != None):
+            mps += mFind
+        if(tCodSys != None):
+            codFound = True
+    for u in urls:
+        oau.append(u)
+    for res in resources:
+        ORe.append(res)
+    for m in mps:
+        mp.append(m)
+    ref_list.append(tCodSys)
+    ref_list.append(mp)
+    ref_list.append(oau)
+    ref_list.append(ORe)
+    return ref_list
+    
 #Extract temporal, spatial and platform data by calling CMR Search API
 def get_granule_stp_data(filenames):
     search_url = "https://cmr.earthdata.nasa.gov/search/granules?pretty=True&echo_compatible=True&readable_granule_name="
@@ -917,8 +962,23 @@ def get_granule_stp_data(filenames):
             results.append(r)
     #Add platform data
     platform_node = parse_platform_data(results)
+    #Generate granule UR
+    g_ur = generate_granule_ur(results)
+    online_refs = compile_online_refs(results)
     
-    return result, platform_node
+    return result, platform_node, g_ur, online_refs
+
+#get logging data
+def get_log_data():
+    insert_time = etree.Element('InsertTime')
+    last_update = etree.Element('LastUpdate')
+    formatted_dstring = str(datetime.now())
+    formatted_dstring = formatted_dstring.replace(" ", "T")
+    formatted_dstring += 'Z'
+    insert_time.text = formatted_dstring
+    last_update.text = formatted_dstring
+    
+    return insert_time, last_update
 
 #Extract filesize and production date time
 def get_data_granule(file_path):
@@ -936,6 +996,8 @@ def get_data_granule(file_path):
     fs = etree.Element('SizeMBDataGranule')
     fs.text = str(f_size) 
     pgi = etree.Element('ProducerGranuleId')
+    dnFlag = etree.Element('DayNightFlag')
+    dnFlag.text = 'UNSPECIFIED'
     #check if it's a path in filename
     if(file_path.count('/') == 0):
         pgi.text = file_path
@@ -945,6 +1007,7 @@ def get_data_granule(file_path):
     dt.text = formatted_dstring
     e.append(fs)
     e.append(pgi)
+    e.append(dnFlag)
     e.append(dt)
     return e
 
@@ -977,8 +1040,11 @@ def write_to_xml(cdlfile, ncdataset, destfile):
             ig = etree.Element('InputGranule')
             ig.text = fname
             igranules.append(ig)
-        result, platform_data = get_granule_stp_data(filenames)
-        print('test: ' + etree.tostring(platform_data))
+        result, platform_data, g_ur, online_refs = get_granule_stp_data(filenames)
+        it, lu = get_log_data()
+        root.append(g_ur)
+        root.append(it)
+        root.append(lu)
         root.append(igranules)
         root.append(get_data_granule(cdlfile.replace('cdl', 'h5')))
         if(result is not None):
@@ -988,6 +1054,18 @@ def write_to_xml(cdlfile, ncdataset, destfile):
             #root.append(platform_data)
         #add platform data
         root.append(platform_data)
+        #Add Urls and resources
+        for i in online_refs:
+            root.append(i)
+        
+        #Orderable and Visible
+        orderable = etree.Element('Orderable')
+        orderable.text = 'true'
+        visible = etree.Element('Visible')
+        visible.text = 'true'
+        root.append(orderable)
+        root.append(visible)
+        
         #Inefficiencies here for pretty print
         destf = open(destfile, 'wb')
         destf.write(etree.tostring(root, pretty_print=True))
