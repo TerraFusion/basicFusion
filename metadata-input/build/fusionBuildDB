@@ -46,16 +46,19 @@ ROWS = {"instruments": [], "orbits": [], "MOD": [], "AST": [], "CER": [], "MOP":
 # originally one table per instrument - now single fileinfo table but separate inserts still aids debug/test
 INSERTS = {\
     "orbits": 'insert  into orbits (orbit, path, stime, etime) values (?, ?, ?, ?)',
-    "MOD": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
-    "AST": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
-    "CER": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
-    "MOP": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
-    "MIS": 'insert  into fileinfo (directory, fname, stime, etime, instrument) values(?, ?, ?, ?, ?)',
+    "MOD": 'insert  into fileinfo (directory, fname, fsize, stime, etime, instrument) values(?, ?, ?, ?, ?, ?)',
+    "AST": 'insert  into fileinfo (directory, fname, fsize, stime, etime, instrument) values(?, ?, ?, ?, ?, ?)',
+    "CER": 'insert  into fileinfo (directory, fname, fsize, stime, etime, instrument) values(?, ?, ?, ?, ?, ?)',
+    "MOP": 'insert  into fileinfo (directory, fname, fsize, stime, etime, instrument) values(?, ?, ?, ?, ?, ?)',
+    "MIS": 'insert  into fileinfo (directory, fname, fsize, stime, etime, instrument) values(?, ?, ?, ?, ?, ?)',
     "dirs": 'insert  into dirs (dir, id) values(?,?)',
     "instruments": 'insert into instruments (id, name) values(?, ?)',
     "MIS_ADD": 'insert  into mis_add_fileinfo (path, fname, directory, instrument) values(?, ?, ?, ?)'
 }
+
+#
 # Filter specs: matches get dropped.   These match on the beginning/end of LINES
+#
 TAILFILTERS = ['.met', '.xml']
 HEADFILTERS = ['#', 'MISBR', 'CER_BDS']
 # These match any part of the line, so be careful
@@ -135,7 +138,7 @@ def createDB(dbfile, commandLine):
     tstrs.add('CREATE TABLE instruments (id integer primary key, name text unique)')
     for inst in {"fileinfo"}:
         tstrs.add('CREATE TABLE {} (stime integer, etime integer, \
-            directory integer, fname text, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
+            directory integer, fname text, fsize integer, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))'.format(inst))
     for query in tstrs:
         cursor = cursor.execute(query)
     return dbconnection, cursor
@@ -160,46 +163,46 @@ def addDir(directory):
     ddict = ROWS['dirs']
     ddict[directory] = ddict.get(directory, len(ddict))
     
-def addmod(directory, fname):
+def addmod(directory, fname, size):
     sformat = '%Y%j%H%M'
     ss = fname.split('.')
     stime = mktime_utc(sformat, ss[1][1:]+ss[2])
     etime = stime + 5*60
     directory = ROWS['dirs'][directory]
-    ROWS["MOD"].append((directory, fname, stime, etime, INSTRUMENTS.index('MOD'),))
+    ROWS["MOD"].append((directory, fname, size, stime, etime, INSTRUMENTS.index('MOD'),size,))
     return
 
-def addmop(directory, fname):
+def addmop(directory, fname, fsize):
     sformat = '%Y%m%d'
     ss = fname.split('-')
     stime = mktime_utc(sformat, ss[1])
     etime = stime + 24*60*60 # TODO CHECK THIS 24 hours?
     directory = ROWS['dirs'][directory]
-    ROWS["MOP"].append((directory, fname, stime, etime, INSTRUMENTS.index('MOP'),))
+    ROWS["MOP"].append((directory ,fname, fsize, stime, etime, INSTRUMENTS.index('MOP'),size,))
     return
 
-def addcer(directory, fname): 
+def addcer(directory, fname, fsize):
     if('.hdf' in fname):
         return
-    timeFmt = '%Y%m%d%H'
+		timeFmt = '%Y%m%d'
     ss = fname.split('.')
     stime = mktime_utc(timeFmt, ss[-1])
     etime = stime + 60*60 # TODO CHECK THIS 24 hrs?
     directory = ROWS['dirs'][directory]
-    ROWS["CER"].append((directory, fname, stime, etime, INSTRUMENTS.index('CER'),))
+    ROWS["CER"].append((directory, fname, fsize, stime, etime, INSTRUMENTS.index('CER'),size,))
     return
    
-def addast(directory, fname):
+def addast(directory, fname, fsize):
     sformat = '003%m%d%Y%H%M%S'
     ss = fname.split('_')
     stime = mktime_utc(sformat, ss[2])
     etime = stime + 9  # TODO CHECK 9 sec?
     directory = ROWS['dirs'][directory]
-    ROWS["AST"].append((directory, fname, stime, etime, INSTRUMENTS.index('AST'),))
+    ROWS["AST"].append((directory ,fname, fsize, stime, etime, INSTRUMENTS.index('AST'),size,))
     return
 #Orbit 40110: StartTime: 20070703210915, EndTime: 20070703224808
 
-def addmisr(directory, fname):
+def addmisr(directory, fname, fsize):
     ss = fname.split('_')
     startstring = None
     if('GMP' in ss):
@@ -209,7 +212,7 @@ def addmisr(directory, fname):
     orbit = int(startstring[1:])
     directory = ROWS['dirs'][directory]
     if odict.has_key(orbit):
-        ROWS["MIS"].append((directory, fname, odict[orbit][0], odict[orbit][1], INSTRUMENTS.index('MIS'),))
+        ROWS["MIS"].append((directory, fname, odict[orbit][0], odict[orbit][1], INSTRUMENTS.index('MIS'),size,))
     else:
         warn("addmisr: no data for orbit %d trying to add %s", orbit, directory+"/"+fname)
     return
@@ -259,11 +262,12 @@ def addInstrumentFile(instFile):
                     print("{}:{}: {}".format(instFile, count,line), file=discards)
                     continue
                 if line.startswith('/') and line.endswith(':'):
-                    # looks like a path
+                    # looks like a path from hpss
                     warn("addInstrumentFile: new directory %s for following files", line)
                     last_directory = line
                     continue
                 try:
+										filepart, _, size = line.rpartition(' ')
                     directory, _, fname = line.rpartition('/')
                     #Handle special MISR case
                     if(('HRLL' in fname) or ('AGP' in fname)):
