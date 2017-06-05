@@ -100,7 +100,7 @@ int main( int argc, char* argv[] )
     int32* ceres_subset_num_elems_ptr=NULL;
     int modis_count = 1;
     int aster_count = 1;
-
+    FILE* new_orbit_info_b = NULL;
     OInfo_t current_orbit_info;
     OInfo_t* test_orbit_ptr = NULL;
 
@@ -127,7 +127,7 @@ int main( int argc, char* argv[] )
     }
 
     // open the orbit_info.bin file
-    FILE* new_orbit_info_b = fopen(argv[3],"r");
+    new_orbit_info_b = fopen(argv[3],"r");
     long fSize;
 
     // get the size of the file
