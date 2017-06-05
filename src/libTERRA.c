@@ -2761,10 +2761,8 @@ char* getTime( char* pathname, int instrument )
          * another 1 for the null terminator
          */
         len = end - start + 2;
-        retString = malloc ( len );
+        retString = calloc ( len,1 );
         strncpy( retString, start, len-1 );
-        /* add null terminator */
-        retString[len-1] = '\0';
 
         return retString;
     }
@@ -2794,9 +2792,8 @@ char* getTime( char* pathname, int instrument )
         }
 
         len = end - start + 2;
-        retString = malloc(len);
+        retString = calloc(len,1);
         strncpy( retString, start, len-1 );
-        retString[len-1] = '\0';
         return retString;
 
     }
@@ -2848,9 +2845,8 @@ char* getTime( char* pathname, int instrument )
 
         len = 17;
 
-        retString = malloc(len);
+        retString = calloc(len,1);
         strncpy( retString, start, len-1 );
-        retString[len-1] = '\0';
         return retString;
     }
 
@@ -2868,9 +2864,8 @@ char* getTime( char* pathname, int instrument )
 
         start += 4;
         len = 18;
-        retString = malloc(len);
+        retString = calloc(len,1);
         strncpy( retString, start, len-1 );
-        retString[len-1] = '\0';
         return retString;
     }
 
@@ -2879,18 +2874,17 @@ char* getTime( char* pathname, int instrument )
      ********/
     else if ( instrument == 4 )
     {
-        start = strstr( pathname, "P022_" );
+        start = strstr( pathname, "MISR_" );
         if ( start == NULL )
         {
             FATAL_MSG("Expected MISR path.\n\tReceived \"%s\"\n",pathname );
             return NULL;
         }
 
-        start += 5;
+        start += 31;
         len = 8;
-        retString = malloc(len);
+        retString = calloc(len,1);
         strncpy( retString, start, len-1 );
-        retString[len-1] = '\0';
         return retString;
     }
 
@@ -4688,7 +4682,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     TAI93 += (double)(numLeapYears * 86400);        // Account for additional days during leap years
 
     int leapYear = isLeapYear( (int) date.year);
-    if ( isLeapYear < 0 )
+    if ( leapYear < 0 )
     {
         FATAL_MSG("Failed to determine if it is a leap year.\n");
         return EXIT_FAILURE;
@@ -4748,8 +4742,8 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     }
 
     // Account for the number of FULL days that have passed in this month
-    const short days = (short) date.day - 1;        // day is 1-indexed
-    if ( days > 0 && days <= 31 )
+    const short days = (short) date.day - 1;        // date.day is 1-indexed
+    if ( days >= 0 && days <= 31 )
         TAI93 += (double) ((days) * 86400);          // Number of full days passed multiplied by number of seconds in a day
     else
     {

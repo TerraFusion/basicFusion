@@ -565,7 +565,7 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
             /* Need to check more, now just assume ASTER is after */
-            if(strstr(string,ASTERcheck)!=NULL)
+            if(strstr(string,ASTERcheck) || strstr(string,"AST N/A") )
             {
                 modis_count = 0;
                 continue;
@@ -774,7 +774,7 @@ int main( int argc, char* argv[] )
 
     /* Get the ASTER input files */
     /* MY 2016-12-20, Need to loop ASTER files since the number of granules may be different for each orbit */
-    if ( strcmp(string, "AST N/A" ) )
+    if ( strcmp(string, "AST N/A" ) != 0 )
     {
         while(aster_count != 0)
         {
