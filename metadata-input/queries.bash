@@ -22,6 +22,8 @@ dbInfo() { # get the info table - build metadata
   sqlite3 $1 'select * from dbinfo;'
 }
 
+#Queries for overlapping orbit, not used anymore, modify selectFiles and getExtraFiles to include them back in
+#--------------------------------------------------------------------------------------------------------------------------
 overlapsOrbit() { # pass orbit arg
   echo  -n " where (select stime from orbits where orbit = $1 ) <= etime 
   and (select etime from orbits where orbit = $1 ) >= stime"
@@ -34,15 +36,26 @@ startsInOrbit() { # pass orbit arg
 endsInOrbit() { # pass orbit arg
   echo  -n " where etime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 )"
 }
+#--------------------------------------------------------------------------------------------------------------------------
+
+inOrbit(){
+    echo  -n " where (stime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 )) and (etime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 ))"
+}
 
 forInstrument() #arg: MIS|AST|MOD|CER|...
 {
   echo -n " and (select id from instruments where name = \"$1\" ) = instrument"
 }
 
-getExtraFiles()
+
+overlapExtraFiles()
 {
     echo -n "UNION ALL select dir, fname from mis_add_fileinfo inner join dirs on dirs.id == directory inner join orbits on orbits.path == mis_add_fileinfo.path where (select stime from orbits where orbit = $1 ) <= orbits.etime and (select etime from orbits where orbit = $1 ) >= orbits.stime"
+}
+
+getExtraFiles()
+{
+    echo -n "UNION ALL select dir, fname from mis_add_fileinfo inner join dirs on dirs.id == directory inner join orbits on orbits.path == mis_add_fileinfo.path where orbits.orbit == $1"
 }
 
 # predecessor to file from same instrument
@@ -75,31 +88,43 @@ follows() {
 allOverlappingOrbit() { 
   # args: $1=database $2=orbit#
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
-  DB $1 $(selectFiles) $(overlapsOrbit $2) $(getExtraFiles $2)
+  DB $1 $(selectFiles) $(overlapsOrbit $2) $(overlapExtraFiles $2)
 }
 
 instrumentOverlappingOrbit(){
   # args:  $1=database $2=orbit# $3=AST|MOD|MIS|CER|MOP
   # example: instrumentOverlapsForOrbit fusionMetaDB.sqlite 4110 MIS 
-  DB $1 $(selectFiles) $(overlapsOrbit $2) $(forInstrument $3) $(getExtraFiles $2) $(forInstrument $3)
+  DB $1 $(selectFiles) $(overlapsOrbit $2) $(forInstrument $3) $(overlapExtraFiles $2) $(forInstrument $3)
 }
 
 allStartingInOrbit() { 
   # args: $1=database $2=orbit#
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
-  DB $1 $(selectFiles) $(startsInOrbit $2) $(getExtraFiles $2)
+  DB $1 $(selectFiles) $(startsInOrbit $2) $(overlapExtraFiles $2)
 }
 
 allEndingInOrbit() { 
   # args: $1=database $2=orbit#
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
-  DB $1 $(selectFiles) $(endsInOrbit $2) $(getExtraFiles $2)
+  DB $1 $(selectFiles) $(endsInOrbit $2) $(overlapExtraFiles $2)
+}
+
+allInOrbit(){
+  # args: $1=database $2=orbit#
+  # example: allInOrbit fusionMetaDB.sqlite 4110 
+  DB $1 $(selectFiles) $(inOrbit $2) $(getExtraFiles $2)
+}
+
+instrumentInOrbit(){
+  # args: $1=database $2=orbit#, $3=AST|MOD|MIS|CER|MOP
+  # example: instrumentInOrbit fusionMetaDB.sqlite 4110
+  DB $1 $(selectFiles) $(inOrbit $2) $(forInstrument $3) $(getExtraFiles $2) $(forInstrument $3)
 }
 
 instrumentStartingInOrbit() { 
   # args: $1=database $2=orbit#, $3=AST|MOD|MIS|CER|MOP
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
-  DB $1 $(selectFiles) $(startsInOrbit $2) $(forInstrument $3) $(getExtraFiles $2) $(forInstrument $3)
+  DB $1 $(selectFiles) $(startsInOrbit $2) $(forInstrument $3) $(overlapExtraFiles $2) $(forInstrument $3)
 }
 
 preceedingFile() {
