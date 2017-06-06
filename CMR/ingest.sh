@@ -11,3 +11,6 @@ curl -v -XPOST -H "Content-Type: application/echo10+xml" -H "Accept: application
 # https://raw.githubusercontent.com/nasa/Common-Metadata-Repository/8b81dbeb8ed08418cb9dcaec53cd3487a96a85da/umm-lib/resources/schema/echo10/Granule.xsd
 # https://raw.githubusercontent.com/nasa/Common-Metadata-Repository/8b81dbeb8ed08418cb9dcaec53cd3487a96a85da/umm-lib/resources/schema/echo10/MetadataCommon.xsd
 xmllint --schema Granule.xsd --noout InputGranules_generated.xml
+
+# Test collection ingestion.
+curl -i -XPUT -H "Content-type: application/echo10+xml" "Echo-Token: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" https://cmr.uat.earthdata.nasa.gov/ingest/providers/FUSION/collections/terra_fusion_1 -d @sample_echo10.xml
