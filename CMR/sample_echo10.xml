@@ -79,12 +79,12 @@
                     <OperationModes/>
                 </Instrument>
                 <Instrument>
-                    <ShortName>CERES</ShortName>
+                    <ShortName>CERES-FM1</ShortName>
                     <LongName>Clouds and the Earth's Radiant Energy System</LongName>
                     <Characteristics/>
                     <Sensors>
                         <Sensor>
-                            <ShortName>CERES</ShortName>
+                            <ShortName>CERES-FM1</ShortName>
                             <LongName>CERES sensor</LongName>
                             <Characteristics/>
                         </Sensor>
@@ -97,12 +97,12 @@
                     <Characteristics/>
                     <Sensors>
                         <Sensor>
-                            <ShortName>MISR</ShortName>
-                            <LongName>MISR imaging instrument</LongName>
-                            <Characteristics/>
+                          <ShortName>AA</ShortName>
                         </Sensor>
                     </Sensors>
-                    <OperationModes/>
+                    <OperationModes>
+                        <OperationMode>Normal</OperationMode>
+                    </OperationModes>
                 </Instrument>
                 <Instrument>
                     <ShortName>ASTER</ShortName>
@@ -133,6 +133,18 @@
             </Instruments>
         </Platform>
     </Platforms>
+    <TwoDCoordinateSystems>
+    <TwoDCoordinateSystem>
+        <TwoDCoordinateSystemName>MISR</TwoDCoordinateSystemName>
+        <Coordinate1>
+            <MinimumValue>0</MinimumValue>
+            <MaximumValue>38</MaximumValue>
+        </Coordinate1>
+        <Coordinate2>
+            <MinimumValue>0</MinimumValue>
+        </Coordinate2>
+    </TwoDCoordinateSystem>
+    </TwoDCoordinateSystems>
     <OnlineAccessURLs>
         <OnlineAccessURL>
             <URL>https://www2.acom.ucar.edu/mopitt</URL>
@@ -167,5 +179,14 @@
             <Type>Organization Home Page</Type>
         </OnlineResource>
     </OnlineResources>
-   
+    <Spatial>
+        <SpatialCoverageType>Horizontal</SpatialCoverageType>
+        <OrbitParameters>
+            <SwathWidth>400</SwathWidth>
+            <Period>98.88</Period>
+            <InclinationAngle>98.2</InclinationAngle>
+            <NumberOfOrbits>345</NumberOfOrbits>
+        </OrbitParameters>
+        <GranuleSpatialRepresentation>ORBIT</GranuleSpatialRepresentation>
+    </Spatial>
 </Collection>
