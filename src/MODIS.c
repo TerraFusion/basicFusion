@@ -1695,7 +1695,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to retrieve latitude path name.\n");
             goto cleanupFail;
         }
-        strncat(HKMlatPath, "/Latitude", sizeof("/Latitude"));
+        strncat(HKMlatPath, "/Latitude", strlen("/Latitude"));
 
         pathSize = H5Iget_name( MODIS500mgeolocationGroupID, NULL, 0 );
         if ( pathSize < 0 )
@@ -1718,7 +1718,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to retrieve longitude path name.\n");
             goto cleanupFail;
         }
-        strncat(HKMlonPath, "/Longitude", sizeof("/Longitude"));
+        strncat(HKMlonPath, "/Longitude", strlen("/Longitude"));
 
         HKMcoordPath = calloc( strlen(HKMlatPath) + strlen(HKMlonPath) + 2, 1 );
         if ( HKMcoordPath == NULL )
@@ -1755,7 +1755,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to retrieve latitude path name.\n");
             goto cleanupFail;
         }
-        strncat(QKMlatPath, "/Latitude", sizeof("/Latitude"));
+        strncat(QKMlatPath, "/Latitude", strlen("/Latitude"));
 
         pathSize = H5Iget_name( MODIS250mgeolocationGroupID, NULL, 0 );
         if ( pathSize < 0 )
@@ -1778,7 +1778,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to retrieve longitude path name.\n");
             goto cleanupFail;
         }
-        strncat(QKMlonPath, "/Longitude", sizeof("/Longitude"));
+        strncat(QKMlonPath, "/Longitude", strlen("/Longitude"));
 
         QKMcoordPath = calloc( strlen(QKMlatPath) + strlen(QKMlonPath) + 2, 1 );
         if ( HKMcoordPath == NULL )
