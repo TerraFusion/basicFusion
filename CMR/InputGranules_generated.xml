@@ -3,24 +3,16 @@
   <InsertTime>2017-06-02T16:02:28.050000Z</InsertTime>
   <LastUpdate>2017-06-02T16:02:28.050000Z</LastUpdate>
   <Collection>
-    <ShortName>MOD021KM</ShortName>
-    <VersionId>6</VersionId>
+    <ShortName>TERRAFUSION</ShortName>
+    <VersionId>1</VersionId>
   </Collection>
-  <InputGranules>
-    <InputGranule>MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf</InputGranule>
-    <InputGranule>AST_L1T_00307032007162020_20150520034221_121033.hdf</InputGranule>
-    <InputGranule>AST_L1T_00307032007164651_20150520034257_115058.hdf</InputGranule>
-    <InputGranule>CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070317</InputGranule>
-    <InputGranule>MOD021KM.A2007184.1610.006.2014231113627.hdf</InputGranule>
-    <InputGranule>MOD021KM.A2007184.1655.006.2014231113900.hdf</InputGranule>
-    <InputGranule>MOP01-20070703-L1V3.50.0.he5</InputGranule>
-  </InputGranules>
   <DataGranule>
     <SizeMBDataGranule>0.0060453414917</SizeMBDataGranule>
     <ProducerGranuleId>InputGranules.h5</ProducerGranuleId>
     <DayNightFlag>UNSPECIFIED</DayNightFlag>
     <ProductionDateTime>2017-05-30T15:34:38.692156Z</ProductionDateTime>
   </DataGranule>
+
   <Temporal>
     <RangeDateTime>
       <BeginningDateTime>2007-07-03T16:26:13.1449200Z</BeginningDateTime>
@@ -45,38 +37,6 @@
       <EquatorCrossingDateTime>2007-07-03T16:58:03.3673180Z</EquatorCrossingDateTime>
     </OrbitCalculatedSpatialDomain>
   </OrbitCalculatedSpatialDomains>
-  <Platforms>
-    <Platform>
-      <ShortName>TERRA</ShortName>
-      <Instruments>
-        <Instrument>
-          <ShortName>MISR</ShortName>
-          <Sensors>
-            <Sensor>
-              <ShortName>AA</ShortName>
-            </Sensor>
-          </Sensors>
-          <OperationModes>
-            <OperationMode>Normal</OperationMode>
-          </OperationModes>
-        </Instrument>
-        <Instrument>
-          <ShortName>CERES-FM1</ShortName>
-          <Sensors>
-            <Sensor>
-              <ShortName>CERES-FM1</ShortName>
-            </Sensor>
-          </Sensors>
-        </Instrument>
-      </Instruments>
-    </Platform>
-  </Platforms>
-  <TwoDCoordinateSystem>
-    <StartCoordinate1>22</StartCoordinate1>
-    <StartCoordinate2>1</StartCoordinate2>
-    <EndCoordinate2>139</EndCoordinate2>
-    <TwoDCoordinateSystemName>MISR</TwoDCoordinateSystemName>
-  </TwoDCoordinateSystem>
   <MeasuredParameters>
     <MeasuredParameter>
       <ParameterName>Granule</ParameterName>
@@ -109,6 +69,49 @@
       </QAFlags>
     </MeasuredParameter>
   </MeasuredParameters>
+  <Platforms>
+    <Platform>
+      <ShortName>TERRA</ShortName>
+      <Instruments>
+        <Instrument>
+          <ShortName>MISR</ShortName>
+          <Sensors>
+            <Sensor>
+              <ShortName>AA</ShortName>
+            </Sensor>
+          </Sensors>
+          <OperationModes>
+            <OperationMode>Normal</OperationMode>
+          </OperationModes>
+        </Instrument>
+        <Instrument>
+          <ShortName>CERES-FM1</ShortName>
+          <Sensors>
+            <Sensor>
+              <ShortName>CERES-FM1</ShortName>
+            </Sensor>
+          </Sensors>
+        </Instrument>
+      </Instruments>
+    </Platform>
+  </Platforms>
+  <InputGranules>
+    <InputGranule>MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf</InputGranule>
+    <InputGranule>AST_L1T_00307032007162020_20150520034221_121033.hdf</InputGranule>
+    <InputGranule>AST_L1T_00307032007164651_20150520034257_115058.hdf</InputGranule>
+    <InputGranule>CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2007070317</InputGranule>
+    <InputGranule>MOD021KM.A2007184.1610.006.2014231113627.hdf</InputGranule>
+    <InputGranule>MOD021KM.A2007184.1655.006.2014231113900.hdf</InputGranule>
+    <InputGranule>MOP01-20070703-L1V3.50.0.he5</InputGranule>
+  </InputGranules>
+
+  <TwoDCoordinateSystem>
+    <StartCoordinate1>22</StartCoordinate1>
+    <StartCoordinate2>1</StartCoordinate2>
+    <EndCoordinate2>139</EndCoordinate2>
+    <TwoDCoordinateSystemName>MISR</TwoDCoordinateSystemName>
+  </TwoDCoordinateSystem>
+
   <OnlineAccessURLs>
     <OnlineAccessURL>
       <URL>ftp://l5eil01.larc.nasa.gov//level1/MISR/MI1B2E.003/2007.07.03/MISR_AM1_GRP_ELLIPSOID_GM_P022_O040110_AA_F03_0024.hdf</URL>
@@ -153,5 +156,5 @@
     </OnlineResource>
   </OnlineResources>
   <Orderable>true</Orderable>
-  <Price>0</Price>
+  <!-- Price>0</Price -->
 </Granule>
