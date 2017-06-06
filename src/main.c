@@ -235,19 +235,6 @@ int main( int argc, char* argv[] )
         int MOPITTgranule = 1;
         
         
-        /* strrchr finds last occurance of character in a string */
-        granTempPtr = strrchr( string, '/' );
-        if ( granTempPtr == NULL )
-        {
-            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-            goto cleanupFail;
-        }
-        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-        if ( errStatus == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to update the granule list.\n");
-            goto cleanupFail;
-        }
         // minor: strstr may be called twice in the loop. No need to change. KY 2017-04-10
         do
         {
@@ -268,6 +255,20 @@ int main( int argc, char* argv[] )
             strncpy( MOPITTargs[1], string, strlen(string) );
             MOPITTargs[2] = argv[1];
 
+            /* strrchr finds last occurance of character in a string */
+            granTempPtr = strrchr( string, '/' );
+            if ( granTempPtr == NULL )
+            {
+                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+            if ( errStatus == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to update the granule list.\n");
+                goto cleanupFail;
+            }
+
             if ( MOPITT( MOPITTargs, current_orbit_info, &MOPITTgranule ) == EXIT_FAILURE )
             {
                 FATAL_MSG("MOPITT failed data transfer.\nExiting program.\n");
@@ -286,18 +287,6 @@ int main( int argc, char* argv[] )
             }
 
             
-            granTempPtr = strrchr( string, '/' );
-            if ( granTempPtr == NULL )
-            {
-                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-                goto cleanupFail;
-            }
-            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-            if ( errStatus == EXIT_FAILURE )
-            {
-                FATAL_MSG("Failed to update the granule list.\n");
-                goto cleanupFail;
-            }
             /* LTC Apr-7-2017 Note that if the current granule was skipped, MOPITTgranule will be decremented by MOPITT.c
                so that it contains the correct running total for number of granules that have been read.*/
             MOPITTgranule++;
@@ -397,18 +386,6 @@ int main( int argc, char* argv[] )
     {
         while(ceres_count != 0)
         {
-            granTempPtr = strrchr( string, '/' );
-            if ( granTempPtr == NULL )
-            {
-                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-                goto cleanupFail;
-            }
-            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-            if ( errStatus == EXIT_FAILURE )
-            {
-                FATAL_MSG("Failed to update the granule list.\n");
-                goto cleanupFail;
-            }
             if(strstr(string,MODIScheck1) != NULL)
             {
                 ceres_count = 0;
@@ -440,6 +417,20 @@ int main( int argc, char* argv[] )
 
                     ceres_subset_num_elems = (*ceres_end_index_ptr) -(*ceres_start_index_ptr)+1;
                     ceres_subset_num_elems_ptr =&ceres_subset_num_elems;
+                    
+
+                    granTempPtr = strrchr( string, '/' );
+                    if ( granTempPtr == NULL )
+                    {
+                        FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                        goto cleanupFail;
+                    }
+                    errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+                    if ( errStatus == EXIT_FAILURE )
+                    {
+                        FATAL_MSG("Failed to update the granule list.\n");
+                        goto cleanupFail;
+                    }
                     status = CERES(CERESargs,1,ceres_fm1_count,(int32*)ceres_start_index_ptr,NULL,ceres_subset_num_elems_ptr);
                     if ( status == EXIT_FAILURE )
                     {
@@ -474,6 +465,20 @@ int main( int argc, char* argv[] )
 
                     ceres_subset_num_elems = (*ceres_end_index_ptr) -(*ceres_start_index_ptr)+1;
                     ceres_subset_num_elems_ptr =&ceres_subset_num_elems;
+                    
+
+                    granTempPtr = strrchr( string, '/' );
+                    if ( granTempPtr == NULL )
+                    {
+                        FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                        goto cleanupFail;
+                    }
+                    errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+                    if ( errStatus == EXIT_FAILURE )
+                    {
+                        FATAL_MSG("Failed to update the granule list.\n");
+                        goto cleanupFail;
+                    }
                     status = CERES(CERESargs,2,ceres_fm2_count,(int32*)ceres_start_index_ptr,NULL,ceres_subset_num_elems_ptr);
                     //status = CERES_Subset(CERESargs,1,ceres_fm1_count,unpack,ceres_start_index,ceres_end_index);
                     if ( status == EXIT_FAILURE )
@@ -500,18 +505,6 @@ int main( int argc, char* argv[] )
             }
 
             
-            granTempPtr = strrchr( string, '/' );
-            if ( granTempPtr == NULL )
-            {
-                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-                goto cleanupFail;
-            }
-            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-            if ( errStatus == EXIT_FAILURE )
-            {
-                FATAL_MSG("Failed to update the granule list.\n");
-                goto cleanupFail;
-            }
 
             if(CERESargs[2]) free(CERESargs[2]);
             CERESargs[2] = NULL;
@@ -551,6 +544,19 @@ int main( int argc, char* argv[] )
         while(modis_count != 0)
         {
 
+            /* Need to check more, now just assume ASTER is after */
+            if(strstr(string,ASTERcheck) || strstr(string,"AST N/A") )
+            {
+                modis_count = 0;
+                continue;
+            }
+
+            /* Should be 1 km */
+            if ( strstr( string, MODIScheck1 ) == NULL )
+            {
+                FATAL_MSG("Received an unexpected input line for MODIS.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MODIScheck1);
+                goto cleanupFail;
+            }
 
             granTempPtr = strrchr( string, '/' );
             if ( granTempPtr == NULL )
@@ -564,20 +570,6 @@ int main( int argc, char* argv[] )
                 FATAL_MSG("Failed to update the granule list.\n");
                 goto cleanupFail;
             }
-            /* Need to check more, now just assume ASTER is after */
-            if(strstr(string,ASTERcheck)!=NULL)
-            {
-                modis_count = 0;
-                continue;
-            }
-
-            /* Should be 1 km */
-            if ( strstr( string, MODIScheck1 ) == NULL )
-            {
-                FATAL_MSG("Received an unexpected input line for MODIS.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MODIScheck1);
-                goto cleanupFail;
-            }
-
 
             /* Allocate memory for the argument */
             MODISargs[1] = malloc ( strlen(string )+1 );
@@ -774,7 +766,7 @@ int main( int argc, char* argv[] )
 
     /* Get the ASTER input files */
     /* MY 2016-12-20, Need to loop ASTER files since the number of granules may be different for each orbit */
-    if ( strcmp(string, "AST N/A" ) )
+    if ( strcmp(string, "AST N/A" ) != 0 )
     {
         while(aster_count != 0)
         {
@@ -861,21 +853,23 @@ int main( int argc, char* argv[] )
     if ( strcmp(string, "MIS N/A" ) )
     {
         
-        granTempPtr = strrchr( string, '/' );
-        if ( granTempPtr == NULL )
-        {
-            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-            goto cleanupFail;
-        }
-        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-        if ( errStatus == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to update the granule list.\n");
-            goto cleanupFail;
-        }
 
         for ( int i = 1; i < 10; i++ )
         {
+            
+            granTempPtr = strrchr( string, '/' );
+            if ( granTempPtr == NULL )
+            {
+                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+            
+            if ( errStatus == EXIT_FAILURE )
+            {
+                FATAL_MSG("Failed to update the granule list.\n");
+                goto cleanupFail;
+            }
             /* get the next MISR input file */
             if ( strstr( string, MISRcheck1 ) == NULL )
             {
@@ -893,19 +887,19 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
-
-            granTempPtr = strrchr( string, '/' );
-            if ( granTempPtr == NULL )
-            {
-                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-                goto cleanupFail;
-            }
-            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-            if ( errStatus == EXIT_FAILURE )
-            {
-                FATAL_MSG("Failed to update the granule list.\n");
-                goto cleanupFail;
-            }
+        }
+ 
+        granTempPtr = strrchr( string, '/' );
+        if ( granTempPtr == NULL )
+        {
+            FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+            goto cleanupFail;
+        }
+        errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+        if ( errStatus == EXIT_FAILURE )
+        {
+            FATAL_MSG("Failed to update the granule list.\n");
+            goto cleanupFail;
         }
 
         if ( strstr( string, MISRcheck2 ) == NULL )

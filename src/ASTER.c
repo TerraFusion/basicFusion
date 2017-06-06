@@ -72,6 +72,16 @@ int ASTER( char* argv[],int aster_count,int unpack)
     char* pointer2 = NULL;
     char* granuleSuffix = NULL;
     char* tmpCharPtr = NULL;
+    char* SWIRlat = NULL;
+    char* SWIRlon = NULL;
+    char* SWIRcoord = NULL;
+    char* TIRlat = NULL;
+    char* TIRlon = NULL;
+    char* TIRcoord = NULL;
+    char* VNIRlat = NULL;
+    char* VNIRlon = NULL;
+    char* VNIRcoord = NULL;
+    ssize_t pathSize = 0;
     int fail = 0;
     int i;
     herr_t errStatus = 0;
@@ -1378,7 +1388,190 @@ int ASTER( char* argv[],int aster_count,int unpack)
             FATAL_MSG("HR_LatLon failed.\n");
             goto cleanupFail;
         }
-    }
+
+        /* Save the geolocation paths */
+        if ( SWIRgeoGroupID )
+        {
+            /* Latitude */
+            pathSize = H5Iget_name( SWIRgeoGroupID, NULL, 0 );
+            if ( pathSize < 0 )
+            {
+                FATAL_MSG("Failed to get the size of the path name.\n");
+                goto cleanupFail;
+            }
+            SWIRlon = calloc(pathSize + strlen("/Longitude") + 1, 1 );
+            if ( SWIRlon == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+            pathSize = pathSize+strlen("/Latitude");
+
+            SWIRlat= calloc(pathSize+1, 1 );
+            if ( SWIRlat == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+
+            pathSize = H5Iget_name( SWIRgeoGroupID, SWIRlat, pathSize+1 );
+            if ( pathSize < 0 )
+            {
+                FATAL_MSG("Failed to retrieve latitude path name.\n");
+                goto cleanupFail;
+            }
+            strncpy(SWIRlon, SWIRlat, strlen(SWIRlat));
+            strncat(SWIRlat, "/Latitude", strlen("/Latitude"));
+            strncat(SWIRlon, "/Longitude", strlen("/Longitude"));
+            
+            SWIRcoord = calloc(strlen(SWIRlon) + strlen(SWIRlat) + 2, 1 );
+            if ( SWIRcoord == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+            strncpy(SWIRcoord,SWIRlon,strlen(SWIRlon));
+            strncat(SWIRcoord, " ", 1);
+            strncat(SWIRcoord, SWIRlat, strlen(SWIRlat));
+            free(SWIRlat); SWIRlat = NULL;
+            free(SWIRlon); SWIRlon = NULL;
+        
+            for ( i = 0; i < 6; i++ )
+            {
+                if ( !dsetArray[i+4] ) continue;
+
+                status = H5LTset_attribute_string( SWIRgroupID, radianceNames[i+4], "Coordinates", SWIRcoord);
+                if ( status < 0 )
+                {
+                    FATAL_MSG("Failed to set string attribute. i = %d\n", i);
+                    goto cleanupFail;
+                }
+            }
+        }
+
+        if ( TIRgeoGroupID )
+        {
+            /* Latitude */
+            pathSize = H5Iget_name( TIRgeoGroupID, NULL, 0 );
+            if ( pathSize < 0 )
+            {
+                FATAL_MSG("Failed to get the size of the path name.\n");
+                goto cleanupFail;
+            }
+            TIRlon = calloc(pathSize + strlen("/Longitude") + 1, 1 );
+            if ( TIRlon == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+            pathSize = pathSize+strlen("/Latitude");
+
+            TIRlat= calloc(pathSize+1, 1 );
+            if ( TIRlat == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+
+            pathSize = H5Iget_name( TIRgeoGroupID, TIRlat, pathSize+1 );
+            if ( pathSize < 0 )
+            {
+                FATAL_MSG("Failed to retrieve latitude path name.\n");
+                goto cleanupFail;
+            }
+            /* Copy over the Geolocation path to TIRlon */
+            strncpy(TIRlon, TIRlat, strlen(TIRlat));
+            /* Concatenate Latitude or Longitude to the paths */
+            strncat(TIRlat, "/Latitude", strlen("/Latitude"));
+            strncat(TIRlon, "/Longitude", strlen("/Longitude"));
+
+            TIRcoord = calloc(strlen(TIRlon) + strlen(TIRlat) + 2, 1 );
+            if ( TIRcoord == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+            strncpy(TIRcoord,TIRlon,strlen(TIRlon));
+            strncat(TIRcoord, " ", 1);
+            strncat(TIRcoord, TIRlat, strlen(TIRlat));
+            free(TIRlat); TIRlat = NULL;
+            free(TIRlon); TIRlon = NULL;
+
+            for ( i = 0; i < 5; i++ )
+            {
+                if ( !dsetArray[i+10] ) continue;
+
+                status = H5LTset_attribute_string( TIRgroupID, radianceNames[i+10], "Coordinates", TIRcoord);
+                if ( status < 0 )
+                {
+                    FATAL_MSG("Failed to set string attribute. i = %d\n", i);
+                    goto cleanupFail;
+                }
+            }
+        }
+
+        if ( VNIRgeoGroupID )
+        {
+            /* Latitude */
+            pathSize = H5Iget_name( VNIRgeoGroupID, NULL, 0 );
+            if ( pathSize < 0 )
+            {
+                FATAL_MSG("Failed to get the size of the path name.\n");
+                goto cleanupFail;
+            }
+            
+            VNIRlon = calloc(pathSize + strlen("/Longitude") + 1, 1 );
+            if ( VNIRlon == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+            pathSize = pathSize+strlen("/Latitude");
+
+            VNIRlat= calloc(pathSize+1, 1 );
+            if ( VNIRlat == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+
+            pathSize = H5Iget_name( VNIRgeoGroupID, VNIRlat, pathSize+1 );
+            if ( pathSize < 0 )
+            {
+                FATAL_MSG("Failed to retrieve latitude path name.\n");
+                goto cleanupFail;
+            }
+            strncpy(VNIRlon, VNIRlat, strlen(VNIRlat));
+            strncat(VNIRlat, "/Latitude", strlen("/Latitude"));
+            strncat(VNIRlon, "/Longitude", strlen("/Longitude"));
+
+            VNIRcoord = calloc(strlen(VNIRlon) + strlen(VNIRlat) + 2, 1 );
+            if ( VNIRcoord == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+            strncpy(VNIRcoord,VNIRlon,strlen(VNIRlon));
+            strncat(VNIRcoord, " ", 1);
+            strncat(VNIRcoord, VNIRlat, strlen(VNIRlat));
+            free(VNIRlat); VNIRlat = NULL;
+            free(VNIRlon); VNIRlon = NULL;
+
+            
+            for ( i = 0; i < 4; i++ )
+            {
+                if ( !dsetArray[i] ) continue;
+
+                status = H5LTset_attribute_string( VNIRgroupID, radianceNames[i], "Coordinates", VNIRcoord);
+                if ( status < 0 )
+                {
+                    FATAL_MSG("Failed to set string attribute. i = %d\n", i);
+                    goto cleanupFail;
+                }
+            }
+        } 
+    } // end if ( unpack == 1 )
+
 
     /* release identifiers */
     if ( 0 )
@@ -1430,7 +1623,15 @@ cleanupFail:
     if ( simplSpace ) H5Sclose(simplSpace);
     if ( solarGeomDim ) H5Dclose(solarGeomDim);
     if ( pointingDsetID ) H5Dclose(pointingDsetID);
-
+    if ( TIRlat ) free(TIRlat);
+    if ( TIRlon ) free(TIRlon);
+    if ( TIRcoord ) free(TIRcoord);
+    if ( VNIRlat ) free(VNIRlat);
+    if ( VNIRlon ) free(VNIRlon);
+    if ( VNIRcoord ) free(VNIRcoord);
+    if ( SWIRlat ) free(SWIRlat);
+    if ( SWIRlon ) free(SWIRlon);
+    if ( SWIRcoord) free(SWIRcoord);
     if ( fail ) return EXIT_FAILURE;
     return EXIT_SUCCESS;
 
