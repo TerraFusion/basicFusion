@@ -25,7 +25,10 @@ As can be inferred, users of this program must have both HDF4 and HDF5 libraries
 In addition to the HDF libraries, the Basic Fusion program is also dependent on the szip and jpeg libraries. These dependencies arise within the HDF libraries themselves. Please note that both Blue Waters and ROGER provide pre-compiled, pre-installed versions of all of these libraries through the use of the "module" construct. You can see a list of available modules by invoking "module avail" in the terminal and grepping the output to see the desired HDF, szip, or jpeg modules you need.
 
 ### Blue Waters
-1. Change into the desired directory and type "git clone https://github.com/TerraFusion/basicFusion"
+1. Change into the desired directory and type
+    ```
+    git clone https://github.com/TerraFusion/basicFusion
+    ```
 1. cd into the basicFusion/bin directory
 1. Open jobSubmit with your favorite text editor (e.g. "vim jobSubmit")
     - Change the directory of the "inputFiles" variable at the top of the page to a directory containing
@@ -44,8 +47,38 @@ In addition to the HDF libraries, the Basic Fusion program is also dependent on 
     - Two different makefiles have been provided. One compiles with static HDF libraries, "staticMakefile". The other compiles with dynamic HDF libraries, "dynamicMakefile". It goes without saying that if you want to use dynamic compilation, you must have your HDF libraries built with dynamic libraries enabled. Dynamic compiling may be useful for debugging purposes, but otherwise it is fine to use static compilation. cp the desired version of the makefile to "Makefile". **NOTE** As of 4/22/2017, staticMakefile is not functional. Use the dynamicMakefile. This should be fixed shortly.
     - Change the values of the "INCLUDE" and "LIB" variables to point to the proper HDF libraries. Depending on how you have compiled the HDF libraries (and also whether or not you plan on using the Blue Waters HDF modules), you will likely need to update all the variables INCLUDE1, INCLUDE2, LIB1, and LIB2. If all of your HDF4 and HDF5 library and include files are under the same directory, it is sufficient to point just the "1" variables to your libraries. Please refer to the library list above for all of the libraries required by the Basic Fusion program.
     - _Because every setup is slightly different, the Makefiles provided may not work as-is! If they don't, make sure that all compiler lines have visibility to the proper HDF4 and HDF5 include files, and that the linker has proper visibility to the HDF4 and HDF5 libraries._
-    
-### How to run on BW
+
+## Program Execution
+### Blue Waters
 There are multiple ways one can execute the BF program. First, **note that it is strongly recommended that you do NOT simply run the program by invoking "./basicFusion..."**. Running the program this way executes it on a login-node, and the IO-intensive nature of this program means that it will eat up shared resources on the login node, causing other BW users to experience poor responsiveness in the login nodes. Not to mention, this is a breach of the BW terms of use.
 
-1. Using the jobSubmit script
+UNDER CONSTRUCTION
+
+### ROGER
+
+1. Copy Makefile.roger found in the Makefiles directory to Makefile in the root project directory:  
+    ```bash
+    cp Makefiles/Makefile.roger ./Makefile
+    ```
+2. Load the necessary modules:  
+    ```bash
+    module load zlib libjpeg hdf4/4.2.12 hdf5  
+    ```
+    Note that it is useful if you put this command in your ~/.bash_rc file so that these modules are loaded every time you enter a new shell.
+3. Run make under the package root directory:  
+    ```bash
+    make
+    ```
+4. The program is now ready for execution under the bin directory. It requires three arguments: Name of the output HDF5 file, path to a text file containing the input files, path to the orbit_info.bin file. The orbit_info.bin file contains information about orbit start and end times required for the subsetting of MOPITT and CERES. Please see the [relevant Wiki page](https://github.com/TerraFusion/basicFusion/wiki/orbit_info.bin-file) on how to generate this file if needed (a copy of this file should be included by default under the bin directory).
+    - There are multiple ways to run the program. If using a **small** input file list, it can simply be invoked from the login node:
+        ~~~~
+        ./basicFusion out.h5 inputFiles.txt orbit_info.bin
+        ~~~~ 
+    - If not using small input, please refer to the [relevant wiki page](https://github.com/TerraFusion/basicFusion/wiki/ROGER-Parallel-Execution) for parallel execution of the program. Please be careful not to run this program with large input as doing so will consume a large amount of shared resources on the login node! This would be in violation of NCSA terms of use.
+5. NOTES
+    - Some sample input files are located in the inputFileDebug directory. The content inside the file may or may not point to valid file paths, but it nonetheless provides an example of "good" input to the Fusion program. [Please refer to the relevant wiki page](https://github.com/TerraFusion/basicFusion/wiki/Fusion-Program-Input-File-Specification) for details on how these input files must be structured.
+    - The program by default runs unpacking code for some of the datasets. This unpacking behavior can be turned off by setting the proper environment variable:
+        ```
+        export TERRA_DATA_PACK=1
+        ```
+        Unpacking converts some of the integer-valued datasets into floating point values that correspond to real physical units. The data is originally packed from floating point values to integers after being retrieved from the satellites in order to conserve space. It is a form of data compression. Disabling the unpacking behavior will result in some significant changes to the structure of the output HDF5 file (some datasets/attributes will not be added if unpacking is not performed).
