@@ -15,12 +15,22 @@ def test_collection_validation(ingest_file, token):
     url = "https://cmr.uat.earthdata.nasa.gov/ingest/providers/FUSION/validate/collection/"
     headers = {"Content-Type" : "application/echo10+xml", "Accept" : "application/xml", "Echo-Token" : token}
     res = requests.post(url, headers = headers, data = open(ingest_file, 'rb'))
-    print('collection response content: ' + res.content)
+    #print('c validation response: ' + res.content)
+    print('Status code: ' + str(res.status_code))
+    return res.status_code
+    if(res.status_code == 200):
+        test_collection_ingestion(ingest_file, token)
+
+def test_collection_ingestion(ingest_file, token):
+    url = "https://cmr.uat.earthdata.nasa.gov/ingest/providers/FUSION/collections/terra_fus_v1"
+    headers = {"Content-Type" : "application/echo10+xml", "Accept" : "application/xml", "Echo-Token" : token}
+    res = requests.put(url, headers = headers, data = open(ingest_file, 'rb'))
+    print('c ingestion response: ' + res.content)
 
 def test_granule_validation(ingest_file, token):
     url = "https://cmr.uat.earthdata.nasa.gov/ingest/providers/FUSION/validate/granule/"
     headers = {"Content-Type" : "application/echo10+xml", "Accept" : "application/xml", "Echo-Token" : token}
-    res = requests.post(url, headers = headers, data = open(ingest_file, 'rb'))
+    res = requests.put(url, headers = headers, data = open(ingest_file, 'rb'))
     print('granule response content: ' + res.content)
 
 #---------------------------------------------------------------------------------------------------
@@ -34,7 +44,11 @@ def main() :
     is_collection = True if sys.argv[3] == "-c" else False
     token = get_token(cred_file)
     if(is_collection):
-        test_collection_validation(ingest_file, token)
+        status = test_collection_validation(ingest_file, token)
+        if(status == 200):
+            test_collection_ingestion(ingest_file, token)
+        else:
+            print("Validation for collection failed")
     else:
         test_granule_validation(ingest_file, token)
 
