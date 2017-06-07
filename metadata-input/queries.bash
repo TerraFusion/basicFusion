@@ -22,21 +22,18 @@ dbInfo() { # get the info table - build metadata
   sqlite3 $1 'select * from dbinfo;'
 }
 
-#Queries for overlapping orbit, not used anymore, modify selectFiles and getExtraFiles to include them back in
-#--------------------------------------------------------------------------------------------------------------------------
+#For CERES and MOPITT only
 overlapsOrbit() { # pass orbit arg
-  echo  -n " where (select stime from orbits where orbit = $1 ) <= etime 
-  and (select etime from orbits where orbit = $1 ) >= stime"
+  echo  -n " where ((etime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 )) or (stime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 )) or (stime <(select stime from orbits where orbit = $1) and etime > (select etime from orbits where orbit = $1)))"
 }
 
 startsInOrbit() { # pass orbit arg
-  echo  -n " where stime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 )"
+  echo  -n " where stime == (select stime from orbits where orbit = $1) and etime <= (select etime from orbits where orbit = $1 )"
 }
 
 endsInOrbit() { # pass orbit arg
   echo  -n " where etime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 )"
 }
-#--------------------------------------------------------------------------------------------------------------------------
 
 inOrbit(){
     echo  -n " where (stime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 )) and (etime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 ))"
@@ -95,12 +92,14 @@ follows() {
 #
 # QUERIES
 #
+#For CERES and MOPITT only
 allOverlappingOrbit() { 
   # args: $1=database $2=orbit#
   # example: allOverlapsForOrbit fusionMetaDB.sqlite 4110
   DB $1 $(selectFiles) $(overlapsOrbit $2) $(overlapExtraFiles $2)
 }
 
+#For CERES and MOPITT only
 instrumentOverlappingOrbit(){
   # args:  $1=database $2=orbit# $3=AST|MOD|MIS|CER|MOP
   # example: instrumentOverlapsForOrbit fusionMetaDB.sqlite 4110 MIS 
@@ -125,6 +124,7 @@ allInOrbit(){
   DB $1 $(selectFiles) $(inOrbit $2) $(getExtraFiles $2)
 }
 
+#Exact orbit
 instrumentInOrbit(){
   # args: $1=database $2=orbit#, $3=AST|MOD|MIS|CER|MOP
   # example: instrumentInOrbit fusionMetaDB.sqlite 4110
