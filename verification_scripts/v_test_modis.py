@@ -2,14 +2,17 @@ import sys, os
 
 dir_dict = {'1': 'MOD021KM', 'H' : 'MOD02HKM', 'Q' : 'MOD02QKM', '3' : 'MOD03'}
 error_list = {}
+warning_list = []
 op_dir_names = []
 NUM_ORBITAL_PATHS = 345
 mod_paths = {}
-err1file = open('err1', 'w')
-errhfile = open('errh', 'w')
-errqfile = open('errq', 'w')
-err3file = open('err3', 'w')
-errpathfile = open('errpath', 'w')
+#err1file = open('err1', 'w')
+#errhfile = open('errh', 'w')
+#errqfile = open('errq', 'w')
+#err3file = open('err3', 'w')
+#errpathfile = open('errpath', 'w')
+total_err = open('modis_missing_list', 'w')
+warnings = open('modis_warning_list', 'w')
 
 def init_error_list():
     for key in dir_dict.keys():
@@ -53,14 +56,18 @@ def check_directory(key, path_num, identifier):
         isExist = False
         for f in files:
             if check_o_file in f:
-                isExist = True
-                break
+                #print(os.stat(check_o_path + '/'  + f))
+                if(os.stat(check_o_path + '/'  + f).st_size != 0):
+                    #print(check_o_path + '/'  + f)
+                    isExist = True
+                    break
             else:
                 continue
         if(isExist):
             return True, msg
         else:
-            msg = str(path_num) + " " + check_o_file
+            msg = check_o_path + '/' + check_o_file
+            print('missing: ' + msg)
             return False, msg
     else:
         msg = check_o_path 
@@ -74,41 +81,48 @@ def file_search(curr_key, path_num, identifier):
             IsQExist, q_msg = check_directory('Q', path_num, identifier)
             Is3Exist, msg3 = check_directory('3', path_num, identifier)
             if(IsQExist == False):
-                error_list[curr_key].append('H: ' + q_msg)
+                error_list[curr_key].append(q_msg)
                 #print(curr_key + 'H: ' + q_msg)
             if(Is3Exist == False):
-                error_list[curr_key].append('H: ' + msg3)
+                error_list[curr_key].append(msg3)
                 #print(curr_key + 'H: ' + msg3)
         else:
             Is3Exist, msg3 = check_directory('3', path_num, identifier)
             if(Is3Exist == False):
-                error_list[curr_key].append('3: ' + msg3)
+                IsQExist, q_msg = check_directory('Q', path_num, identifier)
+                if(IsQExist):
+                    error_list[curr_key].append(h_msg)
+                    error_list[curr_key].append(msg3)
+                else:
+                    error_list[curr_key].append(msg3)
+                    warning_list.append(h_msg)
+                    warning_list.append(q_msg)
                 #print(curr_key +'3: ' + msg3)
     elif(curr_key == 'H'):
         IsQExist, q_msg = check_directory('Q', path_num, identifier)
         Is3Exist, msg3 = check_directory('3', path_num, identifier)
         Is1Exist, msg1 = check_directory('1', path_num, identifier)
         if(IsQExist == False):
-            error_list[curr_key].append(curr_key + ': ' + q_msg)
+            error_list[curr_key].append(q_msg)
             #print(curr_key + ': ' + q_msg)
         if(Is3Exist == False):
-            error_list[curr_key].append(curr_key + ': ' + msg3)
+            error_list[curr_key].append(msg3)
             #print(curr_key + ': ' + msg3)
         if(Is1Exist == False):
-            error_list[curr_key].append(curr_key + ': ' + msg1)
+            error_list[curr_key].append(msg1)
             #print(curr_key + ': ' + msg1)
     elif(curr_key == 'Q'):
         Is3Exist, msg3 = check_directory('3', path_num, identifier)
         Is1Exist, msg1 = check_directory('1', path_num, identifier)
         hIsExist, h_msg = check_directory('H', path_num, identifier)
         if(Is3Exist == False):
-            error_list[curr_key].append(curr_key + ': ' + msg3)
+            error_list[curr_key].append(msg3)
             #print(curr_key + ': ' + msg3)
         if(Is1Exist == False):
-            error_list[curr_key].append(curr_key + ': ' + msg1)
+            error_list[curr_key].append( msg1)
             #print(curr_key + ': ' + msg1)
         if(hIsExist == False):
-            error_list[curr_key].append(curr_key + ': ' + h_msg)
+            error_list[curr_key].append(h_msg)
             #print(curr_key + ': ' + h_msg)
     else:
         hIsExist, h_msg = check_directory('H', path_num, identifier)
@@ -116,16 +130,23 @@ def file_search(curr_key, path_num, identifier):
             IsQExist, q_msg = check_directory('Q', path_num, identifier)
             Is1Exist, msg1 = check_directory('1', path_num, identifier)
             if(IsQExist == False):
-                error_list[curr_key].append(curr_key + 'H: ' + q_msg)
+                error_list[curr_key].append(q_msg)
                 #print(curr_key + 'H: ' + q_msg)
             if(Is1Exist == False):
-                error_list[curr_key].append(curr_key + 'H: ' + msg1)
+                error_list[curr_key].append(msg1)
                 #print(curr_key + 'H: ' + msg1)
             pass    
         else:
             Is1Exist, msg1 = check_directory('1', path_num, identifier)
             if(Is1Exist == False):
-                error_list[curr_key].append(curr_key + '1: ' + msg1)
+                IsQExist, q_msg = check_directory('Q', path_num, identifier)
+                if(IsQExist):    
+                    error_list[curr_key].append(msg1)
+                    error_list[curr_key].append(h_msg)
+                else:
+                    error_list[curr_key].append(msg1)
+                    warning_list.append(h_msg)
+                    warning_list.append(q_msg)
                 #print(curr_key + '1: ' + msg1)
 
 def four_way_validate():
@@ -164,16 +185,25 @@ def main() :
     init_file_paths()
     init_error_list()
     four_way_validate()
-    write_err_file(error_list['1'], err1file)
-    write_err_file(error_list['H'], errhfile)
-    write_err_file(error_list['Q'], errqfile)
-    write_err_file(error_list['3'], err3file)
-    write_err_file(error_list['P'], errpathfile)
+    total_err_list = []
+    for key, e_list in error_list.items():
+        for e in e_list:
+            total_err_list.append(e + '\n')
+    total_err_list = list(set(total_err_list))
+    for e in total_err_list:
+        total_err.write(e)
+    for w in warning_list:
+        warnings.write(w)
+    #write_err_file(error_list['1'], err1file)
+    #write_err_file(error_list['H'], errhfile)
+    #write_err_file(error_list['Q'], errqfile)
+    #write_err_file(error_list['3'], err3file)
+    #write_err_file(error_list['P'], errpathfile)
     
 #---------------------------------------------------------------------------------------------------
 if __name__ == '__main__':
 #---------------------------------------------------------------------------------------------------
     os.chdir('/')
-    os.chdir('projects/TDataFus/gyzhao/TF/data/MODIS')
+    os.chdir('/projects/TDataFus/BFData/MODIS')
     print(" Now at " + str(os.getcwd()))
     main()
