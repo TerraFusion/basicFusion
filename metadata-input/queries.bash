@@ -30,7 +30,7 @@ overlapsOrbit() { # pass orbit arg
 }
 
 startsInOrbit() { # pass orbit arg
-  echo  -n " where stime == (select stime from orbits where orbit = $1) and etime <= (select etime from orbits where orbit = $1 )"
+  echo  -n " where stime between (select stime from orbits where orbit = $1) and (select etime from orbits where orbit = $1 )"
 }
 
 endsInOrbit() { # pass orbit arg
