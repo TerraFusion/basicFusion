@@ -748,14 +748,14 @@ verifyFiles()
     done <"$DEBUGFILE"
 }
 
-if [ "$#" -ne 2 ]; then
-    echo "Usage: ./genFusionFiles [orbit number] [.txt output filepath]"
+if [ "$#" -ne 3 ]; then
+    echo "Usage: ./genFusionFiles [database file] [orbit number] [.txt output filepath]"
     exit 0
 fi
 
-DB=../accesslist.sqlite
-UNORDERED=./"$2"unordered.txt
-ORDERED="$2"
+DB=$1
+UNORDERED=./"$3"unordered.txt
+ORDERED="$3"
 
 . ../queries.bash
 
@@ -763,11 +763,11 @@ rm -f "$ORDERED"
 rm -f "$UNORDERED"
 
 
-MOPLINES=$(instrumentOverlappingOrbit "$DB" $1 MOP)
-CERLINES=$(instrumentOverlappingOrbit "$DB" $1 CER)
-MODLINES=$(instrumentStartingInOrbit "$DB" $1 MOD)
-ASTLINES=$(instrumentStartingInOrbit "$DB" $1 AST)
-MISLINES=$(instrumentInOrbit "$DB" $1 MIS)
+MOPLINES=$(instrumentOverlappingOrbit "$DB" $2 MOP)
+CERLINES=$(instrumentOverlappingOrbit "$DB" $2 CER)
+MODLINES=$(instrumentStartingInOrbit "$DB" $2 MOD)
+ASTLINES=$(instrumentStartingInOrbit "$DB" $2 AST)
+MISLINES=$(instrumentInOrbit "$DB" $2 MIS)
 
 if [ ${#MOPLINES} -eq 0 ]; then
     echo "MOP N/A" >> "$UNORDERED"
@@ -806,6 +806,6 @@ orderFiles $UNORDERED $ORDERED
 verifyFiles "$ORDERED"
 
 # Add the orbit number to the top of the file
-echo -e "$1\n$(cat $ORDERED)" > "$ORDERED"
+echo -e "$2\n$(cat $ORDERED)" > "$ORDERED"
 
 rm -f "$UNORDERED"
