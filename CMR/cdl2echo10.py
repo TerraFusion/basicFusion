@@ -909,16 +909,19 @@ def compile_online_refs(results):
     codFound = False
     oau = etree.Element('OnlineAccessURLs')
     ORe = etree.Element('OnlineResources')
+    abi = etree.Element('AssociatedBrowseImageUrls')
     mp = etree.Element('MeasuredParameters')
     tCodSys = None
     urls = []
     resources = []
     mps = []
+    abis = []
     ref_list = []
     for r in results:
         uFind = r.findall('OnlineAccessURLs/OnlineAccessURL')
         rFind = r.findall('OnlineResources/OnlineResource')
         mFind = r.findall('MeasuredParameters/MeasuredParameter')
+        aFind = r.findall('AssociatedBrowseImageUrls/ProviderBrowseUrl')
         if(codFound == False):
             tCodSys = r.find('TwoDCoordinateSystem')
         if(uFind != None):
@@ -927,6 +930,8 @@ def compile_online_refs(results):
             resources += rFind
         if(mFind != None):
             mps += mFind
+        if(aFind != None):
+            abis += aFind
         if(tCodSys != None):
             codFound = True
     for u in urls:
@@ -935,10 +940,13 @@ def compile_online_refs(results):
         ORe.append(res)
     for m in mps:
         mp.append(m)
-    ref_list.append(tCodSys)
+    for a in abis:
+        abi.append(a)
     ref_list.append(mp)
+    ref_list.append(tCodSys)
     ref_list.append(oau)
     ref_list.append(ORe)
+    ref_list.append(abi)
     return ref_list
     
 #Extract temporal, spatial and platform data by calling CMR Search API
@@ -1011,6 +1019,17 @@ def get_data_granule(file_path):
     e.append(dt)
     return e
 
+#TODO: now it's hard-coded, automation needed
+def get_parent_info():
+    collection = etree.Element('Collection')
+    sn = etree.Element('ShortName')
+    sn.text = 'TERRAFUSION'
+    v = etree.Element('VersionId')
+    v.text = '1'
+    collection.append(sn)
+    collection.append(v)
+    return collection
+
 def write_to_xml(cdlfile, ncdataset, destfile):    
     '''print("ncdimensions: " + str(ncdataset.dimensions))
     print("ncdataset attr: " + str(ncdataset.ncattrs()))
@@ -1042,29 +1061,28 @@ def write_to_xml(cdlfile, ncdataset, destfile):
             igranules.append(ig)
         result, platform_data, g_ur, online_refs = get_granule_stp_data(filenames)
         it, lu = get_log_data()
+        parentInfo = get_parent_info()
         root.append(g_ur)
         root.append(it)
         root.append(lu)
-        root.append(igranules)
+        root.append(parentInfo)
         root.append(get_data_granule(cdlfile.replace('cdl', 'h5')))
         if(result is not None):
             root.append(result.find('Temporal'))
             root.append(result.find('Spatial'))
             root.append(result.find('OrbitCalculatedSpatialDomains'))
+            root.append(online_refs[0])
             #root.append(platform_data)
-        #add platform data
         root.append(platform_data)
-        #Add Urls and resources
-        for i in online_refs:
-            root.append(i)
+        root.append(igranules)
+        for i in range(1, len(online_refs)-1):
+            root.append(online_refs[i])
         
-        #Orderable and Visible
+        #Orderable
         orderable = etree.Element('Orderable')
         orderable.text = 'true'
-        visible = etree.Element('Visible')
-        visible.text = 'true'
         root.append(orderable)
-        root.append(visible)
+        root.append(online_refs[-1])
         
         #Inefficiencies here for pretty print
         destf = open(destfile, 'wb')
