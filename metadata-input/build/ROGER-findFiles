@@ -1,12 +1,13 @@
 #!/bin/bash
 
-DATADIR="../data"
+INDATADIR="/projects/TDataFus/BFData"
+
+OUTDATADIR="../data"
 
 mkdir -p tmp
 rm -f tmp/fileList.txt # prevent appending to a non-empty file
 
 for i in ASTER MODIS CERES MOPITT MISR; do
     rm -f "$DATADIR"/$i.list
-    find "/projects/TDataFus/gyzhao/TF/data/$i" -type f > "$DATADIR"/$i.list
-
+    find "$INDATADIR/$i" -type f > "$OUTDATADIR"/$i.list
 done
