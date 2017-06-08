@@ -72,7 +72,7 @@ AST_L1T_00301032002165035_20150423183015_59599.hdf
 __CERES:__
 ```
 CER_SSF_Terra-FM2_Edition4_400403.2007070205
-                                  YYYYMMDDMM
+                                  YYYYMMDDHH
                                   ^^^^^^^^^^
                                  start-time
     end-time = start-time + 24*60*60 (24 hr)
