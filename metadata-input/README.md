@@ -71,9 +71,9 @@ AST_L1T_00301032002165035_20150423183015_59599.hdf
 ```
 __CERES:__
 ```
-CER_BDS_Terra-FM2_Edition4_400403.20070702
-                                  YYYYMMDD
-                                  ^^^^^^^^
+CER_SSF_Terra-FM2_Edition4_400403.2007070205
+                                  YYYYMMDDMM
+                                  ^^^^^^^^^^
                                  start-time
     end-time = start-time + 24*60*60 (24 hr)
 ```
@@ -95,8 +95,6 @@ Discards can be captured during database build with the --discards option,see fu
 ## Build Examples
 See .vscode/launch.json for the various run configurations used to build under vscode.  These examples are taken from there:
 - Full Build
-<<<<<<< HEAD
-=======
 ```
 fusionBuildDB -o -q --discards=discards.txt --anomalies=errors.txt accesslist.sqlite data/Orbit_Path_Time.txt.gz data/MODIS.list.gz data/ASTER.list.gz data/MOPITT.list.gz data/MISR.list.gz data/CERES.list.gz
 ```
@@ -144,7 +142,6 @@ These constructs can be combined to construct powerful queries from the shell di
 
 ### Time-based queries:
 * Find the orbit data for a date on the command line:
->>>>>>> 21c6522bce946fbc4cb78f784e88d6e235ebfa1d
 ```
 fusionBuildDB -o -q --discards=discards.txt --anomalies=errors.txt accesslist.sqlite data/Orbit_Path_Time.txt.gz data/MODIS.list.gz data/ASTER.list.gz data/MOPITT.list.gz data/MISR.list.gz data/CERES.list.gz
 ```
@@ -152,21 +149,4 @@ fusionBuildDB -o -q --discards=discards.txt --anomalies=errors.txt accesslist.sq
 ```
 fusionBuildDB -o -v --discards=discards.txt --trace=trace.txt --anomalies=errors.txt oneorbit.sqlite data/Orbit_Path_Time.txt.gz testdata/one-orbit-files.txt.gz
 ```
-## Query Support for Scripts
-With the start and end time of all files in the DB many useful queries can be constructed in sql.   The BETWEEN operator can find times that lie within a particular span, and overlapping timespans can be selected on 2 ranges with start1/end1 and start2/end2 by selecting on *start1 <= end2 and end1 >= start2*
-
-### Command-line and Script Support
-The file queries.bash includes a number or reusable query functions for bash.
-These include by orbit, and by instrument/orbit. Use these by inclusion in any bash script or source them directly into another bash script with:
-```
-. ./queries.bash
-```
-Some of the queries available in queries.bash:
-- files overlapping orbit
-- files starting in orbit
-- files ending in orbit
-- precedessor to a file in-time on same instrument
-- successor to a file in-time on same instrument
-
-Others can be constructed using the primitives
 
