@@ -767,7 +767,7 @@ MOPLINES=$(instrumentOverlappingOrbit "$DB" $1 MOP)
 CERLINES=$(instrumentOverlappingOrbit "$DB" $1 CER)
 MODLINES=$(instrumentStartingInOrbit "$DB" $1 MOD)
 ASTLINES=$(instrumentStartingInOrbit "$DB" $1 AST)
-MISLINES=$(instrumentStartingInOrbit "$DB" $1 MIS)
+MISLINES=$(instrumentInOrbit "$DB" $1 MIS)
 
 if [ ${#MOPLINES} -eq 0 ]; then
     echo "MOP N/A" >> "$UNORDERED"
