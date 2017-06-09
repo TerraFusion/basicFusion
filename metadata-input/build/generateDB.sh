@@ -7,14 +7,15 @@ fi
 
 DBDIR=$1
 findFiles="./ROGER-findFiles"
+INDIR="/projects/TDataFus/BFData"
+DATADIR="../data"
 
 export PYTHONUSERBASE=/home/clipp/libs/python
 export PYTHONPATH=$PYTHONUSERBASE/lib/python2.7/site-packages:$PYTHONPATH
 module load python/2.7.10
 
-DATADIR="../data"
 
-eval $findFiles
+eval $findFiles "$INDIR"
 
 if [ $? -ne 0 ]; then
     echo "$findFiles returned with exit status of $?."

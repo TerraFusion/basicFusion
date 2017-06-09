@@ -63,9 +63,9 @@ orderFiles() {
             FM2line=$(echo "$CERFM2GREP" | grep "$FM1date")
             if [[ ${#FM2line} == 0 ]]; then
                 printf "\e[4m\e[91mFatal Error\e[0m: " >&2
-                printf "\tCould not find a corresponding FM2 file for $line\nExiting script.\n" >&2
+                printf "\tCould not find a corresponding FM2 file for $line.\n" >&2
                 rm -r "$CURDIR"/__tempFiles
-                exit 1
+                return 1
             else
                 let "CERESNUM++"
             fi
@@ -173,6 +173,7 @@ orderFiles() {
         fi
     done <<< "$MISGRPGREP"
 
+    return 0
 }
 
 # Args:
@@ -211,8 +212,8 @@ verifyFiles()
         if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." && ${line:0:1} != "#" && ${line:0:1} != "\n" && ${line:0:1} != "\0" && ${#line} != 0 ]]; then
             printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
             printf "\tAt line number: $linenum\n"
-            printf "\t\"$line\" is an invalid line.\nExiting script.\n" >&2
-            exit 1
+            printf "\t\"$line\" is an invalid line.\n" >&2
+            return 1
         fi
         
 
@@ -309,8 +310,7 @@ verifyFiles()
                 printf "CERES FM1 followed FM1 or FM2 followed FM2.\n" >&2
                 printf "\tAn FM1 file should always be paired with an FM2 file!\n" >&2
                 printf "\tFound at line $linenum\n" >&2
-                printf "Exiting script\n"
-                exit 1
+                return 1
             elif [[ "$prevCam" != "$curCam" && "$curCam" == "FM2" ]]; then
                 if [[ "$curDate" != "$prevDate" ]]; then
                     printf "\e[4m\e[93mWarning\e[0m: " >&2
@@ -364,8 +364,7 @@ verifyFiles()
                     printf "MODIS resolutions are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
                     printf "\tExpected to see MOD03 or MOD02HKM after MOD021KM.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$prevRes" == "MOD02HKM" ]]; then
                 if [[ "$curRes" != "MOD02QKM" ]]; then
@@ -373,8 +372,7 @@ verifyFiles()
                     printf "MODIS resolutions are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
                     printf "\tExpected to see MOD02QKM after MOD02HKM.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$prevRes" == "MOD02QKM" ]]; then
                 if [[ "$curRes" != "MOD03" ]]; then
@@ -382,8 +380,7 @@ verifyFiles()
                     printf "MODIS resolutions are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
                     printf "\tExpected to see MOD03 after MOD02QKM.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$prevRes" == "MOD03" ]]; then
                 if [[ "$curRes" != "MOD021KM" ]]; then
@@ -391,13 +388,12 @@ verifyFiles()
                     printf "MODIS resolutions are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Resolution: $prevRes)\n\tcame before\n\t\"$curfilename\" (Resolution: $curRes)\n" >&2
                     printf "\tExpected to see MOD021KM after MOD03.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             else
                 printf "\e[4m\e[91mFatal Error\e[0m: " >&2
-                printf "Unknown error at line $LINENO. Exiting script.\n" >&2
-                exit 1
+                printf "Unknown error at line $LINENO.\n" >&2
+                return 1
             fi
 
             # CHECK FOR DATE CONSISTENCY
@@ -538,8 +534,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see AF after AA.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$prevCam" == "AF" ]]; then
                 if [[ "$curCam" != "AN" ]]; then
@@ -547,8 +542,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see AN after AF.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$prevCam" == "AN" ]]; then
                 if [[ "$curCam" != "BA" ]]; then
@@ -556,8 +550,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see BA after AN.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
 
             elif [[ "$prevCam" == "BA" ]]; then
@@ -566,8 +559,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see BF after BA.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$prevCam" == "BF" ]]; then
                 if [[ "$curCam" != "CA" ]]; then
@@ -575,8 +567,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see CA after BF.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$prevCam" == "CA" ]]; then
                 if [[ "$curCam" != "CF" ]]; then
@@ -584,8 +575,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see CF after CA.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$prevCam" == "CF" ]]; then
                 if [[ "$curCam" != "DA" ]]; then
@@ -593,8 +583,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see DA after CF.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$prevCam" == "DA" ]]; then
                 if [[ "$curCam" != "DF" ]]; then
@@ -602,8 +591,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see DF after DA.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$prevCam" == "DF" ]]; then
                 if [[ "$(echo "$curfilename" | cut -f7,3 -d'_')" != "AGP" ]]; then
@@ -611,8 +599,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\"\n" >&2
                     printf "\tExpected to see an AGP file after a DF camera.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "AGP" ]]; then
                 if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" != "GP" ]]; then
@@ -620,8 +607,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
                     printf "\tExpected to see GP after AGP file.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
                 if [[ "$(echo "$curfilename" | cut -f2,2 -d'_')" != "HRLL" ]]; then
@@ -629,8 +615,7 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
                     printf "\tExpected to see HRLL file after GP file.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             elif [[ "$(echo "$prevfilename" | cut -f2,2 -d'_')" == "HRLL" ]]; then
                 if [[ "$curCam" != "AA" ]]; then
@@ -638,14 +623,13 @@ verifyFiles()
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
                     printf "\tExpected to see AA file after HRLL file.\n" >&2
-                    printf "Exiting script.\n" >&2
-                    exit 1
+                    return 1
                 fi
             else
                 printf "\e[4m\e[91mFatal Error\e[0m: " >&2
-                printf "Unknown error at line $LINENO. Exiting script.\n" >&2
+                printf "Unknown error at line $LINENO.\n" >&2
                 rm -r "$CURDIR"/__tempFiles
-                exit 1
+                return 1
             fi
 
             # CHECK FOR DATE CONSISTENCY
@@ -740,12 +724,13 @@ verifyFiles()
             printf "\t\tprevfilename=$prevfilename\n" >&2
             printf "\t\tcurfilename=$curfilename\n" >&2
             printf "\t\tinstrumentSection=$instrumentSection\n" >&2
-            printf "Exiting script.\n" >&2
-            exit 1
+            return 1
         fi
 
         let "linenum++"
     done <"$DEBUGFILE"
+
+    return 0
 }
 
 if [ "$#" -ne 3 ]; then
@@ -769,7 +754,7 @@ MODLINES=$(instrumentStartingInOrbit "$DB" $2 MOD)
 ASTLINES=$(instrumentStartingInOrbit "$DB" $2 AST)
 MISLINES=$(instrumentInOrbit "$DB" $2 MIS)
 
-if [ ${#MOPLINES} -eq 0 ]; then
+if [ ${#MOPLINES} -lt 2 ]; then
     echo "MOP N/A" >> "$UNORDERED"
 else
     echo "$MOPLINES" >> "$UNORDERED"
@@ -800,10 +785,24 @@ else
 fi
 
 
+# Order and format the files appropriately (Fusion program requires specific input format)
 orderFiles $UNORDERED $ORDERED
+if [ "$?" -ne 0 ]; then
+    printf "Failed to order files.\n" >&2
+    printf "Exiting script.\n" >&2
+    rm -f "$UNORDERED"
+    exit 1
+fi
 
-# Perform verification checks
+# Perform verification
 verifyFiles "$ORDERED"
+if [ "$?" -ne 0 ]; then
+    printf "Failed to verify files.\n" >&2
+    printf "Exiting script.\n" >&2
+    rm -f "$UNORDERED"
+    exit 1
+fi
+
 
 # Add the orbit number to the top of the file
 echo -e "$2\n$(cat $ORDERED)" > "$ORDERED"
