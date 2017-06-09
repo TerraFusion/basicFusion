@@ -532,7 +532,7 @@ int MISR( char* argv[],int unpack )
             if ( correctedName == NULL )
                 correctedName = correct_name(radiance_name[j]);
 
-            status = H5LTset_attribute_string( h5DataGroupID, correctedName, "Coordinates", LRcoord );
+            status = H5LTset_attribute_string( h5DataGroupID, correctedName, "coordinates", LRcoord );
             if ( status < 0 )
             {
                 FATAL_MSG("Failed to set coordinates attribute.\n");

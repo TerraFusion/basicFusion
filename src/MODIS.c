@@ -34,6 +34,10 @@ int MODIS( char* argv[],int modis_count, int unpack)
      * VARIABLES *
      *************/
 
+    const char* emissiveDim        =   "Band_1KM_Emissive_MODIS_SWATH_Type_L1B";
+    const char* refSBDim           =   "Band_1KM_RefSB_MODIS_SWATH_Type_L1B";
+    const char* _250M_MOD_SWATHDim =   "Band_250M_MODIS_SWATH_Type_L1B";
+    const char* _500M_MOD_SWATHDim =   "Band_500M_MODIS_SWATH_Type_L1B";
     hid_t MODISrootGroupID = 0;
     hid_t MODISgranuleGroupID = 0;
     hid_t MODIS1KMdataFieldsGroupID = 0;
@@ -55,14 +59,17 @@ int MODIS( char* argv[],int modis_count, int unpack)
     char* tmpCharPtr = NULL;
     char* _1KMlatPath = NULL;
     char* _1KMlonPath = NULL;
-    char* _1KMcoordPath = NULL;
+    char* _1KMcoordEmissivePath = NULL;
+    char* _1KMcoordRefSBPath = NULL;
+    char* _1KMcoord_250M_Path = NULL;
+    char* _1KMcoord_500M_Path = NULL;
     char* HKMlatPath = NULL;
     char* HKMlonPath = NULL;
-    char* HKMcoordPath = NULL;
+    char* HKMcoord_250M_Path = NULL;
+    char* HKMcoord_500M_Path = NULL;
     char* QKMlatPath = NULL;
     char* QKMlonPath = NULL;  
-    char* QKMcoordPath = NULL;  
-
+    char* QKMcoord_250M_Path = NULL;
     ssize_t pathSize = 0;
 
     /**********************
@@ -168,8 +175,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         _500mFileID = SDstart( argv[2], DFACC_READ );
         if ( _500mFileID < 0 )
         {
-            fprintf( stderr, "[%s:%s:%d]: Unable to open 500m file.\n", __FILE__, __func__,
-                     __LINE__ );
+            FATAL_MSG("Unable to open 500m file.\n");
             _500mFileID = 0;
             goto cleanupFail;
         }
@@ -180,8 +186,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         _250mFileID = SDstart( argv[3], DFACC_READ );
         if ( _250mFileID < 0 )
         {
-            fprintf( stderr, "[%s:%s:%d]: Unable to open 250m file.\n", __FILE__, __func__,
-                     __LINE__ );
+            FATAL_MSG("Unable to open 250m file.\n");
             _250mFileID = 0;
             goto cleanupFail;
         }
@@ -190,8 +195,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     MOD03FileID = SDstart( argv[4], DFACC_READ );
     if ( MOD03FileID < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d]: Unable to open MOD03 file.\n", __FILE__, __func__,
-                 __LINE__ );
+        FATAL_MSG("Unable to open MOD03 file.\n");
         MOD03FileID = 0;
         goto cleanupFail;
     }
@@ -208,7 +212,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     {
         if ( createGroup( &outputFile, &MODISrootGroupID, "MODIS" ) == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to create MODIS root group.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to create MODIS root group.\n");
             MODISrootGroupID = 0;
             goto cleanupFail;
         }
@@ -493,17 +497,58 @@ int MODIS( char* argv[],int modis_count, int unpack)
     longitudeDatasetID = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
 
-    
+
+
+
+    /*=========================*/
+    /* COORDINATE CREATION 1KM */
+    /*=========================*/
+
     // Concatenate latitude and longitude path into one string
-    _1KMcoordPath = calloc( strlen(_1KMlatPath) + strlen(_1KMlonPath) + 2, 1 );
-    if ( _1KMcoordPath == NULL )
     {
-        FATAL_MSG("Failed to allocate memory.\n");
-        goto cleanupFail;
+
+        size_t latlonSize = strlen(_1KMlatPath) + strlen(_1KMlonPath);
+        _1KMcoordEmissivePath = calloc( latlonSize+ strlen(emissiveDim)+ 3, 1 );
+        if ( _1KMcoordEmissivePath == NULL )
+        {
+            FATAL_MSG("Failed to allocate memory.\n");
+            goto cleanupFail;
+        }
+        _1KMcoordRefSBPath = calloc( latlonSize+ strlen(refSBDim)+ 3, 1 );
+        if ( _1KMcoordRefSBPath == NULL )
+        {
+            FATAL_MSG("Failed to allocate memory.\n");
+            goto cleanupFail;
+        }
+        _1KMcoord_250M_Path = calloc( latlonSize + strlen(_250M_MOD_SWATHDim) +3, 1);
+        if ( _1KMcoord_250M_Path == NULL )
+        {
+            FATAL_MSG("Failed to allocate memory.\n");
+            goto cleanupFail;
+        }
+        _1KMcoord_500M_Path = calloc( latlonSize + strlen(_500M_MOD_SWATHDim) +3, 1);
+        if ( _1KMcoord_500M_Path == NULL )
+        {
+            FATAL_MSG("Failed to allocate memory.\n");
+            goto cleanupFail;
+        }
+
+
+        strcpy(_1KMcoordEmissivePath, _1KMlonPath);
+        strcat(_1KMcoordEmissivePath, " ");
+        strcat(_1KMcoordEmissivePath, _1KMlatPath);
+        strcat(_1KMcoordEmissivePath, " ");     
+
+        /* Copy the lat/lon portion of the path to the other paths */
+        strcpy(_1KMcoordRefSBPath, _1KMcoordEmissivePath);
+        strcpy(_1KMcoord_250M_Path, _1KMcoordEmissivePath);
+        strcpy(_1KMcoord_500M_Path, _1KMcoordEmissivePath);
+
+        strcat(_1KMcoordEmissivePath, emissiveDim);
+        strcat(_1KMcoordRefSBPath, refSBDim);
+        strcat(_1KMcoord_250M_Path, _250M_MOD_SWATHDim);
+        strcat(_1KMcoord_500M_Path, _500M_MOD_SWATHDim);
     }
-    strcpy(_1KMcoordPath, _1KMlonPath);
-    strcat(_1KMcoordPath, " ");
-    strcat(_1KMcoordPath, _1KMlatPath);
 
     free(_1KMlonPath); _1KMlonPath = NULL;
     free(_1KMlatPath); _1KMlatPath = NULL;
@@ -517,10 +562,6 @@ int MODIS( char* argv[],int modis_count, int unpack)
         if (argv[2]!=NULL)
         {
 
-            /* Forgive me oh mighty programming gods for using the insidious goto.
-             * I believe if you look carefully, goto makes a lot of sense in this context.
-             */
-
             _1KMDatasetID = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", DFNT_UINT16,
                             _1KMFileID);
             if ( _1KMDatasetID == EXIT_FAILURE )
@@ -530,6 +571,8 @@ int MODIS( char* argv[],int modis_count, int unpack)
                 goto cleanupFail;
             }
 
+            /*______________EV_1KM_RefSB_Uncert_Indexes______________*/
+            
             _1KMUncertID = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes",
                            DFNT_UINT8, _1KMFileID );
             if ( _1KMUncertID == EXIT_FAILURE )
@@ -538,8 +581,6 @@ int MODIS( char* argv[],int modis_count, int unpack)
                 _1KMUncertID = 0;
                 goto cleanupFail;
             }
-
-
         }
     }
 
@@ -568,10 +609,11 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
     }
 
+    /* Add attributes to the datasets */
     if ( _1KMDatasetID ) // _1KMDatasetID and _1KMUncertID should be mutually inclusive
     {
         /* Add the geolocation HDF5 paths to the 1KM radiance datasets (path has already been saved) */
-        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", "Coordinates", _1KMcoordPath);
+        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", "coordinates", _1KMcoordRefSBPath);
         if ( errStatus < 0 )
         {
             FATAL_MSG("Failed to set string attribute.\n");
@@ -611,8 +653,8 @@ int MODIS( char* argv[],int modis_count, int unpack)
         H5Dclose(_1KMDatasetID);
         _1KMDatasetID = 0;
         
-        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes", "Coordinates", 
-                                              _1KMcoordPath);
+        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes", "coordinates", 
+                                              _1KMcoordRefSBPath);
         if ( errStatus < 0 )
         {
             FATAL_MSG("Failed to set string attribute.\n");
@@ -654,7 +696,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                        DFNT_UINT16, _1KMFileID);
         if ( _1KMEmissive == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_Emissive data.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to transfer EV_1KM_Emissive data.\n");
             _1KMEmissive = 0;
             goto cleanupFail;
         }
@@ -666,7 +708,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                              DFNT_UINT8, _1KMFileID);
         if ( _1KMEmissiveUncert == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_Emissive_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to transfer EV_1KM_Emissive_Uncert_Indexes data.\n");
             _1KMEmissiveUncert = 0;
             goto cleanupFail;
         }
@@ -679,7 +721,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                       DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
         if ( _1KMEmissive == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_Emissive data.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to transfer EV_1KM_Emissive data.\n");
             _1KMEmissive = 0;
             goto cleanupFail;
         }
@@ -689,7 +731,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                             DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);
         if ( _1KMEmissiveUncert == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_1KM_Emissive_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to transfer EV_1KM_Emissive_Uncert_Indexes data.\n");
             _1KMEmissiveUncert = 0;
             goto cleanupFail;
         }
@@ -717,8 +759,8 @@ int MODIS( char* argv[],int modis_count, int unpack)
         FATAL_MSG("Failed to add EV_1KM_Emissive valid_min attribute.\n");
         goto cleanupFail;
     }
-    errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive", "Coordinates",
-                                              _1KMcoordPath);
+    errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive", "coordinates",
+                                              _1KMcoordEmissivePath);
     if ( errStatus < 0 )
     {
         FATAL_MSG("Failed to set string attribute.\n");
@@ -737,8 +779,8 @@ int MODIS( char* argv[],int modis_count, int unpack)
         FATAL_MSG("Failed to add EV_1KM_Emissive_Uncert_Indexes _FillValue attribute.\n");
         goto cleanupFail;
     }
-    errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive_Uncert_Indexes", "Coordinates",
-                                              _1KMcoordPath);
+    errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive_Uncert_Indexes", "coordinates",
+                                              _1KMcoordEmissivePath);
     if ( errStatus < 0 )
     {
         FATAL_MSG("Failed to set string attribute.\n");
@@ -768,7 +810,8 @@ int MODIS( char* argv[],int modis_count, int unpack)
     if ( _1KMEmissiveUncert) status = H5Dclose(_1KMEmissiveUncert);
     _1KMEmissiveUncert = 0;
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-
+    free(_1KMcoordEmissivePath); _1KMcoordEmissivePath = NULL;
+    free(_1KMcoordRefSBPath); _1KMcoordRefSBPath = NULL;
 
     /*__________EV_250_Aggr1km_RefSB_______________*/
 
@@ -851,8 +894,8 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB valid_min attribute.\n");
             goto cleanupFail;
         }
-        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB", "Coordinates",
-                                              _1KMcoordPath);
+        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB", "coordinates",
+                                              _1KMcoord_250M_Path);
         if ( errStatus < 0 )
         {
             FATAL_MSG("Failed to set string attribute.\n");
@@ -872,8 +915,8 @@ int MODIS( char* argv[],int modis_count, int unpack)
             goto cleanupFail;
         }
 
-        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", "Coordinates",
-                                              _1KMcoordPath);
+        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", "coordinates",
+                                              _1KMcoord_250M_Path);
         if ( errStatus < 0 )
         {
             FATAL_MSG("Failed to set string attribute.\n");
@@ -927,7 +970,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                 DFNT_UINT8, _1KMFileID );
             if ( _500Aggr1kmUncert == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_Aggr1km_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_500_Aggr1km_RefSB_Uncert_Indexes data.\n");
                 _500Aggr1kmUncert = 0;
                 goto cleanupFail;
             }
@@ -982,8 +1025,8 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB valid_min attribute.\n");
             goto cleanupFail;
         }
-        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB", "Coordinates",
-                                              _1KMcoordPath);
+        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB", "coordinates",
+                                              _1KMcoord_500M_Path);
         if ( errStatus < 0 )
         {
             FATAL_MSG("Failed to set string attribute.\n");
@@ -1002,8 +1045,8 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB_Uncert_Indexes _FillValue attribute.\n");
             goto cleanupFail;
         }
-        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", "Coordinates",
-                                              _1KMcoordPath);
+        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB_Uncert_Indexes", "coordinates",
+                                              _1KMcoord_500M_Path);
         if ( errStatus < 0 )
         {
             FATAL_MSG("Failed to set string attribute.\n");
@@ -1505,7 +1548,6 @@ int MODIS( char* argv[],int modis_count, int unpack)
         if ( _500RefSBUncert ) status = H5Dclose(_500RefSBUncert);
         _500RefSBUncert = 0;
         if ( status < 0 ) WARN_MSG("H5Dclose\n");
-        free(HKMcoordPath); HKMcoordPath = NULL;
 
     } // end if ( argv[2] != NULL )
 
@@ -1720,16 +1762,37 @@ int MODIS( char* argv[],int modis_count, int unpack)
         }
         strncat(HKMlonPath, "/Longitude", strlen("/Longitude"));
 
-        HKMcoordPath = calloc( strlen(HKMlatPath) + strlen(HKMlonPath) + 2, 1 );
-        if ( HKMcoordPath == NULL )
-        {
-            FATAL_MSG("Failed to allocate memory.\n");
-            goto cleanupFail;
-        }
-        strcpy(HKMcoordPath, HKMlonPath);
-        strcat(HKMcoordPath, " ");
-        strcat(HKMcoordPath, HKMlatPath);
 
+        /* ======================== *
+         * 500M COORDINATE CREATION *
+         * ======================== */
+        
+        {
+            size_t pathLen = strlen(HKMlatPath) + strlen(HKMlonPath);
+            HKMcoord_250M_Path = calloc( pathLen + strlen(_250M_MOD_SWATHDim) + 3, 1 );
+            if ( HKMcoord_250M_Path == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+            HKMcoord_500M_Path = calloc( pathLen + strlen(_500M_MOD_SWATHDim) + 3, 1 );
+            if ( HKMcoord_500M_Path == NULL )
+            {
+                FATAL_MSG("Failed to allocate memory.\n");
+                goto cleanupFail;
+            }
+
+            strcpy(HKMcoord_250M_Path, HKMlonPath);
+            strcat(HKMcoord_250M_Path, " ");
+            strcat(HKMcoord_250M_Path, HKMlatPath);
+            strcat(HKMcoord_250M_Path, " ");
+
+            /* Copy the current 250M path to the 500M path */
+            strcpy(HKMcoord_500M_Path, HKMcoord_250M_Path);
+
+            strcat(HKMcoord_500M_Path, _500M_MOD_SWATHDim);
+            strcat(HKMcoord_250M_Path, _250M_MOD_SWATHDim); 
+        }
         free(HKMlonPath); HKMlonPath = NULL;
         free(HKMlatPath); HKMlatPath = NULL;
         
@@ -1780,15 +1843,24 @@ int MODIS( char* argv[],int modis_count, int unpack)
         }
         strncat(QKMlonPath, "/Longitude", strlen("/Longitude"));
 
-        QKMcoordPath = calloc( strlen(QKMlatPath) + strlen(QKMlonPath) + 2, 1 );
-        if ( HKMcoordPath == NULL )
+        QKMcoord_250M_Path = calloc( strlen(QKMlatPath) + strlen(QKMlonPath) + strlen(_250M_MOD_SWATHDim) + 3, 1 );
+        if ( QKMcoord_250M_Path == NULL )
         {
             FATAL_MSG("Failed to allocate memory.\n");
             goto cleanupFail;
         }
-        strcpy(QKMcoordPath, QKMlonPath);
-        strcat(QKMcoordPath, " ");
-        strcat(QKMcoordPath, QKMlatPath);
+
+
+
+        /* ======================== *
+         * 250M COORDINATE CREATION *
+         * ======================== */
+        
+        strcpy(QKMcoord_250M_Path, QKMlonPath);
+        strcat(QKMcoord_250M_Path, " ");
+        strcat(QKMcoord_250M_Path, QKMlatPath);
+        strcat(QKMcoord_250M_Path, " ");
+        strcat(QKMcoord_250M_Path, _250M_MOD_SWATHDim);
 
         free(QKMlonPath); QKMlonPath = NULL;
         free(QKMlatPath); QKMlatPath = NULL;
@@ -1799,15 +1871,15 @@ int MODIS( char* argv[],int modis_count, int unpack)
     /* Need to add coordinates attribute to the physical datasets now that we have the HDF5 paths */
 
     
-    if ( QKMcoordPath )
+    if ( QKMcoord_250M_Path )
     {
-        status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB","Coordinates",QKMcoordPath);
+        status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB","coordinates",QKMcoord_250M_Path);
         if ( status < 0 )
         {
             FATAL_MSG("Failed to add EV_250_RefSB coordinates attribute.\n");
             goto cleanupFail;
         }
-        status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB_Uncert_Indexes","Coordinates",QKMcoordPath);
+        status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB_Uncert_Indexes","coordinates",QKMcoord_250M_Path);
         if ( status < 0 )
         {
             FATAL_MSG("Failed to add EV_250_RefSB_Uncert_Indexes coordinates attribute.\n");
@@ -1816,27 +1888,27 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
     }
  
-    if ( HKMcoordPath )
+    if ( HKMcoord_500M_Path )
     {
-        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB","Coordinates",HKMcoordPath);
+        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB","coordinates",HKMcoord_500M_Path);
         if ( status < 0 )
         {
             FATAL_MSG("Failed to add EV_500_RefSB coordinates attribute.\n");
             goto cleanupFail;
         }
-        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB_Uncert_Indexes","Coordinates",HKMcoordPath);
+        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB_Uncert_Indexes","coordinates",HKMcoord_500M_Path);
         if ( status < 0 )
         {
             FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes coordinates attribute.\n");
             goto cleanupFail;
         }
-        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","Coordinates",HKMcoordPath);
+        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","coordinates",HKMcoord_250M_Path);
         if ( status < 0 )
         {
             FATAL_MSG("Failed to add EV_250_Aggr500_RefSB coordinates attribute.\n");
             goto cleanupFail;
         }
-        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB_Uncert_Indexes","Coordinates",HKMcoordPath);
+        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB_Uncert_Indexes","coordinates",HKMcoord_250M_Path);
         if ( status < 0 )
         {
             FATAL_MSG("Failed to add EV_250_Aggr500_RefSB_Uncert_Indexes coordinates attribute.\n");
@@ -1942,9 +2014,13 @@ cleanupFail:
     if ( HKMlonPath ) free (HKMlonPath);
     if ( QKMlatPath ) free(QKMlatPath);
     if ( QKMlonPath ) free(QKMlonPath);
-    if ( _1KMcoordPath ) free(_1KMcoordPath );
-    if ( HKMcoordPath ) free(HKMcoordPath);
-    if ( QKMcoordPath ) free (QKMcoordPath);
+    if ( _1KMcoordEmissivePath ) free(_1KMcoordEmissivePath );
+    if ( _1KMcoordRefSBPath ) free(_1KMcoordRefSBPath);
+    if ( _1KMcoord_250M_Path ) free (_1KMcoord_250M_Path);
+    if ( _1KMcoord_500M_Path ) free(_1KMcoord_500M_Path);
+    if ( HKMcoord_250M_Path ) free (HKMcoord_250M_Path);
+    if ( HKMcoord_500M_Path ) free(HKMcoord_500M_Path );
+    if ( QKMcoord_250M_Path ) free (QKMcoord_250M_Path);    
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;
