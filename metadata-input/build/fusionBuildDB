@@ -36,6 +36,7 @@ from pytz import timezone
 from datetime import datetime
 from time import mktime, strptime #, gmtime, strftime
 from socket import gethostname
+import re
 
 args = docopt(__doc__)
 
@@ -254,6 +255,9 @@ def addInstrumentFile(instFile):
                         print("{}:{}: {}".format(instFile, count,line), file=discards)
                     break
             else:
+                if(re.match(r".*CER.*(.hdf)$", line, re.I)):
+                    print("{}:{}: {}".format(instFile, count,line), file=discards)
+                    continue
                 if line.startswith('/') and line.endswith(':'):
                     # looks like a path
                     warn("addInstrumentFile: new directory %s for following files", line)
