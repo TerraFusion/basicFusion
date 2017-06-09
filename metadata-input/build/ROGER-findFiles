@@ -1,11 +1,13 @@
 #!/bin/bash
 
-INDATADIR="/projects/TDataFus/BFData"
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 [Input data dir]"
+    exit 1
+fi
 
+INDATADIR="$1"
 OUTDATADIR="../data"
 
-mkdir -p tmp
-rm -f tmp/fileList.txt # prevent appending to a non-empty file
 
 for i in ASTER MODIS CERES MOPITT MISR; do
     rm -f "$DATADIR"/$i.list
