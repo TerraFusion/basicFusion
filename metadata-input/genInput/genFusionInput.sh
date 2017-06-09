@@ -739,7 +739,7 @@ if [ "$#" -ne 3 ]; then
 fi
 
 DB=$1
-UNORDERED=./"$3"unordered.txt
+UNORDERED="$3"unordered.txt
 ORDERED="$3"
 
 . ../queries.bash
