@@ -139,11 +139,13 @@ int ASTER( char* argv[],int aster_count,int unpack)
     hid_t latDataID = 0;
     hid_t lonDataID = 0;
 
-    char* radianceNames[15] = {"ImageData1", "ImageData2", "ImageData3N", "ImageData3B", "ImageData4", "ImageData5", "ImageData6",
+    const char* radianceNames[15] = {"ImageData1", "ImageData2", "ImageData3N", "ImageData3B", "ImageData4", "ImageData5", "ImageData6",
                                "ImageData7", "ImageData8", "ImageData9", "ImageData10", "ImageData11", "ImageData12",
                                "ImageData13", "ImageData14" 
                               };
 
+    const char *pointAngleDimName = "ASTER_PointingAngleDim";
+    const char *solarGeomDimName  = "ASTER_Solar_GeometryDim";
     /*
       MY 2016-12-20:
             Add checks for the existence of the VNIR group.
@@ -540,13 +542,6 @@ int ASTER( char* argv[],int aster_count,int unpack)
     /* We need to attach dimensions to the pointing angle datasets, so make those first. */
     /* Make pointing angle dimension */
     
-    dimName = calloc( strlen("PointingAngle") + strlen(granuleSuffix) + 1, 1 );
-    if ( dimName == NULL )
-    {
-        FATAL_MSG("Failed to allocate memory.\n");
-        goto cleanupFail;
-    }
-    sprintf(dimName, "PointingAngle%s", granuleSuffix);
     // create dataspace
     simplSpace = H5Screate_simple( 1, &tempInt, NULL );
     if ( simplSpace < 0 )
@@ -556,29 +551,41 @@ int ASTER( char* argv[],int aster_count,int unpack)
         goto cleanupFail;
     }
     // create dataset
-    tempDsetID = H5Dcreate2( outputFile, dimName, H5T_NATIVE_FLOAT, simplSpace, H5P_DEFAULT, H5P_DEFAULT,
-                                   H5P_DEFAULT);
-    if ( tempDsetID < 0 )
-    {
-        FATAL_MSG("Failed to create dataset.\n");
-        tempDsetID = 0;
-        goto cleanupFail;
+    if ( aster_count == 1 )
+    {    
+        tempDsetID = H5Dcreate2( outputFile, pointAngleDimName, H5T_NATIVE_FLOAT, simplSpace, H5P_DEFAULT, H5P_DEFAULT,
+                                       H5P_DEFAULT);
+        if ( tempDsetID < 0 )
+        {
+            FATAL_MSG("Failed to create dataset.\n");
+            tempDsetID = 0;
+            goto cleanupFail;
+        }
+        // set dataset as a dimension scale
+        status = H5DSset_scale( tempDsetID, "Placeholder" );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to set dataset as dimension scale.\n");
+            goto cleanupFail;
+        }
+        
+        iStatus = change_dim_attr_NAME_value(tempDsetID);
+        if ( iStatus == FAIL )
+        {
+            FATAL_MSG("Failed to set the NAME attribute for a dimension.\n");
+            goto cleanupFail;
+        }
     }
-    // set dataset as a dimension scale
-    status = H5DSset_scale( tempDsetID, "Placeholder" );
-    if ( status < 0 )
+    else
     {
-        FATAL_MSG("Failed to set dataset as dimension scale.\n");
-        goto cleanupFail;
+        tempDsetID = H5Dopen2( outputFile, pointAngleDimName, H5P_DEFAULT);
+        if ( tempDsetID < 0 )
+        {
+            FATAL_MSG("Failed to open dataset.\n");
+            tempDsetID = 0;
+            goto cleanupFail;
+        }
     }
-    
-    iStatus = change_dim_attr_NAME_value(tempDsetID);
-    if ( iStatus == FAIL )
-    {
-        FATAL_MSG("Failed to set the NAME attribute for a dimension.\n");
-        goto cleanupFail;
-    }
-
     /* Make the pointingAngle datasets and then attach the dimension scale we just made */
     for ( j = 0; j < i; j++)
     {
@@ -608,42 +615,45 @@ int ASTER( char* argv[],int aster_count,int unpack)
         
     }
 
-    free(dimName); dimName = NULL;
     H5Dclose(tempDsetID); tempDsetID = 0;
 
     /* Create a Solar_Geometry dimension (same process as the dimension for pointing_angle) */
-    dimName = calloc( strlen("Solar_Geometry") + strlen(granuleSuffix) + 1, 1 );
-    if ( dimName == NULL )
-    {
-        FATAL_MSG("Failed to allocate memory.\n");
-        goto cleanupFail;
-    }
-    sprintf(dimName, "Solar_Geometry%s", granuleSuffix);
 
-    solarGeomDim = H5Dcreate2( outputFile, dimName, H5T_NATIVE_FLOAT, simplSpace, H5P_DEFAULT, H5P_DEFAULT,
-                                   H5P_DEFAULT);
-    if ( solarGeomDim < 0 )
+    if ( aster_count == 1 )
     {
-        FATAL_MSG("Failed to create dataset.\n");
-        tempDsetID = 0;
-        goto cleanupFail;
-    }
+        solarGeomDim = H5Dcreate2( outputFile, solarGeomDimName, H5T_NATIVE_FLOAT, simplSpace, H5P_DEFAULT, H5P_DEFAULT,
+                                       H5P_DEFAULT);
+        if ( solarGeomDim < 0 )
+        {
+            FATAL_MSG("Failed to create dataset.\n");
+            tempDsetID = 0;
+            goto cleanupFail;
+        }
 
-    status = H5DSset_scale( solarGeomDim, "Placeholder" );
-    if ( status < 0 )
+        status = H5DSset_scale( solarGeomDim, "Placeholder" );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to set dataset as dimension scale.\n");
+            goto cleanupFail;
+        }
+
+        iStatus = change_dim_attr_NAME_value(solarGeomDim);
+        if ( iStatus == FAIL )
+        {
+            FATAL_MSG("Failed to set the NAME attribute for a dimension.\n");
+            goto cleanupFail;
+        }
+    } 
+    else
     {
-        FATAL_MSG("Failed to set dataset as dimension scale.\n");
-        goto cleanupFail;
+        solarGeomDim = H5Dopen2( outputFile, solarGeomDimName, H5P_DEFAULT );
+        if ( solarGeomDim < 0 )
+        {
+            FATAL_MSG("Failed to open dataset.\n");
+            solarGeomDim = 0;
+            goto cleanupFail;
+        }
     }
-
-    iStatus = change_dim_attr_NAME_value(solarGeomDim);
-    if ( iStatus == FAIL )
-    {
-        FATAL_MSG("Failed to set the NAME attribute for a dimension.\n");
-        goto cleanupFail;
-    }
-
-    free(dimName); dimName = NULL;
 
     // Find the SOLARDIRECTION object in the productmetadata.0
     pointer1 = productmeta0SubStr2;
@@ -711,7 +721,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
     solarDir[1] = atof(tempStr);
     free(tempStr);
     tempStr = NULL;
-
+    
     status = H5LTmake_dataset_float( solar_geometryGroup, "SolarAzimuth", 1, &tempInt, &(solarDir[0]) );
     if ( status != 0 )
     {
@@ -1440,7 +1450,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             {
                 if ( !dsetArray[i+4] ) continue;
 
-                status = H5LTset_attribute_string( SWIRgroupID, radianceNames[i+4], "Coordinates", SWIRcoord);
+                status = H5LTset_attribute_string( SWIRgroupID, radianceNames[i+4], "coordinates", SWIRcoord);
                 if ( status < 0 )
                 {
                     FATAL_MSG("Failed to set string attribute. i = %d\n", i);
@@ -1501,7 +1511,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             {
                 if ( !dsetArray[i+10] ) continue;
 
-                status = H5LTset_attribute_string( TIRgroupID, radianceNames[i+10], "Coordinates", TIRcoord);
+                status = H5LTset_attribute_string( TIRgroupID, radianceNames[i+10], "coordinates", TIRcoord);
                 if ( status < 0 )
                 {
                     FATAL_MSG("Failed to set string attribute. i = %d\n", i);
@@ -1562,7 +1572,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             {
                 if ( !dsetArray[i] ) continue;
 
-                status = H5LTset_attribute_string( VNIRgroupID, radianceNames[i], "Coordinates", VNIRcoord);
+                status = H5LTset_attribute_string( VNIRgroupID, radianceNames[i], "coordinates", VNIRcoord);
                 if ( status < 0 )
                 {
                     FATAL_MSG("Failed to set string attribute. i = %d\n", i);

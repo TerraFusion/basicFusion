@@ -575,7 +575,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     strcat(coordinatePath, " ");
     strcat(coordinatePath, latPath);
     
-    status = H5LTset_attribute_string( radianceGroup, "MOPITTRadiances", "Coordinates", coordinatePath);
+    status = H5LTset_attribute_string( radianceGroup, "MOPITTRadiances", "coordinates", coordinatePath);
     if ( status < 0 )
     {
         FATAL_MSG("Failed to set string attribute.\n");
