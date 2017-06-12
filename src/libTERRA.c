@@ -1298,15 +1298,13 @@ char *correct_name(const char* oldname)
         neededCorrect = 1;
     }
 
-    newname = malloc(strlen(oldname)+1+offset);
+    newname = calloc(strlen(oldname)+1+offset, 1);
 
     if(newname == NULL)
     {
         FATAL_MSG("Not enough memory to allocate newname.\n");
         return NULL;
     }
-
-    memset(newname,0,strlen(oldname)+1+offset);
 
     if ( offset ) newname[0] = '_';
 
@@ -3957,6 +3955,7 @@ herr_t copyDimension( char* outDimName, int32 h4fileID, char* h4datasetName, hid
         correct_dsetname = NULL;
         H5Dclose(h5dimID);
         h5dimID = 0;
+        free(catString); catString = NULL;
     }   // end for loop
 
     fail = 0;

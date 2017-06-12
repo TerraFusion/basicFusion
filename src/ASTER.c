@@ -385,7 +385,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
         goto cleanupFail;
     }
 
-    productmeta0 = calloc( numElems, 1 );
+    productmeta0 = calloc( numElems+1, 1 );
     if ( productmeta0 == NULL )
     {
         FATAL_MSG("Failed to allocate memory.\n");
