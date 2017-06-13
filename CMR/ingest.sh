@@ -14,3 +14,6 @@ xmllint --schema Granule.xsd --noout InputGranules_generated.xml
 
 # Test collection ingestion.
 curl -i -XPUT -H "Content-type: application/echo10+xml" -H "Echo-Token: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" https://cmr.uat.earthdata.nasa.gov/ingest/providers/FUSION/collections/terra_fusion_1 -d @sample_echo10.xml
+
+# Ingest granule.
+curl -i -XPUT -H "Content-type: application/echo10+xml" -H "Echo-Token: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" https://cmr.uat.earthdata.nasa.gov/ingest/providers/FUSION/granules/terra_fusion_1 -d @InputGranules_generated.xml
