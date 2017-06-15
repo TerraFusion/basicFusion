@@ -606,10 +606,6 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
         goto cleanupFail;
     }
 
-    if ( H5Dclose(timeDataset) < 0 )
-        WARN_MSG("Failed to close dataset.\n");
-
-    timeDataset = 0;
 
 
     /***************************************************************
