@@ -4,25 +4,28 @@
 
 # THIS MAKEFILE IS CURRENTLY NON-FUNCTIONAL. DO NOT USE
 
-CC=cc
-CFLAGS=-c -g -O0 -Wall -std=c11
-LINKFLAGS= -g -std=c11
-INCLUDE1=.
-INCLUDE2=
-LIB1=.
-LIB2=
+CC=h4cc
+CFLAGS=-c -g -O0 -Wall -std=c99
+LINKFLAGS= -g -std=c99 -static
+INCLUDE1=/opt/cray/hdf5/1.10.0/INTEL/15.0/include
+INCLUDE2=.
+LIB1=/opt/cray/hdf5/1.10.0/INTEL/15.0/lib
+LIB2=.
 TARGET=./bin/basicFusion
 SRCDIR=./src
 OBJDIR=./obj
-DEPS=$(OBJDIR)/main.o $(OBJDIR)/libTERRA.o $(OBJDIR)/MOPITT.o $(OBJDIR)/CERES.o $(OBJDIR)/MODIS.o $(OBJDIR)/ASTER.o $(OBJDIR)/MISR.o
+
+MODISINTERP_DIR=./src/interp/modis
+ASTERINTERP_DIR=./src/interp/aster
+DEPS=$(OBJDIR)/main.o $(OBJDIR)/libTERRA.o $(OBJDIR)/MOPITT.o $(OBJDIR)/CERES.o $(OBJDIR)/MODIS.o $(OBJDIR)/ASTER.o $(OBJDIR)/MISR.o $(MODISINTERP_DIR)/MODISLatLon.o $(ASTERINTERP_DIR)/ASTERLatLon.o
 
 all: $(TARGET)
 
 $(TARGET): $(DEPS)
-	$(CC) $(LINKFLAGS) $(DEPS) -L$(LIB1) -I$(INCLUDE1) -lmfhdf -ldf -lz -ljpeg -o $(TARGET)
+	$(CC) $(LINKFLAGS) $(DEPS) -L$(LIB1) -I$(INCLUDE1) -lhdf5_hl -lhdf5 -lmfhdf -ldf -lz -ljpeg -o $(TARGET)
 	
 $(OBJDIR)/main.o: $(SRCDIR)/main.c
-	$(CC) $(CFLAGS) -L$(LIB1) -I$(INCLUDE1) $(SRCDIR)/main.c -o $(OBJDIR)/main.o
+	$(CC) $(CFLAGS) -I$(INCLUDE1) $(SRCDIR)/main.c -o $(OBJDIR)/main.o
 	
 $(OBJDIR)/libTERRA.o: $(SRCDIR)/libTERRA.c
 	$(CC) $(CFLAGS) -I$(INCLUDE1) $(SRCDIR)/libTERRA.c -o $(OBJDIR)/libTERRA.o
@@ -42,8 +45,12 @@ $(OBJDIR)/ASTER.o: $(SRCDIR)/ASTER.c
 $(OBJDIR)/MISR.o: $(SRCDIR)/MISR.c
 	$(CC) $(CFLAGS) -I$(INCLUDE1) $(SRCDIR)/MISR.c -o $(OBJDIR)/MISR.o
 
+$(OBJDIR)/MODISLatLon.o: $(MODISINTERP_DIR)/MODISLatLon.c
+	$(CC) $(CFLAGS) -I$(INCLUDE1) $(MODISINTERP_DIR)/MODISLatLon.c -o $(OBJDIR)/MODISLatLon.o
+
+$(OBJDIR)/ASTERLatLon.o: $(ASTERINTERP_DIR)/ASTERLatLon.c
+	$(CC) $(CFLAGS) -I$(INCLUDE1) $(ASTERINTERP_DIR)/ASTERLatLon.c -o $(OBJDIR)/ASTERLatLon.o
+
 clean:
 	rm -f $(TARGET) $(OBJDIR)/*.o
-	
-run:
-	$(TARGET) out.h5
+

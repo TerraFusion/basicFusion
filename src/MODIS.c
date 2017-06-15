@@ -223,7 +223,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
         if (MODISrootGroupID <0)
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to open MODIS root group.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to open MODIS root group.\n");
             MODISrootGroupID = 0;
             goto cleanupFail;
         }
@@ -233,7 +233,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     // Create the granule group under MODIS group
     if ( createGroup( &MODISrootGroupID, &MODISgranuleGroupID,argv[5] ) )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to create MODIS root group.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to create MODIS root group.\n");
         MODISgranuleGroupID = 0;
         goto cleanupFail;
     }
@@ -319,7 +319,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     /* create the 1 kilometer product group */
     if ( createGroup ( &MODISgranuleGroupID, &MODIS1KMGroupID, "1KM" ) )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 1KM group.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to create MODIS 1KM group.\n");
         MODIS1KMGroupID = 0;
         goto cleanupFail;
     }
@@ -327,7 +327,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     // create the data fields group
     if ( createGroup ( &MODIS1KMGroupID, &MODIS1KMdataFieldsGroupID, "Data Fields" ) )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 1KM data fields group.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to create MODIS 1KM data fields group.\n");
         MODIS1KMdataFieldsGroupID = 0;
         goto cleanupFail;
     }
@@ -335,7 +335,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     // create 1KMgeolocation fields group
     if ( createGroup( &MODIS1KMGroupID, &MODIS1KMgeolocationGroupID, "Geolocation" ) )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 1KMgeolocation group.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to create MODIS 1KMgeolocation group.\n");
         MODIS1KMgeolocationGroupID = 0;
         goto cleanupFail;
     }
@@ -345,14 +345,14 @@ int MODIS( char* argv[],int modis_count, int unpack)
         /* create the 500m product group */
         if ( createGroup ( &MODISgranuleGroupID, &MODIS500mGroupID, "500m" ) )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 500m group.\n",__FILE__, __func__,__LINE__);
+            FATAL_MSG("Failed to create MODIS 500m group.\n");
             MODIS500mGroupID = 0;
             goto cleanupFail;
         }
 
         if ( createGroup ( &MODIS500mGroupID, &MODIS500mdataFieldsGroupID, "Data Fields" ) )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 500m data fields group.\n",__FILE__, __func__,__LINE__);
+            FATAL_MSG("Failed to create MODIS 500m data fields group.\n");
             MODIS500mdataFieldsGroupID = 0;
             goto cleanupFail;
         }
@@ -365,14 +365,14 @@ int MODIS( char* argv[],int modis_count, int unpack)
         /* create the 250m product group */
         if ( createGroup ( &MODISgranuleGroupID, &MODIS250mGroupID, "250m" ) )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 250m group.\n",__FILE__, __func__,__LINE__);
+            FATAL_MSG("Failed to create MODIS 250m group.\n");
             MODIS250mGroupID = 0;
             goto cleanupFail;
         }
 
         if ( createGroup ( &MODIS250mGroupID, &MODIS250mdataFieldsGroupID, "Data Fields" ) )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to create MODIS 250m data fields group.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to create MODIS 250m data fields group.\n");
             MODIS250mdataFieldsGroupID = 0;
             goto cleanupFail;
         }
@@ -825,7 +825,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                           DFNT_UINT16, _1KMFileID);
             if ( _250Aggr1km == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr1km_RefSB data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_250_Aggr1km_RefSB data.\n");
                 _250Aggr1km = 0;
                 goto cleanupFail;
             }
@@ -836,7 +836,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                 DFNT_UINT8, _1KMFileID);
             if ( _250Aggr1kmUncert == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr1km_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_250_Aggr1km_RefSB_Uncert_Indexes data.\n");
                 _250Aggr1kmUncert = 0;
                 goto cleanupFail;
             }
@@ -851,7 +851,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                      DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
         if ( _250Aggr1km == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr1km_RefSB data.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to transfer EV_250_Aggr1km_RefSB data.\n");
             _250Aggr1km = 0;
             goto cleanupFail;
         }
@@ -863,7 +863,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                            DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);
         if ( _250Aggr1kmUncert == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr1km_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to transfer EV_250_Aggr1km_RefSB_Uncert_Indexes data.\n");
             _250Aggr1kmUncert = 0;
             goto cleanupFail;
         }
@@ -958,7 +958,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                           DFNT_UINT16, _1KMFileID );
             if ( _500Aggr1km == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_Aggr1km_RefSB data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_500_Aggr1km_RefSB data.\n");
                 _500Aggr1km = 0;
                 goto cleanupFail;
             }
@@ -986,7 +986,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                      DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID );
         if ( _500Aggr1km == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_Aggr1km_RefSB data.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to transfer EV_500_Aggr1km_RefSB data.\n");
             _500Aggr1km = 0;
             goto cleanupFail;
         }
@@ -996,7 +996,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                            DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
         if ( _500Aggr1kmUncert == EXIT_FAILURE )
         {
-            fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_Aggr1km_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+            FATAL_MSG("Failed to transfer EV_500_Aggr1km_RefSB_Uncert_Indexes data.\n");
             _500Aggr1kmUncert = 0;
             goto cleanupFail;
         }
@@ -1107,7 +1107,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                              DFNT_FLOAT32,  MOD03FileID);
     if ( SensorAzimuthDatasetID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to transfer Sensor zenith data.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to transfer Sensor zenith data.\n");
         SensorAzimuthDatasetID = 0;
         goto cleanupFail;
     }
@@ -1132,7 +1132,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                            DFNT_FLOAT32,  MOD03FileID);
     if ( SolarZenithDatasetID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to transfer Solar zenith data.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to transfer Solar zenith data.\n");
         SolarZenithDatasetID = 0;
         goto cleanupFail;
     }
@@ -1158,7 +1158,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                             DFNT_FLOAT32,  MOD03FileID);
     if ( SolarAzimuthDatasetID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to transfer Solar zenith data.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to transfer Solar zenith data.\n");
         SolarAzimuthDatasetID = 0;
         goto cleanupFail;
     }
@@ -1185,7 +1185,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                           DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
     if ( SDSunzenithDatasetID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to transfer SD Sun zenith data.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to transfer SD Sun zenith data.\n");
         SDSunzenithDatasetID = 0;
         goto cleanupFail;
     }
@@ -1251,7 +1251,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                            DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
     if ( SDSunazimuthDatasetID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] Failed to transfer SD Sun azimuth data.\n",__FILE__,__func__,__LINE__);
+        FATAL_MSG("Failed to transfer SD Sun azimuth data.\n");
         SDSunazimuthDatasetID = 0;
         goto cleanupFail;
     }
@@ -1337,7 +1337,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                           DFNT_UINT16, _500mFileID );
             if ( _250Aggr500 == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr500_RefSB data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_250_Aggr500_RefSB data.\n");
                 _250Aggr500 = 0;
                 goto cleanupFail;
             }
@@ -1348,7 +1348,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                 DFNT_UINT8, _500mFileID );
             if ( _250Aggr500Uncert == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr500_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_250_Aggr500_RefSB_Uncert_Indexes data.\n");
                 _250Aggr500Uncert = 0;
                 goto cleanupFail;
             }
@@ -1363,7 +1363,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
             if ( _250Aggr500 == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr500_RefSB data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_250_Aggr500_RefSB data.\n");
                 _250Aggr500 = 0;
                 goto cleanupFail;
             }
@@ -1374,7 +1374,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                                DFNT_UINT8,H5T_STD_U8LE, _500mFileID );
             if ( _250Aggr500Uncert == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_Aggr500_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_250_Aggr500_RefSB_Uncert_Indexes data.\n");
                 _250Aggr500Uncert = 0;
                 goto cleanupFail;
             }
@@ -1452,7 +1452,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                                     _500mFileID );
             if ( _500RefSB == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_RefSB data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_500_RefSB data.\n");
                 _500RefSB = 0;
                 goto cleanupFail;
             }
@@ -1462,7 +1462,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                               DFNT_UINT8, _500mFileID );
             if ( _500RefSBUncert == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_500_RefSB_Uncert_Indexes data.\n");
                 _500RefSBUncert = 0;
                 goto cleanupFail;
             }
@@ -1475,7 +1475,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             /*____________EV_500_RefSB_Uncert_Indexes_____________*/
             if ( _500RefSB == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_RefSB data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_500_RefSB data.\n");
                 _500RefSB = 0;
                 goto cleanupFail;
             }
@@ -1483,7 +1483,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                              DFNT_UINT8, H5T_STD_U8LE, _500mFileID );
             if ( _500RefSBUncert == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_500_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_500_RefSB_Uncert_Indexes data.\n");
                 _500RefSBUncert = 0;
                 goto cleanupFail;
             }
@@ -1567,7 +1567,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                                     _250mFileID );
             if ( _250RefSB == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_RefSB data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_250_RefSB data.\n");
                 _250RefSB = 0;
                 goto cleanupFail;
             }
@@ -1577,7 +1577,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                               DFNT_UINT8, _250mFileID);
             if ( _250RefSBUncert == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_250_RefSB_Uncert_Indexes data.\n");
                 _250RefSBUncert = 0;
                 goto cleanupFail;
             }
@@ -1589,7 +1589,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                        H5T_NATIVE_USHORT, _250mFileID );
             if ( _250RefSB == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_RefSB data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_250_RefSB data.\n");
                 _250RefSB = 0;
                 goto cleanupFail;
             }
@@ -1599,7 +1599,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                              DFNT_UINT8, H5T_STD_U8LE, _250mFileID);
             if ( _250RefSBUncert == EXIT_FAILURE )
             {
-                fprintf( stderr, "[%s:%s:%d] Failed to transfer EV_250_RefSB_Uncert_Indexes data.\n",__FILE__,__func__,__LINE__);
+                FATAL_MSG("Failed to transfer EV_250_RefSB_Uncert_Indexes data.\n");
                 _250RefSBUncert = 0;
                 goto cleanupFail;
             }
@@ -2069,7 +2069,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
                          (void**)&latBuffer, &latRank, latDimSizes, h4_type,NULL,NULL,NULL );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  latname );
+        FATAL_MSG("Unable to read %s data.\n",  latname );
         if ( latBuffer != NULL ) free(latBuffer);
         return -1;
     }
@@ -2078,21 +2078,21 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
                          (void**)&lonBuffer, &lonRank, lonDimSizes, h4_type,NULL,NULL,NULL );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  lonname );
+        FATAL_MSG("Unable to read %s data.\n",  lonname );
         if ( latBuffer != NULL ) free(latBuffer);
         if ( lonBuffer != NULL ) free(lonBuffer);
         return -1;
     }
     if(latRank !=2 || lonRank!=2)
     {
-        fprintf( stderr, "[%s:%s:%d] The latitude and longitude array rank must be 2.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("The latitude and longitude array rank must be 2.\n");
         if ( latBuffer != NULL ) free(latBuffer);
         if ( lonBuffer != NULL ) free(lonBuffer);
         return -1;
     }
     if(latDimSizes[0]!=lonDimSizes[0] || latDimSizes[1]!=lonDimSizes[1])
     {
-        fprintf( stderr, "[%s:%s:%d] The latitude and longitude array rank must share the same dimension sizes.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("The latitude and longitude array rank must share the same dimension sizes.\n");
         if ( latBuffer != NULL ) free(latBuffer);
         if ( lonBuffer != NULL ) free(lonBuffer);
         return -1;
@@ -2106,7 +2106,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     lat_1km_buffer = (double*)malloc(sizeof(double)*nRow_1km*nCol_1km);
     if(lat_1km_buffer == NULL)
     {
-        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_1km_buffer.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("Cannot allocate lat_1km_buffer.\n");
         if ( latBuffer != NULL ) free(latBuffer);
         if ( lonBuffer != NULL ) free(lonBuffer);
         return -1;
@@ -2116,7 +2116,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     lon_1km_buffer = (double*)malloc(sizeof(double)*nRow_1km*nCol_1km);
     if(lon_1km_buffer == NULL)
     {
-        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_1km_buffer.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("Cannot allocate lon_1km_buffer.\n");
         if ( latBuffer != NULL ) free(latBuffer);
         if ( lonBuffer != NULL ) free(lonBuffer);
         if (lat_1km_buffer !=NULL) free(lat_1km_buffer);
@@ -2128,7 +2128,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     lat_500m_buffer = (double*)malloc(sizeof(double)*nRow_500m*nCol_500m);
     if(lat_500m_buffer == NULL)
     {
-        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_500m_buffer.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("Cannot allocate lat_500m_buffer.\n");
         if ( latBuffer != NULL ) free(latBuffer);
         if ( lonBuffer != NULL ) free(lonBuffer);
         if (lat_1km_buffer !=NULL) free(lat_1km_buffer);
@@ -2140,7 +2140,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     lon_500m_buffer = (double*)malloc(sizeof(double)*4*nRow_500m*nCol_500m);
     if(lon_500m_buffer == NULL)
     {
-        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_500m_buffer.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("Cannot allocate lon_500m_buffer.\n");
         if ( latBuffer != NULL ) free(latBuffer);
         if ( lonBuffer != NULL ) free(lonBuffer);
         if (lat_1km_buffer !=NULL) free(lat_1km_buffer);
@@ -2161,7 +2161,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     lat_output_500m_buffer = (float*)malloc(sizeof(float)*nRow_500m*nCol_500m);
     if(lat_output_500m_buffer == NULL)
     {
-        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_500m_buffer.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("Cannot allocate lon_500m_buffer.\n");
         if ( latBuffer != NULL ) free(latBuffer);
         if ( lonBuffer != NULL ) free(lonBuffer);
         if (lat_1km_buffer !=NULL) free(lat_1km_buffer);
@@ -2182,7 +2182,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
 
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, latname );
+        FATAL_MSG("Error writing %s dataset.\n", latname );
         free(latBuffer);
         free(lonBuffer);
         free(lat_1km_buffer);
@@ -2194,7 +2194,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     // semi-hard-code here.
     if(attachDimension(outputFileID,ll_500m_dimnames[0],datasetID,0) <0)
     {
-        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__,ll_500m_dimnames[0] );
+        FATAL_MSG("Error  opening dimension dataset ID %s dataset.\n",ll_500m_dimnames[0] );
         free(latBuffer);
         free(lonBuffer);
         free(lat_1km_buffer);
@@ -2205,7 +2205,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     }
     if(attachDimension(outputFileID,ll_500m_dimnames[1],datasetID,1)<0)
     {
-        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__, ll_500m_dimnames[1] );
+        FATAL_MSG("Error  opening dimension dataset ID %s dataset.\n", ll_500m_dimnames[1] );
         free(latBuffer);
         free(lonBuffer);
         free(lat_1km_buffer);
@@ -2221,7 +2221,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     lon_output_500m_buffer = (float*)malloc(sizeof(float)*nRow_500m*nCol_500m);
     if(lon_output_500m_buffer == NULL)
     {
-        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_500m_buffer.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("Cannot allocate lon_500m_buffer.\n");
         free(latBuffer);
         free(lonBuffer);
         free(lat_1km_buffer);
@@ -2240,7 +2240,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
 
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, lonname );
+        FATAL_MSG("Error writing %s dataset.\n", lonname );
         free(latBuffer);
         free(lonBuffer);
         free(lat_1km_buffer);
@@ -2254,7 +2254,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     // semi-hard-code here.
     if(attachDimension(outputFileID,ll_500m_dimnames[0],datasetID,0) <0)
     {
-        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__,ll_500m_dimnames[0] );
+        FATAL_MSG("Error  opening dimension dataset ID %s dataset.\n",ll_500m_dimnames[0] );
         free(latBuffer);
         free(lonBuffer);
         free(lat_1km_buffer);
@@ -2267,7 +2267,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     }
     if(attachDimension(outputFileID,ll_500m_dimnames[1],datasetID,1)<0)
     {
-        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__, ll_500m_dimnames[1] );
+        FATAL_MSG("Error  opening dimension dataset ID %s dataset.\n", ll_500m_dimnames[1] );
         free(latBuffer);
         free(lonBuffer);
         free(lat_1km_buffer);
@@ -2295,7 +2295,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     lat_250m_buffer = (double*)malloc(sizeof(double)*nRow_250m*nCol_250m);
     if(lat_250m_buffer == NULL)
     {
-        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_250m_buffer.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("Cannot allocate lat_250m_buffer.\n");
         free(lat_500m_buffer);
         free(lon_500m_buffer);
         return -1;
@@ -2304,7 +2304,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     lon_250m_buffer = (double*)malloc(sizeof(double)*nRow_250m*nCol_250m);
     if(lon_250m_buffer == NULL)
     {
-        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_250m_buffer.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("Cannot allocate lon_250m_buffer.\n");
         free(lat_500m_buffer);
         free(lon_500m_buffer);
         free(lat_250m_buffer);
@@ -2318,7 +2318,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     lat_output_250m_buffer = (float*)malloc(sizeof(float)*nRow_250m*nCol_250m);
     if(lat_output_250m_buffer == NULL)
     {
-        fprintf( stderr, "[%s:%s:%d] Cannot allocate lat_output_250m_buffer.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("Cannot allocate lat_output_250m_buffer.\n");
         free(lat_250m_buffer);
         free(lon_250m_buffer);
         return -1;
@@ -2327,7 +2327,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     lon_output_250m_buffer = (float*)malloc(sizeof(float)*nRow_250m*nCol_250m);
     if(lon_output_500m_buffer == NULL)
     {
-        fprintf( stderr, "[%s:%s:%d] Cannot allocate lon_output_250m_buffer.\n", __FILE__, __func__,__LINE__);
+        FATAL_MSG("Cannot allocate lon_output_250m_buffer.\n");
         free(lat_250m_buffer);
         free(lon_250m_buffer);
         free(lat_output_250m_buffer);
@@ -2351,7 +2351,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
 
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, latname );
+        FATAL_MSG("Error writing %s dataset.\n", latname );
         free(lat_output_250m_buffer);
         free(lon_output_250m_buffer);
         return -1;
@@ -2361,13 +2361,13 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
 
     if(attachDimension(outputFileID,ll_250m_dimnames[0],datasetID,0) <0)
     {
-        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__,ll_250m_dimnames[0] );
+        FATAL_MSG("Error  opening dimension dataset ID %s dataset.\n",ll_250m_dimnames[0] );
         free(lon_250m_buffer);
         return -1;
     }
     if(attachDimension(outputFileID,ll_250m_dimnames[1],datasetID,1)<0)
     {
-        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__, ll_250m_dimnames[1] );
+        FATAL_MSG("Error  opening dimension dataset ID %s dataset.\n", ll_250m_dimnames[1] );
         free(lon_250m_buffer);
         return -1;
     }
@@ -2379,7 +2379,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
 
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, latname );
+        FATAL_MSG("Error writing %s dataset.\n", latname );
         free(lon_output_250m_buffer);
         return -1;
     }
@@ -2388,12 +2388,12 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
 
     if(attachDimension(outputFileID,ll_250m_dimnames[0],datasetID,0) <0)
     {
-        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__,ll_250m_dimnames[0] );
+        FATAL_MSG("Error  opening dimension dataset ID %s dataset.\n",ll_250m_dimnames[0] );
         return -1;
     }
     if(attachDimension(outputFileID,ll_250m_dimnames[1],datasetID,1)<0)
     {
-        fprintf(stderr, "[%s:%s:%d] Error  opening dimension dataset ID %s dataset.\n", __FILE__, __func__,__LINE__, ll_250m_dimnames[1] );
+        FATAL_MSG("Error  opening dimension dataset ID %s dataset.\n", ll_250m_dimnames[1] );
         return -1;
     }
 

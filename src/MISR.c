@@ -423,7 +423,7 @@ int MISR( char* argv[],int unpack )
     correctedName = NULL;
 
     /* Concatenate the geolocation paths into one string */
-    LRcoord = calloc( strlen(LRgeoLon) + strlen(LRgeoLat) + 1, 1);
+    LRcoord = calloc( strlen(LRgeoLon) + strlen(LRgeoLat) + 2, 1);
     strcpy(LRcoord,LRgeoLon);
     strcat(LRcoord, " ");
     strcat(LRcoord, LRgeoLat);

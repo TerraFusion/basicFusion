@@ -385,7 +385,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
         goto cleanupFail;
     }
 
-    productmeta0 = calloc( numElems, 1 );
+    productmeta0 = calloc( numElems+1, 1 );
     if ( productmeta0 == NULL )
     {
         FATAL_MSG("Failed to allocate memory.\n");
@@ -2133,7 +2133,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
         //VNIR Longitude
         if (Generate2D_Dataset(VNIRgeoGroupID,lonname,h5_type,lon_vnir_buffer,VNIR_ImageLine_DimID,VNIR_ImagePixel_DimID,nVNIR_ImageLine,nVNIR_ImagePixel)<0)
         {
-            fprintf( stderr, "[%s:%s:%d] Cannot generate 2-D ASTER lat/lon.\n", __FILE__, __func__,__LINE__);
+            FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
             goto cleanupFail;
         }
         free(lon_vnir_buffer); lon_vnir_buffer = NULL;
