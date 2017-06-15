@@ -107,23 +107,23 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         }
 
         
+        if ( createGroup( &rootID_g, &granuleID_g,argv[3] ) )
+        {
+            FATAL_MSG("Failed to create CERES granule group.\n");
+            granuleID_g = 0;
+            goto cleanupFail;
+        }
 
+    
         fileTime = getTime( argv[2], 1 );
 
-        if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",fileTime)<0)
+        if(H5LTset_attribute_string(rootID_g,"granule1","GranuleTime",fileTime)<0)
         {
             FATAL_MSG("Failed to add CERES time stamp.\n");
             goto cleanupFail;
         }
         free(fileTime);
         fileTime = NULL;
-
-        if ( createGroup( &rootID_g, &granuleID_g,argv[3] ) )
-        {
-            fprintf( stderr, "[%s:%s:%d] Failed to create CERES granule group.\n",__FILE__,__func__,__LINE__);
-            granuleID_g = 0;
-            goto cleanupFail;
-        }
 
         if ( createGroup( &granuleID_g, &FMID_g, "FM1" ) )
         {
@@ -1019,7 +1019,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
     status = SDgetinfo( sds_id, NULL, &rank, dimsizes, &ntype, &num_attrs);
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] SDgetinfo: Failed to get info from dataset.\n", __FILE__, __func__, __LINE__);
+        FATAL_MSG("SDgetinfo: Failed to get info from dataset.\n");
         SDendaccess(sds_id);
         SDend(sd_id);
         return EXIT_FAILURE;
@@ -1028,7 +1028,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
 
     if(rank !=1 || ntype !=DFNT_FLOAT64)
     {
-        fprintf( stderr, "[%s:%s:%d] the time dimension rank must be 1 and the datatype must be double.\n", __FILE__, __func__, __LINE__);
+        FATAL_MSG("the time dimension rank must be 1 and the datatype must be double.\n");
         SDendaccess(sds_id);
         SDend(sd_id);
         return EXIT_FAILURE;
@@ -1040,7 +1040,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
 
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] SDreaddata: Failed to read data.\n", __FILE__, __func__, __LINE__);
+        FATAL_MSG("SDreaddata: Failed to read data.\n");
         SDendaccess(sds_id);
         SDend(sd_id);
         if ( julian_date != NULL ) free(julian_date);
@@ -1051,7 +1051,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
 
     if(obtain_start_end_index(start_index_ptr,end_index_ptr,julian_date,dimsizes[0],orbit_info) == EXIT_FAILURE)
     {
-        fprintf( stderr, "[%s:%s:%d] Obtain_start_end_index: Failed to obtain the start and end index.\n", __FILE__, __func__, __LINE__);
+        FATAL_MSG("Obtain_start_end_index: Failed to obtain the start and end index.\n");
         SDendaccess(sds_id);
         SDend(sd_id);
         if ( julian_date != NULL ) free(julian_date);

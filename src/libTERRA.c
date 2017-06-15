@@ -2778,7 +2778,6 @@ char* getTime( char* pathname, int instrument )
             FATAL_MSG("Expected CERES path.\n\tReceived \"%s\"\n",pathname );
             return NULL;
         }
-        start += 27;
 
         end = pathname + strlen( pathname ) - 1;
 
@@ -2789,9 +2788,9 @@ char* getTime( char* pathname, int instrument )
             return NULL;
         }
 
-        len = end - start + 2;
+        len = strlen(end-9) + 1;
         retString = calloc(len,1);
-        strncpy( retString, start, len-1 );
+        strncpy( retString, end-9, len-1 );
         return retString;
 
     }
@@ -5425,9 +5424,9 @@ herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
 
     strncat( *granList, newGran, granLen );
 
-    // Set the newline and null terminator on the ends of the granule list
+    // Set the comma and null terminator on the ends of the granule list
     size_t newGranListSize = strlen(*granList);
-    (*granList)[newGranListSize]   = '\n';
+    (*granList)[newGranListSize]   = ',';
     (*granList)[newGranListSize+1] = '\0';
 
     return EXIT_SUCCESS;
