@@ -4,6 +4,18 @@ from lxml import etree
 import requests
 import json
 
+#Get native id from short name, needed for granule ingestion
+def sn_native_helper(ingest_file, token):
+    search_url = "https://cmr.uat.earthdata.nasa.gov/search/collections.umm_json_v1_4"
+    headers = {"Echo-Token" : token}
+    tree = ElementTree.parse(ingest_file)
+    sn = tree.find("Collection/ShortName")
+    params = {'short_name' : sn.text}
+    res = requests.get(search_url, headers=headers, params=params)
+    data = json.loads(res.text)
+    native_id = data['items'][0]['meta']['native-id']
+    return native_id
+
 def get_token(cred_file):
     url = "https://cmr.uat.earthdata.nasa.gov/legacy-services/rest/tokens"
     headers = {"Content-Type" : "application/xml"}
@@ -56,11 +68,15 @@ def test_granule_validation(ingest_file, token):
 
 def test_granule_ingestion(ingest_file, token):
     url = "https://cmr.uat.earthdata.nasa.gov/ingest/providers/FUSION/granules/"
+    url += sn_native_helper(ingest_file, token)
     headers = {"Content-Type" : "application/echo10+xml", "Echo-Token" : token}
     res = requests.put(url, headers = headers, data = open(ingest_file, 'rb'))
     print('granule ingestion response: ' + res.content)
     print('Status code: ' + str(res.status_code))
     return res.status_code
+
+def test_granule_update(ingest_file, token):
+    pass
 
 #---------------------------------------------------------------------------------------------------
 def main() :
@@ -92,7 +108,7 @@ def main() :
         status = test_granule_validation(ingest_file, token)
         if(status == 200):
             if(is_update):
-                pass
+                test_granule_update(ingest_file, token)
             else:
                 test_granule_ingestion(ingest_file, token)
 
