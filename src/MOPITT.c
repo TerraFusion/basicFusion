@@ -8,7 +8,7 @@
 #define TIME "HDFEOS/SWATHS/MOP01/Geolocation Fields/Time"
 #define RADIANCE_UNIT "Watts/m^2/steradian"
 #define LAT_LON_UNIT "degree"
-#define TIME_UNIT "seconds UTC"
+#define TIME_UNIT "seconds since 1993-01-01"
 
 /*
     NOTE: argv[1] = INPUT_FILE
@@ -812,15 +812,22 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
         goto cleanupFail;
     }
 
-    status = H5Tset_size( stringType, strlen(RADIANCE_UNIT));
+    status = H5Tset_size( stringType, strlen(RADIANCE_UNIT)+1);
     if ( status < 0 )
     {
         FATAL_MSG("Unable to set the size of a datatype.\n");
         goto cleanupFail;
     }
 
+    status = H5Tset_strpad( stringType, H5T_STR_NULLTERM);
+    if ( status < 0 )
+    {
+        FATAL_MSG("Unable to set the pad of an HDF5 string datatype.\n");
+        goto cleanupFail;
+    }
 
-    attrID = attributeCreate( radianceDataset, "radiance_unit", stringType );
+
+    attrID = attributeCreate( radianceDataset, "units", stringType );
     if ( attrID == EXIT_FAILURE )
     {
         FATAL_MSG("Unable to create radiance_unit attribute.\n");
@@ -915,15 +922,23 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
         stringType = 0;
         goto cleanupFail;
     }
-    status = H5Tset_size( stringType, strlen(TIME_UNIT) );
+    status = H5Tset_size( stringType, strlen(TIME_UNIT)+1 );
     if ( status < 0 )
     {
-        FATAL_MSG("Unable to set the size of a datatype.\n");
+        FATAL_MSG("Unable to set the size of an HDF5 string datatype.\n");
+        goto cleanupFail;
+    }
+
+    status = H5Tset_strpad( stringType, H5T_STR_NULLTERM);
+    if ( status < 0 )
+    {
+        FATAL_MSG("Unable to set the pad of an HDF5 string datatype.\n");
         goto cleanupFail;
     }
 
 
-    attrID = attributeCreate( geolocationGroup, "Time_unit", stringType );
+
+    attrID = attributeCreate( geolocationGroup, "units", stringType );
     if ( attrID == EXIT_FAILURE )
     {
         FATAL_MSG("Unable to create attribute.\n");
