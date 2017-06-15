@@ -938,7 +938,9 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
 
 
 
-    attrID = attributeCreate( geolocationGroup, "units", stringType );
+    //attrID = attributeCreate( geolocationGroup, "units", stringType );
+    // The units should be for Time rather than for the whole group MY 2017-06-15
+    attrID = attributeCreate( timeDataset, "units", stringType );
     if ( attrID == EXIT_FAILURE )
     {
         FATAL_MSG("Unable to create attribute.\n");
