@@ -23,7 +23,7 @@ $(TARGET): $(DEPS)
 	$(CC) $(LINKFLAGS) $(DEPS) -L$(LIB1) -I$(INCLUDE1) -lhdf5_hl -lhdf5 -lmfhdf -ldf -lz -ljpeg -o $(TARGET)
 	
 $(OBJDIR)/main.o: $(SRCDIR)/main.c
-	$(CC) $(CFLAGS) -L$(LIB1) -I$(INCLUDE1) $(SRCDIR)/main.c -o $(OBJDIR)/main.o
+	$(CC) $(CFLAGS) -I$(INCLUDE1) $(SRCDIR)/main.c -o $(OBJDIR)/main.o
 	
 $(OBJDIR)/libTERRA.o: $(SRCDIR)/libTERRA.c
 	$(CC) $(CFLAGS) -I$(INCLUDE1) $(SRCDIR)/libTERRA.c -o $(OBJDIR)/libTERRA.o
