@@ -1,9 +1,0 @@
-#PBS -N BF_Exec_73605_74665
-#PBS -l nodes=4:ppn=20
-#PBS -l walltime=48:00:00
-#PBS -j oe
-cd $PBS_O_WORKDIR
-module load parallel
-export PARALLEL="--env PATH --env LD_LIBRARY_PATH --env LOADEDMODULES --env _LMFILES_ --env MODULE_VERSION --env MODULEPATH --env MODULEVERSION_STACK --env MODULESHOME"
-parallel --jobs $PBS_NUM_PPN --sshloginfile $PBS_NODEFILE --workdir $PBS_O_WORKDIR < /projects/TDataFus/TerraGen/commandFiles/BF/parallel_BF_CMD_73605_74665.txt
-exit 0
