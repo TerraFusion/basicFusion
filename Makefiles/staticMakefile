@@ -7,9 +7,9 @@
 CC=h4cc
 CFLAGS=-c -g -O0 -Wall -std=c99
 LINKFLAGS= -g -std=c99 -static
-INCLUDE1=/opt/cray/hdf5/1.10.0/INTEL/15.0/include
+INCLUDE1=.#/opt/cray/hdf5/1.10.0/INTEL/15.0/include
 INCLUDE2=.
-LIB1=/opt/cray/hdf5/1.10.0/INTEL/15.0/lib
+LIB1=.#/opt/cray/hdf5/1.10.0/INTEL/15.0/lib
 LIB2=.
 TARGET=./bin/basicFusion
 SRCDIR=./src
