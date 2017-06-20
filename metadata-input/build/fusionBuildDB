@@ -169,7 +169,7 @@ def addmod(directory, fname, size):
     stime = mktime_utc(sformat, ss[1][1:]+ss[2])
     etime = stime + 5*60
     directory = ROWS['dirs'][directory]
-    ROWS["MOD"].append((directory, fname, size, stime, etime, INSTRUMENTS.index('MOD'),size,))
+    ROWS["MOD"].append((directory, fname, size, stime, etime, INSTRUMENTS.index('MOD'),))
     return
 
 def addmop(directory, fname, fsize):
@@ -178,18 +178,18 @@ def addmop(directory, fname, fsize):
     stime = mktime_utc(sformat, ss[1])
     etime = stime + 24*60*60 # TODO CHECK THIS 24 hours?
     directory = ROWS['dirs'][directory]
-    ROWS["MOP"].append((directory ,fname, fsize, stime, etime, INSTRUMENTS.index('MOP'),size,))
+    ROWS["MOP"].append((directory ,fname, fsize, stime, etime, INSTRUMENTS.index('MOP'),))
     return
 
 def addcer(directory, fname, fsize):
     if('.hdf' in fname):
         return
-		timeFmt = '%Y%m%d'
+    timeFmt = '%Y%m%d'
     ss = fname.split('.')
     stime = mktime_utc(timeFmt, ss[-1])
     etime = stime + 60*60 # TODO CHECK THIS 24 hrs?
     directory = ROWS['dirs'][directory]
-    ROWS["CER"].append((directory, fname, fsize, stime, etime, INSTRUMENTS.index('CER'),size,))
+    ROWS["CER"].append((directory, fname, fsize, stime, etime, INSTRUMENTS.index('CER'),))
     return
    
 def addast(directory, fname, fsize):
@@ -198,9 +198,8 @@ def addast(directory, fname, fsize):
     stime = mktime_utc(sformat, ss[2])
     etime = stime + 9  # TODO CHECK 9 sec?
     directory = ROWS['dirs'][directory]
-    ROWS["AST"].append((directory ,fname, fsize, stime, etime, INSTRUMENTS.index('AST'),size,))
+    ROWS["AST"].append((directory ,fname, fsize, stime, etime, INSTRUMENTS.index('AST'),))
     return
-#Orbit 40110: StartTime: 20070703210915, EndTime: 20070703224808
 
 def addmisr(directory, fname, fsize):
     ss = fname.split('_')
@@ -212,7 +211,7 @@ def addmisr(directory, fname, fsize):
     orbit = int(startstring[1:])
     directory = ROWS['dirs'][directory]
     if odict.has_key(orbit):
-        ROWS["MIS"].append((directory, fname, odict[orbit][0], odict[orbit][1], INSTRUMENTS.index('MIS'),size,))
+        ROWS["MIS"].append((directory, fname, odict[orbit][0], odict[orbit][1], INSTRUMENTS.index('MIS'),))
     else:
         warn("addmisr: no data for orbit %d trying to add %s", orbit, directory+"/"+fname)
     return
@@ -267,8 +266,8 @@ def addInstrumentFile(instFile):
                     last_directory = line
                     continue
                 try:
-										filepart, _, size = line.rpartition(' ')
-                    directory, _, fname = line.rpartition('/')
+                    filepart, _, size = line.rpartition(' ')
+                    directory, _, fname = filepart.rpartition('/')
                     #Handle special MISR case
                     if(('HRLL' in fname) or ('AGP' in fname)):
                         addFunc = addmisradd
@@ -277,7 +276,7 @@ def addInstrumentFile(instFile):
                     if len(directory) == 0:  # use last seen directory
                         directory = last_directory.rstrip(':')
                     addDir(directory)
-                    addFunc(directory, fname)
+                    addFunc(directory, fname, int(size))
                 except Exception as e:
                     warn("file %s: line %d: add failed: '%s'", instFile, count, line)
                     if anomalies:
