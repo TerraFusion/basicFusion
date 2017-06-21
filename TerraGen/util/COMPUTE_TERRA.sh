@@ -4,21 +4,37 @@
 OSTART=$1
 OEND=$2
 NUMJOBS=$3
-OUTPUTDIR="/projects/TDataFus/fusionTesting/output/2013"
-INPUTDIR="/projects/TDataFus/fusionTesting/input/2013"
-CMD_PATH="/projects/TDataFus/TerraGen/commandFiles/BF"
-BF_PROJ_PATH="/home/clipp/basicFusion"
-PBSpath="../pbsScripts/BF"
-cmdFileName='parallel_BF_CMD_${jobStart}_${jobEnd}.txt' # cmdFileName must be enclosed in single quotes
-WALLTIME="48:00:00"
-CURDIR=$(pwd)
+
+#___________VARIABLES TO CHANGE___________#
+OUTPUTDIR=""            # Where the output fusion files will go
+INPUTDIR=""             # Where the inputList.txt files are (contain the input HDF file paths for fusion program)
+BF_PROJ_PATH=""         # Where your basic Fusion project path is. Point this to the root project directory (i.e.
+                        #       /path/to/dir/basicFusion )
+#_________________________________________#
+
+if [ -z "$OUTPUTDIR" -o -z "$INPUTDIR" -o -z "$BF_PROJ_PATH" ]; then
+    echo "Please update the proper variables in this script for your environment!"
+    echo "These variables are under the \"VARIABLES TO CHANGE\" portion of the script."
+    exit 1
+fi
+
 if [ $# -ne 5 ]; then
     echo "Usage: $0 [orbit start] [orbit end] [num jobs to execute] [nodes/Job] [processors/node]"
     exit 1
 fi
 
-NPJ=$4
-PPN=$5
+# Get the absolute path of the script
+ABS_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PBSpath="$ABS_PATH"/"../pbsScripts/BF"
+CMDpath="$ABS_PATH"/"../commandFiles"
+
+cmdFileName='parallel_BF_CMD_${jobStart}_${jobEnd}.txt' # cmdFileName must be enclosed in single quotes
+WALLTIME="48:00:00"
+CURDIR=$(pwd)
+
+
+NPJ=$4          # Nodes per job
+PPN=$5          # Processors per node
 
 # Check that the arguments are all integers, and that OEND > OSTART
 
