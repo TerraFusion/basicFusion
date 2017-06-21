@@ -109,6 +109,10 @@ int main( int argc, char* argv[] )
 
     /*MY 2016-12-21: GZ also requests to unpack the MODIS,ASTER and MISR data, this is the flag for this */
     int unpack      = 1;
+    
+    /* LTC Jun 21, 2017: Add messages for when USE_GZIP and USE_CHUNK environment variables are set */
+    int useGZIP = 0;
+    int useChunk = 0;
 
     if ( argc != 4 )
     {
@@ -189,11 +193,21 @@ int main( int argc, char* argv[] )
         if(s && isdigit((int)*s))
             if((unsigned int)strtol(s,NULL,10) == 1)
                 unpack = 0;
+
+        s = getenv("USE_CHUNK");
+        if ( s && isdigit((int)*s))
+            useChunk = 1;
+
+        s = getenv("USE_GZIP");
+        if ( s && isdigit((int)*s))
+            useGZIP = 1;
+
     }
 
     if ( unpack ) printf("\n_____UNPACKING ENABLED_____\n");
     else printf("\n_____UNPACKING DISABLED_____\n");
-
+    if ( useChunk ) printf("_____CHUNKING ENABLED_____\n");
+    if ( useGZIP ) printf("_____GZIP ENABLED_____\n");
 
     /* remove output file if it already exists. Note that no conditional statements are used. If file does not exist,
      * this function will throw an error but we do not care.
