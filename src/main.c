@@ -229,8 +229,7 @@ int main( int argc, char* argv[] )
     }
 
 
-    /* strcmp returns 0 if the strings match */
-    if ( strcmp(string, "MOP N/A" ) )
+    if ( strstr(string, "MOP N/A" ) == NULL )
     {
         int MOPITTgranule = 1;
         
@@ -299,7 +298,7 @@ int main( int argc, char* argv[] )
     }
     else
     {
-        printf("No files for MOPITT found.\nTransferring CERES...");
+        printf("No MOPITT files found.\nTransferring CERES...");
         fflush(stdout);
         status = getNextLine( string, inputFile);
         if ( status == EXIT_FAILURE )
@@ -382,11 +381,11 @@ int main( int argc, char* argv[] )
     CERESargs[1] = argv[1];
 
 
-    if ( strcmp(string, "CER N/A" ) )
+    if ( strstr(string, "CER N/A" ) == NULL )
     {
         while(ceres_count != 0)
         {
-            if(strstr(string,MODIScheck1) != NULL)
+            if( strstr(string,MODIScheck1) || strstr(string,"MOD N/A") )
             {
                 ceres_count = 0;
                 continue;
@@ -394,8 +393,8 @@ int main( int argc, char* argv[] )
 
             if ( strstr( string, CEREScheck1 ) != NULL )
             {
-                CERESargs[2] = malloc(strlen(string)+1);
-                memset(CERESargs[2],0,strlen(string)+1);
+                CERESargs[2] = calloc(strlen(string)+1, 1);
+                
                 strncpy( CERESargs[2], string, strlen(string) );
                 //FM1
                 status = CERES_OrbitInfo(CERESargs,ceres_start_index_ptr,ceres_end_index_ptr,current_orbit_info);
@@ -409,8 +408,7 @@ int main( int argc, char* argv[] )
                 {
                     /* Remember the granule number */
                     sprintf(ceres_granule_suffix,"%d",ceres_fm1_count);
-                    CERESargs[3] = malloc(strlen(granule)+strlen(ceres_granule_suffix)+1);
-                    memset(CERESargs[3],0,strlen(granule)+strlen(ceres_granule_suffix)+1);
+                    CERESargs[3] = calloc(strlen(granule)+strlen(ceres_granule_suffix)+1, 1);
 
                     strncpy(CERESargs[3],granule,strlen(granule));
                     strncat(CERESargs[3],ceres_granule_suffix,strlen(ceres_granule_suffix));
@@ -443,9 +441,9 @@ int main( int argc, char* argv[] )
             }
             else if ( strstr( string, CEREScheck2 ) != NULL )
             {
-                CERESargs[2] = malloc(strlen(string)+1);
-                memset(CERESargs[2],0,strlen(string)+1);
+                CERESargs[2] = calloc(strlen(string)+1, 1);
                 strncpy( CERESargs[2], string, strlen(string) );
+                
                 //FM2
                 status = CERES_OrbitInfo(CERESargs,ceres_start_index_ptr,ceres_end_index_ptr,current_orbit_info);
                 if ( status == EXIT_FAILURE )
@@ -457,13 +455,12 @@ int main( int argc, char* argv[] )
                 if(*ceres_start_index_ptr >=0 && *ceres_end_index_ptr >=0)
                 {
                     sprintf(ceres_granule_suffix,"%d",ceres_fm2_count);
-                    CERESargs[3] = malloc(strlen(granule)+strlen(ceres_granule_suffix)+1);
-                    memset(CERESargs[3],0,strlen(granule)+strlen(ceres_granule_suffix)+1);
+                    CERESargs[3] = calloc(strlen(granule)+strlen(ceres_granule_suffix)+1, 1);
 
                     strncpy(CERESargs[3],granule,strlen(granule));
                     strncat(CERESargs[3],ceres_granule_suffix,strlen(ceres_granule_suffix));
 
-                    ceres_subset_num_elems = (*ceres_end_index_ptr) -(*ceres_start_index_ptr)+1;
+                    ceres_subset_num_elems = (*ceres_end_index_ptr) - (*ceres_start_index_ptr)+1;
                     ceres_subset_num_elems_ptr =&ceres_subset_num_elems;
                     
 
@@ -539,7 +536,7 @@ int main( int argc, char* argv[] )
     /* MY 2016-12-21: Need to form a loop to read various number of MODIS files
     *  A pre-processing check of the inputFile should be provided to make sure the processing
     *  will not exit prematurely */
-    if ( strcmp(string, "MOD N/A" ) )
+    if ( strstr(string, "MOD N/A" ) == NULL )
     {
         while(modis_count != 0)
         {
@@ -700,8 +697,7 @@ int main( int argc, char* argv[] )
                 strncpy( MODISargs[4], string, strlen(string) );
 
                 sprintf(modis_granule_suffix,"%d",modis_count);
-                MODISargs[5] = malloc(strlen(granule)+strlen(modis_granule_suffix)+1);
-                memset(MODISargs[5],0,strlen(granule)+strlen(modis_granule_suffix)+1);
+                MODISargs[5] = calloc(strlen(granule)+strlen(modis_granule_suffix)+1, 1);
                 strncpy(MODISargs[5],granule,strlen(granule));
                 strncat(MODISargs[5],modis_granule_suffix,strlen(modis_granule_suffix));
 
@@ -719,16 +715,12 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
-            if(MODISargs[1]) free(MODISargs[1]);
-            MODISargs[1] = NULL;
-            if(MODISargs[2]) free(MODISargs[2]);
-            MODISargs[2] = NULL;
-            if(MODISargs[3]) free(MODISargs[3]);
-            MODISargs[3] = NULL;
-            if(MODISargs[4]) free(MODISargs[4]);
-            MODISargs[4] = NULL;
-            if(MODISargs[5]) free(MODISargs[5]);
-            MODISargs[5] = NULL;
+            for ( int i = 1; i <= 5; i++ )
+            {
+                if(MODISargs[i]) 
+                    free(MODISargs[i]);
+                MODISargs[i] = NULL;
+            }
 
             /* get the next MODIS 1KM file */
             status = getNextLine( string, inputFile);
@@ -771,7 +763,7 @@ int main( int argc, char* argv[] )
         while(aster_count != 0)
         {
 
-            if(strstr( string, ASTERcheck ) != NULL )
+            if( strstr( string, ASTERcheck ) != NULL )
             {
 
                 granTempPtr = strrchr( string, '/' );
