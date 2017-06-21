@@ -166,7 +166,6 @@ int ASTER( char* argv[],int aster_count,int unpack)
     inHFileID = Hopen(argv[1],DFACC_READ, 0);
     if ( inHFileID < 0 )
     {
-        printf("%s\n", argv[1]);
         FATAL_MSG("Failed to open the H interface.\n");
         inHFileID = 0;
         goto cleanupFail;
