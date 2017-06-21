@@ -44,7 +44,7 @@ rm -f "$CMD_FILE"
 for ORBIT in $(seq $START $END ); do
     export ORBIT=$ORBIT
     evalFileName=$(eval echo "$FILENAME")
-    echo "$BF_PROG $HDF5_PATH/$evalFileName $INFILES/input$ORBIT.txt $ORBIT_INFO 2> $HDF5_PATH/errors/errors$ORBIT.txt" >> "$CMD_FILE"
+    echo "$BF_PROG $HDF5_PATH/$evalFileName $INFILES/input$ORBIT.txt $ORBIT_INFO &> $HDF5_PATH/errors/errors$ORBIT.txt" >> "$CMD_FILE"
 done
 
 unset ORBIT

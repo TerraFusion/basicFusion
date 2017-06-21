@@ -400,7 +400,7 @@ int main( int argc, char* argv[] )
     {
         while(ceres_count != 0)
         {
-            if(strstr(string,MODIScheck1) != NULL)
+            if(strstr(string,MODIScheck1) != NULL || strstr(string, "MOD N/A") != NULL )
             {
                 ceres_count = 0;
                 continue;
@@ -408,8 +408,8 @@ int main( int argc, char* argv[] )
 
             if ( strstr( string, CEREScheck1 ) != NULL )
             {
-                CERESargs[2] = malloc(strlen(string)+1);
-                memset(CERESargs[2],0,strlen(string)+1);
+                CERESargs[2] = calloc(strlen(string)+1, 1);
+                
                 strncpy( CERESargs[2], string, strlen(string) );
                 //FM1
                 status = CERES_OrbitInfo(CERESargs,ceres_start_index_ptr,ceres_end_index_ptr,current_orbit_info);
@@ -423,8 +423,7 @@ int main( int argc, char* argv[] )
                 {
                     /* Remember the granule number */
                     sprintf(ceres_granule_suffix,"%d",ceres_fm1_count);
-                    CERESargs[3] = malloc(strlen(granule)+strlen(ceres_granule_suffix)+1);
-                    memset(CERESargs[3],0,strlen(granule)+strlen(ceres_granule_suffix)+1);
+                    CERESargs[3] = calloc(strlen(granule)+strlen(ceres_granule_suffix)+1, 1);
 
                     strncpy(CERESargs[3],granule,strlen(granule));
                     strncat(CERESargs[3],ceres_granule_suffix,strlen(ceres_granule_suffix));
@@ -457,9 +456,9 @@ int main( int argc, char* argv[] )
             }
             else if ( strstr( string, CEREScheck2 ) != NULL )
             {
-                CERESargs[2] = malloc(strlen(string)+1);
-                memset(CERESargs[2],0,strlen(string)+1);
+                CERESargs[2] = calloc(strlen(string)+1, 1);
                 strncpy( CERESargs[2], string, strlen(string) );
+                
                 //FM2
                 status = CERES_OrbitInfo(CERESargs,ceres_start_index_ptr,ceres_end_index_ptr,current_orbit_info);
                 if ( status == EXIT_FAILURE )
@@ -471,13 +470,12 @@ int main( int argc, char* argv[] )
                 if(*ceres_start_index_ptr >=0 && *ceres_end_index_ptr >=0)
                 {
                     sprintf(ceres_granule_suffix,"%d",ceres_fm2_count);
-                    CERESargs[3] = malloc(strlen(granule)+strlen(ceres_granule_suffix)+1);
-                    memset(CERESargs[3],0,strlen(granule)+strlen(ceres_granule_suffix)+1);
+                    CERESargs[3] = calloc(strlen(granule)+strlen(ceres_granule_suffix)+1, 1);
 
                     strncpy(CERESargs[3],granule,strlen(granule));
                     strncat(CERESargs[3],ceres_granule_suffix,strlen(ceres_granule_suffix));
 
-                    ceres_subset_num_elems = (*ceres_end_index_ptr) -(*ceres_start_index_ptr)+1;
+                    ceres_subset_num_elems = (*ceres_end_index_ptr) - (*ceres_start_index_ptr)+1;
                     ceres_subset_num_elems_ptr =&ceres_subset_num_elems;
                     
 
