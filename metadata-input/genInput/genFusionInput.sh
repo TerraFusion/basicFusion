@@ -6,28 +6,28 @@
 
 orderFiles() {
 
-    MOPITTNUM=0
-    CERESNUM=0
-    MODISNUM=0
-    ASTERNUM=0
-    MISRNUM=0
+    local MOPITTNUM=0
+    local CERESNUM=0
+    local MODISNUM=0
+    local ASTERNUM=0
+    local MISRNUM=0
 
     UNORDEREDFILE=$1
     OUTFILE=$2
     CURDIR=$(pwd)
 
-    local MOPGREP
-    local CERFM1GREP
-    local CERFM2GREP
-    local MOD1KMGREP
-    local MODHKMGREP
-    local MODQKMGREP
-    local MOD03GREP
-    local ASTGREP
-    local MISGRPGREP
-    local MISAGPGREP
-    local MISGPGREP
-    local MISHRLLGREP
+    local MOPGREP=''
+    local CERFM1GREP=''
+    local CERFM2GREP=''
+    local MOD1KMGREP=''
+    local MODHKMGREP=''
+    local MODQKMGREP=''
+    local MOD03GREP=''
+    local ASTGREP=''
+    local MISGRPGREP=''
+    local MISAGPGREP=''
+    local MISGPGREP=''
+    local MISHRLLGREP=''
 
     rm -f "$OUTFILE" 
 
@@ -181,16 +181,17 @@ orderFiles() {
 #
 verifyFiles()
 {
-    DEBUGFILE="$1"
-    prevDate=""
-    prevRes=""
-    prevGroupDate=""
-    curGroupDate=""
-    instrumentSection=""
-    MODISVersionMismatch=0
-    ASTERVersionMismatch=0
-    MISRVersionMismatch=0
-
+    local DEBUGFILE="$1"
+    local prevDate=""
+    local prevRes=""
+    local prevGroupDate=""
+    local curGroupDate=""
+    local instrumentSection=""
+    local MODISVersionMismatch=0
+    local ASTERVersionMismatch=0
+    local MISRVersionMismatch=0
+    local MISRNUM=0
+    
     # Read through the DEBUGFILE file.
     # Remember, DEBUGFILE is the variable our script will do the debugging on. It may
     # or may not be set to the OUTFILE variable.
@@ -512,6 +513,9 @@ verifyFiles()
                 ######## 
 
         elif [ "$instrumentSection" == "MIS" ]; then
+            
+            let "MISRNUM++"
+
             # note: "cam" refers to which camera, ie "AA", "AF", "AN" etc.
             if [ -z "$prevDate" ]; then
                 prevfilename=$(echo ${line##*/})
@@ -686,8 +690,8 @@ verifyFiles()
             # CHECK FOR VERSION CONSISTENCY
             # If there hasn't been a previous MISR file, then skip this step
 
-            # If the current file is an AGP file, skip it
-            if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" != "AGP" ]]; then
+            # Version mismatches should only be checked for the GRP files
+            if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" == "GRP" ]]; then
                 # if this isn't our first MISR file and there hasn't been a version mismatch
                 # before, then
                 if [[ ${#prevfilename} != 0 && $MISRVersionMismatch == 0 ]]; then
@@ -729,6 +733,12 @@ verifyFiles()
 
         let "linenum++"
     done <"$DEBUGFILE"
+
+    # Check the number of MISR files. We should only have 12 files (1 granule)
+    if [ $MISRNUM -ne 12 ]; then
+        printf "Fatal Error: received an unexpected number of MISR files. Please check that exactly 12 files are present.\n" >&2
+        return 1
+    fi
 
     return 0
 }
