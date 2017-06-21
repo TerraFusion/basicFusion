@@ -4,7 +4,7 @@
 OSTART=$1
 OEND=$2
 NUMJOBS=$3
-OUTPUTDIR="/projects/TDataFus/fusionTesting/output/2013"
+OUTPUTDIR="/home/clipp/basicFusion/jobOutput/ASTERfail"
 INPUTDIR="/projects/TDataFus/fusionTesting/input/2013"
 CMD_PATH="/projects/TDataFus/TerraGen/commandFiles/BF"
 BF_PROJ_PATH="/home/clipp/basicFusion"
@@ -71,6 +71,7 @@ for i in $(seq 0 $((NUMJOBS-1)) ); do
     # Save the name of the command file in an array
     cmdName[$i]=$(eval echo "$cmdFileName")
 
+    # Create the command file
     ./genBFcommands.sh $jobStart $jobEnd "$INPUTDIR" "$CMD_PATH" "$BF_PROJ_PATH" "$OUTPUTDIR"
     if [ $? -ne 0 ]; then
         echo "Failed to generate basic fusion commands.\n"
