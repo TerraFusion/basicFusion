@@ -229,7 +229,8 @@ int main( int argc, char* argv[] )
     }
 
 
-    if ( strstr(string, "MOP N/A" ) == NULL )
+    /* strcmp returns 0 if the strings match */
+    if ( strcmp(string, "MOP N/A" ) )
     {
         int MOPITTgranule = 1;
         
@@ -298,7 +299,7 @@ int main( int argc, char* argv[] )
     }
     else
     {
-        printf("No MOPITT files found.\nTransferring CERES...");
+        printf("No files for MOPITT found.\nTransferring CERES...");
         fflush(stdout);
         status = getNextLine( string, inputFile);
         if ( status == EXIT_FAILURE )
@@ -381,11 +382,11 @@ int main( int argc, char* argv[] )
     CERESargs[1] = argv[1];
 
 
-    if ( strstr(string, "CER N/A" ) == NULL )
+    if ( strcmp(string, "CER N/A" ) )
     {
         while(ceres_count != 0)
         {
-            if( strstr(string,MODIScheck1) || strstr(string,"MOD N/A") )
+            if(strstr(string,MODIScheck1) != NULL || strstr(string, "MOD N/A") != NULL )
             {
                 ceres_count = 0;
                 continue;
@@ -536,7 +537,7 @@ int main( int argc, char* argv[] )
     /* MY 2016-12-21: Need to form a loop to read various number of MODIS files
     *  A pre-processing check of the inputFile should be provided to make sure the processing
     *  will not exit prematurely */
-    if ( strstr(string, "MOD N/A" ) == NULL )
+    if ( strcmp(string, "MOD N/A" ) )
     {
         while(modis_count != 0)
         {
@@ -697,7 +698,8 @@ int main( int argc, char* argv[] )
                 strncpy( MODISargs[4], string, strlen(string) );
 
                 sprintf(modis_granule_suffix,"%d",modis_count);
-                MODISargs[5] = calloc(strlen(granule)+strlen(modis_granule_suffix)+1, 1);
+                MODISargs[5] = malloc(strlen(granule)+strlen(modis_granule_suffix)+1);
+                memset(MODISargs[5],0,strlen(granule)+strlen(modis_granule_suffix)+1);
                 strncpy(MODISargs[5],granule,strlen(granule));
                 strncat(MODISargs[5],modis_granule_suffix,strlen(modis_granule_suffix));
 
@@ -715,12 +717,16 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
-            for ( int i = 1; i <= 5; i++ )
-            {
-                if(MODISargs[i]) 
-                    free(MODISargs[i]);
-                MODISargs[i] = NULL;
-            }
+            if(MODISargs[1]) free(MODISargs[1]);
+            MODISargs[1] = NULL;
+            if(MODISargs[2]) free(MODISargs[2]);
+            MODISargs[2] = NULL;
+            if(MODISargs[3]) free(MODISargs[3]);
+            MODISargs[3] = NULL;
+            if(MODISargs[4]) free(MODISargs[4]);
+            MODISargs[4] = NULL;
+            if(MODISargs[5]) free(MODISargs[5]);
+            MODISargs[5] = NULL;
 
             /* get the next MODIS 1KM file */
             status = getNextLine( string, inputFile);
@@ -763,7 +769,7 @@ int main( int argc, char* argv[] )
         while(aster_count != 0)
         {
 
-            if( strstr( string, ASTERcheck ) != NULL )
+            if(strstr( string, ASTERcheck ) != NULL )
             {
 
                 granTempPtr = strrchr( string, '/' );
