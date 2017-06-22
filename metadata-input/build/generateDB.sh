@@ -1,18 +1,32 @@
 #!/bin/bash
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 [output DB directory]"
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 [input HDF file directory] [output DB directory]"
     exit 1
 fi
 
-DBDIR=$1
-findFiles="./ROGER-findFiles"
-INDIR="/projects/TDataFus/BFData"
-DATADIR="../data"
+# Get the absolute path of this script
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
 
-export PYTHONUSERBASE=/home/clipp/libs/python
-export PYTHONPATH=$PYTHONUSERBASE/lib/python2.7/site-packages:$PYTHONPATH
-module load python/2.7.10
+DBDIR=$2                                        # Where the database will be stored
+findFiles="$SCRIPT_DIR/ROGER-findFiles"         # Where the findFiles script is located
+INDIR=$1                                        # Where the input HDF files are located
+DATADIR="$SCRIPT_DIR/../data"                   # Where to store intermediate results of the findFiles query
+
+#_____PYTHON DEPENDENCY RESOLUTIONS__________#
+# The fusionBuilDB python script requires:
+# 1. Docopt
+# 2. pytz
+# 3. ???
+#
+# A virtual environment has been provided in externLibs to resolve these dependencies.
+# Another option would have been to have each user install the required packages, but a virtual env
+# is the most portable solution.
+
+source "$SCRIPT_DIR"/../../externLib/pyVirtualEnv/BFpy/bin/activate
+
+#____________________________________________#
+
 
 
 eval $findFiles "$INDIR"
