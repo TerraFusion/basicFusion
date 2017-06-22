@@ -27,11 +27,8 @@ def main():
             continue
 
         # For every file, first save the orbit number. Then, find all of the "... N/A" lines and log this
-        with open(filename, "r") as f:
+        with open( sys.argv[1] + '/' + filename, "r") as f:
             orbitStr = f.readline().strip()
-            #print orbitStr
-            #orbitStr = f.readline().strip()
-            #print orbitStr
             try:
                 orbitInt = int(orbitStr)
             except:
