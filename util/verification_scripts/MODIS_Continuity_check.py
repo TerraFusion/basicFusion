@@ -150,9 +150,10 @@ def check_Continuity(dirPath, textfile, leap):
 
 	
 	#writes to the text file if and day is missing from the year
-	fileCheck.write("The following are the missing days: \n")
-	for i in range(len(checklist)):
-		fileCheck.write(os.path.join(dirPath, str(checklist[i])) + "\n") 
+	if missinglist:
+		fileCheck.write("The following are the missing days: \n")
+		for i in range(len(checklist)):
+			fileCheck.write(os.path.join(dirPath, str(checklist[i])) + "\n") 
 
 	fileCheck.write('\n')
 	
