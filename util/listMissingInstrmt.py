@@ -28,6 +28,7 @@ def main():
 
         # For every file, first save the orbit number. Then, find all of the "... N/A" lines and log this
         with open( sys.argv[1] + '/' + filename, "r") as f:
+            missingList[:] = []     # Delete the current list
             orbitStr = f.readline().strip()
             try:
                 orbitInt = int(orbitStr)
