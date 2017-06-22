@@ -12,37 +12,43 @@ def main():
     missingList = []
     
     if len(sys.argv) < 2 : 
-        print ('{} parses all of the input.txt files to the Basic Fusion program and prints which instruments')
+        print
+        print ('{} parses all of the input.txt files to the Basic Fusion program and prints which instruments'.format(sys.argv[0]))
         print ('are missing from each of the input file listings, as well as their corresponding orbit number.')
-
-        print ('Usage: {} [input Fusion file directory]'.format(sys.argv[0]) )
+        print 'Missing instruments are denoted inside the text file by the "[instrument] N/A" marker.'
+        print
+        print ('Usage: {} [input.txt directory]'.format(sys.argv[0]) )
+        print
         sys.exit(1)
 
     # Find all of the input files in this directory
-    for filename in os.listdir( argv[1] ):
+    for filename in os.listdir( sys.argv[1] ):
         if not filename.endswith(".txt") :
             continue
 
         # For every file, first save the orbit number. Then, find all of the "... N/A" lines and log this
-        with open(filename, 'r') as f:
+        with open(filename, "r") as f:
             orbitStr = f.readline().strip()
+            #print orbitStr
+            #orbitStr = f.readline().strip()
+            #print orbitStr
             try:
                 orbitInt = int(orbitStr)
-                break
-            except NAN:
-                print("\nError: The first line for file ", filename, "\ndid not contain the orbit number.\n")
+            except:
+                print "\nError: The first line for file {} did not contain the orbit number.\n".format(filename)
                 
             for line in f:
+                line = line.strip()
                 if " N/A" not in line:
                     continue
                 else:
                     missingList.append(line)
                     
             if len(missingList) > 0 :
-                print("Orbit ", orbitInt, " is missing:")
+                print "Orbit {} from file {} is missing:".format(orbitInt, filename)
                 
                 for missing in missingList :
-                    print("\t", missing)
+                    print "\t{}".format(missing)
 
                 print('')
 
