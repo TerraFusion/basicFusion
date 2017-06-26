@@ -12,7 +12,13 @@ int obtain_start_end_index(int* sindex_ptr,int* endex_ptr,double *jd,int32 size,
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax );
 //int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 
-
+/*      CERES()
+ *
+ *  DESCRIPTION:
+ *      CERES handles copying over all of the data from the CERES input files.
+ *
+ *  TODO: Finish this description
+ */
 int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_stride,int32*c_count)
 {
 
@@ -27,7 +33,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
     int32 fileID = 0;
     int32 h4Type;
     hid_t h5Type;
-    hid_t rootID_g = 0;
+    hid_t rootCERES_g = 0;
     hid_t granuleID_g = 0;
     hid_t FMID_g = 0;
     hid_t radianceID_g = 0;
@@ -74,6 +80,8 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         "SW Radiance", "LW Radiance", "WN Radiance"
     };
 
+    char cameraName[4] = {0};
+
     /* open the input file */
     fileID = SDstart( argv[2], DFACC_READ );
     if ( fileID < 0 )
@@ -82,108 +90,66 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         return (EXIT_FAILURE);
     }
 
-    /* outputfile already exists (created by main). Create the group directories */
-    //create root CERES group
-    if (index == 1)
-    {
-        if(ceres_fm_count == 1)
-        {
-            if ( createGroup( &outputFile, &rootID_g, "CERES" ) )
-            {
-                FATAL_MSG("Failed to create CERES root group.\n");
-                rootID_g = 0;
-                goto cleanupFail;
-            }
-        }
-        else
-        {
-            rootID_g = H5Gopen2( outputFile, "CERES", H5P_DEFAULT );
-            if ( rootID_g < 0 )
-            {
-                FATAL_MSG("Unable to open CERES root group.\n");
-                rootID_g = 0;
-                goto cleanupFail;
-            }
-        }
+    /* Open/create the CERES root group */
 
-        
-        if ( createGroup( &rootID_g, &granuleID_g,argv[3] ) )
+    if( H5Lexists(outputFile, "CERES", H5P_DEFAULT) <= 0 )
+    {
+        if ( createGroup( &outputFile, &rootCERES_g, "CERES" ) )
+        {
+            FATAL_MSG("Failed to create CERES root group.\n");
+            rootCERES_g = 0;
+            goto cleanupFail;
+        }
+    }
+    else
+    {
+        rootCERES_g = H5Gopen2( outputFile, "CERES", H5P_DEFAULT );
+        if ( rootCERES_g < 0 )
+        {
+            FATAL_MSG("Unable to open CERES root group.\n");
+            rootCERES_g = 0;
+            goto cleanupFail;
+        }
+    }
+
+    /* Open / create the granule group ("granule1", "granule2" etc) */
+
+    if ( H5Lexists( rootCERES_g, argv[3], H5P_DEFAULT ) <= 0 )
+    {
+        if ( createGroup( &rootCERES_g, &granuleID_g,argv[3] ) )
         {
             FATAL_MSG("Failed to create CERES granule group.\n");
             granuleID_g = 0;
             goto cleanupFail;
         }
-
-    
-        fileTime = getTime( argv[2], 1 );
-
-        if(H5LTset_attribute_string(rootID_g,"granule1","GranuleTime",fileTime)<0)
-        {
-            FATAL_MSG("Failed to add CERES time stamp.\n");
-            goto cleanupFail;
-        }
-        free(fileTime);
-        fileTime = NULL;
-
-        if ( createGroup( &granuleID_g, &FMID_g, "FM1" ) )
-        {
-            FATAL_MSG("CERES create granule group failure.\n");
-            FMID_g = 0;
-            goto cleanupFail;
-        }
-
-        
-        /* Insert granule name as attribute into FM1 or FM2 group */
-        tmpCharPtr = strrchr( argv[2], '/' );
-        if ( tmpCharPtr == NULL )
-        {
-            FATAL_MSG("Failed to find character within a string.\n");
-            goto cleanupFail;
-        }
-        if(H5LTset_attribute_string(granuleID_g,"FM1","GranuleName",tmpCharPtr + 1)<0)
-        {
-            FATAL_MSG("Failed to add CERES granule name.\n");
-            goto cleanupFail;
-        }
     }
-    else if(index == 2)
+    else
     {
-        rootID_g = H5Gopen2( outputFile, "CERES", H5P_DEFAULT );
-        if ( rootID_g < 0 )
+        granuleID_g = H5Gopen2( rootCERES_g, argv[3], H5P_DEFAULT );
+        if ( rootCERES_g < 0 )
         {
-            FATAL_MSG("Unable to open CERES root group.\n");
-            rootID_g = 0;
-            goto cleanupFail;
-        }
-        granuleID_g = H5Gopen2( rootID_g, argv[3], H5P_DEFAULT );
-        if ( rootID_g < 0 )
-        {
-            FATAL_MSG("Unable to open CERES root group.\n");
-            rootID_g = 0;
-            goto cleanupFail;
-        }
-
-        if ( createGroup( &granuleID_g, &FMID_g, "FM2" ) )
-        {
-            FATAL_MSG("CERES create granule group failure.\n");
-            goto cleanupFail;
-        }
-
-        
-        /* Insert granule name as attribute into FM1 or FM2 group */
-        tmpCharPtr = strrchr( argv[2], '/' );
-        if ( tmpCharPtr == NULL )
-        {
-            FATAL_MSG("Failed to find character within a string.\n");
-            goto cleanupFail;
-        }
-        if(H5LTset_attribute_string(granuleID_g,"FM2","GranuleName",tmpCharPtr + 1)<0)
-        {
-            FATAL_MSG("Failed to add CERES granule name.\n");
+            FATAL_MSG("Unable to open CERES granule group.\n");
+            rootCERES_g = 0;
             goto cleanupFail;
         }
     }
 
+    /* Add the time stamp to the granule group */
+    
+    fileTime = getTime( argv[2], 1 );
+
+    if(H5LTset_attribute_string(rootCERES_g, argv[3], "GranuleTime", fileTime)<0)
+    {
+        FATAL_MSG("Failed to add CERES time stamp.\n");
+        goto cleanupFail;
+    }
+    free(fileTime);
+    fileTime = NULL;
+
+    if (index == 1)
+        strncpy( cameraName, "FM1", 3 ); 
+    else if(index == 2)
+        strncpy( cameraName, "FM2", 3 );
     else
     {
         FATAL_MSG("The CERES granule index should be either 1 or 2.\n");
@@ -191,6 +157,28 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
     }
 
 
+    /* Create the "FM1" or "FM2" group */
+    if ( createGroup( &granuleID_g, &FMID_g, cameraName ) )
+    {
+        FATAL_MSG("CERES create granule group failure.\n");
+        FMID_g = 0;
+        goto cleanupFail;
+    }
+    
+    /* Insert file name as attribute into FM1 or FM2 group. */
+
+    tmpCharPtr = strrchr( argv[2], '/' );
+    if ( tmpCharPtr == NULL )
+    {
+        FATAL_MSG("Failed to find character within a string.\n");
+        goto cleanupFail;
+    }
+
+    if( H5LTset_attribute_string(granuleID_g, cameraName, "GranuleName", tmpCharPtr + 1) < 0 )
+    {
+        FATAL_MSG("Failed to add CERES granule name.\n");
+        goto cleanupFail;
+    }
 
     // create the data fields group
     if ( createGroup ( &FMID_g, &radianceID_g, "Radiances" ) )
@@ -200,7 +188,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         goto cleanupFail;
     }
 
-    // create geolocation fields
+    // create geolocation fields group
     if ( createGroup( &FMID_g, &geolocationID_g, "Time_and_Position" ) )
     {
         FATAL_MSG("Failed to create CERES geolocation group.\n");
@@ -208,7 +196,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         goto cleanupFail;
     }
 
-    // create Viewing angle fields
+    // create Viewing angle fields group
     if ( createGroup( &FMID_g, &viewingAngleID_g, "Viewing_Angles" ) )
     {
         FATAL_MSG("Failed to create CERES ViewingAngle group.\n");
@@ -407,7 +395,7 @@ cleanupFail:
 
     if ( fileID ) SDend(fileID);
     if ( fileTime ) free(fileTime);
-    if ( rootID_g ) H5Gclose(rootID_g);
+    if ( rootCERES_g ) H5Gclose(rootCERES_g);
     if ( granuleID_g) H5Gclose(granuleID_g);
     if ( FMID_g) H5Gclose(FMID_g);
     if ( radianceID_g ) H5Gclose(radianceID_g);
@@ -419,558 +407,6 @@ cleanupFail:
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;
-
-
-
-
-#if 0
-    /*************
-     * VARIABLES *
-     *************/
-    int32 fileID = 0;
-    hid_t timeDatasetID = 0;
-    hid_t SWFilteredDatasetID = 0;
-    hid_t WNFilteredDatasetID = 0;
-    hid_t TOTFilteredDatasetID = 0;
-    hid_t RadianceModeFlagDatasetID = 0;
-    hid_t SWUnfilteredDatasetID = 0;
-    hid_t WNUnfilteredDatasetID = 0;
-    hid_t LWUnfilteredDatasetID = 0;
-
-
-    hid_t colatitudeDatasetID = 0;
-    hid_t longitudeDatasetID = 0;
-    hid_t viewZenithDatasetID = 0;
-    hid_t solarZenithDatasetID = 0;
-    hid_t relativeAzimuthDatasetID = 0;
-    hid_t viewAzimuthDatasetID = 0;
-
-    hid_t CERESrootID = 0;
-    hid_t CERESgranuleID = 0;
-    hid_t CERESdataFieldsID = 0;
-    hid_t CERESgeolocationID = 0;
-    hid_t CERESViewingangleID = 0;
-    herr_t status = EXIT_SUCCESS;
-    char* fileTime = NULL;
-    short fail = 0;
-
-
-    /*****************
-     * END VARIABLES *
-     *****************/
-
-    /* open the input file */
-    fileID = SDstart( argv[1], DFACC_READ );
-    if ( fileID < 0 )
-    {
-        FATAL_MSG("Unable to open CERES file.\n");
-        return (EXIT_FAILURE);
-    }
-
-    /* outputfile already exists (created by main). Create the group directories */
-    //create root CERES group
-    if ( index == 1 )
-    {
-        if ( createGroup( &outputFile, &CERESrootID, "CERES" ) )
-        {
-            FATAL_MSG("Failed to create CERES root group.\n");
-            CERESrootID = 0;
-            goto cleanupFail;
-        }
-
-
-        if(H5LTset_attribute_string(outputFile,"CERES","FilePath",argv[1])<0)
-        {
-            FATAL_MSG("Failed to add CERES time stamp.\n");
-            goto cleanupFail;
-        }
-
-        fileTime = getTime( argv[1], 1 );
-
-        if(H5LTset_attribute_string(outputFile,"CERES","GranuleTime",fileTime)<0)
-        {
-            FATAL_MSG("Failed to add CERES time stamp.\n");
-            goto cleanupFail;
-        }
-        free(fileTime);
-        fileTime = NULL;
-
-        if ( createGroup( &CERESrootID, &CERESgranuleID, "FM1" ) )
-        {
-            FATAL_MSG("CERES create granule group failure.\n");
-            CERESgranuleID = 0;
-            goto cleanupFail;
-        }
-    }
-    else if(index == 2)
-    {
-        CERESrootID = H5Gopen2( outputFile, "CERES", H5P_DEFAULT );
-        if ( CERESrootID < 0 )
-        {
-            FATAL_MSG("Unable to open CERES root group.\n");
-            CERESrootID = 0;
-            goto cleanupFail;
-        }
-        if ( createGroup( &CERESrootID, &CERESgranuleID, "FM2" ) )
-        {
-            FATAL_MSG("CERES create granule group failure.\n");
-            goto cleanupFail;
-        }
-    }
-
-    else
-    {
-        FATAL_MSG("The CERES granule index should be either 1 or 2.\n");
-        goto cleanupFail;
-    }
-
-
-    // create the data fields group
-    if ( createGroup ( &CERESgranuleID, &CERESdataFieldsID, "Data Fields" ) )
-    {
-        FATAL_MSG("CERES create data fields group failure.\n");
-        CERESdataFieldsID = 0;
-        goto cleanupFail;
-    }
-
-    // create geolocation fields
-    if ( createGroup( &CERESgranuleID, &CERESgeolocationID, "Geolocation" ) )
-    {
-        FATAL_MSG("Failed to create CERES geolocation group.\n");
-        CERESgeolocationID = 0;
-        goto cleanupFail;
-    }
-
-    // create Viewing angle fields
-    if ( createGroup( &CERESgranuleID, &CERESViewingangleID, "ViewingAngle" ) )
-    {
-        FATAL_MSG("Failed to create CERES ViewingAngle group.\n");
-        CERESgeolocationID = 0;
-        goto cleanupFail;
-    }
-
-    /************************
-     *Time_Of_Observation *
-     ************************/
-    timeDatasetID = readThenWrite( CERESgeolocationID, "Time_Of_Observation", DFNT_FLOAT64, H5T_NATIVE_DOUBLE,
-                                   fileID,c_start,c_stride,c_end );
-
-    if ( timeDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES time dataset.\n");
-        timeDatasetID = 0;
-        goto cleanupFail;
-    }
-    // copy the dimension scales
-    status = copyDimension( NULL, fileID, "Time_Of_Observation", outputFile, timeDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    H5Dclose(timeDatasetID);
-    timeDatasetID = 0;
-
-    /************************
-    *Viewing_Zenith *
-    ************************/
-    viewZenithDatasetID = readThenWrite( CERESViewingangleID, "CERES viewing zenith at surface", DFNT_FLOAT32, H5T_NATIVE_FLOAT,
-                                         fileID );
-
-    if ( viewZenithDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES viewing zenith at surface dataset.\n");
-        viewZenithDatasetID = 0;
-        goto cleanupFail;
-    }
-    // copy the dimension scales
-    status = copyDimension( NULL, fileID, "CERES viewing zenith at surface", outputFile, viewZenithDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    H5Dclose(viewZenithDatasetID);
-    viewZenithDatasetID = 0;
-
-    /************************
-     *Solar_Zenith *
-     ************************/
-    solarZenithDatasetID = readThenWrite( CERESViewingangleID, "CERES solar zenith at surface", DFNT_FLOAT32, H5T_NATIVE_FLOAT,
-                                          fileID );
-
-    if ( solarZenithDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES solar zenith at surface dataset.\n");
-        solarZenithDatasetID = 0;
-        goto cleanupFail;
-    }
-    // copy the dimension scales
-    status = copyDimension( NULL, fileID, "CERES solar zenith at surface", outputFile, solarZenithDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    H5Dclose(solarZenithDatasetID);
-    solarZenithDatasetID = 0;
-
-    /************************
-     *Relative_Azimuth *
-     ************************/
-    relativeAzimuthDatasetID = readThenWrite( CERESViewingangleID, "CERES relative azimuth at surface", DFNT_FLOAT32, H5T_NATIVE_FLOAT,
-                               fileID );
-
-    if ( relativeAzimuthDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES relative azimuth at surface dataset.\n");
-        relativeAzimuthDatasetID = 0;
-        goto cleanupFail;
-    }
-    // copy the dimension scales
-    status = copyDimension( NULL, fileID, "CERES relative azimuth at surface", outputFile, relativeAzimuthDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    H5Dclose(relativeAzimuthDatasetID);
-    relativeAzimuthDatasetID = 0;
-
-    /************************
-     *Viewing_Azimuth *
-     ************************/
-    viewAzimuthDatasetID = readThenWrite( CERESViewingangleID, "CERES viewing azimuth at surface wrt North", DFNT_FLOAT32, H5T_NATIVE_FLOAT,
-                                          fileID );
-
-    if ( viewAzimuthDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES viewing azimuth at surface wrt North dataset.\n");
-        viewAzimuthDatasetID = 0;
-        goto cleanupFail;
-    }
-    // copy the dimension scales
-    status = copyDimension( NULL, fileID, "CERES viewing azimuth at surface wrt North", outputFile, viewAzimuthDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-    H5Dclose(viewAzimuthDatasetID);
-    viewAzimuthDatasetID = 0;
-
-
-
-    /***************************************
-     * CERES SW Filtered Radiances Upwards *
-     ***************************************/
-    SWFilteredDatasetID = readThenWrite( CERESdataFieldsID, "CERES SW filtered radiance - upwards", DFNT_FLOAT32, H5T_NATIVE_FLOAT,
-                                         fileID );
-    if ( SWFilteredDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES SW Filtered Radiances Upwards dataset.\n");
-        SWFilteredDatasetID = 0;
-        goto cleanupFail;
-    }
-
-    // The valid_range is hard-coded. This is not good from software point-of-view. Maybe OK if this is from user's guide.
-    status = CERESinsertAttrs( SWFilteredDatasetID, "CERES SW filtered radiance - upwards", UNITS1, -10.0f, 510.0f );
-    if ( status != EXIT_SUCCESS )
-    {
-        FATAL_MSG("Failed to insert attributes for SW Filtered Radiances Upwards.\n");
-        goto cleanupFail;
-    }
-    // copy the dimension scales
-    status = copyDimension( NULL, fileID, "CERES SW filtered radiance - upwards", outputFile, SWFilteredDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-
-    H5Dclose(SWFilteredDatasetID);
-    SWFilteredDatasetID = 0;
-
-
-    /*********************************
-     * WN Filtered Radiances Upwards *
-     *********************************/
-    WNFilteredDatasetID = readThenWrite( CERESdataFieldsID, "CERES WN filtered radiance - upwards", DFNT_FLOAT32, H5T_NATIVE_FLOAT,
-                                         fileID );
-    if ( WNFilteredDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES WN Filtered Radiances Upwards dataset.\n");
-        WNFilteredDatasetID = 0;
-        goto cleanupFail;
-    }
-
-    status = CERESinsertAttrs( WNFilteredDatasetID, "CERES WN filtered radiance - upwards", UNITS2, -10.0f, 510.0f );
-    if ( status != EXIT_SUCCESS )
-    {
-        FATAL_MSG("Failed to insert CERES WN Filtered Radiances Upwards attributes.\n");
-        goto cleanupFail;
-    }
-
-    status = copyDimension( NULL, fileID, "CERES WN filtered radiance - upwards", outputFile, WNFilteredDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-
-    H5Dclose(WNFilteredDatasetID);
-    WNFilteredDatasetID = 0;
-
-
-    /**********************************
-     * TOT Filtered Radiances Upwards *
-     **********************************/
-    TOTFilteredDatasetID = readThenWrite( CERESdataFieldsID, "CERES TOT filtered radiance - upwards", DFNT_FLOAT32,
-                                          H5T_NATIVE_FLOAT, fileID );
-    if ( TOTFilteredDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES TOT Filtered Radiances Upwards dataset.\n");
-        TOTFilteredDatasetID = 0;
-        goto cleanupFail;
-    }
-
-    status = CERESinsertAttrs( TOTFilteredDatasetID, "CERES TOT filtered radiance - upwards", UNITS1, -10.0f, 510.0f );
-    if ( status != EXIT_SUCCESS )
-    {
-        FATAL_MSG("Failed to insert CERES TOT Filtered Radiances Upwards attributes.\n");
-        goto cleanupFail;
-    }
-    status = copyDimension( NULL, fileID, "CERES TOT filtered radiance - upwards", outputFile, TOTFilteredDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-
-    H5Dclose(TOTFilteredDatasetID);
-    TOTFilteredDatasetID = 0;
-
-    /**********************************
-     * Radiance and Mode flags *
-     **********************************/
-    RadianceModeFlagDatasetID = readThenWrite( CERESdataFieldsID, "Radiance and Mode flags", DFNT_INT32,
-                                H5T_NATIVE_INT, fileID );
-    if ( RadianceModeFlagDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES radiance and Mode flags.\n");
-        RadianceModeFlagDatasetID = 0;
-        goto cleanupFail;
-    }
-
-    /*
-    #if 0
-        status = CERESinsertAttrs( RadianceModeFlagDatasetID, "Radiance and Mode flags", "N/A", -10.0f, 510.0f );
-        if ( status != EXIT_SUCCESS )
-        {
-            FATAL_MSG("Failed to insert CERES TOT Filtered Radiances Upwards attributes.\n");
-            goto cleanupFail;
-        }
-    #endif
-    */
-
-    {
-
-        int radiance_flags_fvalue = 2147483647;
-        int radiance_flags_valid_range[2] = {0,2147483647};
-        if(H5LTset_attribute_string(CERESdataFieldsID,"Radiance_and_Mode_flags","units","N/A")<0)
-        {
-            FATAL_MSG("Failed to insert the Radiance_and_Mode_flags units attribute.\n");
-            goto cleanupFail;
-        }
-
-        if(H5LTset_attribute_int(CERESdataFieldsID,"Radiance_and_Mode_flags","_FillValue",&radiance_flags_fvalue, 1 )<0)
-        {
-            FATAL_MSG("Failed to insert the Radiance_and_Mode_flags _FillValue attribute.\n");
-            goto cleanupFail;
-        }
-        if(H5LTset_attribute_int(CERESdataFieldsID,"Radiance_and_Mode_flags","valid_range",radiance_flags_valid_range, 2 )<0)
-        {
-            FATAL_MSG("Failed to insert the Radiance_and_Mode_flags valid_range attribute.\n");
-            goto cleanupFail;
-        }
-    }
-    status = copyDimension( NULL, fileID, "Radiance and Mode flags", outputFile, RadianceModeFlagDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-
-    H5Dclose(RadianceModeFlagDatasetID);
-    RadianceModeFlagDatasetID = 0;
-
-
-
-    /***************************************
-    * CERES SW Unfiltered Radiances Upwards *
-    ***************************************/
-    SWUnfilteredDatasetID = readThenWrite( CERESdataFieldsID, "CERES SW radiance - upwards", DFNT_FLOAT32, H5T_NATIVE_FLOAT,
-                                           fileID );
-    if ( SWUnfilteredDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES SW Unfiltered Radiances Upwards dataset.\n");
-        SWUnfilteredDatasetID = 0;
-        goto cleanupFail;
-    }
-
-    // The valid_range is hard-coded. This is not good from software point-of-view. Maybe OK if this is from user's guide.
-    status = CERESinsertAttrs( SWUnfilteredDatasetID, "CERES SW radiance - upwards", UNITS1, -10.0f, 510.0f );
-    if ( status != EXIT_SUCCESS )
-    {
-        FATAL_MSG("Failed to insert attributes for SW iltered Radiances Upwards.\n");
-        goto cleanupFail;
-    }
-    // copy the dimension scales
-    status = copyDimension( NULL, fileID, "CERES SW radiance - upwards", outputFile, SWUnfilteredDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-
-    H5Dclose(SWUnfilteredDatasetID);
-    SWUnfilteredDatasetID = 0;
-
-
-    /**********************************
-     * LW Filtered Radiances Upwards *
-     **********************************/
-    LWUnfilteredDatasetID = readThenWrite( CERESdataFieldsID, "CERES LW radiance - upwards", DFNT_FLOAT32,
-                                           H5T_NATIVE_FLOAT, fileID );
-    if ( LWUnfilteredDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES LW Radiances Upwards dataset.\n");
-        LWUnfilteredDatasetID = 0;
-        goto cleanupFail;
-    }
-
-    status = CERESinsertAttrs( LWUnfilteredDatasetID, "CERES LW radiance - upwards", UNITS1, -10.0f, 510.0f );
-    if ( status != EXIT_SUCCESS )
-    {
-        FATAL_MSG("Failed to insert CERES TOT Filtered Radiances Upwards attributes.\n");
-        goto cleanupFail;
-    }
-    status = copyDimension( NULL, fileID, "CERES LW radiance - upwards", outputFile, LWUnfilteredDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-
-    H5Dclose(LWUnfilteredDatasetID);
-    LWUnfilteredDatasetID = 0;
-
-
-    /*********************************
-     * WN Filtered Radiances Upwards *
-     *********************************/
-    WNUnfilteredDatasetID = readThenWrite( CERESdataFieldsID, "CERES WN radiance - upwards", DFNT_FLOAT32, H5T_NATIVE_FLOAT,
-                                           fileID );
-    if ( WNUnfilteredDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES WN  Radiances Upwards dataset.\n");
-        WNUnfilteredDatasetID = 0;
-        goto cleanupFail;
-    }
-
-    status = CERESinsertAttrs( WNUnfilteredDatasetID, "CERES WN radiance - upwards", UNITS1, -10.0f, 510.0f );
-    if ( status != EXIT_SUCCESS )
-    {
-        FATAL_MSG("Failed to insert CERES WN Radiances Upwards attributes.\n");
-        goto cleanupFail;
-    }
-
-    status = copyDimension( NULL, fileID, "CERES WN radiance - upwards", outputFile, WNUnfilteredDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-
-    H5Dclose(WNUnfilteredDatasetID);
-    WNUnfilteredDatasetID = 0;
-
-
-    /**************
-     * colatitude *
-     **************/
-    colatitudeDatasetID = readThenWrite( CERESgeolocationID, "Colatitude of CERES FOV at TOA", DFNT_FLOAT32,
-                                         H5T_NATIVE_FLOAT, fileID );
-    if ( colatitudeDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES Colatitude of CERES FOV at TOA dataset.\n");
-        colatitudeDatasetID = 0;
-        goto cleanupFail;
-    }
-
-    status = CERESinsertAttrs( colatitudeDatasetID, "CERES SW Filtered Radiance, Upwards", "deg", 0.0f, 180.0f );
-    if ( status != EXIT_SUCCESS )
-    {
-        FATAL_MSG("Failed to insert CERES Colatitude of CERES FOV at TOA attributes.\n");
-        goto cleanupFail;
-    }
-    status = copyDimension( NULL, fileID, "Colatitude of CERES FOV at TOA", outputFile, colatitudeDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-
-    H5Dclose(colatitudeDatasetID);
-    colatitudeDatasetID = 0;
-
-    /*************
-     * longitude *
-     *************/
-    longitudeDatasetID = readThenWrite( CERESgeolocationID, "Longitude of CERES FOV at TOA", DFNT_FLOAT32,
-                                        H5T_NATIVE_FLOAT, fileID );
-    if ( longitudeDatasetID == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to insert CERES Longitude of CERES FOV at TOA dataset.\n");
-        longitudeDatasetID = 0;
-        goto cleanupFail;
-    }
-
-    status = CERESinsertAttrs( longitudeDatasetID, "CERES SW Filtered Radiance, Upwards", "deg", 0.0f, 180.0f );
-    if ( status != EXIT_SUCCESS )
-    {
-        FATAL_MSG("Failed to insert CERES Longitude of CERES FOV at TOA attributes.\n");
-        goto cleanupFail;
-    }
-
-    status = copyDimension( NULL, fileID, "Longitude of CERES FOV at TOA", outputFile, longitudeDatasetID );
-    if ( status == FAIL )
-    {
-        FATAL_MSG("Failed to copy dimensions.\n");
-        goto cleanupFail;
-    }
-
-
-    if ( 0 )
-    {
-cleanupFail:
-        fail = 1;
-    }
-    if ( fileID ) SDend(fileID);
-    if ( CERESrootID ) H5Gclose(CERESrootID);
-    if ( CERESgranuleID ) H5Gclose(CERESgranuleID);
-    if ( CERESdataFieldsID ) H5Gclose(CERESdataFieldsID);
-    if ( CERESgeolocationID ) H5Gclose(CERESgeolocationID);
-    if ( timeDatasetID ) H5Dclose(timeDatasetID);
-    if ( SWFilteredDatasetID ) H5Dclose(SWFilteredDatasetID);
-    if ( WNFilteredDatasetID ) H5Dclose(WNFilteredDatasetID);
-    if ( TOTFilteredDatasetID ) H5Dclose(TOTFilteredDatasetID);
-    if ( colatitudeDatasetID ) H5Dclose(colatitudeDatasetID);
-    if ( longitudeDatasetID ) H5Dclose(longitudeDatasetID);
-
-    if ( fail ) return EXIT_FAILURE;
-#endif
-    //return EXIT_SUCCESS;
 }
 
 int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info)
