@@ -5,6 +5,7 @@
 #include <string.h>
 #include <assert.h>
 #include <curses.h>
+#include <time.h>
 #define STR_LEN 500
 #define LOGIN_NODE "login"
 #define MOM_NODE
@@ -48,7 +49,7 @@ int main( int argc, char* argv[] )
     char* granTempPtr = NULL;
     int status = EXIT_SUCCESS;
     int fail = 0;
-    int CERESgranuleNum = 1;
+    int CERESgranuleNum = 0;
     herr_t errStatus;
 
     /* Main will assert that the lines found in the inputFiles.txt file match
@@ -83,7 +84,8 @@ int main( int argc, char* argv[] )
     char modis_granule_suffix[3] = {'\0'};
     char aster_granule_suffix[3] = {'\0'};
     char ceres_granule_suffix[3] = {'\0'};
-
+    char* CER_curTime = NULL;
+    char* CER_prevTime = NULL;
 
     memset(modis_granule_suffix,0,3);
     memset(aster_granule_suffix,0,3);
@@ -106,7 +108,9 @@ int main( int argc, char* argv[] )
     OInfo_t* test_orbit_ptr = NULL;
 
     FILE* inputFile = NULL;
-    char string[STR_LEN];
+    char inputLine[STR_LEN];
+    time_t sTime;
+    time_t eTime;
 
     /*MY 2016-12-21: GZ also requests to unpack the MODIS,ASTER and MISR data, this is the flag for this */
     int unpack      = 1;
@@ -121,6 +125,9 @@ int main( int argc, char* argv[] )
         fprintf( stderr, "Set environment variable TERRA_DATA_UNPACK to non-zero for unpacking.\n");
         goto cleanupFail;
     }
+
+    /* Get the starting execution Unix time */
+    sTime = time(NULL);    
 
     /* open the input file list */
     inputFile = fopen( argv[2], "r" );
@@ -154,19 +161,19 @@ int main( int argc, char* argv[] )
 
 
     /* Get the orbit number from inputFiles.txt */
-    status = getNextLine( string, inputFile );
+    status = getNextLine( inputLine, inputFile );
     if ( status == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to get the next line.\n");
         goto cleanupFail;
     }
-    if ( !isdigit(*string) )
+    if ( !isdigit(*inputLine) )
     {
         FATAL_MSG("The first line in the %s file must contain the orbit number.\n", argv[2]);
         goto cleanupFail;
     }
 
-    int current_orbit_number = atoi(string);
+    int current_orbit_number = atoi(inputLine);
     for ( int i = 0; i<fSize/sizeof(OInfo_t); i++)
     {
         if( test_orbit_ptr[i].orbit_number == current_orbit_number )
@@ -235,7 +242,7 @@ int main( int argc, char* argv[] )
     printf("Transferring MOPITT...");
     fflush(stdout);
     /* get the MOPITT input file paths from our inputFiles.txt */
-    status = getNextLine( string, inputFile);
+    status = getNextLine( inputLine, inputFile);
 
     if ( status == EXIT_FAILURE )
     {
@@ -245,7 +252,7 @@ int main( int argc, char* argv[] )
 
 
     /* strcmp returns 0 if the strings match */
-    if ( strcmp(string, "MOP N/A" ) )
+    if ( strcmp(inputLine, "MOP N/A" ) )
     {
         int MOPITTgranule = 1;
         
@@ -254,24 +261,24 @@ int main( int argc, char* argv[] )
         do
         {
             /* strstr will fail if unexpected input is present */
-            if ( strstr( string, MOPITTcheck ) == NULL )
+            if ( strstr( inputLine, MOPITTcheck ) == NULL )
             {
-                FATAL_MSG("Received an unexpected input line for MOPITT.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n",string,MOPITTcheck);
+                FATAL_MSG("Received an unexpected input line for MOPITT.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n",inputLine,MOPITTcheck);
                 goto cleanupFail;
             }
 
             MOPITTargs[0] = argv[0];
 
             /* allocate space for the argument */
-            MOPITTargs[1] = malloc( strlen(string)+1 );
-            memset(MOPITTargs[1],0,strlen(string)+1);
+            MOPITTargs[1] = malloc( strlen(inputLine)+1 );
+            memset(MOPITTargs[1],0,strlen(inputLine)+1);
 
             /* copy the data over */
-            strncpy( MOPITTargs[1], string, strlen(string) );
+            strncpy( MOPITTargs[1], inputLine, strlen(inputLine) );
             MOPITTargs[2] = argv[1];
 
             /* strrchr finds last occurance of character in a string */
-            granTempPtr = strrchr( string, '/' );
+            granTempPtr = strrchr( inputLine, '/' );
             if ( granTempPtr == NULL )
             {
                 FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -293,7 +300,7 @@ int main( int argc, char* argv[] )
             free(MOPITTargs[1]);
             MOPITTargs[1] = NULL;
 
-            status = getNextLine( string, inputFile);
+            status = getNextLine( inputLine, inputFile);
 
             if ( status == EXIT_FAILURE )
             {
@@ -306,7 +313,7 @@ int main( int argc, char* argv[] )
                so that it contains the correct running total for number of granules that have been read.*/
             MOPITTgranule++;
 
-        } while ( strstr( string, MOPITTcheck ) != NULL );
+        } while ( strstr( inputLine, MOPITTcheck ) != NULL );
 
 
         printf("MOPITT done.\nTransferring CERES...");
@@ -316,7 +323,7 @@ int main( int argc, char* argv[] )
     {
         printf("No files for MOPITT found.\nTransferring CERES...");
         fflush(stdout);
-        status = getNextLine( string, inputFile);
+        status = getNextLine( inputLine, inputFile );
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
@@ -335,25 +342,45 @@ int main( int argc, char* argv[] )
     CERESargs[1] = argv[1];
 
 
-    if ( strcmp(string, "CER N/A" ) )
+    if ( strcmp(inputLine, "CER N/A" ) )
     {
         while(ceres_count != 0)
         {
-            if(strstr(string,MODIScheck1) != NULL || strstr(string, "MOD N/A") != NULL )
+            
+            if(strstr(inputLine,MODIScheck1) != NULL || strstr(inputLine, "MOD N/A") != NULL )
             {
                 ceres_count = 0;
                 continue;
             }
-
-            /*  The granule number is simply the max of ceres_fm1_count and ceres_fm2_count */
-            CERESgranuleNum = ( ceres_fm1_count > ceres_fm2_count ) ? ceres_fm1_count : ceres_fm2_count;
-
-            if ( strstr( string, CEREScheck1 ) != NULL )
+            /*  The granule number is incremented when the date between two files differs */
+            CER_curTime = getTime( inputLine, 1 );
+            if ( CER_curTime == NULL )
             {
-                CERESargs[2] = calloc(strlen(string)+1, 1);
+                FATAL_MSG("Failed to fetch the time substring in CERES file.\n\t%s\n",inputLine);
+                goto cleanupFail;
+            }
+
+            long int curTime = strtol(CER_curTime, NULL, 10);
+            long int prevTime = 0;
+            if ( CER_prevTime != NULL )
+                prevTime = strtol(CER_prevTime, NULL, 10);
+
+            if ( curTime != prevTime )
+                CERESgranuleNum++; 
+
+            printf("curTime: %ld prevTime: %ld\n%s\n\t%d\n", curTime, prevTime, inputLine, CERESgranuleNum);      
+
+
+            
+
+
+            /*_______FM1________*/
+
+            if ( strstr( inputLine, CEREScheck1 ) != NULL )
+            {
+                CERESargs[2] = calloc(strlen(inputLine)+1, 1);
                 
-                strncpy( CERESargs[2], string, strlen(string) );
-                //FM1
+                strncpy( CERESargs[2], inputLine, strlen(inputLine) );
                 status = CERES_OrbitInfo(CERESargs,ceres_start_index_ptr,ceres_end_index_ptr,current_orbit_info);
                 if ( status == EXIT_FAILURE )
                 {
@@ -374,7 +401,7 @@ int main( int argc, char* argv[] )
                     ceres_subset_num_elems_ptr =&ceres_subset_num_elems;
                     
 
-                    granTempPtr = strrchr( string, '/' );
+                    granTempPtr = strrchr( inputLine, '/' );
                     if ( granTempPtr == NULL )
                     {
                         FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -396,12 +423,13 @@ int main( int argc, char* argv[] )
                 }
 
             }
-            else if ( strstr( string, CEREScheck2 ) != NULL )
+
+            /*______FM2______*/
+            else if ( strstr( inputLine, CEREScheck2 ) != NULL )
             {
-                CERESargs[2] = calloc(strlen(string)+1, 1);
-                strncpy( CERESargs[2], string, strlen(string) );
+                CERESargs[2] = calloc(strlen(inputLine)+1, 1);
+                strncpy( CERESargs[2], inputLine, strlen(inputLine) );
                 
-                //FM2
                 status = CERES_OrbitInfo(CERESargs,ceres_start_index_ptr,ceres_end_index_ptr,current_orbit_info);
                 if ( status == EXIT_FAILURE )
                 {
@@ -421,7 +449,7 @@ int main( int argc, char* argv[] )
                     ceres_subset_num_elems_ptr =&ceres_subset_num_elems;
                     
 
-                    granTempPtr = strrchr( string, '/' );
+                    granTempPtr = strrchr( inputLine, '/' );
                     if ( granTempPtr == NULL )
                     {
                         FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -434,7 +462,6 @@ int main( int argc, char* argv[] )
                         goto cleanupFail;
                     }
                     status = CERES(CERESargs,2,ceres_fm2_count,(int32*)ceres_start_index_ptr,NULL,ceres_subset_num_elems_ptr);
-                    //status = CERES_Subset(CERESargs,1,ceres_fm1_count,unpack,ceres_start_index,ceres_end_index);
                     if ( status == EXIT_FAILURE )
                     {
                         FATAL_MSG("CERES failed data transfer.\nExiting program.\n");
@@ -451,7 +478,7 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
-            status = getNextLine( string, inputFile);
+            status = getNextLine( inputLine, inputFile);
             if ( status == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to get next line. Exiting program.\n");
@@ -465,7 +492,14 @@ int main( int argc, char* argv[] )
             if(CERESargs[3]) free(CERESargs[3]);
             CERESargs[3] = NULL;
             ceres_count++;
+
+            if ( CER_prevTime ) free(CER_prevTime);
+            
+            CER_prevTime = CER_curTime;
+            CER_curTime = NULL;
         }
+        // No longer need the CERES file times
+        free(CER_prevTime); CER_prevTime = NULL;
 
         printf("CERES done.\nTransferring MODIS...");
         fflush(stdout);
@@ -474,7 +508,7 @@ int main( int argc, char* argv[] )
     {
         printf("No CERES files found.\nTransferring MODIS...");
         fflush(stdout);
-        status = getNextLine( string, inputFile);
+        status = getNextLine( inputLine, inputFile);
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
@@ -493,26 +527,26 @@ int main( int argc, char* argv[] )
     /* MY 2016-12-21: Need to form a loop to read various number of MODIS files
     *  A pre-processing check of the inputFile should be provided to make sure the processing
     *  will not exit prematurely */
-    if ( strcmp(string, "MOD N/A" ) )
+    if ( strcmp(inputLine, "MOD N/A" ) )
     {
         while(modis_count != 0)
         {
 
             /* Need to check more, now just assume ASTER is after */
-            if(strstr(string,ASTERcheck) || strstr(string,"AST N/A") )
+            if(strstr(inputLine,ASTERcheck) || strstr(inputLine,"AST N/A") )
             {
                 modis_count = 0;
                 continue;
             }
 
             /* Should be 1 km */
-            if ( strstr( string, MODIScheck1 ) == NULL )
+            if ( strstr( inputLine, MODIScheck1 ) == NULL )
             {
-                FATAL_MSG("Received an unexpected input line for MODIS.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MODIScheck1);
+                FATAL_MSG("Received an unexpected input line for MODIS.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", inputLine, MODIScheck1);
                 goto cleanupFail;
             }
 
-            granTempPtr = strrchr( string, '/' );
+            granTempPtr = strrchr( inputLine, '/' );
             if ( granTempPtr == NULL )
             {
                 FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -526,11 +560,11 @@ int main( int argc, char* argv[] )
             }
 
             /* Allocate memory for the argument */
-            MODISargs[1] = malloc ( strlen(string )+1 );
-            memset(MODISargs[1],0,strlen(string)+1);
-            strncpy( MODISargs[1], string, strlen(string));
+            MODISargs[1] = malloc ( strlen(inputLine )+1 );
+            memset(MODISargs[1],0,strlen(inputLine)+1);
+            strncpy( MODISargs[1], inputLine, strlen(inputLine));
 
-            status = getNextLine( string, inputFile );
+            status = getNextLine( inputLine, inputFile );
             if ( status == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to get MODIS line. Exiting program.\n");
@@ -538,7 +572,7 @@ int main( int argc, char* argv[] )
             }
             
             
-            granTempPtr = strrchr( string, '/' );
+            granTempPtr = strrchr( inputLine, '/' );
             if ( granTempPtr == NULL )
             {
                 FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -552,16 +586,16 @@ int main( int argc, char* argv[] )
             }
 
             /*This may be MOD02HKM or MOD03, so need to check */
-            if(strstr(string,MODIScheck2) !=NULL)  /*Has MOD02HKM*/
+            if(strstr(inputLine,MODIScheck2) !=NULL)  /*Has MOD02HKM*/
             {
 
                 /* Allocate memory */
-                MODISargs[2] = malloc( strlen(string)+1 );
-                memset(MODISargs[2],0,strlen(string)+1);
-                strncpy( MODISargs[2], string, strlen(string));
+                MODISargs[2] = malloc( strlen(inputLine)+1 );
+                memset(MODISargs[2],0,strlen(inputLine)+1);
+                strncpy( MODISargs[2], inputLine, strlen(inputLine));
 
                 /* Get the MODIS 250m file */
-                status = getNextLine( string, inputFile );
+                status = getNextLine( inputLine, inputFile );
                 if ( status == EXIT_FAILURE )
                 {
                     FATAL_MSG("Failed to get MODIS line. Exiting program.\n");
@@ -569,7 +603,7 @@ int main( int argc, char* argv[] )
                 }
 
                 
-                granTempPtr = strrchr( string, '/' );
+                granTempPtr = strrchr( inputLine, '/' );
                 if ( granTempPtr == NULL )
                 {
                     FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -582,18 +616,18 @@ int main( int argc, char* argv[] )
                     goto cleanupFail;
                 }
 
-                if ( strstr( string, MODIScheck3 ) == NULL )
+                if ( strstr( inputLine, MODIScheck3 ) == NULL )
                 {
-                    FATAL_MSG("Received an unexpected input line for MODIS.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MODIScheck3);
+                    FATAL_MSG("Received an unexpected input line for MODIS.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", inputLine, MODIScheck3);
                     goto cleanupFail;
                 }
 
-                MODISargs[3] = malloc( strlen(string)+1 );
-                memset(MODISargs[3],0,strlen(string)+1);
-                strncpy( MODISargs[3], string, strlen(string) );
+                MODISargs[3] = malloc( strlen(inputLine)+1 );
+                memset(MODISargs[3],0,strlen(inputLine)+1);
+                strncpy( MODISargs[3], inputLine, strlen(inputLine) );
 
                 /* Get the MODIS MOD03 file */
-                status = getNextLine( string, inputFile );
+                status = getNextLine( inputLine, inputFile );
                 if ( status == EXIT_FAILURE )
                 {
                     FATAL_MSG("Failed to get MODIS line. Exiting program.\n");
@@ -601,7 +635,7 @@ int main( int argc, char* argv[] )
                 }
 
 
-                granTempPtr = strrchr( string, '/' );
+                granTempPtr = strrchr( inputLine, '/' );
                 if ( granTempPtr == NULL )
                 {
                     FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -614,17 +648,17 @@ int main( int argc, char* argv[] )
                     goto cleanupFail;
                 }
 
-                if ( strstr( string, MODIScheck4 ) == NULL )
+                if ( strstr( inputLine, MODIScheck4 ) == NULL )
                 {
-                    FATAL_MSG("Received an unexpected input line for MODIS.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MODIScheck4);
+                    FATAL_MSG("Received an unexpected input line for MODIS.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", inputLine, MODIScheck4);
                     goto cleanupFail;
                 }
 
-                MODISargs[4] = malloc( strlen( string )+1 );
-                memset(MODISargs[4],0,strlen(string)+1);
+                MODISargs[4] = malloc( strlen( inputLine )+1 );
+                memset(MODISargs[4],0,strlen(inputLine)+1);
 
                 /* Remember the granule number */
-                strncpy( MODISargs[4], string, strlen(string) );
+                strncpy( MODISargs[4], inputLine, strlen(inputLine) );
                 sprintf(modis_granule_suffix,"%d",modis_count);
                 MODISargs[5] = malloc(strlen(granule)+strlen(modis_granule_suffix)+1);
                 memset(MODISargs[5],0,strlen(granule)+strlen(modis_granule_suffix)+1);
@@ -641,7 +675,7 @@ int main( int argc, char* argv[] )
 
             }
 
-            else if(strstr(string,MODIScheck4)!=NULL)  /* No 500m and 250m */
+            else if(strstr(inputLine,MODIScheck4)!=NULL)  /* No 500m and 250m */
             {
 
                 /*Set 500m and 250m arguments to NULL */
@@ -649,9 +683,9 @@ int main( int argc, char* argv[] )
                 MODISargs[3] = NULL;
 
                 /* Allocate memory */
-                MODISargs[4] = malloc( strlen( string )+1 );
-                memset(MODISargs[4],0,strlen(string)+1);
-                strncpy( MODISargs[4], string, strlen(string) );
+                MODISargs[4] = malloc( strlen( inputLine )+1 );
+                memset(MODISargs[4],0,strlen(inputLine)+1);
+                strncpy( MODISargs[4], inputLine, strlen(inputLine) );
 
                 sprintf(modis_granule_suffix,"%d",modis_count);
                 MODISargs[5] = malloc(strlen(granule)+strlen(modis_granule_suffix)+1);
@@ -669,7 +703,7 @@ int main( int argc, char* argv[] )
 
             else
             {
-                FATAL_MSG("MODIS file order is not right. The current file should either be MOD03.. or MOD02HKM.. but it is %s\n", string);
+                FATAL_MSG("MODIS file order is not right. The current file should either be MOD03.. or MOD02HKM.. but it is %s\n", inputLine);
                 goto cleanupFail;
             }
 
@@ -685,7 +719,7 @@ int main( int argc, char* argv[] )
             MODISargs[5] = NULL;
 
             /* get the next MODIS 1KM file */
-            status = getNextLine( string, inputFile);
+            status = getNextLine( inputLine, inputFile);
             if ( status == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to get next line. Exiting program.\n");
@@ -703,7 +737,7 @@ int main( int argc, char* argv[] )
     {
         printf("No MODIS files found.\nTransferring ASTER...");
         fflush(stdout);
-        status = getNextLine( string, inputFile);
+        status = getNextLine( inputLine, inputFile);
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
@@ -720,15 +754,15 @@ int main( int argc, char* argv[] )
 
     /* Get the ASTER input files */
     /* MY 2016-12-20, Need to loop ASTER files since the number of granules may be different for each orbit */
-    if ( strcmp(string, "AST N/A" ) != 0 )
+    if ( strcmp(inputLine, "AST N/A" ) != 0 )
     {
         while(aster_count != 0)
         {
 
-            if(strstr( string, ASTERcheck ) != NULL )
+            if(strstr( inputLine, ASTERcheck ) != NULL )
             {
 
-                granTempPtr = strrchr( string, '/' );
+                granTempPtr = strrchr( inputLine, '/' );
                 if ( granTempPtr == NULL )
                 {
                     FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -741,9 +775,9 @@ int main( int argc, char* argv[] )
                     goto cleanupFail;
                 }
                 /* Allocate memory for the argument */
-                ASTERargs[1] = malloc( strlen(string )+1);
-                memset(ASTERargs[1],0,strlen(string)+1);
-                strncpy( ASTERargs[1], string, strlen(string) );
+                ASTERargs[1] = malloc( strlen(inputLine )+1);
+                memset(ASTERargs[1],0,strlen(inputLine)+1);
+                strncpy( ASTERargs[1], inputLine, strlen(inputLine) );
 
                 /* Remember granule number */
                 sprintf(aster_granule_suffix,"%d",aster_count);
@@ -768,7 +802,7 @@ int main( int argc, char* argv[] )
                 free(ASTERargs[2]);
                 ASTERargs[2] = NULL;
 
-                status = getNextLine( string, inputFile );
+                status = getNextLine( inputLine, inputFile );
                 if ( status == EXIT_FAILURE )
                 {
                     FATAL_MSG("Failed to get ASTER line. Exiting program.\n");
@@ -790,7 +824,7 @@ int main( int argc, char* argv[] )
     {
         printf("No ASTER files found.\nTransferring MISR...");
         fflush(stdout);
-        status = getNextLine( string, inputFile);
+        status = getNextLine( inputLine, inputFile);
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
@@ -804,14 +838,14 @@ int main( int argc, char* argv[] )
      ********/
     MISRargs[0] = argv[0];
 
-    if ( strcmp(string, "MIS N/A" ) )
+    if ( strcmp(inputLine, "MIS N/A" ) )
     {
         
 
         for ( int i = 1; i < 10; i++ )
         {
             
-            granTempPtr = strrchr( string, '/' );
+            granTempPtr = strrchr( inputLine, '/' );
             if ( granTempPtr == NULL )
             {
                 FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -825,15 +859,15 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
             /* get the next MISR input file */
-            if ( strstr( string, MISRcheck1 ) == NULL )
+            if ( strstr( inputLine, MISRcheck1 ) == NULL )
             {
-                FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MISRcheck1);
+                FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", inputLine, MISRcheck1);
                 goto cleanupFail;
             }
 
-            MISRargs[i] = calloc( strlen( string ) +1, 1 );
-            strncpy( MISRargs[i], string, strlen(string) );
-            status = getNextLine( string, inputFile );
+            MISRargs[i] = calloc( strlen( inputLine ) +1, 1 );
+            strncpy( MISRargs[i], inputLine, strlen(inputLine) );
+            status = getNextLine( inputLine, inputFile );
 
             if ( status == EXIT_FAILURE )
             {
@@ -843,7 +877,7 @@ int main( int argc, char* argv[] )
 
         }
  
-        granTempPtr = strrchr( string, '/' );
+        granTempPtr = strrchr( inputLine, '/' );
         if ( granTempPtr == NULL )
         {
             FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -856,29 +890,29 @@ int main( int argc, char* argv[] )
             goto cleanupFail;
         }
 
-        if ( strstr( string, MISRcheck2 ) == NULL )
+        if ( strstr( inputLine, MISRcheck2 ) == NULL )
         {
-            FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MISRcheck2);
+            FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", inputLine, MISRcheck2);
             goto cleanupFail;
         }
 
-        MISRargs[10] = calloc ( strlen( string ) +1, 1);
-        strncpy( MISRargs[10], string, strlen(string) );
-        status = getNextLine( string, inputFile );
+        MISRargs[10] = calloc ( strlen( inputLine ) +1, 1);
+        strncpy( MISRargs[10], inputLine, strlen(inputLine) );
+        status = getNextLine( inputLine, inputFile );
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to get MISR line. Exiting program.\n");
             goto cleanupFail;
         }
 
-        if ( strstr( string, MISRcheck3 ) == NULL )
+        if ( strstr( inputLine, MISRcheck3 ) == NULL )
         {
-            FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MISRcheck3);
+            FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", inputLine, MISRcheck3);
             goto cleanupFail;
         }
 
 
-        granTempPtr = strrchr( string, '/' );
+        granTempPtr = strrchr( inputLine, '/' );
         if ( granTempPtr == NULL )
         {
             FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -891,25 +925,25 @@ int main( int argc, char* argv[] )
             goto cleanupFail;
         }
 
-        MISRargs[11] = malloc ( strlen( string ) +1);
-        memset(MISRargs[11],0,strlen(string)+1);
-        strncpy( MISRargs[11], string, strlen(string) );
+        MISRargs[11] = malloc ( strlen( inputLine ) +1);
+        memset(MISRargs[11],0,strlen(inputLine)+1);
+        strncpy( MISRargs[11], inputLine, strlen(inputLine) );
 
-        status = getNextLine( string, inputFile );
+        status = getNextLine( inputLine, inputFile );
         if ( status == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to get MISR line. Exiting program.\n");
             goto cleanupFail;
         }
 
-        if ( strstr( string, MISRcheck4 ) == NULL )
+        if ( strstr( inputLine, MISRcheck4 ) == NULL )
         {
-            FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, MISRcheck4);
+            FATAL_MSG("Received an unexpected input line for MISR.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", inputLine, MISRcheck4);
             goto cleanupFail;
         }
 
 
-        granTempPtr = strrchr( string, '/' );
+        granTempPtr = strrchr( inputLine, '/' );
         if ( granTempPtr == NULL )
         {
             FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
@@ -922,9 +956,9 @@ int main( int argc, char* argv[] )
             goto cleanupFail;
         }
 
-        MISRargs[12] = malloc ( strlen( string ) +1);
-        memset(MISRargs[12],0,strlen(string)+1);
-        strncpy( MISRargs[12], string, strlen(string) );
+        MISRargs[12] = malloc ( strlen( inputLine ) +1);
+        memset(MISRargs[12],0,strlen(inputLine)+1);
+        strncpy( MISRargs[12], inputLine, strlen(inputLine) );
 
         // EXECUTE MISR DATA TRANSFER
         status = MISR( MISRargs,unpack);
@@ -970,9 +1004,16 @@ cleanupFail:
     if ( TAI93toUTCoffset ) free(TAI93toUTCoffset);
     if ( test_orbit_ptr) free(test_orbit_ptr);
     if ( new_orbit_info_b) fclose(new_orbit_info_b);
+    if ( CER_curTime ) free( CER_curTime );
+    if ( CER_prevTime ) free(CER_prevTime);
     for ( int j = 1; j <= 12; j++ )
         if ( MISRargs[j] ) free (MISRargs[j]);
     if ( granuleList ) free(granuleList);
+
+    eTime = time(NULL);
+    /* Print the program execution time */
+    time_t runTime = eTime - sTime;
+    printf("Running time: %ld seconds\n", runTime);
 
     if ( fail ) return -1;
 
