@@ -48,6 +48,7 @@ int main( int argc, char* argv[] )
     char* granTempPtr = NULL;
     int status = EXIT_SUCCESS;
     int fail = 0;
+    int CERESgranuleNum = 1;
     herr_t errStatus;
 
     /* Main will assert that the lines found in the inputFiles.txt file match
@@ -329,68 +330,6 @@ int main( int argc, char* argv[] )
      * CERES *
      *********/
     /* Get the CERES  */
-#if 0
-    status = getNextLine( string, inputFile);
-    if ( status == EXIT_FAILURE )
-    {
-        FATAL_MSG("Failed to get CERES line. Exiting program.\n");
-        goto cleanupFail;
-    }
-
-
-    if ( strstr( string, CEREScheck1 ) == NULL )
-    {
-        FATAL_MSG("Received an unexpected input line for CERES.\n\tReceived string:\n\t%s\n\tExpected to receive string containing a substring of: %s\nExiting program.\n", string, CEREScheck1);
-        goto cleanupFail;
-    }
-
-    CERESargs[0] = argv[0];
-
-    /* Allocate memory for the argument */
-    CERESargs[1] = malloc( strlen(string )+1);
-    memset(CERESargs[1],0,strlen(string)+1);
-    strncpy( CERESargs[1], string, strlen(string) );
-    CERESargs[2] = argv[1];
-
-    if ( CERES( CERESargs,1) == EXIT_FAILURE )
-    {
-        FATAL_MSG("CERES failed data transfer.\nExiting program.\n");
-        goto cleanupFail;
-    }
-
-
-    free(CERESargs[1]);
-    CERESargs[1] = NULL;
-
-    // Handler CERES FM2
-    getNextLine( string, inputFile);
-    if ( strstr( string, CEREScheck2 ) == NULL )
-    {
-        FATAL_MSG("Failed to get CERES line.\nExpected: %s\nRecieved: %s\n", CEREScheck2, string);
-        goto cleanupFail;
-    }
-
-    CERESargs[0] = argv[0];
-
-    /* Allocate memory for the argument */
-    CERESargs[1] = malloc( strlen(string )+1);
-    memset(CERESargs[1],0,strlen(string)+1);
-    strncpy( CERESargs[1], string, strlen(string) );
-    CERESargs[2] = argv[1];
-
-    if ( CERES( CERESargs,2) == EXIT_FAILURE )
-    {
-        FATAL_MSG("CERES failed data transfer.\nExiting program.\n");
-        goto cleanupFail;
-    }
-    free(CERESargs[1]);
-    CERESargs[1] = NULL;
-
-
-    printf("CERES done.\nTransferring MODIS...");
-    fflush(stdout);
-
-#endif
 
     CERESargs[0] = argv[0];
     CERESargs[1] = argv[1];
@@ -405,6 +344,9 @@ int main( int argc, char* argv[] )
                 ceres_count = 0;
                 continue;
             }
+
+            /*  The granule number is simply the max of ceres_fm1_count and ceres_fm2_count */
+            CERESgranuleNum = ( ceres_fm1_count > ceres_fm2_count ) ? ceres_fm1_count : ceres_fm2_count;
 
             if ( strstr( string, CEREScheck1 ) != NULL )
             {
@@ -422,7 +364,7 @@ int main( int argc, char* argv[] )
                 if(*ceres_start_index_ptr >=0 && *ceres_end_index_ptr >=0)
                 {
                     /* Remember the granule number */
-                    sprintf(ceres_granule_suffix,"%d",ceres_fm1_count);
+                    sprintf(ceres_granule_suffix,"%d",CERESgranuleNum);
                     CERESargs[3] = calloc(strlen(granule)+strlen(ceres_granule_suffix)+1, 1);
 
                     strncpy(CERESargs[3],granule,strlen(granule));
@@ -469,7 +411,7 @@ int main( int argc, char* argv[] )
 
                 if(*ceres_start_index_ptr >=0 && *ceres_end_index_ptr >=0)
                 {
-                    sprintf(ceres_granule_suffix,"%d",ceres_fm2_count);
+                    sprintf(ceres_granule_suffix,"%d",CERESgranuleNum);
                     CERESargs[3] = calloc(strlen(granule)+strlen(ceres_granule_suffix)+1, 1);
 
                     strncpy(CERESargs[3],granule,strlen(granule));

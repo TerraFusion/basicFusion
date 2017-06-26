@@ -3748,7 +3748,7 @@ herr_t copyDimension( char* outDimName, int32 h4fileID, char* h4datasetName, hid
         }
 
 
-        /* If outDimName is provided, we need to apped this string to the dimName variable.*/
+        /* If outDimName is provided, we need to append this string to the dimName variable.*/
        
         correct_dsetname = correct_name(dimName);
 
