@@ -86,7 +86,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
     fileID = SDstart( argv[2], DFACC_READ );
     if ( fileID < 0 )
     {
-        FATAL_MSG("Unable to open CERES file.\n");
+        FATAL_MSG("Unable to open CERES file.\n\t%s\n", argv[2]);
         return (EXIT_FAILURE);
     }
 
@@ -424,7 +424,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
     sd_id = SDstart( argv[2], DFACC_READ );
     if ( sd_id < 0 )
     {
-        FATAL_MSG("Unable to open CERES file.\n");
+        FATAL_MSG("Unable to open CERES file.\n\t%s\n", argv[2]);
         return (EXIT_FAILURE);
     }
 

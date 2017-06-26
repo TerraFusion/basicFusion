@@ -166,7 +166,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
     inHFileID = Hopen(argv[1],DFACC_READ, 0);
     if ( inHFileID < 0 )
     {
-        FATAL_MSG("Failed to open the H interface.\n");
+        FATAL_MSG("Failed to open ASTER file.\n\t%s\n", argv[1]);
         inHFileID = 0;
         goto cleanupFail;
     }
@@ -212,7 +212,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
     inFileID = SDstart( argv[1], DFACC_READ );
     if ( inFileID < 0 )
     {
-        FATAL_MSG("Failed to open the ASTER input file.\n");
+        FATAL_MSG("Failed to open the ASTER input file.\n\t%s\n", argv[1]);
         inFileID = 0;
         goto cleanupFail;
     }
