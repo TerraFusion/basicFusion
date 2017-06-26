@@ -345,7 +345,7 @@ int main( int argc, char* argv[] )
                 continue;
             }
 
-            /* The granule number is simply the max of ceres_fm1_count and ceres_fm2_count */
+            /*  The granule number is simply the max of ceres_fm1_count and ceres_fm2_count */
             CERESgranuleNum = ( ceres_fm1_count > ceres_fm2_count ) ? ceres_fm1_count : ceres_fm2_count;
 
             if ( strstr( string, CEREScheck1 ) != NULL )
