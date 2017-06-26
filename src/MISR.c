@@ -150,7 +150,7 @@ int MISR( char* argv[],int unpack )
     geoFileID = SDstart( argv[10], DFACC_READ );
     if ( geoFileID == -1 )
     {
-        FATAL_MSG("Failed to open the SD interface.\n");
+        FATAL_MSG("Failed to open MISR file.\n\t%s\n", argv[10]);
         geoFileID = 0;
         goto cleanupFail;
     }
@@ -158,7 +158,7 @@ int MISR( char* argv[],int unpack )
     gmpFileID = SDstart( argv[11], DFACC_READ );
     if ( gmpFileID == -1 )
     {
-        FATAL_MSG("Failed to open the SD interface.\n");
+        FATAL_MSG("Failed to open MISR file.\n\t%s\n", argv[11]);
         gmpFileID = 0;
         goto cleanupFail;
     }
@@ -166,7 +166,7 @@ int MISR( char* argv[],int unpack )
     hgeoFileID = SDstart( argv[12], DFACC_READ );
     if ( hgeoFileID == -1 )
     {
-        FATAL_MSG("Failed to open the SD interface.\n");
+        FATAL_MSG("Failed to open MISR file.\n\t%s\n", argv[12]);
         hgeoFileID = 0;
         goto cleanupFail;
     }
@@ -443,7 +443,7 @@ int MISR( char* argv[],int unpack )
         if ( h4FileID < 0 )
         {
             h4FileID = 0;
-            FATAL_MSG("Failed to open the HDF file.\n");
+            FATAL_MSG("Failed to open MISR file.\n\t%s\n", argv[i+1]);
             goto cleanupFail;
         }
         /*
@@ -464,7 +464,7 @@ int MISR( char* argv[],int unpack )
         h4_status = Vstart (inHFileID);
         if (h4_status < 0)
         {
-            FATAL_MSG("Failed to start the H interface.\n");
+            FATAL_MSG("Failed to start the V interface.\n");
             goto cleanupFail;
         }
 

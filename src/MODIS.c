@@ -165,7 +165,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     _1KMFileID = SDstart( argv[1], DFACC_READ );
     if ( _1KMFileID < 0 )
     {
-        FATAL_MSG( "Unable to open 1KM file.\n" );
+        FATAL_MSG( "Unable to open 1KM file.\n\t%s\n", argv[1] );
         _1KMFileID = 0;
         return (EXIT_FAILURE);
     }
@@ -175,7 +175,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         _500mFileID = SDstart( argv[2], DFACC_READ );
         if ( _500mFileID < 0 )
         {
-            FATAL_MSG("Unable to open 500m file.\n");
+            FATAL_MSG("Unable to open 500m file.\n\t%s\n", argv[2]);
             _500mFileID = 0;
             goto cleanupFail;
         }
@@ -186,7 +186,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         _250mFileID = SDstart( argv[3], DFACC_READ );
         if ( _250mFileID < 0 )
         {
-            FATAL_MSG("Unable to open 250m file.\n");
+            FATAL_MSG("Unable to open 250m file.\n\t%s\n", argv[3]);
             _250mFileID = 0;
             goto cleanupFail;
         }
@@ -195,7 +195,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     MOD03FileID = SDstart( argv[4], DFACC_READ );
     if ( MOD03FileID < 0 )
     {
-        FATAL_MSG("Unable to open MOD03 file.\n");
+        FATAL_MSG("Unable to open MOD03 file.\n\t%s\n", argv[4]);
         MOD03FileID = 0;
         goto cleanupFail;
     }

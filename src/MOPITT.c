@@ -66,7 +66,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     // open the input file
     if ( openFile( &file, argv[1], H5F_ACC_RDONLY ) )
     {
-        FATAL_MSG("Unable to open MOPITT file.\n");
+        FATAL_MSG("Unable to open MOPITT file.\n\t%s\n", argv[1]);
         file = 0;
         goto cleanupFail;
     }
