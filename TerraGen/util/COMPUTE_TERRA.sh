@@ -26,7 +26,7 @@ fi
 # Get the absolute path of the script
 ABS_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PBSpath="$ABS_PATH"/"../pbsScripts/BF"
-CMDpath="$ABS_PATH"/"../commandFiles"
+CMD_PATH="$ABS_PATH"/"../commandFiles"
 
 cmdFileName='parallel_BF_CMD_${jobStart}_${jobEnd}.txt' # cmdFileName must be enclosed in single quotes
 WALLTIME="48:00:00"
