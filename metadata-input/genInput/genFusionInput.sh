@@ -831,8 +831,9 @@ fi
 DB=$1
 UNORDERED="$3".unordered
 ORDERED="$3"
+SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-. ../queries.bash
+source "$SCRIPT_PATH/../queries.bash"
 
 rm -f "$ORDERED"
 rm -f "$UNORDERED"

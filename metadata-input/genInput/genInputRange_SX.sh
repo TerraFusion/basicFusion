@@ -8,6 +8,7 @@
 #
 # 1. It is being submitted on the Blue Waters super computer
 # 2. The Scheduler fortran program is installed and compiled. This can be downloaded from https://github.com/ncsa/Scheduler.
+#    The fortran executable must be located inside the root Scheduler project directory, and be named "scheduler.x".
 # 3. The input HDF files exist on the file system
 # 4. The sqlite database containing the file paths to the input HDF files has been generated
 #
@@ -200,7 +201,7 @@ mkdir "$logDir"/genFusionInput
 
 for job in $(seq 0 $((numJobs-1)) ); do
     for orbit in $(seq ${jobOSTART[$i]} ${jobOEND[$i]} ); do
-        echo "$ABS_PATH/genFusionInput.sh $DB_PATH $orbit $OUT_PATH &> $runDir/errors/genFusionInput/$orbit.log" > "${jobDir[$job]}/orbit$orbit.sh"
+        echo "$ABS_PATH/genFusionInput.sh $DB_PATH $orbit $OUT_PATH/input$orbit.txt &> $runDir/errors/genFusionInput/$orbit.log" > "${jobDir[$job]}/orbit$orbit.sh"
 
     chmod +x "${jobDir[$job]}/orbit$orbit.sh"
     done
