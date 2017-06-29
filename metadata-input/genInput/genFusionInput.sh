@@ -3,31 +3,37 @@
 # Args:
 # 1 = unordered input file
 # 2 = output file (properly ordered)
+# 
+# Description:
+#   This function takes a single text file containing the paths of all the input HDF files for the basic fusion
+#   program for one granule. It then orders the files properly so that the BF program does not crash due to
+#   and unexpected ordering.
+#
 
 orderFiles() {
 
-    local MOPITTNUM=0
-    local CERESNUM=0
-    local MODISNUM=0
-    local ASTERNUM=0
-    local MISRNUM=0
+    MOPITTNUM=0
+    CERESNUM=0
+    MODISNUM=0
+    ASTERNUM=0
+    MISRNUM=0
 
     UNORDEREDFILE=$1
     OUTFILE=$2
     CURDIR=$(pwd)
 
-    local MOPGREP=''
-    local CERFM1GREP=''
-    local CERFM2GREP=''
-    local MOD1KMGREP=''
-    local MODHKMGREP=''
-    local MODQKMGREP=''
-    local MOD03GREP=''
-    local ASTGREP=''
-    local MISGRPGREP=''
-    local MISAGPGREP=''
-    local MISGPGREP=''
-    local MISHRLLGREP=''
+    local MOPGREP
+    local CERFM1GREP
+    local CERFM2GREP
+    local MOD1KMGREP
+    local MODHKMGREP
+    local MODQKMGREP
+    local MOD03GREP
+    local ASTGREP
+    local MISGRPGREP
+    local MISAGPGREP
+    local MISGPGREP
+    local MISHRLLGREP
 
     rm -f "$OUTFILE" 
 
@@ -36,7 +42,27 @@ orderFiles() {
     ##########
     # grep -v removes any "xml" files
     # put results of ls into a variable
-    MOPGREP=$(cat "$UNORDEREDFILE" | grep -e "MOP.*he5" -e 'MOP N/A' | grep -v "xml"  | sort)
+
+    # The first "grep" variable for each instrument goes through some nasty piping. These are the steps that the grep line is
+    # doing for MOPITT, and the same general process applies for all the instruments:
+    # 1. Get the contents of the UNORDEREDFILE
+    # 2. For MOPITT, grep the lines that have MOP.*he5 string or MOP N/A string.
+    # 3. For MOPITT, remove all files that have "xml" string
+    # 4. We want to sort only based on filename, not on the path. So awk finds the last field delimited by the forward slash
+    #    and puts it to the front of the line. This copies the file name to the front, separated from the original file path
+    #    by a single space (space being the default delimiter). For instance:
+    #    "/path/to/filename.h5" becomes
+    #    "filename.h5 /path/to/filename.h5"
+    # 5. Sort those resulting lines
+    # 6. After being sorted, remove the appended filename from the front of the line, leaving only the file path.
+    #
+    # This nasty trickery here is done so that the file path is not considered in the sorting, only the file name. 
+    # We cannot guarantee that all relevant files are in the same directory!
+    #
+    # This solution was found here:
+    # https://stackoverflow.com/questions/3222810/sorting-on-the-last-field-of-a-line
+
+    MOPGREP=$(cat "$UNORDEREDFILE" | grep -e "MOP.*he5" -e 'MOP N/A' | grep -v "xml"  | awk -F "/" '{ print $NF, $0}' | sort | cut -d " " -f 2- )
     # iterate over this file, prepending the path of the file into our
     # OUTFILE
     if [[ ! "$MOPGREP" == *"MOP N/A"* ]]; then
@@ -52,7 +78,7 @@ orderFiles() {
     # CERES #
     #########
     # grep -v removes any files with "met" in them, they're unwanted
-    CERFM1GREP=$(cat "$UNORDEREDFILE" | grep -e "CER_SSF_Terra.*FM1.*" -e 'CER N/A' | grep -v "met" | sort)
+    CERFM1GREP=$(cat "$UNORDEREDFILE" | grep -e "CER_SSF_Terra.*FM1.*" -e 'CER N/A' | grep -v "met" | awk -F "/" '{ print $NF, $0}' | sort | cut -d " " -f 2- )
     CERFM2GREP=$(cat "$UNORDEREDFILE" | grep -e "CER_SSF_Terra.*FM2.*" | grep -v "met" | sort)
 
     if [[ ! "$CERFM1GREP" == *"CER N/A"* ]]; then
@@ -64,8 +90,6 @@ orderFiles() {
             if [[ ${#FM2line} == 0 ]]; then
                 printf "\e[4m\e[91mFatal Error\e[0m: " >&2
                 printf "\tCould not find a corresponding FM2 file for $line.\n" >&2
-                rm -r "$CURDIR"/__tempFiles
-                return 1
             else
                 let "CERESNUM++"
             fi
@@ -83,7 +107,7 @@ orderFiles() {
     # For MODIS, we will split the 1KM, HKM, QKM and MOD03 filenames
     # into separate text files to make it easy to handle
 
-    MOD1KMGREP=$(cat "$UNORDEREDFILE" | grep -e "MOD021KM.*hdf" -e 'MOD N/A' | sort)
+    MOD1KMGREP=$(cat "$UNORDEREDFILE" | grep -e "MOD021KM.*hdf" -e 'MOD N/A' | awk -F "/" '{ print $NF, $0}' | sort | cut -d " " -f 2-)
     MODHKMGREP=$(cat "$UNORDEREDFILE" | grep "MOD02HKM.*hdf"  | sort)
     MODQKMGREP=$(cat "$UNORDEREDFILE" | grep "MOD02QKM.*hdf"  | sort)
     MOD03GREP=$(cat "$UNORDEREDFILE" | grep "MOD03.*hdf" | sort)
@@ -137,7 +161,7 @@ orderFiles() {
     # ASTER #
     #########
 
-    ASTGREP=$(cat "$UNORDEREDFILE" | grep -e "AST.*hdf" -e 'AST N/A' | sort)
+    ASTGREP=$(cat "$UNORDEREDFILE" | grep -e "AST.*hdf" -e 'AST N/A' | awk -F "/" '{ print $NF, $0}' | sort | cut -d " " -f 2-)
     # iterate over this file, prepending the path of the file into our
     # OUTFILE
     if [[ ! "$ASTGREP" == *"AST N/A"* ]]; then
@@ -154,7 +178,7 @@ orderFiles() {
     ########
 
     # put the MISR files into temp text files
-    MISGRPGREP=$(cat "$UNORDEREDFILE" | grep -e "MISR_AM1_GRP_ELLIPSOID.*hdf" -e 'MIS N/A' | sort)
+    MISGRPGREP=$(cat $UNORDEREDFILE | grep -e "MISR_AM1_GRP_ELLIPSOID.*hdf" -e 'MIS N/A' | awk -F "/" '{ print $NF, $0}' | sort | cut -d " " -f 2-)
     MISAGPGREP=$(cat "$UNORDEREDFILE" | grep "MISR_AM1_AGP.*hdf" | sort)
     MISGPGREP=$(cat "$UNORDEREDFILE" | grep "MISR_AM1_GP.*hdf"  | sort)
     MISHRLLGREP=$(cat "$UNORDEREDFILE" | grep "MISR_HRLL_.*hdf"   | sort)
@@ -176,12 +200,29 @@ orderFiles() {
     return 0
 }
 
+fatalError(){
+    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    printf "\tAt line number: $1\n"
+    return 0
+}
+
 # Args:
 # 1 = ordered input file
+# 2 = orbit_info.bin file
 #
+# Description:
+#   This function verifies the files after being passed through the orderFiles function for time continuity, that
+#   the files are actually ordered properly, that all of the input granules have the necessary files, and that
+#   there are no other errors that would cause the BF program to crash.
+#
+#   In addition to checking for fatal errors, it performs a series of checks to confirm that the input file will 
+#   conform to the input granularity specifications as outlined on the GitHub page.
+#
+
 verifyFiles()
 {
     local DEBUGFILE="$1"
+    local orbitInfo="$2"
     local prevDate=""
     local prevRes=""
     local prevGroupDate=""
@@ -190,23 +231,58 @@ verifyFiles()
     local MODISVersionMismatch=0
     local ASTERVersionMismatch=0
     local MISRVersionMismatch=0
-    local MISRNUM=0
-    
+    local orbitNum=0
+    local numRegExp='^[0-9]+$'
+
+    # TODO
+    # Finish the code below for adding orbit starting time to the file name
+
+    # Get the orbit starting and ending info
+    # First find the orbit number from the top of the file
+    #orbitNum=$(head -n 1 $DEBUGFILE)
+    #if [[ $line =~ $numRegExp ]]; then
+    #    orbitNum=$line
+    #    continue
+    #else
+    #    fatalError $linenum
+    #    printf "\tThe first line in input file is not a valid orbit number.\n" >&2
+    #    return 1
+    #fi
+
+    # Get the corresponding line in the orbit_info file
+    #oInfoLine=$(grep "$orbitNum " $DEBUGFILE)
+    #if [[ ${#oInfoLine} == 0 ]]; then
+    #    printf "\e[4m\e[91mFatal Error\e[0m:\n" >&2
+    #    printf "\tFailed to find the proper line in the orbit info file.\n" >&2
+    #fi
+
+    # Split the oInfoLine with a delimiter of the space character. This will split each section into an element of an array.
+    #oInfoSplit=(${oInfoLine// / })
+    # Now, oInfoSplit[0] has orbit num, [1] has beginning time, [2] has end time.
+    # Make two more arrays that split the beginning and end times into their respective year/month/day/hour/minue/seconds.
+    #startTime[0]=${oInfoSplit[1]
+
     # Read through the DEBUGFILE file.
     # Remember, DEBUGFILE is the variable our script will do the debugging on. It may
     # or may not be set to the OUTFILE variable.
-    linenum=1
-
+    linenum=0
+    
     while read -r line; do
+        
+        let "linenum++"
+        
+        # Grab the orbit number. Use a regular expression to determine if the first line is a number
+        if [[ $linenum == 1 ]]; then
+            continue
+        fi
+        
         # Check to make sure that each line is either a comment, a newline or a path.
         # If it is none of them, throw an error. This line would cause the C program
         # downstream to crash because if the line isn't a comment or newline,
         # it will interpret it as a file path.
-       
-         
+
         # continue if we have a non-valid line (comment or otherwise)
         if [[ ${#line} == 0 || ${line:0:1} == "#" || "$line" == "MOP N/A" || "$line" == "CER N/A" || "$line" == "MIS N/A" || "$line" == "MOD N/A" || "$line" == "AST N/A" ]]; then
-            let "linenum++"
             continue
         fi
 
@@ -253,7 +329,6 @@ verifyFiles()
                 #set prevDate to the date contained in filename
                 prevDate=${prevfilename:6:8}
                 # continue while loop
-                let "linenum++"
                 continue
             fi
 
@@ -282,7 +357,6 @@ verifyFiles()
                 prevfilename=$(echo ${line##*/})
                 prevDate=$(echo ${prevfilename##*.})
                 # continue while loop
-                let "linenum++"
                 continue
             fi
 
@@ -349,7 +423,6 @@ verifyFiles()
                 prevDate=$(echo "$tmp" | cut -f1,2 -d'.')
                 prevRes=$(echo ${prevfilename%%.*})
                 curGroupDate="$prevDate"
-                let "linenum++"
                 continue
             fi
 
@@ -473,7 +546,6 @@ verifyFiles()
                 prevVersion=${prevDate:0:3}
                 prevDate="${prevDate:3}"
                 # continue while loop
-                let "linenum++"
                 continue
             fi
 
@@ -513,9 +585,6 @@ verifyFiles()
                 ######## 
 
         elif [ "$instrumentSection" == "MIS" ]; then
-            
-            let "MISRNUM++"
-
             # note: "cam" refers to which camera, ie "AA", "AF", "AN" etc.
             if [ -z "$prevDate" ]; then
                 prevfilename=$(echo ${line##*/})
@@ -523,7 +592,6 @@ verifyFiles()
                 prevDate=$(echo "$prevfilename" | cut -f6,7 -d'_')
                 prevCam=$(echo "$prevfilename" | cut -f8,8 -d'_' )
                 curGroupDate="$prevDate"
-                let "linenum++"
                 continue
             fi
 
@@ -690,7 +758,7 @@ verifyFiles()
             # CHECK FOR VERSION CONSISTENCY
             # If there hasn't been a previous MISR file, then skip this step
 
-            # Version mismatches should only be checked for the GRP files
+            # If the current file is not a GRP file, skip it.
             if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" == "GRP" ]]; then
                 # if this isn't our first MISR file and there hasn't been a version mismatch
                 # before, then
@@ -705,7 +773,7 @@ verifyFiles()
                     curVersion=$(echo ${curfilename##*_})
                     curVersion=${curVersion:0:4}
 
-                    if [[ "$prevVersion" != "$curVersion" ]]; then
+                    if [[ "$prevVersion" != "$curVersion" && $MISRVersionMismatch == 0 ]]; then
                         printf "\e[4m\e[93mWarning\e[0m: " >&2
                         printf "MISR file version mismatch.\n" >&2
                         printf "\t$prevVersion and $curVersion versions were found at line $linenum\n" >&2
@@ -731,17 +799,29 @@ verifyFiles()
             return 1
         fi
 
-        let "linenum++"
     done <"$DEBUGFILE"
-
-    # Check the number of MISR files. We should only have 12 files (1 granule)
-    if [ $MISRNUM -ne 12 ]; then
-        printf "Fatal Error: received an unexpected number of MISR files. Please check that exactly 12 files are present.\n" >&2
-        return 1
-    fi
 
     return 0
 }
+
+#
+#
+# Description:
+#   This function takes an input file list after being passed through orderFiles, and then through verifyFiles. The main
+#   difference between this function and verifyFiles is that this function ensures that the input file conforms to the
+#   specifications of the BF granularity being one Terra orbit. This includes checks that ensure:
+#       1. The file actually belongs to the orbit
+#       2. That any files that should be spanning two separate orbits properly make it into both input file lists
+#       3. That there are no duplicate files
+#       4. If there are any time discontinuities, check to make sure that the file does not exist in the file system.
+#
+#   To reiterate, the verifyFiles ensures that no program crashes will happen due to a bad input file. verifyOneOrbit
+#   verifies that the file conforms to specifications.
+#
+
+#verifyOneOrbit(){
+
+#}
 
 if [ "$#" -ne 3 ]; then
     echo "Usage: ./genFusionFiles [database file] [orbit number] [.txt output filepath]"
@@ -749,10 +829,11 @@ if [ "$#" -ne 3 ]; then
 fi
 
 DB=$1
-UNORDERED="$3"unordered.txt
+UNORDERED="$3".unordered
 ORDERED="$3"
+SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-. ../queries.bash
+source "$SCRIPT_PATH/../queries.bash"
 
 rm -f "$ORDERED"
 rm -f "$UNORDERED"
@@ -770,28 +851,35 @@ else
     echo "$MOPLINES" >> "$UNORDERED"
 fi
 
-if [ ${#CERLINES} -eq 0 ]; then
+if [ ${#CERLINES} -lt 2 ]; then
     echo "CER N/A" >> "$UNORDERED"
 else
     echo "$CERLINES" >> "$UNORDERED"
 fi
 
-if [ ${#MODLINES} -eq 0 ]; then
+if [ ${#MODLINES} -lt 2 ]; then
     echo "MOD N/A" >> "$UNORDERED"
 else
     echo "$MODLINES" >> "$UNORDERED"
 fi
 
-if [ ${#ASTLINES} -eq 0 ]; then
+if [ ${#ASTLINES} -lt 2 ]; then
     echo "AST N/A" >> "$UNORDERED"
 else
     echo "$ASTLINES" >> "$UNORDERED"
 fi
 
-if [ ${#MISLINES} -eq 0 ]; then
+# Get the number of GRP files
+numGRP=$(echo "$MISLINES" | grep "GRP" | wc -l)
+if [ $numGRP -eq 0 ]; then
     echo "MIS N/A" >> "$UNORDERED"
-else
+
+elif [ $numGRP -eq 9 ]; then
     echo "$MISLINES" >> "$UNORDERED"
+else
+    printf "MISR GRP files found to be missing! Cannot order the files.\nPlease see the\n\t$UNORDERED\nfile to see what MISR files were found.\nEixiting script.\n" >&2
+    echo "$MISLINES" >> "$UNORDERED"
+    exit 1
 fi
 
 
@@ -804,7 +892,11 @@ if [ "$?" -ne 0 ]; then
     exit 1
 fi
 
-# Perform verification
+
+# Add the orbit number to the top of the file
+echo -e "$2\n$(cat $ORDERED)" > "$ORDERED"
+
+# Perform verification (ensures BF program won't crash due to bad input)
 verifyFiles "$ORDERED"
 if [ "$?" -ne 0 ]; then
     printf "Failed to verify files.\n" >&2
@@ -814,7 +906,7 @@ if [ "$?" -ne 0 ]; then
 fi
 
 
-# Add the orbit number to the top of the file
-echo -e "$2\n$(cat $ORDERED)" > "$ORDERED"
+
+
 
 rm -f "$UNORDERED"
