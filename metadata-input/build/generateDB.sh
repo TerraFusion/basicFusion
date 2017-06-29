@@ -9,7 +9,7 @@ fi
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
 
 DBDIR=$2                                        # Where the database will be stored
-findFiles="$SCRIPT_DIR/ROGER-findFiles"         # Where the findFiles script is located
+findFiles="$SCRIPT_DIR/genInputPosix"           # Where the findFiles script is located
 INDIR=$1                                        # Where the input HDF files are located
 DATADIR="$SCRIPT_DIR/../data"                   # Where to store intermediate results of the findFiles query
 
@@ -23,35 +23,35 @@ DATADIR="$SCRIPT_DIR/../data"                   # Where to store intermediate re
 # Another option would have been to have each user install the required packages, but a virtual env
 # is the most portable solution.
 
-source "$SCRIPT_DIR"/../../externLib/pyVirtualEnv/BFpy/bin/activate
+source "$SCRIPT_DIR"/../../externLib/pyVirtualEnv/BFBWpy/bin/activate
 
 #____________________________________________#
 
 
+genInputFiles=$(eval $findFiles "$DATADIR" "$INDIR/ASTER" "$INDIR/CERES" "$INDIR/MOPITT" "$INDIR/MISR" "$INDIR/MODIS")
+echo "$genInputFiles"
 
-eval $findFiles "$INDIR"
-
-if [ $? -ne 0 ]; then
-    echo "$findFiles returned with exit status of $?."
+retVal=$?
+if [ $retVal -ne 0 ]; then
+    echo "$findFiles returned with exit status of $retVal."
     echo "Exiting script."
     exit 1
 fi
 
-for i in ASTER MODIS MISR MOPITT CERES; do
-   gzip -f "$DATADIR"/$i.list 
-    if [ $? -ne 0 ]; then
-        echo "gzip returned with exit status of $?."
-        echo "Exiting script."
-        exit 1
-    fi
+i=0
+while IFS= read -r line; do
+    fileList[$i]=$(cut -f2 -d' ' <<< $line)
+    let "i++"
+done <<< "$genInputFiles"
 
-done
+python ./fusionBuildDB -o --anomalies=anom.txt --discards=discards.txt --trace=trace.txt "$DBDIR" "$DATADIR"/Orbit_Path_Time.txt.gz ${fileList[0]} ${fileList[1]} ${fileList[2]} ${fileList[3]} ${fileList[4]}
 
-python ./fusionBuildDB -o -q --discards=discards.txt --anomalies=errors.txt "$DBDIR" "$DATADIR"/Orbit_Path_Time.txt.gz "$DATADIR"/MODIS.list.gz "$DATADIR"/ASTER.list.gz "$DATADIR"/MOPITT.list.gz "$DATADIR"/MISR.list.gz "$DATADIR"/CERES.list.gz
-
-if [ $? -ne 0 ]; then
-    echo "fusionBuildDB returned with exit status of $?."
+retVal=$?
+if [ $retVal -ne 0 ]; then
+    echo "fusionBuildDB returned with exit status of $retVal."
     echo "Exiting script."
     exit 1
 fi
 
+deactivate
+exit 0

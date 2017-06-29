@@ -53,7 +53,7 @@ INSERTS = {\
     "MIS": 'insert  into fileinfo (directory, fname, fsize, stime, etime, instrument) values(?, ?, ?, ?, ?, ?)',
     "dirs": 'insert  into dirs (dir, id) values(?,?)',
     "instruments": 'insert into instruments (id, name) values(?, ?)',
-    "MIS_ADD": 'insert  into mis_add_fileinfo (path, fname, directory, instrument) values(?, ?, ?, ?)'
+    "MIS_ADD": 'insert  into mis_add_fileinfo (path, fname, fsize, directory, instrument) values(?, ?, ?, ?, ?)'
 }
 
 #
@@ -133,7 +133,7 @@ def createDB(dbfile, commandLine):
     tstrs = {'CREATE TABLE orbits (orbit integer, path integer, stime integer, etime integer)'}
     tstrs.add('CREATE TABLE dirs (id integer primary key autoincrement, dir text unique)')
     tstrs.add('CREATE TABLE dbinfo (info text)')
-    tstrs.add('CREATE TABLE mis_add_fileinfo (path integer, fname text, directory integer, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))')
+    tstrs.add('CREATE TABLE mis_add_fileinfo (path integer, fname text, fsize integer, directory integer, instrument integer, FOREIGN KEY(directory) REFERENCES dirs(dir))')
     tstrs.add('insert into dbinfo values (\" ' + creationInfo + '\")')
     tstrs.add('CREATE TABLE instruments (id integer primary key, name text unique)')
     for inst in {"fileinfo"}:
@@ -173,6 +173,9 @@ def addmod(directory, fname, size):
     return
 
 def addmop(directory, fname, fsize):
+    if(not fname.endswith(".he5") ):
+        #raise Exception()
+        return
     sformat = '%Y%m%d'
     ss = fname.split('-')
     stime = mktime_utc(sformat, ss[1])
@@ -182,7 +185,8 @@ def addmop(directory, fname, fsize):
     return
 
 def addcer(directory, fname, fsize):
-    if('.hdf' in fname):
+    if(fname.endswith(".hdf") ):
+        #raise Exception()
         return
     timeFmt = '%Y%m%d'
     ss = fname.split('.')
@@ -211,12 +215,12 @@ def addmisr(directory, fname, fsize):
     orbit = int(startstring[1:])
     directory = ROWS['dirs'][directory]
     if odict.has_key(orbit):
-        ROWS["MIS"].append((directory, fname, odict[orbit][0], odict[orbit][1], INSTRUMENTS.index('MIS'),))
+        ROWS["MIS"].append((directory, fname, fsize, odict[orbit][0], odict[orbit][1], INSTRUMENTS.index('MIS'),))
     else:
         warn("addmisr: no data for orbit %d trying to add %s", orbit, directory+"/"+fname)
     return
 
-def addmisradd(directory, fname):
+def addmisradd(directory, fname, fsize):
     #2 cases: HRLL and AGP
     ss = fname.split('_')
     startstring = None
@@ -227,7 +231,7 @@ def addmisradd(directory, fname):
         startstring = ss[3]
     path = startstring[1:]
     directory = ROWS['dirs'][directory]
-    ROWS["MIS_ADD"].append((path, fname, directory, INSTRUMENTS.index('MIS'),))
+    ROWS["MIS_ADD"].append((path, fname, fsize, directory, INSTRUMENTS.index('MIS_ADD'),))
     return
 
 def addInstrumentFile(instFile):
