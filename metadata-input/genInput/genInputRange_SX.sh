@@ -42,6 +42,9 @@ QUEUE="high"                                            # Which queue to put the
 ABS_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 GEN_FUS_IN="$ABS_PATH"/genFusionInput.sh                # Location of the genFusionInput.sh script
 
+# Make the DB_PATH an absolute path
+DB_PATH="$(cd $(dirname $DB_PATH) && pwd)/$(basename $DB_PATH)"
+
 numOrbits=$(($OEND - $OSTART + 1))                      # Total number of orbits to generate
 numProcessPerJob=$((numOrbits / $MAX_NUMJOB)) 
 
@@ -132,14 +135,14 @@ let "lastNum++"
 
 # Make the "run" directory
 runDir="$SCHED_PATH/BFinputGen/run$lastNum"
+echo "Generating files for parallel execution at: $runDir"
+
 mkdir "$runDir"
 if [ $? -ne 0 ]; then
     echo "Failed to make the run directory!"
     exit 1
 fi
 
-mkdir "$runDir/errors"
-mkdir "$runDir/errors/genFusionInput"
 
 # Make the job directories inside each run directory
 mkdir -p "${runDir}/programCalls"
@@ -151,6 +154,8 @@ done
 logDir="$runDir/logs"
 mkdir "$logDir"
 mkdir "$logDir"/aprun
+mkdir "$logDir"/aprun/errors
+mkdir "$logDir"/aprun/logs
 
 ########################
 #   MAKE PBS SCRIPTS   #
@@ -159,6 +164,7 @@ mkdir "$logDir"/aprun
 cd $runDir
 mkdir -p PBSscripts
 cd PBSscripts
+echo "Generating PBS scripts in: $(pwd)"
 
 for i in $(seq 0 $((numJobs-1)) ); do
     echo "#!/bin/bash"                                          >> job$i.pbs
@@ -169,11 +175,10 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "#PBS -N TerraMeta_${jobOSTART[$i]}_${jobOEND[$i]}"    >> job$i.pbs
     echo "cd $runDir"                                           >> job$i.pbs
     echo "source /opt/modules/default/init/bash"                >> job$i.pbs
-    echo ". /opt/modules/default/init/bash"                     >> job$i.pbs
     echo "module load python"                                   >> job$i.pbs
 
     littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
-    echo "aprun -n $littleN -N ${PPN[$i]} -R 4 $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash > $logDir/aprun/job$i.log" >> job$i.pbs
+    echo "aprun -n $littleN -N ${PPN[$i]} -R 4 $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err" >> job$i.pbs
     echo "exit 0"                                               >> job$i.pbs
 done
 
@@ -187,6 +192,7 @@ done
 cd ..
 mkdir -p processLists
 cd processLists
+echo "Generating process lists in: $(pwd)"
 
 for i in $(seq 0 $((numJobs-1)) ); do
     for orbit in $(seq ${jobOSTART[$i]} ${jobOEND[$i]} ); do
@@ -198,20 +204,27 @@ done
 #    MAKE PROGRAM CALLS    #
 ############################
 mkdir "$logDir"/genFusionInput
+mkdir "$logDir"/genFusionInput/errors
+mkdir "$logDir"/genFusionInput/logs
 
 for job in $(seq 0 $((numJobs-1)) ); do
-    for orbit in $(seq ${jobOSTART[$i]} ${jobOEND[$i]} ); do
-        echo "$ABS_PATH/genFusionInput.sh $DB_PATH $orbit $OUT_PATH/input$orbit.txt &> $runDir/errors/genFusionInput/$orbit.log" > "${jobDir[$job]}/orbit$orbit.sh"
+    echo "Writing program calls in: ${jobDir[$job]}"
+
+    for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
+        echo "$ABS_PATH/genFusionInput.sh $DB_PATH $orbit $OUT_PATH/input$orbit.txt 2> $runDir/logs/genFusionInput/errors/$orbit.err 1> $runDir/logs/genFusionInput/logs/$orbit.log" > "${jobDir[$job]}/orbit$orbit.sh"
 
     chmod +x "${jobDir[$job]}/orbit$orbit.sh"
     done
 done
+
+echo
 
 ###################
 #    CALL QSUB    #
 ###################
 cd $runDir/PBSscripts
 for job in $(seq 0 $((numJobs-1)) ); do
-    qsub job$i.pbs
+    echo "Submitting $runDir/PBSscripts/job$job.pbs to queue."
+    qsub job$job.pbs
 done
 
