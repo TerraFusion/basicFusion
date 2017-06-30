@@ -8,27 +8,9 @@ import ply.yacc as yacc
 import netCDF4 as nc4
 from lxml import etree
 import numpy as np
-import pycurl, json
-from StringIO import StringIO
 import urllib2
 import re
 from datetime import datetime
-#from pyCMR.pyCMR import searchCollection, searchGranule
-
-#ECHO10 requirement lists, Contacts seem to be optional
-collection_req = ['ShortName', 'VersionId', 'InsertTime', 'LastUpdate', 'LongName', 'DataSetId', 'Description', 'RevisionDate', 'ProcessingCenter', 'ProcessingLevelId', 'ProcessingLevelDescription', 'ArchiveCenter', 'ScienceKeywords', 'OnlineAccessURLs', 'OnlineResources', 'AssociatedBrowseImages', 'AssociatedBrowseImageUrls', 'Temporal', 'Spatial', 'Platforms', 'Campaigns']
-granule_req = ['InsertTime', 'LastUpdate', 'Collection', 'Temporal', 'Spatial', 'Platforms', 'GranuleUR']
-g_collection_req = ['ShortName', 'VersionId']
-temporal_req = ['RangeDataTime']
-rdt_temporal_req = ['BeginningDateTime', 'EndingDateTime']
-#Need to add characteristics closing tag
-platform_req = ['ShortName', 'LongName', 'Type', 'Instruments']
-instrument_req = ['ShortName', 'LongName', 'Sensors']
-sensor_req = ['ShortName', 'LongName']
-ScienceKeywords_req = ['CategoryKeyword', 'TopicKeyword', 'TermKeyWord', 'VariableLevel1Keyword', 'DetailedVariableKetyword']
-vl1k_req = ['Value']
-OnlineAccessURL_req = ['URL', 'URLDescription']
-Online_Resource_req = ['URL', 'Description', 'Type']
 
 # default fill values for netCDF-3 data types (as defined in netcdf.h include file)
 NC_FILL_BYTE   = np.int8(-127)
@@ -873,9 +855,17 @@ def get_default_fill_value(datatype) :
    else :
       raise CDLContentError("Unrecognised data type '%s'" % datatype)
 
-
+#---------------------------------------------------------------------------------------------------
+#Functions used for metadata generation
+#---------------------------------------------------------------------------------------------------
 
 def parse_platform_data(results):
+    """
+    Extracts and parses platform data, including each instruments, newer name TERRA is used 
+    
+    :param results: XML information from found from CMR search API of every InputGranule
+    :returns ps: XML element of platform and instrument data
+    """
     ps = etree.Element('Platforms')
     p = etree.Element('Platform')
     sn = etree.Element('ShortName')
@@ -897,6 +887,12 @@ def parse_platform_data(results):
     return ps    
 
 def generate_granule_ur(results):
+    """
+    Generates new GranuleUR from the GranuleURs of each InputGranule.
+    
+    :param results: XML information from found from CMR search API of every InputGranule
+    :returns granule_ur: XML element of granuleUR
+    """
     granule_ur = etree.Element('GranuleUR')
     ur_string = ""
     for r in results:
@@ -906,6 +902,13 @@ def generate_granule_ur(results):
     return granule_ur
 
 def compile_online_refs(results):
+    """
+    Compiling additional information into XML elements including OnlineAccessURLs, OnlineResources, 
+    AssociatedBrowseImageUrls, MeasuredParameters.
+    
+    :param results: XML information from found from CMR search API of every InputGranule
+    :returns ref_list: XML elements of all those references
+    """
     codFound = False
     oau = etree.Element('OnlineAccessURLs')
     ORe = etree.Element('OnlineResources')
@@ -951,6 +954,16 @@ def compile_online_refs(results):
     
 #Extract temporal, spatial and platform data by calling CMR Search API
 def get_granule_stp_data(filenames):
+    """
+    Extracts and parses temporal, spatial, platform and online references data, making use of the CMR search
+    API. Nothing would be returned if there are no InputGranules.
+    
+    :param filenames: filenames of InputGranules, used for CMR search
+    :returns result: XML element of extracted spatial and temperal information, extracted from MISR
+    :returns platform_node: XML element of extracted platform data
+    :returns g_ur: XML element of extracted granule UR
+    :returns online_refs: XML element of extracted online references
+    """
     search_url = "https://cmr.earthdata.nasa.gov/search/granules?pretty=True&echo_compatible=True&readable_granule_name="
     result = None
     results = []
@@ -961,7 +974,7 @@ def get_granule_stp_data(filenames):
         #print(etree.tostring(temp_tree))
         if(e):
             first_url = e[0].text
-            print('Link of ' + file + ': ' + first_url)
+            #print('Link of ' + file + ': ' + first_url)
             response = urllib2.urlopen(first_url)
             r = etree.fromstring(response.read())
             if(re.match('MISR_*', file, flags=0)):
@@ -978,6 +991,11 @@ def get_granule_stp_data(filenames):
 
 #get logging data
 def get_log_data():
+    """
+    Extracts and creates elements for logging data of this generation, including InsertTime and LastUpdate
+    
+    :returns ElementTree's elements of insert time and last update time
+    """
     insert_time = etree.Element('InsertTime')
     last_update = etree.Element('LastUpdate')
     formatted_dstring = str(datetime.now())
@@ -990,15 +1008,20 @@ def get_log_data():
 
 #Extract filesize and production date time
 def get_data_granule(file_path):
+    """
+    Extracts information for the DataGranule tag, including SizeMBDataGranule, ProducerGranuleId, DayNightFlag
+    and ProductionDateTime.
+    
+    :param file_path: file path to the HDF5 file, needed for DataGranule's information extraction
+    :returns: e, the element tree that contains the DataGranule informaiton for XML write
+    """
     #Format date time
     formatted_dstring = str(datetime.fromtimestamp(os.path.getmtime(file_path)))
     formatted_dstring = formatted_dstring.replace(" ", "T")
     formatted_dstring += 'Z'
     #formatted_dstring = str(d_time.date.year) + "-" + str(d_time.date.month) + "-" + str(d_time.date.day) + "T" + str(d_time.time.hour) + ":" + str(d_time.time.minute) + ":" + str(d_time.time.microsecond) + "Z"
-    print("formatted dt: " + str(formatted_dstring))
     #get file size
     f_size = os.path.getsize(file_path) / (1024*1024.0)
-    print("file size: " + str(f_size) + "MB") 
     #construct xml elements
     e = etree.Element('DataGranule')
     fs = etree.Element('SizeMBDataGranule')
@@ -1021,6 +1044,11 @@ def get_data_granule(file_path):
 
 #TODO: now it's hard-coded, automation needed
 def get_parent_info():
+    """
+    Extracts parent's information of a granule. The information is hardcoded at the moment, may need automation
+    
+    :returns collection: collection parent element for granules in xml element form
+    """
     collection = etree.Element('Collection')
     sn = etree.Element('ShortName')
     sn.text = 'TERRAFUSION'
@@ -1030,26 +1058,19 @@ def get_parent_info():
     collection.append(v)
     return collection
 
-def write_to_xml(cdlfile, ncdataset, destfile):    
-    '''print("ncdimensions: " + str(ncdataset.dimensions))
-    print("ncdataset attr: " + str(ncdataset.ncattrs()))
-    print("ncdataset vars: " + str(ncdataset.variables.keys()))
-    for group in ncdataset.groups:
-        print("group: " + str(ncdataset.group.keys()))'''
+def write_to_xml(cdlfile, ncdataset, destfile):
+    """
+    Extracts data from the cdlfile and ncdataset variable and writes them to a xml file in ECHO10 specification
+    in order to ingest into CMR server. The function is currently able to handle granule files but not collection
+    files.
+
+    :param cdlfile: path to the cdl file
+    :params ncdataset: netcdf dataset variable
+    :params destfile: file variable for resultant xml file
     
+    """ 
     if is_collection:
         root = etree.Element('Collection')
-        #for key in ncdataset.variables.keys():
-        #print("Vars: " + str(ncdataset.variables[key][:]))
-    
-        #for gAttr in ncdataset.ncattrs():
-        #print("global Attr: " + gAttr)
-        #print("global value: " + str(ncdataset.getncattr(gAttr)))
-        #child = etree.Element(gAttr)
-        #child.text = ncdataset.getncattr(gAttr)
-        #root.append(child)
-        #et = etree.ElementTree(root)
-        #et.write(destfile, pretty_print=True)    
     else:
         root = etree.Element('Granule')   
         igranules = etree.Element('InputGranules')
@@ -1096,7 +1117,6 @@ def write_to_xml(cdlfile, ncdataset, destfile):
 def main() :
 #---------------------------------------------------------------------------------------------------
    """Rudimentary main function - primarily for testing purposes at this point in time."""
-   debug = 0
    global is_collection 
    if len(sys.argv) < 4 :
       print("usage: python cdlparser.py cdlfile destXML doctype[-c/-g] [keyword=value, ...]")
@@ -1115,7 +1135,6 @@ def main() :
    ncdataset, ncfile = cdlparser.parse_file(cdlfile)
    write_to_xml(cdlfile, ncdataset,destfile)
    ncdataset.close()   # wrap in try block since dataset may get closed by parser
-   print(str(ncfile) + " removed")
    os.remove(ncfile)   # remove nc file
    
 
