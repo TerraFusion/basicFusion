@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Collection>
-    <ShortName>TERRAFUSION</ShortName>
-    <VersionId>1</VersionId>
+    <ShortName>BASICTERRAFUSION</ShortName>
+    <VersionId>1.0</VersionId>
     <InsertTime>2006-06-30T00:00:00.000Z</InsertTime>
     <LastUpdate>2011-01-21T17:10:13.000Z</LastUpdate>
-    <LongName>The Terra Fusion data from ASTER, CERES, MISR, MODIS, MOPTT</LongName>
-    <DataSetId>GHRSST Level 2P USA NASA MODIS Aqua SST:1</DataSetId>
-    <Description>TThe Terra Fusion project was created to fuse the MOPITT, CERES, MISR, ASTER and MODIS data into one, unified HDF5 "Basic Fusion" file set. One Basic Fusion (BF) granule contains data from each instrument over a certain time period. The BF granularity is defined as one Terra orbit.</Description>
+    <LongName>The Terra Basic Fusion L1B Radiance</LongName>
+    <DataSetId>TERRA_BF_L1B</DataSetId>
+    <Description>A Basic Terra Fusion granule contains one Terra orbit of radiometrically and georectified calibrated radiance measurements from all the five Terra instruments, namely, MOPITT, CERES, MISR, ASTER and MISR. The geolocation information for each radiance pixel at its native resolution is also provided.</Description>
     <Orderable>false</Orderable>
     <Visible>true</Visible>
     <RevisionDate>2011-06-21T07:08:05.192Z</RevisionDate>
@@ -23,30 +23,41 @@
             <BeginningDateTime>2006-06-30T00:00:07.000Z</BeginningDateTime>
         </RangeDateTime>
     </Temporal>
-    <Contacts>
-        <Contact>
-            <Role>Archiver</Role>
-            <OrganizationName>National Center of Supercomputing Applications / Department of Atmospheric Sciences</OrganizationName>
-            <OrganizationAddresses/>
-            <OrganizationPhones>
-                <Phone>
-                    <Number>235-567-8910</Number>
-                    <Type>Primary</Type>
-                </Phone>
-            </OrganizationPhones>
-            <OrganizationEmails>
-                <Email>gdi@illinois.edu</Email>
-            </OrganizationEmails>
-            <ContactPersons>
-                <ContactPerson>
-                    <FirstName>Larry</FirstName>
-                    <MiddleName>none</MiddleName>
-                    <LastName>Di GiroLamo</LastName>
-                    <JobPosition>Technical Contact</JobPosition>
-                </ContactPerson>
-            </ContactPersons>
-        </Contact>
-    </Contacts>
+  <Contacts> 
+        <Contact> 
+            <Role>Archiver</Role> 
+            <OrganizationName> Department of Atmospheric Sciences and National Center of Supercomputing Applications, University of Illinois at Urbana-Champaign/ The HDF Group 
+            </OrganizationName> 
+            <OrganizationAddresses> 
+                <Address>
+                    <StreetAddress>
+                        1301 W Green Street, Natural History Building, Room 3072, Urbana, IL 60801
+                    </StreetAddress>
+                    <City>Urbana</City>
+                    <StateProvince>Illinois</StateProvince>
+                    <PostalCode>60801</PostalCode>
+                    <Country>USA</Country>
+                </Address>
+            </OrganizationAddresses> 
+            <OrganizationPhones> 
+                <Phone> 
+                    <Number>217-333-2046</Number> 
+                    <Type>Primary</Type> 
+                </Phone> 
+            </OrganizationPhones> 
+            <OrganizationEmails> 
+                <Email>gdi@illinois.edu</Email> 
+            </OrganizationEmails> 
+            <ContactPersons> 
+                <ContactPerson> 
+                    <FirstName>Larry</FirstName> 
+                    <MiddleName>none</MiddleName> 
+                    <LastName>Di GiroLamo</LastName> 
+                    <JobPosition>Professor</JobPosition> 
+                </ContactPerson> 
+            </ContactPersons> 
+        </Contact> 
+    </Contacts> 
     <ScienceKeywords>
         <ScienceKeyword>
             <CategoryKeyword>ATMOSPHERIC SCIENCE</CategoryKeyword>
@@ -67,20 +78,22 @@
             <Instruments>
                 <Instrument>
                     <ShortName>MOPITT</ShortName>
-                    <LongName>Measurements of Pollution in the Troposphere</LongName>
+                    <LongName>Measurements Of Pollution In The Troposphere</LongName>
                     <Characteristics/>
                     <Sensors>
                         <Sensor>
                             <ShortName>MOPIT</ShortName>
-                            <LongName>MOPITT sensor</LongName>
+                            <LongName>Measurements Of Pollution In The Troposphere</LongName>
                             <Characteristics/>
                         </Sensor>
                     </Sensors>
-                    <OperationModes/>
+                    <OperationModes>
+                        <OperationMode>Normal</OperationMode>
+                    </OperationModes>
                 </Instrument>
                 <Instrument>
                     <ShortName>CERES-FM1</ShortName>
-                    <LongName>Clouds and the Earth's Radiant Energy System</LongName>
+                    <LongName>Clouds and the Earth's Radiant Energy System FM1</LongName>
                     <Characteristics/>
                     <Sensors>
                         <Sensor>
@@ -128,7 +141,9 @@
                             <Characteristics/>
                         </Sensor>
                     </Sensors>
-                    <OperationModes/>
+                    <OperationModes>
+                        <OperationMode>Normal</OperationMode>
+                    </OperationModes>
                 </Instrument>
             </Instruments>
         </Platform>
@@ -155,7 +170,7 @@
             <URLDescription>CERES mission</URLDescription>
         </OnlineAccessURL>
         <OnlineAccessURL>
-            <URL>https://terra.nasa.gov/about/terra-instruments/misr</URL>
+            <URL>https://www-misr.jpl.nasa.gov</URL>
             <URLDescription>MISR mission</URLDescription>
         </OnlineAccessURL>
         <OnlineAccessURL>

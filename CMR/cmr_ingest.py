@@ -58,10 +58,14 @@ def test_collection_ingestion(ingest_file, token):
     :param ingest_file: file path of the file to be ingested
     :param token: token for CMR API calls
     """
+    tree = ElementTree.parse(ingest_file)
+    dsi = tree.find("DataSetId")
     url = "https://cmr.uat.earthdata.nasa.gov/ingest/providers/FUSION/collections/"
+    url += dsi.text
     headers = {"Content-Type" : "application/echo10+xml", "Echo-Token" : token}
     res = requests.put(url, headers = headers, data = open(ingest_file, 'rb'))
     print('collection ingestion response: ' + res.content)
+    print('Status code: ' + str(res.status_code))
 
 #Separate function for update because native-id is needed for update
 def test_collection_update(ingest_file, token):
