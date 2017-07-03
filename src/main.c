@@ -368,12 +368,6 @@ int main( int argc, char* argv[] )
             if ( curTime != prevTime )
                 CERESgranuleNum++; 
 
-            printf("curTime: %ld prevTime: %ld\n%s\n\t%d\n", curTime, prevTime, inputLine, CERESgranuleNum);      
-
-
-            
-
-
             /*_______FM1________*/
 
             if ( strstr( inputLine, CEREScheck1 ) != NULL )
