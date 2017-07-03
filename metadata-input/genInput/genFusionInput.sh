@@ -36,7 +36,7 @@ orderFiles() {
     local MISHRLLGREP
 
     rm -f "$OUTFILE" 
-
+ 
     ##########
     # MOPITT #
     ##########
@@ -53,7 +53,7 @@ orderFiles() {
     #    by a single space (space being the default delimiter). For instance:
     #    "/path/to/filename.h5" becomes
     #    "filename.h5 /path/to/filename.h5"
-    # 5. Sort those resulting lines
+    # 5. Sort those resulting lines, removing any files that are duplicates of each other
     # 6. After being sorted, remove the appended filename from the front of the line, leaving only the file path.
     #
     # This nasty trickery here is done so that the file path is not considered in the sorting, only the file name. 
@@ -62,9 +62,10 @@ orderFiles() {
     # This solution was found here:
     # https://stackoverflow.com/questions/3222810/sorting-on-the-last-field-of-a-line
 
-    MOPGREP=$(cat "$UNORDEREDFILE" | grep -e "MOP.*he5" -e 'MOP N/A' | grep -v "xml"  | awk -F "/" '{ print $NF, $0}' | sort | cut -d " " -f 2- )
+    MOPGREP=$(cat "$UNORDEREDFILE" | grep -e "MOP.*he5" -e 'MOP N/A' | grep -v "xml"  | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2- )
     # iterate over this file, prepending the path of the file into our
     # OUTFILE
+    
     if [[ ! "$MOPGREP" == *"MOP N/A"* ]]; then
         while read -r line; do
             echo "$line" >> "$OUTFILE"
@@ -78,8 +79,8 @@ orderFiles() {
     # CERES #
     #########
     # grep -v removes any files with "met" in them, they're unwanted
-    CERFM1GREP=$(cat "$UNORDEREDFILE" | grep -e "CER_SSF_Terra.*FM1.*" -e 'CER N/A' | grep -v "met" | awk -F "/" '{ print $NF, $0}' | sort | cut -d " " -f 2- )
-    CERFM2GREP=$(cat "$UNORDEREDFILE" | grep -e "CER_SSF_Terra.*FM2.*" | grep -v "met" | sort)
+    CERFM1GREP=$(cat "$UNORDEREDFILE" | grep -e "CER_SSF_Terra.*FM1.*" -e 'CER N/A' | grep -v "met" | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2- )
+    CERFM2GREP=$(cat "$UNORDEREDFILE" | grep -e "CER_SSF_Terra.*FM2.*" | grep -v "met" | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 |  cut -d " " -f 2-)
 
     if [[ ! "$CERFM1GREP" == *"CER N/A"* ]]; then
         while read -r line; do
@@ -104,10 +105,10 @@ orderFiles() {
     # For MODIS, we will split the 1KM, HKM, QKM and MOD03 filenames
     # into separate text files to make it easy to handle
 
-    MOD1KMGREP=$(cat "$UNORDEREDFILE" | grep -e "MOD021KM.*hdf" -e 'MOD N/A' | awk -F "/" '{ print $NF, $0}' | sort | cut -d " " -f 2-)
-    MODHKMGREP=$(cat "$UNORDEREDFILE" | grep "MOD02HKM.*hdf"  | sort)
-    MODQKMGREP=$(cat "$UNORDEREDFILE" | grep "MOD02QKM.*hdf"  | sort)
-    MOD03GREP=$(cat "$UNORDEREDFILE" | grep "MOD03.*hdf" | sort)
+    MOD1KMGREP=$(cat "$UNORDEREDFILE" | grep -e "MOD021KM.*hdf" -e 'MOD N/A' | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
+    MODHKMGREP=$(cat "$UNORDEREDFILE" | grep "MOD02HKM.*hdf"  | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
+    MODQKMGREP=$(cat "$UNORDEREDFILE" | grep "MOD02QKM.*hdf"  | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
+    MOD03GREP=$(cat "$UNORDEREDFILE" | grep "MOD03.*hdf" | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
 
 
     if [[ ! "$MOD1KMGREP" == *"MOD N/A"* ]]; then
@@ -158,7 +159,7 @@ orderFiles() {
     # ASTER #
     #########
 
-    ASTGREP=$(cat "$UNORDEREDFILE" | grep -e "AST.*hdf" -e 'AST N/A' | awk -F "/" '{ print $NF, $0}' | sort | cut -d " " -f 2-)
+    ASTGREP=$(cat "$UNORDEREDFILE" | grep -e "AST.*hdf" -e 'AST N/A' | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
     # iterate over this file, prepending the path of the file into our
     # OUTFILE
     if [[ ! "$ASTGREP" == *"AST N/A"* ]]; then
@@ -175,10 +176,10 @@ orderFiles() {
     ########
 
     # put the MISR files into temp text files
-    MISGRPGREP=$(cat $UNORDEREDFILE | grep -e "MISR_AM1_GRP_ELLIPSOID.*hdf" -e 'MIS N/A' | awk -F "/" '{ print $NF, $0}' | sort | cut -d " " -f 2-)
-    MISAGPGREP=$(cat "$UNORDEREDFILE" | grep "MISR_AM1_AGP.*hdf" | sort)
-    MISGPGREP=$(cat "$UNORDEREDFILE" | grep "MISR_AM1_GP.*hdf"  | sort)
-    MISHRLLGREP=$(cat "$UNORDEREDFILE" | grep "MISR_HRLL_.*hdf"   | sort)
+    MISGRPGREP=$(cat $UNORDEREDFILE | grep -e "MISR_AM1_GRP_ELLIPSOID.*hdf" -e 'MIS N/A' | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
+    MISAGPGREP=$(cat "$UNORDEREDFILE" | grep "MISR_AM1_AGP.*hdf" | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
+    MISGPGREP=$(cat "$UNORDEREDFILE" | grep "MISR_AM1_GP.*hdf"  | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
+    MISHRLLGREP=$(cat "$UNORDEREDFILE" | grep "MISR_HRLL_.*hdf"  | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
     # iterate over this file, prepending the path of the file into our
     # OUTFILE
 
@@ -882,9 +883,12 @@ if [ "$#" -ne 3 ]; then
 fi
 
 DB=$1
-UNORDERED="$3".unordered
+UNORDERED="$3".unorderedDB
 ORDERED="$3"
 SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+mkdir -p $(dirname $ORDERED)/unorderedDatabaseReturn
+UNORDERED=$(dirname $ORDERED)/unorderedDatabaseReturn/$(basename $ORDERED).unordered
 
 source "$SCRIPT_PATH/../queries.bash"
 
@@ -927,21 +931,15 @@ numGRP=$(echo "$MISLINES" | grep "GRP" | wc -l)
 if [ $numGRP -eq 0 ]; then
     echo "MIS N/A" >> "$UNORDERED"
 
-elif [ $numGRP -eq 9 ]; then
+else [ $numGRP -eq 9 ]
     echo "$MISLINES" >> "$UNORDERED"
-else
-    printf "MISR GRP files found to be missing! Cannot order the files.\nPlease see the\n\t$UNORDERED\nfile to see what MISR files were found.\nEixiting script.\n" >&2
-    echo "$MISLINES" >> "$UNORDERED"
-    exit 1
 fi
-
 
 # Order and format the files appropriately (Fusion program requires specific input format)
 orderFiles $UNORDERED $ORDERED
 if [ "$?" -ne 0 ]; then
     printf "Failed to order files.\n" >&2
     printf "Exiting script.\n" >&2
-    rm -f "$UNORDERED"
     exit 1
 fi
 
@@ -954,12 +952,7 @@ verifyFiles "$ORDERED"
 if [ "$?" -ne 0 ]; then
     printf "Failed to verify files.\n" >&2
     printf "Exiting script.\n" >&2
-    rm -f "$UNORDERED"
     exit 1
 fi
 
-
-
-
-
-rm -f "$UNORDERED"
+exit 0
