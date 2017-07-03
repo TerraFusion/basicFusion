@@ -9,9 +9,10 @@ fi
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
 
 DBDIR=$2                                        # Where the database will be stored
-findFiles="$SCRIPT_DIR/findFiles"         # Where the findFiles script is located
+findFiles="$SCRIPT_DIR/findFiles"               # Where the findFiles script is located
 INDIR=$1                                        # Where the input HDF files are located
 DATADIR="$SCRIPT_DIR/../data"                   # Where to store intermediate results of the findFiles query
+PYTHON_MODULE="python"                          # The site-specific python module to load
 
 #_____PYTHON DEPENDENCY RESOLUTIONS__________#
 # The fusionBuilDB python script requires:
@@ -25,6 +26,7 @@ DATADIR="$SCRIPT_DIR/../data"                   # Where to store intermediate re
 
 source "$SCRIPT_DIR"/../../externLib/pyVirtualEnv/BFpy/bin/activate
 export PYTHONPATH="$SCRIPT_DIR"/../../externLib/pyVirtualEnv/BFpy/lib/python2.7/site-packages
+module load $PYTHON_MODULE
 #____________________________________________#
 
 
