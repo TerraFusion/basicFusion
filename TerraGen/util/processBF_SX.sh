@@ -34,9 +34,9 @@ OUT_PATH=$5                                             # Where the resultant in
 #____________JOB PARAMETERS____________#
 MAX_NPJ=32                                              # Maximum number of nodes per job
 MAX_PPN=16                                              # Maximum number of processors (cores) per node.
-MAX_NUMJOB=5                                           # Maximum number of jobs that can be submitted simultaneously
-WALLTIME="22:34:49"                                     # Requested wall clock time for the jobs
-QUEUE="high"                                          # Which queue to put the jobs in
+MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
+WALLTIME="06:00:00"                                     # Requested wall clock time for the jobs
+QUEUE="high"                                            # Which queue to put the jobs in
 #--------------------------------------#
 
 #____________FILE NAMING_______________#
@@ -190,6 +190,8 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "#PBS -l walltime=$WALLTIME"                           >> job$i.pbs
     echo "#PBS -q $QUEUE"                                       >> job$i.pbs
     echo "#PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}" >> job$i.pbs
+    echo "export PMI_NO_FORK=1"                                 >> job$i.pbs
+    echo "export PMI_NO_PREINITIALIZE=1"                        >> job$i.pbs
     echo "cd $runDir"                                           >> job$i.pbs
     echo "source /opt/modules/default/init/bash"                >> job$i.pbs
     echo "module load hdf4 hdf5"                                >> job$i.pbs
@@ -224,6 +226,9 @@ mkdir "$logDir"/basicFusion
 mkdir "$logDir"/basicFusion/errors
 mkdir "$logDir"/basicFusion/logs
 
+# Copy the basicFusion binary to the job directory. Use this copy of the bianry.
+cp $BF_PROG $runDir 
+
 for job in $(seq 0 $((numJobs-1)) ); do
     echo "Writing program calls in: ${jobDir[$job]}"
 
@@ -234,7 +239,7 @@ for job in $(seq 0 $((numJobs-1)) ); do
 
         # BF program call looks like this:
         # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
-        echo "$BF_PROG \"$OUT_PATH/$evalFileName\" \"$LISTING_PATH/input$orbit.txt\" \"$BIN_DIR/orbit_info.bin\" 2> $runDir/logs/basicFusion/errors/$orbit.err 1> $runDir/logs/basicFusion/logs/$orbit.log" > "${jobDir[$job]}/orbit$orbit.sh"
+        echo "$runDir/$(basename $BF_PROG) \"$OUT_PATH/$evalFileName\" \"$LISTING_PATH/input$orbit.txt\" \"$BIN_DIR/orbit_info.bin\" 2> $runDir/logs/basicFusion/errors/$orbit.err 1> $runDir/logs/basicFusion/logs/$orbit.log" > "${jobDir[$job]}/orbit$orbit.sh"
 
     chmod +x "${jobDir[$job]}/orbit$orbit.sh"
     done

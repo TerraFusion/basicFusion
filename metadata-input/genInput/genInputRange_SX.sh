@@ -175,6 +175,8 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "#PBS -l walltime=$WALLTIME"                           >> job$i.pbs
     echo "#PBS -q $QUEUE"                                       >> job$i.pbs
     echo "#PBS -N TerraMeta_${jobOSTART[$i]}_${jobOEND[$i]}"    >> job$i.pbs
+    echo "export PMI_NO_FORK=1"                                 >> job$i.pbs
+    echo "export PMI_NO_PREINITIALIZE=1"                        >> job$i.pbs
     echo "cd $runDir"                                           >> job$i.pbs
     echo "source /opt/modules/default/init/bash"                >> job$i.pbs
     echo "module load python"                                   >> job$i.pbs
