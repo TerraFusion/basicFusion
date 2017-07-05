@@ -175,6 +175,9 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "#PBS -l walltime=$WALLTIME"                           >> job$i.pbs
     echo "#PBS -q $QUEUE"                                       >> job$i.pbs
     echo "#PBS -N TerraMeta_${jobOSTART[$i]}_${jobOEND[$i]}"    >> job$i.pbs
+    # The PMI environment variables are added as a workaround to a known Application Level Placement
+    # Scheduler (ALPS) bug on Blue Waters. Not entirely sure what they do but BW staff told me
+    # that it works, and it does!
     echo "export PMI_NO_FORK=1"                                 >> job$i.pbs
     echo "export PMI_NO_PREINITIALIZE=1"                        >> job$i.pbs
     echo "cd $runDir"                                           >> job$i.pbs
