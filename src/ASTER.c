@@ -1819,6 +1819,11 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
             tp+=6;
             strncpy(gain_stat_str,tp,3);
             temp_gain_index = get_gain_stat(gain_stat_str);
+            if ( temp_gain_index == -1 )
+            {
+                FATAL_MSG("get_gain_stat failed.\n");
+                goto cleanupFail;
+            }
 
             // https://github.com/TerraFusion/basicFusion/issues/199
             // On page 13 of the ASTER 1T product specification
