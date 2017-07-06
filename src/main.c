@@ -293,7 +293,7 @@ int main( int argc, char* argv[] )
 
             if ( MOPITT( MOPITTargs, current_orbit_info, &MOPITTgranule ) == EXIT_FAILURE )
             {
-                FATAL_MSG("MOPITT failed data transfer.\nExiting program.\n");
+                FATAL_MSG("MOPITT failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                 goto cleanupFail;
             }
 
@@ -410,7 +410,7 @@ int main( int argc, char* argv[] )
                     status = CERES(CERESargs,1,ceres_fm1_count,(int32*)ceres_start_index_ptr,NULL,ceres_subset_num_elems_ptr);
                     if ( status == EXIT_FAILURE )
                     {
-                        FATAL_MSG("CERES failed data transfer.\nExiting program.\n");
+                        FATAL_MSG("CERES failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                         goto cleanupFail;
                     }
                     ceres_fm1_count++;
@@ -458,7 +458,7 @@ int main( int argc, char* argv[] )
                     status = CERES(CERESargs,2,ceres_fm2_count,(int32*)ceres_start_index_ptr,NULL,ceres_subset_num_elems_ptr);
                     if ( status == EXIT_FAILURE )
                     {
-                        FATAL_MSG("CERES failed data transfer.\nExiting program.\n");
+                        FATAL_MSG("CERES failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                         goto cleanupFail;
                     }
                     ceres_fm2_count++;
@@ -662,8 +662,14 @@ int main( int argc, char* argv[] )
 
                 status = MODIS( MODISargs,modis_count,unpack);
                 if ( status == EXIT_FAILURE )
-                {
-                    FATAL_MSG("MODIS failed data transfer.\nExiting program.\n");
+                {    
+                    FATAL_MSG("MODIS failed data transfer on this granule:\n)");
+                    for ( int j = 1; j < 5; j++ )
+                    {    
+                        if ( MODISargs[j] )
+                            printf("\t%s\n", MODISargs[j]);
+                    }
+                    printf("Exiting program.\n");
                     goto cleanupFail;
                 }
 
@@ -690,7 +696,13 @@ int main( int argc, char* argv[] )
                 status = MODIS( MODISargs,modis_count,unpack );
                 if ( status == EXIT_FAILURE )
                 {
-                    FATAL_MSG("MODIS failed data transfer.\nExiting program.\n");
+                    FATAL_MSG("MODIS failed data transfer on this granule:\n)");
+                    for ( int j = 1; j < 5; j++ )
+                    {    
+                        if ( MODISargs[j] )
+                            printf("\t%s\n", MODISargs[j]);
+                    }
+                    printf("Exiting program.\n");
                     goto cleanupFail;
                 }
             }
@@ -786,7 +798,7 @@ int main( int argc, char* argv[] )
 
                 if ( status == EXIT_FAILURE )
                 {
-                    FATAL_MSG("ASTER failed data transfer.\nExiting program.\n");
+                    FATAL_MSG("ASTER failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                     goto cleanupFail;
                 }
 
@@ -958,7 +970,7 @@ int main( int argc, char* argv[] )
         status = MISR( MISRargs,unpack);
         if ( status == EXIT_FAILURE )
         {
-            FATAL_MSG("MISR failed data transfer.\nExiting program.\n");
+            FATAL_MSG("MISR failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
             goto cleanupFail;
         }
         printf("MISR done.\n");
