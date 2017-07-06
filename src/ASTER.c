@@ -828,7 +828,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             goto cleanupFail;
         }
         /* obtain the Unit conversion coefficient */
-        band_unc  = unc[gain_index[4]][4];
+        band_unc = unc[gain_index[4]][4];
         
         if ( swir_grp_ref > 0 )
         {
@@ -1660,39 +1660,36 @@ short get_band_index(char *band_index_str)
 {
 
     const char *band_index_str_list[10] = {"01","02","3N","3B","04","05","06","07","08","09"};
-    int ret_value = -1;
     int i = 0;
     for(i= 0; i <11; i++)
     {
 
         if(!strncmp(band_index_str,band_index_str_list[i],2))
         {
-//printf("band_index is %s\n",band_index_str);
-            ret_value = i;
-            break;
+            return i;
         }
     }
 
-    return ret_value;
+    FATAL_MSG("Failed to get the ASTER band index.\n");
+    return -1;
 }
 
 short get_gain_stat(char *gain_stat_str)
 {
 
     const char *gain_stat_str_list[6]  = {"HGH","NOR","LO1","LO2","OFF","LOW"};
-    int ret_value = -1;
     int i = 0;
     for(i= 0; i <6; i++)
     {
 
         if(!strncmp(gain_stat_str,gain_stat_str_list[i],3))
         {
-            ret_value = i;
-            break;
+            return i;
         }
     }
-
-    return ret_value;
+    
+    FATAL_MSG("Failed to get the ASTER gain status.\n");
+    return -1;
 }
 
 int obtain_gain_index(int32 sd_id,short gain_index[15])
@@ -1707,7 +1704,15 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
     int     i = 0;
     int     band_index = -1;
     int     temp_gain_index = -1;
-
+    char *fileattr_data= NULL;
+    char * string_gaininfo = NULL;
+    char * string_nogaininfo = NULL;
+    char* gain_string = NULL;
+    size_t gain_string_len = 0;
+    char*  tp= NULL;
+    char* band_index_str = NULL;
+    char* gain_stat_str = NULL;
+    int  gain[15] = {0};
     int ret_value = 0;
     /*
     * Find the file attribute defined by FILE_ATTR_NAME.
@@ -1716,8 +1721,7 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
     if(attr_index == FAIL)
     {
         FATAL_MSG("SDfindattr failed for the attribute <productmetadata.0>.\n");
-        ret_value = -1;
-        return ret_value;
+        goto cleanupFail;
     }
 
     /*
@@ -1728,25 +1732,13 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
     if(status == FAIL)
     {
         FATAL_MSG("SDattrinfo failed for the attribute <productmetadata.0>.\n");
-        ret_value = -1;
-        return ret_value;
+        goto cleanupFail;
     }
 
 
     /* The data type should be DFNT_CHAR, from SD_set_attr.c */
     if (data_type == DFNT_CHAR)
     {
-        char *fileattr_data= NULL;
-        char * string_gaininfo = NULL;
-        char * string_nogaininfo = NULL;
-        char* gain_string = NULL;
-        size_t gain_string_len = 0;
-        char*  tp= NULL;
-        char* band_index_str = NULL;
-        char* gain_stat_str = NULL;
-        int  gain[15] = {0};
-
-
         /*
         * Allocate a buffer to hold the attribute data.
         */
@@ -1754,8 +1746,7 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
         if(fileattr_data == NULL)
         {
             FATAL_MSG("Cannot allocate the buffer for fileattr_data.\n");
-            ret_value = -1;
-            return ret_value;
+            goto cleanupFail;
         }
 
         /*
@@ -1765,9 +1756,7 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
         if(status == FAIL)
         {
             FATAL_MSG("SDreadattr failed for attribute <productmetadata.0>\n");
-            if(fileattr_data) free(fileattr_data);
-            ret_value = -1;
-            return ret_value;
+            goto cleanupFail;
         }
 
         /*
@@ -1780,18 +1769,13 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
 
         string_nogaininfo = obtain_gain_info(string_gaininfo);
 
-        // Somehow valgrind complains. Need to check why.
         gain_string_len = strlen(string_gaininfo) - strlen(string_nogaininfo);
         gain_string=malloc(gain_string_len+1);
         if(gain_string == NULL)
         {
             FATAL_MSG("Cannot allocate the buffer for gain_string.\n");
-            if(fileattr_data) free(fileattr_data);
-            ret_value = -1;
-            return ret_value;
+            goto cleanupFail;
         }
-
-
 
         strncpy(gain_string,string_gaininfo,gain_string_len);
 
@@ -1802,29 +1786,18 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
         if(band_index_str == NULL)
         {
             FATAL_MSG("Cannot allocate the buffer for band_index_str.\n");
-            if(fileattr_data) free(fileattr_data);
-            if(gain_string) free(gain_string);
-            ret_value = -1;
-            return ret_value;
+            goto cleanupFail;
         }
-
 
         memset(band_index_str,0,3);
         gain_stat_str  = malloc(4);
         if(gain_stat_str == NULL)
         {
             FATAL_MSG("Cannot allocate the buffer for gain_stat_str.\n");
-            if(fileattr_data) free(fileattr_data);
-            if(gain_string) free(gain_string);
-            if(band_index_str) free(band_index_str);
-            ret_value = -1;
-            return ret_value;
+            goto cleanupFail;
         }
 
-
-
         memset(gain_stat_str,0,4);
-
 
         while(*tp!='\0')
         {
@@ -1837,15 +1810,19 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
             strncpy(band_index_str,tp,2);
 
             band_index = get_band_index(band_index_str);
-
+            if ( band_index == -1 )
+            {
+                FATAL_MSG("Couldn't retrieve the band index.\n");
+                goto cleanupFail;
+            }
             //skip 6 characters starting from 0 [01", "]
             tp+=6;
             strncpy(gain_stat_str,tp,3);
             temp_gain_index = get_gain_stat(gain_stat_str);
 
             // https://github.com/TerraFusion/basicFusion/issues/199
-            // On page 13 of the ASTER 1T product specification 
-            // (https://lpdaac.usgs.gov/sites/default/files/public/product_documentation/aster_l1t_product_specification.pdf), you will see the gain markers for VNIR (Bands 1-3) are .HIGH., .NOR. or .LOW.. 
+            // On page 13 of the ASTER 1T product specification
+            // (https://lpdaac.usgs.gov/sites/default/files/public/product_documentation/aster_l1t_product_specification.pdf), you will see the gain markers for VNIR (Bands 1-3) are .HIGH., .NOR. or .LOW..
             // Since There is no Low Gain 2 for band 1-3B, the "LOW" must be "Low Gain 1". Change the index.
             if(temp_gain_index == 5)
                 temp_gain_index = 2;
@@ -1864,11 +1841,19 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
         for(i = 0; i <15; i++)
             gain_index[i] = gain[i];
 
-        if(gain_string) free(gain_string);
-        if(band_index_str) free(band_index_str);
-        if(gain_stat_str) free(gain_stat_str);
-        if(fileattr_data) free (fileattr_data);
     }
+
+    if ( 0 )
+    {
+        cleanupFail:
+        ret_value = -1;
+    }
+
+    
+    if(gain_string) free(gain_string);
+    if(band_index_str) free(band_index_str);
+    if(gain_stat_str) free(gain_stat_str);
+    if(fileattr_data) free (fileattr_data);
 
     return ret_value;
 }
