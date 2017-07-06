@@ -670,8 +670,8 @@ int obtain_start_end_index(int* sindex_ptr,int* eindex_ptr,double *jd,int32 size
 
     //sanity check the return value
     if((*temp_yearp<=0) || ((*temp_monthp)>12) || ((*temp_monthp) <=0) ||((*temp_dayp)>31)
-            ||((*temp_dayp)<=0) ||((*temp_hourp)<0) ||((*temp_hourp)>59) ||((*temp_minutep)<0)
-            ||((*temp_minutep)>59)||((*temp_secondp)<0) ||((*temp_secondp)>59))
+            ||((*temp_dayp)<=0) ||((*temp_hourp)<0) ||((*temp_hourp)>60) ||((*temp_minutep)<0)
+            ||((*temp_minutep)>60)||((*temp_secondp)<0) ||((*temp_secondp)>60))
     {
         FATAL_MSG("The UTC time retrieved from CERES array is out of range\n");
         return EXIT_FAILURE;
