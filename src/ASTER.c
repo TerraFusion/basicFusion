@@ -1677,9 +1677,9 @@ short get_band_index(char *band_index_str)
 short get_gain_stat(char *gain_stat_str)
 {
 
-    const char *gain_stat_str_list[5]  = {"HGH","NOR","LO1","LO2","OFF"};
+    const char *gain_stat_str_list[6]  = {"HGH","NOR","LO1","LO2","OFF","LOW"};
     int i = 0;
-    for(i= 0; i <5; i++)
+    for(i= 0; i <6; i++)
     {
 
         if(!strncmp(gain_stat_str,gain_stat_str_list[i],3))
@@ -1818,27 +1818,14 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
             //skip 6 characters starting from 0 [01", "]
             tp+=6;
             strncpy(gain_stat_str,tp,3);
-
-            /* LTC July 6, 2017: 
-             * The VNIR bands (cameras 1, 2, 3N) do not have a "LO1" or "LO2" marker.
-             * Instead, they may have "LOW" as a marker. In that case, they need to 
-             * be mapped to the "LO1" conversion coefficients because "LO2" does not
-             * provide information for them. The band gains can be found here:
-             * https://lpdaac.usgs.gov/sites/default/files/public/product_documentation/aster_l1t_product_specification.pdf
-             * Page 13.
-             */
-
-            if ( (band_index >= 0 && band_index <= 2) && strstr("LOW", gain_stat_str) )
-            {
-                strncpy(gain_stat_str, "LO1", 3);
-            }
-
             temp_gain_index = get_gain_stat(gain_stat_str);
-            if ( temp_gain_index == -1 )
-            {
-                FATAL_MSG("get_gain_stat failed.\n");
-                goto cleanupFail;
-            }
+
+            // https://github.com/TerraFusion/basicFusion/issues/199
+            // On page 13 of the ASTER 1T product specification
+            // (https://lpdaac.usgs.gov/sites/default/files/public/product_documentation/aster_l1t_product_specification.pdf), you will see the gain markers for VNIR (Bands 1-3) are .HIGH., .NOR. or .LOW..
+            // Since There is no Low Gain 2 for band 1-3B, the "LOW" must be "Low Gain 1". Change the index.
+            if(temp_gain_index == 5)
+                temp_gain_index = 2;
 
             gain[band_index] = temp_gain_index;
 
