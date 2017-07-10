@@ -232,20 +232,18 @@ mkdir "$logDir"/basicFusion/logs
 # Copy the basicFusion binary to the job directory. Use this copy of the bianry.
 cp $BF_PROG $runDir 
 
-space=" "
 for job in $(seq 0 $((numJobs-1)) ); do
     echo "Writing program calls in: ${jobDir[$job]}"
 
     for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
         # Read Orbit start time from file
-        opt_file="Orbit_Path_Time.txt"
-        filter=$orbit$space
+        opt_file="$ABS_PATH/Orbit_Path_Time.txt"
+        filter="$orbit "
         line=$(grep $filter $opt_file)
-        arr=($line)
-        orbit_start=$(cut -f1 -d"T" <<< ${arr[2]})
+        orbit_start=$(cut -f1 -d"T" <<< "$line" )
         orbit_start=${orbit_start//-/}
+        orbit_start=$(cut -f3 -d" " <<< "$orbit_start")
         evalFileName=$(eval echo "$FILENAME")
-        echo $evalFileName
         # BF program call looks like this:
         # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
         echo "$runDir/$(basename $BF_PROG) \"$OUT_PATH/$evalFileName\" \"$LISTING_PATH/input$orbit.txt\" \"$BIN_DIR/orbit_info.bin\" 2> $runDir/logs/basicFusion/errors/$orbit.err 1> $runDir/logs/basicFusion/logs/$orbit.log" > "${jobDir[$job]}/orbit$orbit.sh"
@@ -259,10 +257,10 @@ echo
 ###################
 #    CALL QSUB    #
 ###################
-cd $runDir/PBSscripts
-for job in $(seq 0 $((numJobs-1)) ); do
-    echo "Submitting $runDir/PBSscripts/job$job.pbs to queue."
-    qsub job$job.pbs
-done
+#cd $runDir/PBSscripts
+#for job in $(seq 0 $((numJobs-1)) ); do
+#    echo "Submitting $runDir/PBSscripts/job$job.pbs to queue."
+#    qsub job$job.pbs
+#done
 
 exit 0
