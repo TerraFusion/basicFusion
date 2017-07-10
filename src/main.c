@@ -215,7 +215,9 @@ int main( int argc, char* argv[] )
     if ( unpack ) printf("\n_____UNPACKING ENABLED_____\n");
     else printf("\n_____UNPACKING DISABLED_____\n");
     if ( useChunk ) printf("_____CHUNKING ENABLED_____\n");
+    else printf("\n_____CHUNKING DISABLED_____\n");
     if ( useGZIP ) printf("_____GZIP ENABLED_____\n");
+    else printf("\n_____GZIP DISABLED_____\n");
 
     /* remove output file if it already exists. Note that no conditional statements are used. If file does not exist,
      * this function will throw an error but we do not care.
@@ -241,6 +243,7 @@ int main( int argc, char* argv[] )
 
     printf("Transferring MOPITT...");
     fflush(stdout);
+
     /* get the MOPITT input file paths from our inputFiles.txt */
     status = getNextLine( inputLine, inputFile);
 
@@ -253,10 +256,7 @@ int main( int argc, char* argv[] )
 
     /* strcmp returns 0 if the strings match */
     if ( strcmp(inputLine, "MOP N/A" ) )
-    {
-        int MOPITTgranule = 1;
-        
-        
+    { 
         // minor: strstr may be called twice in the loop. No need to change. KY 2017-04-10
         do
         {
@@ -291,7 +291,7 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
-            if ( MOPITT( MOPITTargs, current_orbit_info, &MOPITTgranule ) == EXIT_FAILURE )
+            if ( MOPITT( MOPITTargs, current_orbit_info ) == EXIT_FAILURE )
             {
                 FATAL_MSG("MOPITT failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                 goto cleanupFail;
@@ -307,11 +307,6 @@ int main( int argc, char* argv[] )
                 FATAL_MSG("Failed to get MOPITT line. Exiting program.\n");
                 goto cleanupFail;
             }
-
-            
-            /* LTC Apr-7-2017 Note that if the current granule was skipped, MOPITTgranule will be decremented by MOPITT.c
-               so that it contains the correct running total for number of granules that have been read.*/
-            MOPITTgranule++;
 
         } while ( strstr( inputLine, MOPITTcheck ) != NULL );
 
@@ -384,12 +379,6 @@ int main( int argc, char* argv[] )
 
                 if(*ceres_start_index_ptr >=0 && *ceres_end_index_ptr >=0)
                 {
-                    /* Remember the granule number */
-                    sprintf(ceres_granule_suffix,"%d",CERESgranuleNum);
-                    CERESargs[3] = calloc(strlen(granule)+strlen(ceres_granule_suffix)+1, 1);
-
-                    strncpy(CERESargs[3],granule,strlen(granule));
-                    strncat(CERESargs[3],ceres_granule_suffix,strlen(ceres_granule_suffix));
 
                     ceres_subset_num_elems = (*ceres_end_index_ptr) -(*ceres_start_index_ptr)+1;
                     ceres_subset_num_elems_ptr =&ceres_subset_num_elems;
@@ -433,16 +422,9 @@ int main( int argc, char* argv[] )
 
                 if(*ceres_start_index_ptr >=0 && *ceres_end_index_ptr >=0)
                 {
-                    sprintf(ceres_granule_suffix,"%d",CERESgranuleNum);
-                    CERESargs[3] = calloc(strlen(granule)+strlen(ceres_granule_suffix)+1, 1);
-
-                    strncpy(CERESargs[3],granule,strlen(granule));
-                    strncat(CERESargs[3],ceres_granule_suffix,strlen(ceres_granule_suffix));
-
                     ceres_subset_num_elems = (*ceres_end_index_ptr) - (*ceres_start_index_ptr)+1;
                     ceres_subset_num_elems_ptr =&ceres_subset_num_elems;
                     
-
                     granTempPtr = strrchr( inputLine, '/' );
                     if ( granTempPtr == NULL )
                     {
@@ -463,8 +445,6 @@ int main( int argc, char* argv[] )
                     }
                     ceres_fm2_count++;
                 }
-
-
             }
             else
             {
@@ -654,11 +634,6 @@ int main( int argc, char* argv[] )
                 /* Remember the granule number */
                 strncpy( MODISargs[4], inputLine, strlen(inputLine) );
                 sprintf(modis_granule_suffix,"%d",modis_count);
-                MODISargs[5] = malloc(strlen(granule)+strlen(modis_granule_suffix)+1);
-                memset(MODISargs[5],0,strlen(granule)+strlen(modis_granule_suffix)+1);
-
-                strncpy(MODISargs[5],granule,strlen(granule));
-                strncat(MODISargs[5],modis_granule_suffix,strlen(modis_granule_suffix));
 
                 status = MODIS( MODISargs,modis_count,unpack);
                 if ( status == EXIT_FAILURE )
@@ -785,14 +760,6 @@ int main( int argc, char* argv[] )
                 memset(ASTERargs[1],0,strlen(inputLine)+1);
                 strncpy( ASTERargs[1], inputLine, strlen(inputLine) );
 
-                /* Remember granule number */
-                sprintf(aster_granule_suffix,"%d",aster_count);
-                ASTERargs[2] = malloc(strlen(granule)+strlen(aster_granule_suffix)+1);
-                memset(ASTERargs[2],0,strlen(granule)+strlen(aster_granule_suffix)+1);
-
-                strncpy(ASTERargs[2],granule,strlen(granule));
-                strncat(ASTERargs[2],aster_granule_suffix,strlen(aster_granule_suffix));
-
                 /* EXECUTE ASTER DATA TRANSFER */
                 status = ASTER( ASTERargs,aster_count,unpack);
 
@@ -814,8 +781,6 @@ int main( int argc, char* argv[] )
                     FATAL_MSG("Failed to get ASTER line. Exiting program.\n");
                     goto cleanupFail;
                 }
-
-
             }
 
             // Assume MISR is after ASTER

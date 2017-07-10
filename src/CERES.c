@@ -7,15 +7,24 @@
 #define XMAX 2
 #define YMAX 720
 #define DIM_MAX 10
-//int get_subset_index(int start_fix,int start_index,int end_index,GDateInfo_t orbit_time,double* jd);
+
 int obtain_start_end_index(int* sindex_ptr,int* endex_ptr,double *jd,int32 size,OInfo_t orbit_info);
 herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, float valid_rangeMin, float valid_rangeMax );
-//int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 
 /*      CERES()
  *
  *  DESCRIPTION:
  *      CERES handles copying over all of the data from the CERES input files.
+ *
+ *  ARGUMENTS:
+ *      argv[0]         -- program name
+ *      argv[1]         -- output file name
+ *      argv[2]         -- CERES file name
+ *      index           -- 1 if FM1, 2 if FM2
+ *      ceres_fm_count  -- Number of index FM1 or FM2 files (denoted by index) that have been processed
+ *      c_start         -- The starting subset index
+ *      c_stride        -- The HDF5 subsetting stride
+ *      c_count         -- The number of elements remaining after subsetting 
  *
  *  TODO: Finish this description
  */
@@ -47,6 +56,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
     char* correctName = NULL;
     short fail = 0;
     char* tmpCharPtr = NULL;
+    char granuleName[20] = {'\0'};
     const char* UNITS1 = {"Watts/m^2/steradian"};
     const char* UNITS2 = {"Watts/m^2/micrometer/steradian"};
     char* inTimePosName[NUM_TIME] = {"Time of observation", "Colatitude of CERES FOV at surface",
@@ -112,20 +122,38 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         }
     }
 
-    /* Open / create the granule group ("granule1", "granule2" etc) */
+    /* Open/create the granule group */
 
-    if ( H5Lexists( rootCERES_g, argv[3], H5P_DEFAULT ) <= 0 )
+    // First, get the granule's time 
+    fileTime = getTime( argv[2], 1 ); 
+    if ( fileTime == NULL )
     {
-        if ( createGroup( &rootCERES_g, &granuleID_g,argv[3] ) )
+        FATAL_MSG("Failed to get the file time.\n");
+        goto cleanupFail;
+    }
+    sprintf(granuleName, "granule_%s", fileTime);
+
+    /* If the granuleName group doesn't exist */
+    if ( H5Lexists( rootCERES_g, granuleName, H5P_DEFAULT ) == 0 )
+    {
+        if ( createGroup( &rootCERES_g, &granuleID_g,granuleName ) )
         {
             FATAL_MSG("Failed to create CERES granule group.\n");
             granuleID_g = 0;
             goto cleanupFail;
         }
+    
+        /* Add the time stamp to the granule group */
+        
+        if(H5LTset_attribute_string(rootCERES_g, granuleName, "GranuleTime", fileTime)<0)
+        {
+            FATAL_MSG("Failed to add CERES time stamp.\n");
+            goto cleanupFail;
+        }
     }
     else
     {
-        granuleID_g = H5Gopen2( rootCERES_g, argv[3], H5P_DEFAULT );
+        granuleID_g = H5Gopen2( rootCERES_g, granuleName, H5P_DEFAULT );
         if ( rootCERES_g < 0 )
         {
             FATAL_MSG("Unable to open CERES granule group.\n");
@@ -134,15 +162,6 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         }
     }
 
-    /* Add the time stamp to the granule group */
-    
-    fileTime = getTime( argv[2], 1 );
-
-    if(H5LTset_attribute_string(rootCERES_g, argv[3], "GranuleTime", fileTime)<0)
-    {
-        FATAL_MSG("Failed to add CERES time stamp.\n");
-        goto cleanupFail;
-    }
     free(fileTime);
     fileTime = NULL;
 
@@ -174,7 +193,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         goto cleanupFail;
     }
 
-    if( H5LTset_attribute_string(granuleID_g, cameraName, "GranuleName", tmpCharPtr + 1) < 0 )
+    if( H5LTset_attribute_string(granuleID_g, cameraName, "FileName", tmpCharPtr + 1) < 0 )
     {
         FATAL_MSG("Failed to add CERES granule name.\n");
         goto cleanupFail;
@@ -393,18 +412,17 @@ cleanupFail:
         fail = 1;
     }
 
-    if ( fileID ) SDend(fileID);
-    if ( fileTime ) free(fileTime);
-    if ( rootCERES_g ) H5Gclose(rootCERES_g);
-    if ( granuleID_g) H5Gclose(granuleID_g);
-    if ( FMID_g) H5Gclose(FMID_g);
-    if ( radianceID_g ) H5Gclose(radianceID_g);
-    if ( geolocationID_g ) H5Gclose(geolocationID_g);
+    if ( fileID )           SDend(fileID);
+    if ( fileTime )         free(fileTime);
+    if ( rootCERES_g )      H5Gclose(rootCERES_g);
+    if ( granuleID_g)       H5Gclose(granuleID_g);
+    if ( FMID_g)            H5Gclose(FMID_g);
+    if ( radianceID_g )     H5Gclose(radianceID_g);
+    if ( geolocationID_g )  H5Gclose(geolocationID_g);
     if ( viewingAngleID_g ) H5Gclose(viewingAngleID_g);
-    if ( generalDsetID_d ) H5Dclose(generalDsetID_d);
-    if ( correctName ) free(correctName);
-
-    if ( fail ) return EXIT_FAILURE;
+    if ( generalDsetID_d )  H5Dclose(generalDsetID_d);
+    if ( correctName )      free(correctName);
+    if ( fail )             return EXIT_FAILURE;
 
     return EXIT_SUCCESS;
 }

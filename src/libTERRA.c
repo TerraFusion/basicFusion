@@ -2754,13 +2754,10 @@ char* getTime( char* pathname, int instrument )
         /* end points to the '.'. Offset it by -1 */
         end += -1;
 
-        /* add 2 to length: (end - start) will give a value that is 1 smaller
-         * than the amount of space actually needed to store string. Add
-         * another 1 for the null terminator
-         */
-        len = end - start + 2;
+        /* We want just the 7 characters after start */
+        len = 7;
         retString = calloc ( len,1 );
-        strncpy( retString, start, len-1 );
+        strncpy( retString, start, len);
 
         return retString;
     }
@@ -2788,9 +2785,9 @@ char* getTime( char* pathname, int instrument )
             return NULL;
         }
 
-        len = strlen(end-9) + 1;
+        len = 9;
         retString = calloc(len,1);
-        strncpy( retString, end-9, len-1 );
+        strncpy( retString, end-9, len );
         return retString;
 
     }
@@ -2840,7 +2837,7 @@ char* getTime( char* pathname, int instrument )
 
         } while ( 0 );
 
-        len = 17;
+        len = 13;
 
         retString = calloc(len,1);
         strncpy( retString, start, len-1 );
@@ -2859,8 +2856,9 @@ char* getTime( char* pathname, int instrument )
             return NULL;
         }
 
-        start += 4;
-        len = 18;
+        // Skip the version number
+        start += 7;
+        len = 15;
         retString = calloc(len,1);
         strncpy( retString, start, len-1 );
         return retString;
@@ -2878,8 +2876,9 @@ char* getTime( char* pathname, int instrument )
             return NULL;
         }
 
-        start += 31;
-        len = 8;
+        // Just want the orbit number
+        start += 32;
+        len = 7;
         retString = calloc(len,1);
         strncpy( retString, start, len-1 );
         return retString;
@@ -5060,30 +5059,23 @@ int comp_greg(GDateInfo_t j1, GDateInfo_t j2)
 {
 
 #define cmp_number(a,b) (((a) > (b)) ? 1 : (((a) == (b)) ? 0 : -1))
-//#define cmp_number2(a,b) (((a) > (b)) ? 1 : (((a) == (b)) ? 0 : -1))
 
     int cmp_year = cmp_number(j1.year,j2.year);
-//printf("cmp_year is %d\n",cmp_year);
     if(cmp_year == 0)
     {
         int cmp_month = cmp_number(j1.month,j2.month);
-//printf("cmp_month is %d\n",cmp_month);
         if(cmp_month == 0)
         {
             int cmp_day = cmp_number(j1.day,j2.day);
-//printf("cmp_day is %d\n",cmp_day);
             if(cmp_day == 0)
             {
                 int cmp_hour = cmp_number(j1.hour,j2.hour);
-//printf("cmp_hour is %d\n",cmp_hour);
                 if(cmp_hour == 0)
                 {
                     int cmp_minute = cmp_number(j1.minute,j2.minute);
-//printf("cmp_minute is %d\n",cmp_minute);
                     if(cmp_minute == 0)
                     {
                         int cmp_second = cmp_number(j1.second,j2.second);
-//printf("cmp_second is %d\n",cmp_second);
                         return cmp_second;
                     }
                     else
@@ -5102,6 +5094,34 @@ int comp_greg(GDateInfo_t j1, GDateInfo_t j2)
         return cmp_year;
 
 }
+
+/*
+        get_greg
+
+    DESCRIPTION:
+        get_greg converts the julian time given in the argument to a Gregorian calendar
+        date. The code can be seen in two separate parts: the section that converts the
+        date itself, and the code that converts the Gregorian time. The date portion of
+        the code was ported over by Shashank Bansal from a Python implementation. The
+        original Python can be found here:
+
+        https://gist.github.com/jiffyclub/1294443
+
+    ARGUMENTS:
+        double julian       -- The Julian value to be converted
+        int* yearp          -- Where the converted year will go
+        int* monthp         -- Where the converted month will go
+        int* dayp           -- Where the converted day will go
+        int* hourp          -- Where the converted hour will go
+        int* mmp            -- Where the converted minute will go
+        double* ssp         -- Where the converted second will go
+
+    EFFECTS:
+        Modifes the memory pointed to by the arguments to contain the converted Gregorian date
+
+    RETURN:
+        void
+*/
 
 void get_greg(double julian, int*yearp,int*monthp,int*dayp,int*hourp,int*mmp,double*ssp)
 {
