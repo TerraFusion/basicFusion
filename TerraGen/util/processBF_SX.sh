@@ -41,7 +41,7 @@ QUEUE="high"                                            # Which queue to put the
 
 #____________FILE NAMING_______________#
 
-FILENAME='TERRA_BF_L1B_O${orbit}_F000_V000.h5'          # The variable "orbit" will be expanded later on.
+FILENAME='TERRA_BF_L1B_O${orbit}_${orbit_start}_F000_V000.h5'          # The variable "orbit" will be expanded later on.
 
 #--------------------------------------#
 
@@ -236,9 +236,19 @@ for job in $(seq 0 $((numJobs-1)) ); do
     echo "Writing program calls in: ${jobDir[$job]}"
 
     for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
-
-        # Expand the FILENAME variable so that the $ORBIT value is inserted into the name
-        evalFileName=$(eval echo "$FILENAME")
+        # Read Orbit start time from file
+        opt_file="Orbit_Path_Time.txt"
+        while IFS=: read -r line
+        do
+            arr=($line)
+            if [ "$orbit" == "${arr[0]}" ]; then
+                orbit_start=$(cut -f1 -d"T" <<< ${arr[2]})
+                orbit_start=${orbit_start//-/}
+                evalFileName=$(eval echo "$FILENAME")
+                echo $evalFileName
+                break
+            fi
+         done <"$opt_file"
 
         # BF program call looks like this:
         # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
