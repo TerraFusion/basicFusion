@@ -65,7 +65,7 @@ extern hid_t outputFile;
 extern double* TAI93toUTCoffset; // The array containing the TAI93 to UTC offset values
 int numDigits(int digit);
 
-int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum );
+int MOPITT( char* argv[], OInfo_t cur_orbit_info);
 int CERES( char* argv[],int index,int ceres_fm_count,int32*,int32*,int32*);
 int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 int MODIS( char* argv[],int modis_count,int unpack );
@@ -76,6 +76,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID,
                      int returnDatasetID, int rank, hsize_t* datasetDims,
                      hid_t dataType, const char* datasetName, const void* data_out);
 
+/* The GZIP compression version of insertDataset */
 hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID,
                           int returnDatasetID, int rank, hsize_t* datasetDims,
                           hid_t dataType, char* datasetName, void* data_out);

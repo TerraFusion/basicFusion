@@ -20,7 +20,7 @@
     [2] = 500m filename
     [3] = 250m filename
     [4] = MOD03 filename
-    [5] = granule name ("granule1","granule2", etc)
+    [5] = NOT USED
     [6] = output filename (already exists);
 */
 
@@ -70,6 +70,8 @@ int MODIS( char* argv[],int modis_count, int unpack)
     char* QKMlatPath = NULL;
     char* QKMlonPath = NULL;  
     char* QKMcoord_250M_Path = NULL;
+    char granuleName[50] = {'\0'};
+    char* granuleNameCorrect = NULL;
     ssize_t pathSize = 0;
 
     /**********************
@@ -158,8 +160,6 @@ int MODIS( char* argv[],int modis_count, int unpack)
      * END VARIABLES *
      *****************/
 
-// JUST FOR DEBUGGING
-//unpack = 0;
 
     /* open the input files */
     _1KMFileID = SDstart( argv[1], DFACC_READ );
@@ -231,14 +231,29 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
 
     // Create the granule group under MODIS group
-    if ( createGroup( &MODISrootGroupID, &MODISgranuleGroupID,argv[5] ) )
+    // First extract the time substring from the file path
+
+    fileTime = getTime( argv[1], 2 );
+    if ( fileTime == NULL )
+    {
+        FATAL_MSG("Failed to extract the time.\n");
+        goto cleanupFail;
+    }
+
+    // Now create the granuleName, the name of the granule group 
+    sprintf( granuleName, "granule_%s", fileTime );
+    
+    /* granuleName has invalid characters. Correct this. */
+    granuleNameCorrect = correct_name(granuleName);
+
+    // We can now add granuleName as a group
+    if ( createGroup( &MODISrootGroupID, &MODISgranuleGroupID,granuleName ) )
     {
         FATAL_MSG("Failed to create MODIS root group.\n");
         MODISgranuleGroupID = 0;
         goto cleanupFail;
     }
 
-   
     /* Add 1KM granule name */ 
     tmpCharPtr = strrchr(argv[1], '/');
     if ( tmpCharPtr == NULL )
@@ -247,7 +262,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleName_1KM", tmpCharPtr+1)<0)
+    if (H5LTset_attribute_string(MODISrootGroupID,granuleNameCorrect,"GranuleName_1KM", tmpCharPtr+1) < 0 )
     {
         FATAL_MSG("Cannot add the file path attribute.\n");
         goto cleanupFail;
@@ -264,7 +279,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             goto cleanupFail;
         }
 
-        if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleName_HKM", tmpCharPtr+1)<0)
+        if (H5LTset_attribute_string(MODISrootGroupID,granuleNameCorrect,"GranuleName_HKM", tmpCharPtr+1) < 0 )
         {
             FATAL_MSG("Cannot add the file path attribute.\n");
             goto cleanupFail;
@@ -282,7 +297,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             goto cleanupFail;
         }
 
-        if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleName_QKM", tmpCharPtr+1)<0)
+        if (H5LTset_attribute_string(MODISrootGroupID,granuleNameCorrect,"GranuleName_QKM", tmpCharPtr+1)<0)
         {
             FATAL_MSG("Cannot add the file path attribute.\n");
             goto cleanupFail;
@@ -298,16 +313,15 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleName_MOD03", tmpCharPtr+1)<0)
+    if (H5LTset_attribute_string(MODISrootGroupID,granuleNameCorrect,"GranuleName_MOD03", tmpCharPtr+1)<0)
     {
         FATAL_MSG("Cannot add the file path attribute.\n");
         goto cleanupFail;
     }
 
 
-    // Extract the time substring from the file path
-    fileTime = getTime( argv[1], 2 );
-    if (H5LTset_attribute_string(MODISrootGroupID,argv[5],"GranuleTime",fileTime)<0)
+    // Add the fileTime as an attribute to the MODIS root group
+    if (H5LTset_attribute_string(MODISrootGroupID,granuleNameCorrect,"GranuleTime",fileTime)<0)
     {
         FATAL_MSG("Cannot add the time stamp.\n");
         goto cleanupFail;
@@ -1670,25 +1684,6 @@ int MODIS( char* argv[],int modis_count, int unpack)
      ------------ MOD03 File ------------
      ------------------------------------*/
 
-#if 0
-    /*_______________latitude data_______________*/
-
-    latitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
-                                       "Latitude",
-                                       DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-
-    /*_______________longitude data______________*/
-    longitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
-                                        "Longitude",
-                                        DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-
-    /*_______________Sun angle under the granule group______________*/
-    SDSunzenithDatasetID = readThenWrite( NULL, MODISgranuleGroupID,"SD Sun zenith",
-                                          DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-
-    SDSunazimuthDatasetID = readThenWrite(MODISgranuleGroupID,"SD Sun azimuth",
-                                          DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-#endif
 
     // We add the high-resolution lat/lon only when the data is unpacked, This is actually an advanced basic-fusion version.
     if(unpack == 1 && argv[2] != NULL )
@@ -1964,7 +1959,6 @@ cleanupFail:
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
     if(SolarZenithDatasetID != 0) status = H5Dclose(SolarZenithDatasetID);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
-
     if (SDSunazimuthDatasetID !=0 ) status = H5Dclose(SDSunazimuthDatasetID);
     if ( status < 0 ) WARN_MSG("H5Dclose\n");
     if (SDSunzenithDatasetID !=0 ) status = H5Dclose(SDSunzenithDatasetID);
@@ -2021,6 +2015,7 @@ cleanupFail:
     if ( HKMcoord_250M_Path ) free (HKMcoord_250M_Path);
     if ( HKMcoord_500M_Path ) free(HKMcoord_500M_Path );
     if ( QKMcoord_250M_Path ) free (QKMcoord_250M_Path);    
+    if ( granuleNameCorrect ) free ( granuleNameCorrect );
     if ( fail ) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;

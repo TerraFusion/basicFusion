@@ -96,8 +96,6 @@ int MISR( char* argv[],int unpack )
     hid_t h5DataFieldID = 0;
     hid_t h5SensorGeomFieldID = 0;
 
-// Just for debugging purpose
-//unpack = 0;
     createGroup( &outputFile, &MISRrootGroupID, "MISR" );
     if ( MISRrootGroupID == EXIT_FAILURE )
     {
@@ -105,11 +103,6 @@ int MISR( char* argv[],int unpack )
         return EXIT_FAILURE;
     }
 
-    /* TODO
- *      Need to fix this. MISR should create a "granule" group under the MISR group to keep track of multiple files.
- *      We will need to put the granule list inside of the granule group instead of the MISR group once code for
- *      handling multiple granules is developed. For now, this will just be attached to the MISR group.
- */
     for ( i = 1; i < 13; i++ )
     {
         if ( argv[i] )

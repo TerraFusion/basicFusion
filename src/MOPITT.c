@@ -17,7 +17,7 @@
 
 hid_t outputFile;
 
-int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
+int MOPITT( char* argv[], OInfo_t cur_orbit_info )
 {
 
     hid_t file = 0;
@@ -71,16 +71,14 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
         goto cleanupFail;
     }
 
+    /* Extract the file time from the file name */
+    fileTime = getTime( argv[1], 0 );
+
     /* LandonClipp Apr 7 2017. Before inserting datasets, we need to find the starting and ending indices for subsetting. */
     status = MOPITT_OrbitInfo ( file, cur_orbit_info, TIME, &startIdx, &endIdx );
     if ( status == 1 )
     {
-        /* LandonClipp Apr 7 2017
-           Decrement the granuleNum variable in the calling function. Calling function increments naively
-           to keep track of how many granules have been inserted, but if no granule is inserted (in the case
-           where the status == 1), we'll need to modify this variable to account for that.
-        */
-        *granuleNum += -1;
+        /* This granule is out of bounds */
         goto cleanup;
     }
     else if ( status == 2 )
@@ -94,7 +92,8 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
 
 
     /* If it's the first granule, create the root MOPITT group */
-    if ( *granuleNum == 1 )
+    htri_t exists = H5Lexists( outputFile, "MOPITT", H5P_DEFAULT);
+    if ( exists == 0 )
     {
         // create the root group
         if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) == EXIT_FAILURE )
@@ -104,58 +103,67 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
             goto cleanupFail;
         }
     }
+    else if ( exists < 0 )
+    {
+        FATAL_MSG("Failed to determine if the MOPITT group exists for granule %s.\n", fileTime);
+        goto cleanupFail;
+    }
     else
     {
         MOPITTroot = H5Gopen2( outputFile, "MOPITT", H5P_DEFAULT );
         if ( MOPITTroot < 0 )
         {
             MOPITTroot = 0;
-            FATAL_MSG("Failed to open MOPITT group for the creation of granule %d.\n", *granuleNum );
+            FATAL_MSG("Failed to open MOPITT group for the creation of granule %s.\n", fileTime);
             goto cleanupFail;
         }
+    }
+
+    /* MOPITT should have at most 2 granules. If 2 granules are currently present, we should throw an error.
+     * The presence of 2 granules means that a third will be attempted to be added.
+     */
+    H5G_info_t group_info;
+    status = H5Gget_info( MOPITTroot, &group_info );
+    if ( group_info.nlinks >= 2 )  
+    {
+        FATAL_MSG("MOPITT can't have more than two granules!\n");
+        goto cleanupFail;
     }
 
     /* Create the granule group */
-    if ( *granuleNum == 1 || *granuleNum == 2 )
+    char granName[17] = {'\0'};
+
+    /* The granule group will be named "granule_[fileTime]" */
+    sprintf(granName,"granule_%s", fileTime);
+    status = createGroup( &MOPITTroot, &granuleID, granName );
+    if ( status == EXIT_FAILURE )
     {
-        char granName[9] = {'\0'};
-        sprintf(granName,"granule%d",*granuleNum);
-        status = createGroup( &MOPITTroot, &granuleID, granName );
-        if ( status == EXIT_FAILURE )
-        {
-            FATAL_MSG("Failed to create granule group number %d.\n", *granuleNum );
-            granuleID = 0;
-            goto cleanupFail;
-        }
-
-        /* Set the attributes for the granule group indicating information about the original file */
-
-        tmpCharPtr = strrchr(argv[1], '/');
-        if ( tmpCharPtr == NULL )
-        {
-            FATAL_MSG("Failed to find a specific character within a string.\n");
-            goto cleanupFail;
-        }
-        if(H5LTset_attribute_string(MOPITTroot,granName,"GranuleName", tmpCharPtr+1 )<0)
-        {
-            FATAL_MSG("Unable to set attribute string.\n");
-            goto cleanupFail;
-        }
-
-        fileTime = getTime( argv[1], 0 );
-        if(H5LTset_attribute_string(MOPITTroot,granName,"GranuleTime",fileTime)<0)
-        {
-            FATAL_MSG("Unable to set attribute string.\n");
-            goto cleanupFail;
-        }
-        free(fileTime);
-        fileTime = NULL;
-    }
-    else
-    {
-        FATAL_MSG("MOPITT can't have more than 2 granules in one orbit!\n");
+        FATAL_MSG("Failed to create granule group.\n");
+        granuleID = 0;
         goto cleanupFail;
     }
+
+    /* Set the attributes for the granule group indicating information about the original file */
+
+    tmpCharPtr = strrchr(argv[1], '/');
+    if ( tmpCharPtr == NULL )
+    {
+        FATAL_MSG("Failed to find a specific character within a string.\n");
+        goto cleanupFail;
+    }
+    if(H5LTset_attribute_string(MOPITTroot,granName,"GranuleName", tmpCharPtr+1 )<0)
+    {
+        FATAL_MSG("Unable to set attribute string.\n");
+        goto cleanupFail;
+    }
+
+    if(H5LTset_attribute_string(MOPITTroot,granName,"GranuleTime",fileTime)<0)
+    {
+        FATAL_MSG("Unable to set attribute string.\n");
+        goto cleanupFail;
+    }
+    free(fileTime);
+    fileTime = NULL;
 
 
     // create the radiance group
@@ -203,7 +211,8 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     dimSize = bound[1] - bound[0] + 1;
     intArray = calloc ( dimSize, sizeof(int) );
 
-    if ( *granuleNum == 1 )
+    /* group_info.nlinks can give us the granule index */
+    if ( group_info.nlinks == 0 )
     {
         ntrackID = MOPITTaddDimension( outputFile, "ntrack_1", dimSize, intArray, H5T_NATIVE_INT );
         if ( ntrackID == FAIL )
@@ -285,7 +294,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
             goto cleanupFail;
         }
     }
-    else if ( *granuleNum == 2 )
+    else if ( group_info.nlinks == 1 )
     {
         ntrackID = MOPITTaddDimension( outputFile, "ntrack_2", dimSize, intArray, H5T_NATIVE_INT );
         if ( ntrackID == FAIL )
@@ -329,7 +338,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
     }
     else
     {
-        FATAL_MSG("MOPITT can't have more than 2 granules in one orbit!\n");
+        FATAL_MSG("Something strange happened.\n");
         goto cleanupFail;
     }
 
@@ -340,8 +349,6 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info, int* granuleNum )
         FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
         goto cleanupFail;
     }
-
-
 
     /* Attach these dimensions to the dataset */
     status = H5DSattach_scale( radianceDataset, ntrackID, 0 );

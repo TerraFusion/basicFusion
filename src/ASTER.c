@@ -37,7 +37,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
 /*
     argv[0] = program name
     argv[1] = granule file path
-    argv[2] = granule name (granule1, granule2 etc)
+    argv[2] = NOT USED
     argv[3] = output file name
 */
 
@@ -151,14 +151,13 @@ int ASTER( char* argv[],int aster_count,int unpack)
             Add checks for the existence of the VNIR group.
         Some files will not have it.
     */
-    char *vnir_grp_name ="VNIR";
-    char* swir_grp_name = "SWIR";
-    char* tir_grp_name = "TIR";
-    int32 vnir_grp_ref = -1;
-    int32 swir_grp_ref = -1;
-    int32 tir_grp_ref = -1;
-// JUST FOR DEBUGGING
-//unpack=0;
+    char *vnir_grp_name     = "VNIR";
+    char* swir_grp_name     = "SWIR";
+    char* tir_grp_name      = "TIR";
+    char granuleName[50]    = {'\0'};
+    int32 vnir_grp_ref      = -1;
+    int32 swir_grp_ref      = -1;
+    int32 tir_grp_ref       = -1;
 
     /*
      *    * Open the HDF file for reading.
@@ -218,22 +217,13 @@ int ASTER( char* argv[],int aster_count,int unpack)
     }
 
 
-    /* LTC May 24, 2017: We need to create a string that contains suffix "_g%d" where "%d" is the number of the current granule.
-     * This is needed for the copyDimensions function calls to create unique dimensions for each of the datasets.
-     */
-
-    // integer division is a floor operation
-    int numDigit = numDigits(aster_count);
-    granuleSuffix = calloc ( 2 + numDigit + 1, 1 ); // 2 for "_g", numDigit for the integer, 1 for null terminator
-    sprintf(granuleSuffix, "_g%d", aster_count);
-
     /********************************************************************************
      *                                GROUP CREATION                                *
      ********************************************************************************/
 
     /* ASTER root group */
 
-    /* MY 2016-12-20: Create the root group for the first grnaule */
+    /* MY 2016-12-20: Create the root group for the first granule */
     if(aster_count == 1)
     {
         createGroup( &outputFile, &ASTERrootGroupID, "ASTER" );
@@ -259,7 +249,20 @@ int ASTER( char* argv[],int aster_count,int unpack)
     }
 
     // Create the granule group under ASTER group
-    if ( createGroup( &ASTERrootGroupID, &ASTERgranuleGroupID,argv[2] ) )
+    /* First, get the file time */ 
+    fileTime = getTime( argv[1], 3 );
+
+    /* Print file name to a string */
+    sprintf( granuleName, "granule_%s", fileTime );
+
+    /* Prepare the granuleSuffix variable. This variable will contain the granule suffix for the ASTER dimensions.
+     * Its format should be obvious from the following code. This variable is used later on down the line.
+     */
+    granuleSuffix = calloc( strlen("_g") + strlen(fileTime) + 1, 1 );
+    sprintf( granuleSuffix, "_g%s", fileTime );
+
+    /* Each call to the ASTER() function will be a separate granule, so we just create the granule group here */
+    if ( createGroup( &ASTERrootGroupID, &ASTERgranuleGroupID,granuleName ) )
     {
         FATAL_MSG("Failed to create ASTER granule group.\n");
         ASTERgranuleGroupID = 0;
@@ -274,15 +277,15 @@ int ASTER( char* argv[],int aster_count,int unpack)
     }
 
     /* MY 2016-12-20: Add the granule time information. Now just add the file name */
-    if(H5LTset_attribute_string(ASTERrootGroupID,argv[2],"GranuleName",tmpCharPtr+1)<0)
+    /* LTC 2017 Jul 10: Note, the granuleName variable and "GranuleName" string are not related to each other */
+    if(H5LTset_attribute_string(ASTERrootGroupID,granuleName,"GranuleName",tmpCharPtr+1)<0)
     {
         FATAL_MSG("Failed to add ASTER string attribute.\n");
         goto cleanupFail;
     }
 
-    fileTime = getTime( argv[1], 3 );
-    /* Landon 2017-1-21: Extract the time information from file name and add as attribute */
-    if(H5LTset_attribute_string(ASTERrootGroupID,argv[2],"GranuleTime",fileTime)<0)
+    /* Landon 2017-1-21: Add the fileTime variable contents as attribute */
+    if(H5LTset_attribute_string(ASTERrootGroupID,granuleName,"GranuleTime",fileTime)<0)
     {
         FATAL_MSG("Failed to add ASTER string attribute.\n");
         goto cleanupFail;
@@ -1825,10 +1828,12 @@ int obtain_gain_index(int32 sd_id,short gain_index[15])
                 goto cleanupFail;
             }
 
-            // https://github.com/TerraFusion/basicFusion/issues/199
-            // On page 13 of the ASTER 1T product specification
-            // (https://lpdaac.usgs.gov/sites/default/files/public/product_documentation/aster_l1t_product_specification.pdf), you will see the gain markers for VNIR (Bands 1-3) are .HIGH., .NOR. or .LOW..
-            // Since There is no Low Gain 2 for band 1-3B, the "LOW" must be "Low Gain 1". Change the index.
+            /*  https://github.com/TerraFusion/basicFusion/issues/199
+                On page 13 of the ASTER 1T product specification
+                (https://lpdaac.usgs.gov/sites/default/files/public/product_documentation/aster_l1t_product_specification.pdf), 
+                you will see the gain markers for VNIR (Bands 1-3) are .HIGH., .NOR. or .LOW..
+                Since There is no Low Gain 2 for band 1-3B, the "LOW" must be "Low Gain 1". Change the index.
+            */
             if(temp_gain_index == 5)
                 temp_gain_index = 2;
 
