@@ -5106,9 +5106,7 @@ int comp_greg(GDateInfo_t j1, GDateInfo_t j2)
 void get_greg(double julian, int*yearp,int*monthp,int*dayp,int*hourp,int*mmp,double*ssp)
 {
 
-//printf("julian is %f\n",julian);
     int JGREG = 15 + 31*(10+12*1582);
-    double HALFSECOND = 0.5;
 
     double julian_fract = julian-(int)julian;
     double total_ss,ss;
@@ -5121,31 +5119,42 @@ void get_greg(double julian, int*yearp,int*monthp,int*dayp,int*hourp,int*mmp,dou
     hh = (int)(total_ss/3600);
     mm = (int)((total_ss-(hh*3600))/60);
     ss = total_ss-(hh*60.0+mm)*60.0;
-//printf("ss is %lf \n",ss);
 
 
     /* Calculte fraction */
 
+    julian = julian + 0.5;
 
-    int jalpha,ja,jb,jc,jd,je,year,month,day;
-    julian = julian + HALFSECOND / 86400.0;
-    ja = (int) julian;
-    if (ja>= JGREG)
+    double F, I, B, C, D, E, G, A;
+    int day, month, year;
+
+    F = modf(julian, &I);
+    A = trunc(((int)I - 1867216.25)/36524.25);
+
+    if(I > 2299160)
     {
-
-        jalpha = (int) (((ja - 1867216) - 0.25) / 36524.25);
-        ja = ja + 1 + jalpha - jalpha / 4;
+        B = I + 1 + A - trunc(A / 4.0);
     }
-    jb = ja + 1524;
-    jc = (int) (6680.0 + ((jb - 2439870) - 122.1) / 365.25);
-    jd = 365 * jc + jc / 4;
-    je = (int) ((jb - jd) / 30.6001);
-    day = jb - jd - (int) (30.6001 * je);
-    month = je - 1;
-    if (month > 12) month = month - 12;
-    year = jc - 4715;
-    if (month > 2) year--;
-    if (year <= 0) year--;
+
+    else
+        B = I;
+
+    C = B + 1524;
+    D = trunc((C - 122.1) / 365.25);
+    E = trunc(365.25 * D);
+    G = trunc((C - E) / 30.6001);
+
+    day = C - E + F - trunc(30.6001 * G);
+
+    if(G < 13.5) 
+        month = G - 1;
+    else 
+        month = G - 13;
+
+    if(month > 2.5) 
+        year = D - 4716;
+    else 
+        year = D - 4715;
 
     *yearp = year;
     *monthp = month;
@@ -5154,7 +5163,6 @@ void get_greg(double julian, int*yearp,int*monthp,int*dayp,int*hourp,int*mmp,dou
     *mmp    = mm;
     *ssp    = ss;
 
-//printf("ss is %lf \n",ss);
     return;
 }
 /*
@@ -5218,7 +5226,6 @@ int binarySearchUTC ( const double* jd, GDateInfo_t target, int start_index,int 
     printf("orbit minute is %d\n",target.minute);
     printf("orbit second is %lf\n",target.second);
 #endif
-
     get_greg(jd[middle],temp_yearp,temp_monthp,temp_dayp,temp_hourp,temp_minutep,temp_secondp);
     gran_mark_index_time.year = *temp_yearp;
     gran_mark_index_time.month = *temp_monthp;
