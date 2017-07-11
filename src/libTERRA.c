@@ -193,7 +193,7 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
                          H5P_DEFAULT, plist_id, H5P_DEFAULT );
     if(dataset<0)
     {
-        fprintf(stderr,"[%s:%s:%d] H5Dcreate -- Unable to create dataset \"%s\".\n", __FILE__,__func__,__LINE__, datasetName );
+         FATAL_MSG("/gH5Dcreate -- Unable to create dataset \"%s\".\n", datasetName );
         H5Pclose(plist_id);
         H5Sclose(memspace);
         free(correct_dsetname);
@@ -203,7 +203,7 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
     status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, (VOIDP)data_out );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5DWrite -- Unable to write to dataset \"%s\".\n", __FILE__,__func__,__LINE__, datasetName );
+         FATAL_MSG("/gH5DWrite -- Unable to write to dataset \"%s\".\n", datasetName );
         H5Pclose(plist_id);
         H5Dclose(dataset);
         H5Sclose(memspace);
@@ -325,7 +325,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 
     if ( dataset < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5Dopen -- Could not open \"%s\".\n",__FILE__, __func__,__LINE__, inDatasetPath );
+         FATAL_MSG("/gH5Dopen -- Could not open \"%s\".\n", inDatasetPath );
         dataset = 0;
         goto cleanupFail;
     }
@@ -563,7 +563,7 @@ herr_t openFile( hid_t *file, char* inputFileName, unsigned flags  )
 
     if ( *file < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5Fopen -- Could not open HDF5 file.\n", __FILE__, __func__, __LINE__ );
+         FATAL_MSG("/gH5Fopen -- Could not open HDF5 file.\n" );
         return EXIT_FAILURE;
     }
 
@@ -590,7 +590,7 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
     *outputFile = H5Fcreate( outputFileName, H5F_ACC_EXCL, H5P_DEFAULT, H5P_DEFAULT );
     if ( *outputFile < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5Fcreate -- Could not create HDF5 file. Does it already exist? If so, delete or don't\n\t    call this function.\n",__FILE__, __func__,__LINE__ );
+         FATAL_MSG("/gH5Fcreate -- Could not create HDF5 file. Does it already exist? If so );
         return EXIT_FAILURE;
     }
 
@@ -628,7 +628,7 @@ herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* groupNam
     *newGroup = H5Gcreate( *referenceGroup, newGroupName, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
     if ( *newGroup < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5Gcreate -- Could not create '%s' root group.\n",__FILE__,__func__,__LINE__, newGroupName);
+         FATAL_MSG("/gH5Gcreate -- Could not create '%s' root group.\n", newGroupName);
         *newGroup = EXIT_FAILURE;
         free(newGroupName);
         return EXIT_FAILURE;
@@ -670,13 +670,13 @@ hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID )
     attrID = H5Acreate( objectID, attrName, datatypeID, attrDataspace, H5P_DEFAULT, H5P_DEFAULT );
     if ( attrID < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5Acreate -- Could not create attribute \"%s\".\n",__FILE__, __func__,__LINE__, attrName );
+         FATAL_MSG("/gH5Acreate -- Could not create attribute \"%s\".\n", attrName );
         return EXIT_FAILURE;
     }
 
     // close dataspace
     if ( H5Sclose(attrDataspace) < 0 )
-        fprintf( stderr, "[%s:%s:%d] H5Sclose -- Could not close attribute dataset for \"%s\". Memory leak possible.\n",__FILE__,__func__,__LINE__, attrName );
+         FATAL_MSG("/gH5Sclose -- Could not close attribute dataset for \"%s\". Memory leak possible.\n", attrName );
 
     return attrID;
 }
@@ -739,7 +739,7 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname)
             vgroup_name = (char *) HDmalloc(sizeof(char *) * (name_len+1));
             if (vgroup_name == NULL)
             {
-                fprintf(stderr, "[%s:%s:%d] HDmalloc failed. Not enough memory for vgroup_name!\n",__FILE__,__func__,__LINE__);
+                 FATAL_MSG("/gHDmalloc failed. Not enough memory for vgroup_name!\n");
                 free(ref_array);
                 return EXIT_FAILURE;
             }
@@ -826,14 +826,14 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
     sds_index = SDnametoindex( fileID, datasetName );
     if( sds_index < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] SDnametoindex: Failed to get index of dataset.\n", __FILE__, __func__, __LINE__);
+         FATAL_MSG("/gSDnametoindex: Failed to get index of dataset.\n");
         return EXIT_FAILURE;
     }
 
     sds_id = SDselect( fileID, sds_index );
     if ( sds_id < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] SDselect: Failed to select dataset.\n", __FILE__, __func__, __LINE__);
+         FATAL_MSG("/gSDselect: Failed to select dataset.\n");
         return EXIT_FAILURE;
     }
 
@@ -849,7 +849,7 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
     status = SDgetinfo( sds_id, NULL, &rank, dimsizes, &ntype, &num_attrs);
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] SDgetinfo: Failed to get info from dataset.\n", __FILE__, __func__, __LINE__);
+         FATAL_MSG("/gSDgetinfo: Failed to get info from dataset.\n");
         SDendaccess(sds_id);
         return EXIT_FAILURE;
     }
@@ -975,7 +975,7 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
 
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] SDreaddata: Failed to read data.\n", __FILE__, __func__, __LINE__);
+         FATAL_MSG("/gSDreaddata: Failed to read data.\n");
         SDendaccess(sds_id);
         if ( data != NULL ) free(data);
         return EXIT_FAILURE;
@@ -1037,7 +1037,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
     attrID = attributeCreate( objectID, name, stringType );
     if ( attrID == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] H5Aclose: Unable to create %s attribute.\n", __FILE__, __func__,__LINE__, name);
+         FATAL_MSG("/gH5Aclose: Unable to create %s attribute.\n", name);
         H5Tclose(stringType);
         return EXIT_FAILURE;
     }
@@ -1045,7 +1045,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
     status = H5Awrite( attrID, stringType, value );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] H5Awrite: Unable to write %s attribute.\n", __FILE__, __func__,__LINE__, name);
+         FATAL_MSG("/gH5Awrite: Unable to write %s attribute.\n", name);
         H5Tclose(stringType);
         H5Aclose(attrID);
         return EXIT_FAILURE;
@@ -1385,7 +1385,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
     if(unc < 0)
     {
-        fprintf( stderr, "[%s:%s:%d] There is no valid Unit Conversion Coefficient for this dataset  %s.\n", __FILE__, __func__,__LINE__,  datasetName );
+         FATAL_MSG("/gThere is no valid Unit Conversion Coefficient for this dataset  %s.\n",  datasetName );
         return (EXIT_FAILURE);
 
     }
@@ -1403,14 +1403,14 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
     }
     else
     {
-        fprintf( stderr, "[%s:%s:%d] Unsupported datatype. Datatype must be either DFNT_UINT16 or DFNT_UINT8.\n", __FILE__, __func__,__LINE__ );
+         FATAL_MSG("/gUnsupported datatype. Datatype must be either DFNT_UINT16 or DFNT_UINT8.\n" );
         return (EXIT_FAILURE);
     }
 
 
     if ( status == EXIT_FAILURE )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+         FATAL_MSG("/gUnable to read %s data.\n",  datasetName );
         if ( vsir_dataBuffer != NULL ) free(vsir_dataBuffer);
         if ( tir_dataBuffer != NULL ) free(tir_dataBuffer);
         return (EXIT_FAILURE);
@@ -1503,7 +1503,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+         FATAL_MSG("/gError writing %s dataset.\n", datasetName );
         if ( vsir_dataBuffer != NULL ) free(vsir_dataBuffer);
         if ( tir_dataBuffer != NULL ) free(tir_dataBuffer);
         if ( output_dataBuffer != NULL ) free(output_dataBuffer);
@@ -1575,7 +1575,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
 
     if(scale_factor < 0)
     {
-        fprintf( stderr, "[%s:%s:%d] The scale_factor of %s is less than 0.\n", __FILE__, __func__,__LINE__,  datasetName );
+         FATAL_MSG("/gThe scale_factor of %s is less than 0.\n",  datasetName );
         return (EXIT_FAILURE);
 
     }
@@ -1583,7 +1583,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
                          (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL);
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+         FATAL_MSG("/gUnable to read %s data.\n",  datasetName );
         if ( input_dataBuffer != NULL ) free(input_dataBuffer);
         return (EXIT_FAILURE);
     }
@@ -1602,7 +1602,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
     }
     else  // We will fail here.
     {
-        fprintf( stderr, "[%s:%s:%d] Error: The dataset name doesn't end with /RDQI\n", __FILE__, __func__,__LINE__);
+         FATAL_MSG("/gError: The dataset name doesn't end with /RDQI\n");
         return EXIT_FAILURE;
     }
 
@@ -1714,7 +1714,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
 
             if ( la_pos_dsetid == EXIT_FAILURE )
             {
-                fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, newdatasetName );
+                 FATAL_MSG("/gError writing %s dataset.\n", newdatasetName );
                 if(la_pos_dset_name)
                     free(la_pos_dset_name);
                 if(la_data_pos)
@@ -1776,7 +1776,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
 
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+         FATAL_MSG("/gError writing %s dataset.\n", datasetName );
         if(newdatasetName) free(newdatasetName);
         if( input_dataBuffer) free(input_dataBuffer);
         if( output_dataBuffer) free(output_dataBuffer);
@@ -1790,7 +1790,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
     /*
        tempFloat = -999.0;
        if(H5LTset_attribute_float( datasetID, correctedName,"_FillValue",&tempFloat,1)<0) {
-           fprintf(stderr, "[%s:%s:%d] Error writing %s dataset's fillvalue attributes.\n", __FILE__, __func__,__LINE__, datasetName );
+            FATAL_MSG("/gError writing %s dataset's fillvalue attributes.\n", datasetName );
            if(newdatasetName) free(newdatasetName);
            if( input_dataBuffer) free(input_dataBuffer);
            if( output_dataBuffer) free(output_dataBuffer);
@@ -1871,7 +1871,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
                          (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+         FATAL_MSG("/gUnable to read %s data.\n",  datasetName );
         if ( input_dataBuffer ) free(input_dataBuffer);
         return (EXIT_FAILURE);
     }
@@ -1899,7 +1899,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
         sds_index = SDnametoindex( inputFileID, datasetName );
         if( sds_index < 0 )
         {
-            fprintf( stderr, "[%s:%s:%d] -- SDnametoindex -- Failed to get index of dataset.\n", __FILE__, __func__, __LINE__);
+             FATAL_MSG("/g-- SDnametoindex -- Failed to get index of dataset.\n");
             free(input_dataBuffer);
             return EXIT_FAILURE;
         }
@@ -1907,7 +1907,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
         sds_id = SDselect( inputFileID, sds_index );
         if ( sds_id < 0 )
         {
-            fprintf( stderr, "[%s:%s:%d] SDselect -- Failed to get the ID of the dataset.\n", __FILE__, __func__, __LINE__);
+             FATAL_MSG("/gSDselect -- Failed to get the ID of the dataset.\n");
             free(input_dataBuffer);
             return EXIT_FAILURE;
         }
@@ -1915,7 +1915,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
         radi_sc_index = SDfindattr(sds_id,radi_scales);
         if(radi_sc_index < 0)
         {
-            fprintf( stderr, "[%s:%s:%d] Cannot find attribute %s of variable %s\n", __FILE__, __func__, __LINE__,radi_scales,datasetName);
+             FATAL_MSG("/gCannot find attribute %s of variable %s\n",radi_scales,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
             return EXIT_FAILURE;
@@ -1923,7 +1923,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
         if(SDattrinfo (sds_id, radi_sc_index, temp_attr_name, &radi_sc_type, &num_radi_sc_values)<0)
         {
-            fprintf( stderr, "[%s:%s:%d] Cannot obtain SDS attribute %s of variable %s\n", __FILE__, __func__, __LINE__,radi_scales,datasetName);
+             FATAL_MSG("/gCannot obtain SDS attribute %s of variable %s\n",radi_scales,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
             return EXIT_FAILURE;
@@ -1932,7 +1932,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
         radi_off_index = SDfindattr(sds_id,radi_offset);
         if(radi_off_index < 0)
         {
-            fprintf( stderr, "[%s:%s:%d] Cannot find attribute %s of variable %s\n", __FILE__, __func__, __LINE__,radi_offset,datasetName);
+             FATAL_MSG("/gCannot find attribute %s of variable %s\n",radi_offset,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
             return EXIT_FAILURE;
@@ -1941,7 +1941,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
         if(SDattrinfo (sds_id, radi_off_index, temp_attr_name, &radi_off_type, &num_radi_off_values)<0)
         {
-            fprintf( stderr, "[%s:%s:%d] Cannot obtain SDS attribute %s of variable %s\n", __FILE__, __func__, __LINE__,radi_offset,datasetName);
+             FATAL_MSG("/gCannot obtain SDS attribute %s of variable %s\n",radi_offset,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
             return EXIT_FAILURE;
@@ -1949,7 +1949,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
         if(radi_sc_type != DFNT_FLOAT32 || radi_sc_type != radi_off_type || num_radi_sc_values != num_radi_off_values)
         {
-            fprintf( stderr, "[%s:%s:%d] Error: ", __FILE__, __func__, __LINE__);
+             FATAL_MSG("/gError: ");
             fprintf(stderr, "Either the scale/offset datatype is not 32-bit floating-point type\n\tor there is inconsistency between scale and offset datatype or number of values\n");
             fprintf(stderr, "\tThis is for the variable %s\n",datasetName);
             SDendaccess(sds_id);
@@ -1963,7 +1963,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
         if(SDreadattr(sds_id,radi_sc_index,radi_sc_values) <0)
         {
-            fprintf( stderr, "[%s:%s:%d] Cannot obtain SDS attribute value %s of variable %s\n", __FILE__, __func__, __LINE__,radi_scales,datasetName);
+             FATAL_MSG("/gCannot obtain SDS attribute value %s of variable %s\n",radi_scales,datasetName);
             free(radi_sc_values);
             free(radi_off_values);
             SDendaccess(sds_id);
@@ -1974,7 +1974,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
         if(SDreadattr(sds_id,radi_off_index,radi_off_values) <0)
         {
-            fprintf( stderr, "[%s:%s:%d] Cannot obtain SDS attribute value %s of variable %s\n", __FILE__, __func__, __LINE__,radi_scales,datasetName);
+             FATAL_MSG("/gCannot obtain SDS attribute value %s of variable %s\n",radi_scales,datasetName);
             free(radi_sc_values);
             free(radi_off_values);
             SDendaccess(sds_id);
@@ -1993,7 +1993,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
         if(num_bands != num_radi_off_values)
         {
-            fprintf( stderr, "[%s:%s:%d] Error: Number of band (the first dimension size) of the variable %s\n\tis not the same as the number of scale/offset values\n", __FILE__, __func__, __LINE__,datasetName);
+             FATAL_MSG("/gError: Number of band (the first dimension size) of the variable %s\n\tis not the same as the number of scale/offset values\n",datasetName);
             free(radi_sc_values);
             free(radi_off_values);
             free(input_dataBuffer);
@@ -2079,7 +2079,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+         FATAL_MSG("/gError writing %s dataset.\n", datasetName );
         free(input_dataBuffer);
         free(output_dataBuffer);
         return (EXIT_FAILURE);
@@ -2120,7 +2120,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
                          (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+         FATAL_MSG("/gUnable to read %s data.\n",  datasetName );
         if( input_dataBuffer ) free(input_dataBuffer);
         return (EXIT_FAILURE);
     }
@@ -2147,7 +2147,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
         sds_index = SDnametoindex( inputFileID, datasetName );
         if( sds_index < 0 )
         {
-            fprintf( stderr, "[%s:%s:%d] SDnametoindex -- Failed to get index of dataset.\n", __FILE__, __func__, __LINE__);
+             FATAL_MSG("/gSDnametoindex -- Failed to get index of dataset.\n");
             free(input_dataBuffer);
             return EXIT_FAILURE;
         }
@@ -2155,7 +2155,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
         sds_id = SDselect( inputFileID, sds_index );
         if ( sds_id < 0 )
         {
-            fprintf( stderr, "[%s:%s:%d] SDselect -- Failed to get ID of dataset.\n", __FILE__, __func__, __LINE__);
+             FATAL_MSG("/gSDselect -- Failed to get ID of dataset.\n");
             free(input_dataBuffer);
             return EXIT_FAILURE;
         }
@@ -2163,7 +2163,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
         sc_index = SDfindattr(sds_id,scaling_factor);
         if(sc_index < 0)
         {
-            fprintf( stderr, "[%s:%s:%d] SDfindattr -- Cannot find attribute %s of variable %s\n", __FILE__, __func__, __LINE__,scaling_factor,datasetName);
+             FATAL_MSG("/gSDfindattr -- Cannot find attribute %s of variable %s\n",scaling_factor,datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
             return EXIT_FAILURE;
@@ -2171,7 +2171,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
 
         if(SDattrinfo (sds_id, sc_index, temp_attr_name, &sc_type, &num_sc_values)<0)
         {
-            fprintf( stderr, "[%s:%s:%d] SDattrinfo -- Cannot obtain SDS attribute %s of variable %s\n", __FILE__, __func__, __LINE__,scaling_factor,datasetName);
+             FATAL_MSG("/gSDattrinfo -- Cannot obtain SDS attribute %s of variable %s\n",scaling_factor,datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
             return EXIT_FAILURE;
@@ -2180,7 +2180,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
         uncert_index = SDfindattr(sds_id,specified_uncert);
         if(uncert_index < 0)
         {
-            fprintf( stderr, "[%s:%s:%d] SDfindattr -- Cannot find attribute %s of variable %s\n", __FILE__, __func__, __LINE__,specified_uncert,datasetName);
+             FATAL_MSG("/gSDfindattr -- Cannot find attribute %s of variable %s\n",specified_uncert,datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
             return EXIT_FAILURE;
@@ -2189,7 +2189,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
 
         if(SDattrinfo (sds_id, uncert_index, temp_attr_name, &uncert_type, &num_uncert_values)<0)
         {
-            fprintf( stderr, "[%s:%s:%d] SDattrinfo -- Cannot obtain attribute %s of variable %s\n", __FILE__, __func__, __LINE__,specified_uncert,datasetName);
+             FATAL_MSG("/gSDattrinfo -- Cannot obtain attribute %s of variable %s\n",specified_uncert,datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
             return EXIT_FAILURE;
@@ -2197,7 +2197,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
 
         if(sc_type != DFNT_FLOAT32 || num_sc_values != num_uncert_values)
         {
-            fprintf( stderr, "[%s:%s:%d] Error: Either the scale datatype is not 32-bit floating-point type or there is \n\tinconsistency of number of values between scale and specified uncertainty.\n", __FILE__, __func__, __LINE__);
+             FATAL_MSG("/gError: Either the scale datatype is not 32-bit floating-point type or there is \n\tinconsistency of number of values between scale and specified uncertainty.\n");
             fprintf(stderr, "\tThis is for the variable %s\n",datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
@@ -2210,7 +2210,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
 
         if(SDreadattr(sds_id,sc_index,sc_values) <0)
         {
-            fprintf( stderr, "[%s:%s:%d] SDreadattr -- Cannot obtain SDS attribute value %s of variable %s\n", __FILE__, __func__, __LINE__,scaling_factor,datasetName);
+             FATAL_MSG("/gSDreadattr -- Cannot obtain SDS attribute value %s of variable %s\n",scaling_factor,datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
             free(sc_values);
@@ -2220,7 +2220,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
 
         if(SDreadattr(sds_id,uncert_index,uncert_values) <0)
         {
-            fprintf( stderr, "[%s:%s:%d] SDattrinfo -- Cannot obtain SDS attribute value %s of variable %s\n", __FILE__, __func__, __LINE__,specified_uncert,datasetName);
+             FATAL_MSG("/gSDattrinfo -- Cannot obtain SDS attribute value %s of variable %s\n",specified_uncert,datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
             free(sc_values);
@@ -2239,7 +2239,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
 
         if(num_bands != num_uncert_values)
         {
-            fprintf( stderr, "[%s:%s:%d] Error: Number of band (the first dimension size) of the variable %s is not\n\tthe same as the number of scale/offset values\n", __FILE__, __func__, __LINE__,datasetName);
+             FATAL_MSG("/gError: Number of band (the first dimension size) of the variable %s is not\n\tthe same as the number of scale/offset values\n",datasetName);
             free(input_dataBuffer);
             free(sc_values);
             free(uncert_values);
@@ -2325,7 +2325,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
 
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+         FATAL_MSG("/gError writing %s dataset.\n", datasetName );
         free(input_dataBuffer);
         free(output_dataBuffer);
         return (EXIT_FAILURE);
@@ -2393,7 +2393,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
                          (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL );
     if ( status < 0 )
     {
-        fprintf( stderr, "[%s:%s:%d] Unable to read %s data.\n", __FILE__, __func__,__LINE__,  datasetName );
+         FATAL_MSG("/gUnable to read %s data.\n",  datasetName );
         if ( input_dataBuffer ) free(input_dataBuffer);
         return (EXIT_FAILURE);
     }
@@ -2419,7 +2419,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
         sds_index = SDnametoindex( inputFileID, datasetName );
         if( sds_index < 0 )
         {
-            fprintf( stderr, "[%s:%s:%d] -- SDnametoindex -- Failed to get index of dataset.\n", __FILE__, __func__, __LINE__);
+             FATAL_MSG("/g-- SDnametoindex -- Failed to get index of dataset.\n");
             free(input_dataBuffer);
             return EXIT_FAILURE;
         }
@@ -2427,7 +2427,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
         sds_id = SDselect( inputFileID, sds_index );
         if ( sds_id < 0 )
         {
-            fprintf( stderr, "[%s:%s:%d] SDselect -- Failed to get the ID of the dataset.\n", __FILE__, __func__, __LINE__);
+             FATAL_MSG("/gSDselect -- Failed to get the ID of the dataset.\n");
             free(input_dataBuffer);
             return EXIT_FAILURE;
         }
@@ -2435,7 +2435,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
         radi_sc_index = SDfindattr(sds_id,radi_scales);
         if(radi_sc_index < 0)
         {
-            fprintf( stderr, "[%s:%s:%d] Cannot find attribute %s of variable %s\n", __FILE__, __func__, __LINE__,radi_scales,datasetName);
+             FATAL_MSG("/gCannot find attribute %s of variable %s\n",radi_scales,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
             return EXIT_FAILURE;
@@ -2443,7 +2443,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
 
         if(SDattrinfo (sds_id, radi_sc_index, temp_attr_name, &radi_sc_type, &num_radi_sc_values)<0)
         {
-            fprintf( stderr, "[%s:%s:%d] Cannot obtain SDS attribute %s of variable %s\n", __FILE__, __func__, __LINE__,radi_scales,datasetName);
+             FATAL_MSG("/gCannot obtain SDS attribute %s of variable %s\n",radi_scales,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
             return EXIT_FAILURE;
@@ -2525,7 +2525,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
 
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, datasetName );
+         FATAL_MSG("/gError writing %s dataset.\n", datasetName );
         free(input_dataBuffer);
         free(output_dataBuffer);
         return (EXIT_FAILURE);
@@ -4253,7 +4253,7 @@ herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* data
 
     if ( datasetID == EXIT_FAILURE )
     {
-        fprintf(stderr, "[%s:%s:%d] Error writing %s dataset.\n", __FILE__, __func__,__LINE__, dsetname );
+         FATAL_MSG("/gError writing %s dataset.\n", dsetname );
         return -1;
     }
 
@@ -5458,3 +5458,4 @@ herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
 
     return EXIT_SUCCESS;
 }
+
