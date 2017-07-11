@@ -79,7 +79,7 @@ downloadSched()
     fi 
 
     cd $SCHED_PATH_l
-    echo "Cloning the Scheduler repository."
+    rm -rf "$SCHED_PATH_l"/Scheduler
     git clone "$SCHED_URL_l"
     retVal_l=$?
     if [ $retVal_l -ne 0 ]; then
@@ -102,16 +102,14 @@ downloadSched()
     return 0
 }
 
-if [ $# -ne 2 ]; then
-    printf "\nUSAGE: $0 [Scheduler directory path] [-s | -p | -a]\n" >&2
+if [ $# -ne 1 ]; then
+    printf "\nUSAGE: $0 [-s | -p | -a]\n" >&2
     description="
 DESCRIPTION:
 
 \tThis script generates the environment necessary to run all of the BasicFusion scripts. Namely, the two main dependencies are certain Python modules (for the database generation) and NCSA's Scheduler program. This handles downloading and configuring all of the dependencies. This script only works on Blue Waters.
 
 ARGUMENTS:
-\t[Scheduler directory path]    -- The path where this script will download NCSA Scheduler to. Can be left out if
-\t                                 the -p argument is given.
 \t[-s | -p | -a]                -- -s to download just Scheduler
 \t                                 -p to download just the Python packages
 \t                                 -a to download both Scheduler and Python
@@ -145,8 +143,7 @@ fi
 # the queueing system.
 
 #__________CONFIGURABLE VARIABLES___________#
-SCHED_PATH=$1
-DOWNLOAD_OPTS="$2"
+DOWNLOAD_OPTS="$1"
 SCHED_URL="https://github.com/ncsa/Scheduler"
 PY_MOD="python"                                 # The site python module to load
 #___________________________________________#
@@ -156,6 +153,9 @@ ABS_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Get the basicFusion project directory
 BF_PATH="$( cd "$ABS_PATH/../" && pwd )"
+
+# Where Scheduler will be downloaded to
+SCHED_PATH=$BF_PATH/externLib
 
 DOWNLOAD_SCHED=0
 DOWNLOAD_PY=0
@@ -192,3 +192,5 @@ fi
 if [ $DOWNLOAD_SCHED -eq 1 ]; then
     downloadSched "$SCHED_URL" "$SCHED_PATH"
 fi
+
+exit 0
