@@ -21,13 +21,19 @@ def main():
 	
 	#dirpath = '/home/sbansal6/inputFiles/2013'
 	#logfile = '/home/sbansal6/logfiles/CERES_Cont_Check.txt'
+	
+	# dirpath = '/home/sbansal6/File_Verification_Scripts/inputFiles'
+	# logfile = '/home/sbansal6/File_Verification_Scripts/testlog.txt'
+
 	print('Please provide the absolute path to the directory where the input files are.')
 	print('EXAMPLE: /home/path/to/directory/inputFiles')
 	dirpath = str(raw_input())
-	
+	print('\n')
 	print('Please provide the filepath to the logfile.')
 	print('EXAMPLE: /path/to/log/directory/logfile.txt')
 	logfile = str(raw_input())
+
+
 	#dirpath = '/projects/sciteam/jq0/TerraFusion/inputFiles'
 	#logfile = '/u/sciteam/sbansal6/scratch/logfiles/CERES_Cont_Check.txt'
 	
@@ -35,8 +41,9 @@ def main():
 
 
 def Existence_Check(checkdirpath, filename):
-
+	#print(filename)
 	if os.path.exists(checkdirpath):
+		#print(checkdirpath)
 		for hdffile in os.listdir(checkdirpath):
 			if(filename == hdffile):
 				return True
@@ -78,7 +85,7 @@ def Continuity_Check(dirpath, logfile):
 							hourFM2.append(int(line[len(line)-3:len(line)]))
 
 				#print(txtfile)
-				#print(hourFM1)
+				print(hourFM1)
 				#print(hourFM2)
 				#contCheck.write(txtfile + '\n')
 				#check for all FM1 files here
@@ -91,9 +98,9 @@ def Continuity_Check(dirpath, logfile):
 								strj = str(j)
 								#makes sure that the file is in right format
 								if(len(strj) == 1):
-									missingFM1.append(strlistFM1[i][0:len(strlistFM1[i])-2] + '0' + strj)
+									missingFM1.append(strlistFM1[i][0:len(strlistFM1[i])-3] + '0' + strj)
 								elif(len(strj) == 2):
-									missingFM1.append(strlistFM1[i][0:len(strlistFM1[i])-2] + strj)
+									missingFM1.append(strlistFM1[i][0:len(strlistFM1[i])-3] + strj)
 					
 					#need to loop around back to 00 for the special case of 23
 					elif(hourFM1[i] == 23):
@@ -104,9 +111,9 @@ def Continuity_Check(dirpath, logfile):
 								strj = str(j)
 								#makes sure that the file is in right format
 								if(len(strj) == 1):
-									missingFM1.append(strlistFM1[i][0:len(strlistFM1[i])-2] + '0' + strj)
+									missingFM1.append(strlistFM1[i][0:len(strlistFM1[i])-3] + '0' + strj)
 								elif(len(strj) == 2):
-									missingFM1.append(strlistFM1[i][0:len(strlistFM1[i])-2] + strj)
+									missingFM1.append(strlistFM1[i][0:len(strlistFM1[i])-3] + strj)
 
 				#check for all FM2 files here
 				for i in range(len(hourFM2)-1):
@@ -119,9 +126,9 @@ def Continuity_Check(dirpath, logfile):
 								strj = str(j)
 								#makes sure that the file is in right format
 								if(len(strj) == 1):
-									missingFM2.append(strlistFM2[i][0:len(strlistFM2[i])-2] + '0' + strj)
+									missingFM2.append(strlistFM2[i][0:len(strlistFM2[i])-3] + '0' + strj)
 								elif(len(strj) == 2):
-									missingFM2.append(strlistFM2[i][0:len(strlistFM2[i])-2] + strj)
+									missingFM2.append(strlistFM2[i][0:len(strlistFM2[i])-3] + strj)
 					
 					#need to loop around back to 00 for the special case of 23
 					elif(hourFM2[i] == 23):
@@ -132,15 +139,16 @@ def Continuity_Check(dirpath, logfile):
 								strj = str(j)
 								#makes sure that the file is in right format
 								if(len(strj) == 1):
-									missingFM1.append(strlistFM2[i][0:len(strlistFM2[i])-2] + '0' + strj)
+									missingFM1.append(strlistFM2[i][0:len(strlistFM2[i])-3] + '0' + strj)
 								elif(len(strj) == 2):
-									missingFM1.append(strlistFM2[i][0:len(strlistFM2[i])-2] + strj)
+									missingFM1.append(strlistFM2[i][0:len(strlistFM2[i])-3] + strj)
 
 
 			#this makes sure that the file exists in the database for both FM1 and FM2
 			#if the file doesnot even exist in the database then it will not be logged as missing
 
 			if missingFM1:
+				#print(missingFM1)
 				for i in missingFM1:
 					templst = i.rsplit('/', 1)
 					existence = Existence_Check(templst[0], templst[1])
@@ -157,8 +165,8 @@ def Continuity_Check(dirpath, logfile):
 
 
 			if missingFM1 or missingFM2:
-				print(missingFM1)
-				print(missingFM2)
+				#print(missingFM1)
+				#print(missingFM2)
 				#contCheck.write('These are the FM1 and FM2 missing/non-continuous files: \n\n')
 				contCheck.write(os.path.join(dirpath,txtfile) + '\n')
 				
@@ -168,7 +176,7 @@ def Continuity_Check(dirpath, logfile):
 
 				if missingFM2:
 					for i in missingFM2:
-						contCheck.write(i + 'n')
+						contCheck.write(i + '\n')
 				
 				contCheck.write('\n')
 
