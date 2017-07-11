@@ -239,10 +239,16 @@ for job in $(seq 0 $((numJobs-1)) ); do
         # Read Orbit start time from file
         opt_file="$ABS_PATH/Orbit_Path_Time.txt"
         filter="$orbit "
-        line=$(grep $filter $opt_file)
-        orbit_start=$(cut -f1 -d"T" <<< "$line" )
+        # Grab the orbit start time from opt_file
+        orbit_start=$(grep $filter $opt_file | cut -f3 -d" ") 
+        # Get rid of the '-' characters
         orbit_start=${orbit_start//-/}
-        orbit_start=$(cut -f3 -d" " <<< "$orbit_start")
+        # Get rid of the 'T' characters
+        orbit_start=${orbit_start//T/}
+        # Get rid of the ':' characters
+        orbit_start=${orbit_start//:/}
+        # Get rid of the 'Z'
+        orbit_start=${orbit_start//Z/}
         evalFileName=$(eval echo "$FILENAME")
         # BF program call looks like this:
         # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
@@ -257,10 +263,10 @@ echo
 ###################
 #    CALL QSUB    #
 ###################
-#cd $runDir/PBSscripts
-#for job in $(seq 0 $((numJobs-1)) ); do
-#    echo "Submitting $runDir/PBSscripts/job$job.pbs to queue."
-#    qsub job$job.pbs
-#done
+cd $runDir/PBSscripts
+for job in $(seq 0 $((numJobs-1)) ); do
+    echo "Submitting $runDir/PBSscripts/job$job.pbs to queue."
+    qsub job$job.pbs
+done
 
 exit 0
