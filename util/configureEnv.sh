@@ -45,11 +45,64 @@ downloadPY()
     deactivate
 
     echo "Python setup complete."
-
+    echo
     return 0
 }
 
-if [ $# -ne 1 ] && [ $# -ne 2 ]; then
+# Args:
+# [Scheduler GitHub URL] [Scheduler download path]
+downloadSched()
+{
+    local SCHED_URL_l
+    local SCHED_PATH_l
+    local retVal_l
+    SCHED_URL_l="$1"
+    SCHED_PATH_l="$2"
+
+    # Change to the required PrgEnv module
+    oldPRGENV=$(module list | grep PrgEnv | cut -f3 -d" ")
+    if [ ${#oldPRGENV} -ne 0 ]; then
+        module swap $oldPRGENV PrgEnv-gnu
+        retVal_l=$?
+        if [ $retVal_l -ne 0 ]; then
+            echo "Failed to swap modules." >&2
+            return $retVal_l
+        fi
+
+    else
+        module load PrgEnv-gnu
+        retVal_l=$?
+        if [ $retVal_l -ne 0 ]; then
+            echo "Failed to load the proper modules." >&2
+            return $retVal_l
+        fi
+    fi 
+
+    cd $SCHED_PATH_l
+    echo "Cloning the Scheduler repository."
+    git clone "$SCHED_URL_l"
+    retVal_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to clone the Scheduler repository." >&2
+        return $retVal_l
+    fi
+
+    cd Scheduler
+
+    # Now need to compile the Fortran executable
+    echo "Compiling Scheduler Fortran code..."
+    ftn -o scheduler.x scheduler.F90
+    retVal_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to compile the Scheduler Fortran code." >&2
+        return $retVal_l
+    fi
+    echo "Done."
+    echo "Scheduler setup complete."
+    return 0
+}
+
+if [ $# -ne 2 ]; then
     printf "\nUSAGE: $0 [Scheduler directory path] [-s | -p | -a]\n" >&2
     description="
 DESCRIPTION:
@@ -57,12 +110,11 @@ DESCRIPTION:
 \tThis script generates the environment necessary to run all of the BasicFusion scripts. Namely, the two main dependencies are certain Python modules (for the database generation) and NCSA's Scheduler program. This handles downloading and configuring all of the dependencies. This script only works on Blue Waters.
 
 ARGUMENTS:
-\t[Scheduler directory path]    -- The path where this script will download NCSA Scheduler from GitHub. Can be left out if
+\t[Scheduler directory path]    -- The path where this script will download NCSA Scheduler to. Can be left out if
 \t                                 the -p argument is given.
 \t[-s | -p | -a]                -- -s to download just Scheduler
 \t                                 -p to download just the Python packages
 \t                                 -a to download both Scheduler and Python
-\t                                 If no argument is given here, -a is assumed.
 "
  
     while read -r line; do
@@ -88,29 +140,22 @@ DOWNLOAD_SCHED=0
 DOWNLOAD_PY=0
 
 # Determine the command line options
-if [ $# -eq 1 ]; then
-    if [ "$1" == "-p" ]; then
-        DOWNLOAD_PY=1
-    elif [ "$1" == "-s" ] || [ "$1" == "-a" ]; then
-        printf "Error: Scheduler was indicated for download, but no path was provided.\n" >&2
-        exit 1
-    else
-        # Assume both SCHED and PY are being downloaded
-        DOWNLOAD_SCHED=1
-        DOWNLOAD_PY=1
-    fi
-elif [ $# -eq 2 ]; then
-    if [ "$DOWNLOAD_OPTS" == "-s" ]; then
-        DOWNLOAD_SCHED=1
-    elif [ "$DOWNLOAD_OPTS" == "-p" ]; then
-        DOWNLOAD_PY=1
-    elif [ "$DOWNLOAD_OPTS" == "-a" ]; then
-        DOWNLOAD_SCHED=1
-        DOWNLOAD_PY=1
-    else
-        printf "Unrecognized command line argument: $DOWNLOAD_OPTS\n" >&2
-        exit 1
-    fi
+if [ "$DOWNLOAD_OPTS" == "-s" ]; then
+    DOWNLOAD_SCHED=1
+elif [ "$DOWNLOAD_OPTS" == "-p" ]; then
+    DOWNLOAD_PY=1
+elif [ "$DOWNLOAD_OPTS" == "-a" ]; then
+    DOWNLOAD_SCHED=1
+    DOWNLOAD_PY=1
+else
+    printf "Unrecognized command line argument: $DOWNLOAD_OPTS\n" >&2
+    exit 1
+fi
+
+# Find if a proper programming environment is loaded
+PrgEnv=$(module list | grep PrgEnv)
+if [ ${#PrgEnv} -eq 0 ]; then
+    module load PrgEnv-cray
 fi
 
 if [ $DOWNLOAD_PY -eq 1 ]; then
@@ -123,3 +168,6 @@ if [ $DOWNLOAD_PY -eq 1 ]; then
     fi
 fi
 
+if [ $DOWNLOAD_SCHED -eq 1 ]; then
+    downloadSched "$SCHED_URL" "$SCHED_PATH"
+fi
