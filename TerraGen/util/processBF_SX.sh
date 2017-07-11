@@ -36,7 +36,7 @@ MAX_NPJ=32                                              # Maximum number of node
 MAX_PPN=16                                              # Maximum number of processors (cores) per node.
 MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="06:00:00"                                     # Requested wall clock time for the jobs
-QUEUE="high"                                            # Which queue to put the jobs in
+QUEUE="normal"                                            # Which queue to put the jobs in
 #--------------------------------------#
 
 #____________FILE NAMING_______________#
