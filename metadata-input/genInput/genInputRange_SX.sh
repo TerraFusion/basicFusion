@@ -59,9 +59,6 @@ LISTING_PATH="$(cd $(dirname $LISTING_PATH) && pwd)/$(basename $LISTING_PATH)"
 BIN_DIR="$ABS_PATH/../../bin"
 BIN_DIR="$(cd $(dirname $BIN_DIR) && pwd)/$(basename $BIN_DIR)"
 
-# Get the absolute path of the basicFusion program
-BF_PROG="$BIN_DIR/basicFusion"
-
 # Get the path of BF repository
 BF_PATH="$(cd "$BIN_DIR/../" && pwd)"
 
