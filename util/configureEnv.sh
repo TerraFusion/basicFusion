@@ -123,6 +123,27 @@ ARGUMENTS:
     exit 1
 fi
 
+# NOTE TO FUTURE USERS:
+# If this script somehow fails to download the proper Python modules, here is a high level description of what it is trying
+# to accomplish. First, it makes a python Virtual Environment in the externLib directory. Then, it sources the activate file
+# to initiate the newly downloaded Virtual Environment. It then proceeds to download the docopt and the pytz Python modules
+# using the:
+#   pip install docopt
+#   pip install pytz
+# commands.
+#
+# This virtual environment is needed by the fusionBuildDB python script to build the BasicFusion SQLite database. Virtual
+# environment was created to remove dependencies on the system's Python packages.
+#
+# If the script fails to download the Scheduler program, these are the commands it attempts to make:
+#   git clone https://github.com/ncsa/Scheduler
+#   cd Scheduler
+#   module load PrgEnv-gnu
+#   ftn -o scheduler.x Scheduler.F90
+#
+# Scheduler is used by the processBF_SX.sh and the genInputRange_SX.sh scripts to submit a large number of batch jobs to
+# the queueing system.
+
 #__________CONFIGURABLE VARIABLES___________#
 SCHED_PATH=$1
 DOWNLOAD_OPTS="$2"
