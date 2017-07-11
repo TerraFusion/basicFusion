@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [ $# -ne 5 ]; then
-    printf "\nUSAGE: $0 [Scheduler directory path] [input granule listing path] [orbit start] [orbit end] [output path]\n" >&2
+if [ $# -ne 4 ]; then
+    printf "\nUSAGE: $0 [input granule listing path] [orbit start] [orbit end] [output path]\n" >&2
     description="NAME: process\"BasicFusion\"_\"SchedulerX\".sh
 DESCRIPTION:
  
@@ -17,19 +17,18 @@ DESCRIPTION:
 \tThis script uses the Scheduler.x program to submit the task to the Blue Waters job scheduler.
 \tNCSA Scheduler can be found at: https://github.com/ncsa/Scheduler
 
-\tLog files for the job are stored in the Scheduler project path."   
+\tLog files for the job are stored in the basicFusion/jobFiles/BFprocess directory."   
     while read -r line; do
         printf "$line\n"
     done <<< "$description"
     exit 1
 fi
 
-SCHED_PATH=$1
-LISTING_PATH=$2
-OSTART=$3
-OEND=$4
-OUT_PATH=$5                                             # Where the resultant input[orbitNum].txt files will go
-
+LISTING_PATH=$1
+OSTART=$2
+OEND=$3
+OUT_PATH=$4                                             # Where the resultant output HDF files will go
+OUT_PATH=$(cd "$OUT_PATH" && pwd)
 
 #____________JOB PARAMETERS____________#
 MAX_NPJ=32                                              # Maximum number of nodes per job
@@ -57,6 +56,18 @@ BIN_DIR="$(cd $(dirname $BIN_DIR) && pwd)/$(basename $BIN_DIR)"
 
 # Get the absolute path of the basicFusion program
 BF_PROG="$BIN_DIR/basicFusion"
+
+# Get the path of BF repository
+BF_PATH="$(cd "$BIN_DIR/../" && pwd)"
+
+# Get the path of the Scheduler repository
+SCHED_PATH="$BF_PATH/externLib/Scheduler"
+echo "$SCHED_PATH"
+# Check that Scheduler has already been downloaded
+if [ ! -d "$SCHED_PATH" ]; then
+    echo "Fatal error: Scheduler has not been downloaded. Please run the configureEnv.sh script in the basicFusion/util directory." >&2
+    exit 1
+fi
 
 numOrbits=$(($OEND - $OSTART + 1))                      # Total number of orbits to generate
 numProcessPerJob=$((numOrbits / $MAX_NUMJOB)) 
@@ -141,11 +152,12 @@ done
 
 
 # Time to create the files necessary to submit the jobs to the queue
-mkdir -p "$SCHED_PATH/BFprocess"
+BF_PROCESS="$BF_PATH/jobFiles/BFprocess"
+mkdir -p "$BF_PROCESS"
 
 # Find what the highest numbered "run" directory is and grab the number from it.
 # You can run this "bashism" nonsense in the terminal to see what it's doing.
-lastNum=$(ls "$SCHED_PATH/BFprocess" | grep run | sort --version-sort | tail -1 | tr -dc '0-9')
+lastNum=$(ls "$BF_PROCESS" | grep run | sort --version-sort | tail -1 | tr -dc '0-9')
 
 if [ ${#lastNum} -eq 0 ]; then
     lastNum=-1
@@ -154,7 +166,7 @@ fi
 let "lastNum++"
 
 # Make the "run" directory
-runDir="$SCHED_PATH/BFprocess/run$lastNum"
+runDir="$BF_PROCESS/run$lastNum"
 echo "Generating files for parallel execution at: $runDir"
 
 mkdir "$runDir"
@@ -263,7 +275,7 @@ for job in $(seq 0 $((numJobs-1)) ); do
         evalFileName=$(eval echo "$FILENAME")
         # BF program call looks like this:
         # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
-        echo "$runDir/$(basename $BF_PROG) \"$OUT_PATH/$evalFileName\" \"$LISTING_PATH/input$orbit.txt\" \"$BIN_DIR/orbit_info.bin\" 2> $runDir/logs/basicFusion/errors/$orbit.err 1> $runDir/logs/basicFusion/logs/$orbit.log" > "${jobDir[$job]}/orbit$orbit.sh"
+        echo "$runDir/$(basename $BF_PROG) \"$OUT_PATH/$evalFileName\" \"$LISTING_PATH/input$orbit.txt\" \"$BIN_DIR/orbit_info.bin\" 2> \"$runDir/logs/basicFusion/errors/$orbit.err\" 1> \"$runDir/logs/basicFusion/logs/$orbit.log\"" > "${jobDir[$job]}/orbit$orbit.sh"
 
     chmod +x "${jobDir[$job]}/orbit$orbit.sh"
     done
