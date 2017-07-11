@@ -47,6 +47,8 @@ A suite of scripts have been written under basicFusion/metadataInput/build to ge
 
 The /path/to/inputfiles directory MUST contain the following subdirectories inside: ASTER, MISR, MOPITT, MODIS, CERES. This script will parse each of these subdirectories for all of the available files. This script can take some time to generate depending on the total size of the input data.
 
+This shell script uses a Python script called **fusionBuildDB** to parse the listing of all available files and then generate the SQLite database. This script is run using the Python Virtual Environment created during the **Installation** section.
+
 ## Input File Listing Generation
 ### Blue Waters
 Once the database has been generated, we need to generate all of the input file listings as required by the basicFusion program itself. These files tell the BF program which input HDF files to process. Under basicFusion/metadata-input/genInput, the genInputRange_SX.sh script can generate any range of input files. This range is specified by starting orbit and ending orbit. Because the process of querying the database is a slow process, the execution of these queries on the compute nodes is necessary.
