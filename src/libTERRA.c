@@ -606,15 +606,15 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
         which case the new group will be created in the root directory, or a group ID, in
         which case the new group will be created as a child of referenceGroup.
     ARGUMENTS:
-        1. A pointer to the parent group ID
-        2. A pointer to the new group ID. This is a pointer so that the value of the
-           caller's newGroup variable will be updated to contain the ID of the new group.
-        3. The name of the new group.
+        hid_t const *referenceGroup -- A pointer to the parent group ID
+        hid_t *newGroup             -- A pointer to the new group ID. This is a pointer so that the value of the
+                                       caller's newGroup variable will be updated to contain the ID of the new group.
+        char* groupName             -- The name of the new group.
     EFFECTS:
         Creates a new directory in the HDF file, updates the group pointer.
-        The name of the new group is determined by the function correct_name().
+        The name of the new group is ultimately determined by the function correct_name().
         Caller must be aware of this fact that name of the new group will not necessarily
-        be the value passed in at newGroupName.
+        be the value passed in at groupName.
     RETURN:
         EXIT_FAILURE on failure
         EXIT_SUCCESS on success
@@ -2785,7 +2785,7 @@ char* getTime( char* pathname, int instrument )
             return NULL;
         }
 
-        len = 9;
+        len = 10;
         retString = calloc(len,1);
         strncpy( retString, end-9, len );
         return retString;

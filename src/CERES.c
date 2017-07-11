@@ -175,7 +175,6 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         goto cleanupFail;
     }
 
-
     /* Create the "FM1" or "FM2" group */
     if ( createGroup( &granuleID_g, &FMID_g, cameraName ) )
     {
