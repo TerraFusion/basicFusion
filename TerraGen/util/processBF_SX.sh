@@ -36,7 +36,7 @@ MAX_NPJ=32                                              # Maximum number of node
 MAX_PPN=16                                              # Maximum number of processors (cores) per node.
 MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="06:00:00"                                     # Requested wall clock time for the jobs
-QUEUE="high"                                            # Which queue to put the jobs in
+QUEUE="normal"                                            # Which queue to put the jobs in
 #--------------------------------------#
 
 #____________FILE NAMING_______________#
@@ -100,8 +100,11 @@ else
         numNodes=$((numExtraProcess / MAX_PPN))     # Find the number of nodes the last job needs to have.
 
         if [ $numNodes -eq 0 ]; then                # If it needs less than one node (assuming MAX_PPN), only request
-            PPN[$numJobs]=$numExtraProcess          # exact number of cores that we need, and only one node.
-            NPJ[$numJobs]=1
+            PPN[$numJobs]=$((numExtraProcess+1))    # exact number of cores that we need + 1, and only one node.
+            NPJ[$numJobs]=1                         # We add +1 to it because NCSA Scheduler requires 1 core for itself.
+                                                    # We don't add +1 in the case where there are many processes to be run
+                                                    # because the time difference would be negligible. This is just an
+                                                    # edge case consideration (what if only 1 granule is being processed?)
         else
             PPN[$numJobs]=$MAX_PPN                  # Else, assign the MAX_PPN and find number of nodes needed to process remaining orbits
             
@@ -129,6 +132,9 @@ for i in $(seq 0 $((numJobs-1)) ); do
     accumulator=$((${jobOEND[$i]} + 1))
 done
 
+# =================================== #
+# Print the node and job information  #
+# =================================== #
 for i in $(seq 0 $((numJobs-1)) ); do
     printf '%d PPN: %-5s NPJ: %-5s numProcess: %-5s start: %-5s end: %-5s\n' $i ${PPN[$i]} ${NPJ[$i]} ${numProcess[$i]} ${jobOSTART[$i]} ${jobOEND[$i]}
 done
@@ -200,7 +206,12 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "module load hdf4 hdf5"                                >> job$i.pbs
 
     littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
-    echo "aprun -n $littleN -N ${PPN[$i]} -R 4 $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err" >> job$i.pbs
+    bigR=4
+    if [ $bigR -ge ${PPN[$i]} ]; then
+        bigR=0      # Done in the cases where small number of nodes used. -R tells how many node failures are
+                    # acceptable
+    fi
+    echo "aprun -n $littleN -N ${PPN[$i]} -R $bigR $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err" >> job$i.pbs
     echo "exit 0"                                               >> job$i.pbs
 done
 
