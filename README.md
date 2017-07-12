@@ -29,7 +29,7 @@ In addition to the HDF libraries, the Basic Fusion program is also dependent on 
     ```
     git clone https://github.com/TerraFusion/basicFusion
     ```
-1. cd into the basicFusion/bin/util directory
+1. cd into the `basicFusion/util` directory
 1. Configure the external dependencies by running the configureEnv.sh script. This script handles downloading and setting up the Python dependencies used by the database generation scripts, as well as NCSA's Scheduler program used for parallel execution of the Basic Fusion code. Run `./configureEnv.sh` to see what arguments it needs to run. Use the -a flag to download everything:
     ```
     ./configureEnv.sh -a
@@ -39,35 +39,54 @@ In addition to the HDF libraries, the Basic Fusion program is also dependent on 
 
 ## Database generation
 ### Blue Waters
-A suite of scripts have been written under basicFusion/metadataInput/build to generate the SQLite database of all the input HDF granules. Run the findThenGenerate.sh script to: 1. Discover all of the input HDF files available and 2. Build the SQLite database from this list.
+A suite of scripts have been written under `basicFusion/metadataInput/build` to generate the SQLite database of all the input HDF granules. Run the findThenGenerate.sh script to: 1. Discover all of the input HDF files available and 2. Build the SQLite database from this list.
 
 ```
 ./findThenGenerate /path/to/inputfiles /path/to/output/SQLiteDB.sqlite
 ```
 
-The /path/to/inputfiles directory MUST contain the following subdirectories inside: ASTER, MISR, MOPITT, MODIS, CERES. This script will parse each of these subdirectories for all of the available files. This script can take some time to generate depending on the total size of the input data.
+The `/path/to/inputfiles` directory MUST contain the following subdirectories inside: ASTER, MISR, MOPITT, MODIS, CERES. This script will parse each of these subdirectories for all of the available files. This script can take some time to generate depending on the total size of the input data.
 
 This shell script uses a Python script called **fusionBuildDB** to parse the listing of all available files and then generate the SQLite database. This script is run using the Python Virtual Environment created during the **Installation** section.
 
 ## Input File Listing Generation
 ### Blue Waters
-Once the database has been generated, we need to generate all of the input file listings as required by the basicFusion program itself. These files tell the BF program which input HDF files to process. Under basicFusion/metadata-input/genInput, the genInputRange_SX.sh script can generate any range of input files. This range is specified by starting orbit and ending orbit. Because the process of querying the database is a slow process, the execution of these queries on the compute nodes is necessary.
+Once the database has been generated, we need to generate all of the input file listings as required by the basicFusion program itself. These files tell the BF program which input HDF files to process. Under `basicFusion/metadata-input/genInput`, the genInputRange_SX.sh script can generate any range of input files. This range is specified by starting orbit and ending orbit. Because the process of querying the database is very slow, the execution of these queries on the compute nodes is necessary.
 An example of how to invoke this script:
 
 ```
 ./genInputRange_SX.sh /path/to/SQLiteDB.sqlite 69400 70000 /path/to/output
 ```
 
-Based on the orbit start and end times, as well as the parameters set inside of the script (max job size etc.), it determines how many resources to request of the Blue Waters TORQUE resource manager. It will then generate all of the necessary files for parallel computation in the basicFusion/jobFiles/BFinputGen directory and submit its jobs to the queue. The resultant output files will reside in your /path/to/output directory.
+Use `qstat | grep [your username]` to see the status of your jobs.
+
+Based on the orbit start and end times, as well as the parameters set inside of the script (max job size etc.), it determines how many resources to request of the Blue Waters TORQUE resource manager. It will then generate all of the necessary files for parallel computation in the `basicFusion/jobFiles/BFinputGen` directory and submit its jobs to the queue. The resultant output files will reside in your `/path/to/output` directory.
 
 NOTE: Inside the genInputRange_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. For most purposes, the default values should work fine.
+
+## Compilation
+### Blue Waters
+A series of different Makefiles have been provided to compile the program under basicFusion/Makefiles. The two main flavors are static and dynamic Makefiles. Currently, the dynamic Makefiles (as of Jul 12, 2017) are not operational.
+
+```
+cp Makefile.bwStatic ../Makefile
+```
+If using the static version, you need the h4cc compiler. To do this, do: `module load hdf4`.
+Run: `make`. If it compiles without any errors (warnings are acceptable), the compilation was successful.
 
 
 ## Program Execution
 ### Blue Waters
 There are multiple ways one can execute the BF program. First, **note that it is strongly recommended that you do NOT simply run the program by invoking "./basicFusion..."**. Running the program this way executes it on a login-node, and the IO-intensive nature of this program means that it will eat up shared resources on the login node, causing other BW users to experience poor responsiveness in the login nodes. Not to mention, this is a breach of the BW terms of use.
 
-UNDER CONSTRUCTION
+A script has been written under `basicFusion/TerraGen/util/processBF_SX.sh` that handles submitting the basicFusion program for execution. This script expects to find the basicFusion executable, generated by compiling the program, in the basicFusion/bin directory. 
+
+```
+./processBF_SX.sh /path/to/input/txt/files 69400 70000 /path/to/output
+```
+Use `qstat | grep [your username]` to see the status of your jobs.
+
+Currently, the `/path/to/input/txt/files` must be the directory where all the input granule list text files are (these text files cannot be in any subdirectories). The `/path/to/output` will be where all of the output HDF5 granules are placed. The script will determine---exactly how the genInputRange_SX.sh does---how many jobs, nodes per job, and processors per node to use based on the number of orbits you desire to process. The maximum values for number of jobs, nodes, and processors can be changed inside the script in the **JOB PARAMETERS** section.
 
 ### ROGER
 
