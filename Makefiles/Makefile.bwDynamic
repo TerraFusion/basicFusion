@@ -5,10 +5,12 @@
 # that your tabs are TABS, not SPACES. make requires actual tabs for indenting, not just spaces.
 CC=gcc
 CFLAGS=-c -g -O0 -Wall -std=c99
-LINKFLAGS= -g -std=c99 -Wl,-rpath,/u/sciteam/clipp/basicFusion/hdflib/lib
-INCLUDE1=/u/sciteam/clipp/basicFusion/hdflib/include
+# NOTE!!!! Add your HDF dynamic library path here!!! This directory should contain the lib and include directories
+HDF_PATH=
+LINKFLAGS= -g -std=c99 -Wl,-rpath,${HDF_PATH}/lib
+INCLUDE1=${HDF_PATH}/include
 INCLUDE2=${INCLUDE1}
-LIB1=/u/sciteam/clipp/basicFusion/hdflib/lib
+LIB1=${HDFLIB}
 LIB2=${LIB2}
 TARGET=./bin/basicFusion
 SRCDIR=./src
