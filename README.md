@@ -71,7 +71,10 @@ A series of different Makefiles have been provided to compile the program under 
 ```
 cp Makefile.bwStatic ../Makefile
 ```
-If using the static version, you need the h4cc compiler. To do this, do: `module load hdf4`.
+Load the necessary modules:
+```
+module load hdf4 hdf5 szip
+```
 Run: `make`. If it compiles without any errors (warnings are acceptable), the compilation was successful.
 
 
