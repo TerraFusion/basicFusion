@@ -10,12 +10,15 @@ from itertools import cycle
 import sys
 
 """#----INFORMATION ON HOW THIS FUNCTION WORKS----#
+
 #dirpath is the path to the inputFiles folder
 #EXAMPLE: /home/path/to/directory/inputFiles
 
 #logfile is the absolute path with filename to the txt where the missing files need to be logged
-#EXAMPLE: /path/to/log/directory/logfile.txt """
-#print("Does this work")
+#EXAMPLE: /path/to/log/directory/logfile.txt 
+
+"""
+
 
 def main():
 	
@@ -39,11 +42,10 @@ def main():
 	
 	Continuity_Check(dirpath, logfile)
 
-
+#checks if the file missing from the input file actually exists
+#in the database
 def Existence_Check(checkdirpath, filename):
-	#print(filename)
 	if os.path.exists(checkdirpath):
-		#print(checkdirpath)
 		for hdffile in os.listdir(checkdirpath):
 			if(filename == hdffile):
 				return True
@@ -60,7 +62,6 @@ def Continuity_Check(dirpath, logfile):
 
 	if os.path.exists(dirpath):
 		for txtfile in os.listdir(dirpath):
-			#print txtfile
 			strlistFM1 = []
 			strlistFM2 = []
 			missingFM1 = []
@@ -84,15 +85,10 @@ def Continuity_Check(dirpath, logfile):
 							strlistFM2.append(line)
 							hourFM2.append(int(line[len(line)-3:len(line)]))
 
-				#print(txtfile)
-				print(hourFM1)
-				#print(hourFM2)
-				#contCheck.write(txtfile + '\n')
 				#check for all FM1 files here
 				for i in range(len(hourFM1)-1):
 					if(hourFM1[i] != 23):
 						if hourFM1[i] + 1 != hourFM1[i+1]:
-							#contCheck.write('\n' + txtfile + '\n')
 							#makes a list of all the missing FM1 files from the inputfiles
 							for j in range(hourFM1[i]+1, hourFM1[i+1]):
 								strj = str(j)
@@ -105,7 +101,6 @@ def Continuity_Check(dirpath, logfile):
 					#need to loop around back to 00 for the special case of 23
 					elif(hourFM1[i] == 23):
 						if hourFM1[i+1] != 0:
-							#contCheck.write('\n' + txtfile + '\n')
 							#for the special case of 23 where it should cycle around back to 00
 							for j in range(0, hourFM1[i+1]):
 								strj = str(j)
@@ -120,7 +115,6 @@ def Continuity_Check(dirpath, logfile):
 
 					if(hourFM2[i] != 23):
 						if hourFM2[i] + 1 != hourFM2[i+1]:
-							#contCheck.write('\n' + txtfile + '\n')
 							#makes a list of all the missing FM2 files from the inputfiles
 							for j in range(hourFM2[i]+1, hourFM2[i+1]):
 								strj = str(j)
@@ -133,7 +127,6 @@ def Continuity_Check(dirpath, logfile):
 					#need to loop around back to 00 for the special case of 23
 					elif(hourFM2[i] == 23):
 						if hourFM2[i+1] != 0:
-							#contCheck.write('\n' + txtfile + '\n')
 							#for the special case of 23 where it should cycle around back to 00
 							for j in range(0, hourFM2[i+1]):
 								strj = str(j)
@@ -146,9 +139,7 @@ def Continuity_Check(dirpath, logfile):
 
 			#this makes sure that the file exists in the database for both FM1 and FM2
 			#if the file doesnot even exist in the database then it will not be logged as missing
-
 			if missingFM1:
-				#print(missingFM1)
 				for i in missingFM1:
 					templst = i.rsplit('/', 1)
 					existence = Existence_Check(templst[0], templst[1])
@@ -163,13 +154,10 @@ def Continuity_Check(dirpath, logfile):
 					if existence == False:
 						missingFM2.remove(i)
 
-
+			#finally missingFM1 and missingFM2 are the lists all the missing files from input
+			#which exist in the database too
 			if missingFM1 or missingFM2:
-				#print(missingFM1)
-				#print(missingFM2)
-				#contCheck.write('These are the FM1 and FM2 missing/non-continuous files: \n\n')
 				contCheck.write(os.path.join(dirpath,txtfile) + '\n')
-				
 				if missingFM1:
 					for i in missingFM1:
 						contCheck.write(i + '\n')
