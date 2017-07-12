@@ -21,6 +21,20 @@ import sys
 
 
 def main():
+
+	if not len(sys.argv) > 1:
+		usage()
+
+	elif sys.argv[1] == '-h' or sys.argv[1] == '-help' :
+		help()
+
+	elif sys.argv[1] == '-a':
+		arguments()
+
+	elif sys.argv[1] == '-r':
+		run()
+
+
 	
 	#dirpath = '/home/sbansal6/inputFiles/2013'
 	#logfile = '/home/sbansal6/logfiles/CERES_Cont_Check.txt'
@@ -28,6 +42,47 @@ def main():
 	# dirpath = '/home/sbansal6/File_Verification_Scripts/inputFiles'
 	# logfile = '/home/sbansal6/File_Verification_Scripts/testlog.txt'
 
+	#dirpath = '/projects/sciteam/jq0/TerraFusion/inputFiles'
+	#logfile = '/u/sciteam/sbansal6/scratch/logfiles/CERES_Cont_Check.txt'
+	
+	#Continuity_Check(dirpath, logfile)
+
+def usage():
+	print("\n\n#------------------========================USAGE=======================-------------------#\n")
+	print("Options:\n")
+	print("-h -help     More information about the different functions and how they work\n")
+	print("-a           More information about the arguments and the format for the program to run\n")
+	print("-r           Run the program\n")
+
+
+def help():
+	print("\nThere are 2 main functions in this program.")
+	print("1. Continuity_Check(dirpath, logfile)")
+	print("2. Existence_Check\n")
+	print("1. Continuity_Check(dirpath, logfile): \nThis function is used to check if their is any discontinuity/missing")
+	print("FM1 or FM2 hour in the inputFile.txt. For example, lets say that the following is an example inputfile.txt\n")
+	print("/path/to/dir/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2013101314")
+	print("/path/to/dir/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2013101316")
+	print("/path/to/dir/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2013101317\n")
+	print("Here, \n/path/to/dir/CER_SSF_Terra-FM1-MODIS_Edition4A_400403.2013101315 \nis missing which is the hour 15 of the day.")
+	print("Continuity_Check makes a list of all such missing files.\n")
+	print("2. Existence_Check: This function checks if the missing files from Continuity_Check actually exist in the CERES database.")
+	print("If the file does not exist even in the database then it is removed from the missing file list.\n")
+
+def arguments():
+	print("\nFor this program to run properly, you just need 2 main arguments. The first is the directory path for the inputFiles.")
+	print("For example, it should look something like:")
+	print("\npath/to/dir or /home/user/scratch/BasicFusion/inputFiles\n")
+	print("In order for the program to run smoothly, you need to provide the absolute path to the inputFiles.\n")
+	print("The second argument is the file path to the logfile where you want to write the names of the missing files.")
+	print("For example, it should look something like,")
+	print("\n/path/to/logfile/logfile.txt or /home/user/scratch/BasicFusion/logfiles/logfile.txt\n")
+	print("The second argument also need to have the name of the .txt file where you wish to log all the missing files.")
+	print("You don't need to make a TEXTFile just give the name in the second argument and the program will make a txt")
+	print("with that name in the specified directory.\n")
+
+
+def run():
 	print('Please provide the absolute path to the directory where the input files are.')
 	print('EXAMPLE: /home/path/to/directory/inputFiles')
 	dirpath = str(raw_input())
@@ -36,10 +91,6 @@ def main():
 	print('EXAMPLE: /path/to/log/directory/logfile.txt')
 	logfile = str(raw_input())
 
-
-	#dirpath = '/projects/sciteam/jq0/TerraFusion/inputFiles'
-	#logfile = '/u/sciteam/sbansal6/scratch/logfiles/CERES_Cont_Check.txt'
-	
 	Continuity_Check(dirpath, logfile)
 
 #checks if the file missing from the input file actually exists
