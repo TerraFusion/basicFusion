@@ -55,7 +55,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
     char* fileTime = NULL;
     char* correctName = NULL;
     char* dimSuffix = NULL;
-    short fail = 0;
+    int retVal = RET_SUCCESS;
     char* tmpCharPtr = NULL;
     char* NewcorrectName = NULL;
     char granuleName[20] = {'\0'};
@@ -99,8 +99,9 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
     fileID = SDstart( argv[2], DFACC_READ );
     if ( fileID < 0 )
     {
-        FATAL_MSG("Unable to open CERES file.\n\t%s\n", argv[2]);
-        return (EXIT_FAILURE);
+        WARN_MSG("Unable to open CERES file.\n\t%s\n", argv[2]);
+        fileID = 0;
+        goto cleanupFO;
     }
 
     /* Open/create the CERES root group */
@@ -451,9 +452,13 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
     if ( 0 )
     {
 cleanupFail:
-        fail = 1;
+        retVal = FATAL_ERR;
     }
-
+    if ( 0 )
+    {
+cleanupFO:
+        retVal = FAIL_OPEN;
+    }
     if ( fileID )           SDend(fileID);
     if ( fileTime )         free(fileTime);
     if ( rootCERES_g )      H5Gclose(rootCERES_g);
@@ -467,9 +472,7 @@ cleanupFail:
     if ( dimSuffix )        free(dimSuffix);
     if ( NewcorrectName )   free(NewcorrectName);
 
-    if ( fail )             return EXIT_FAILURE;
-
-    return EXIT_SUCCESS;
+    return retVal;
 }
 
 int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info)
