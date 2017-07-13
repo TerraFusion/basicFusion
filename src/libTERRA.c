@@ -67,10 +67,10 @@ i       8. data_out        -- A single dimensional array containing information 
 
     RETURN:
         Case 1 -- returnDatasetID == 0:
-            Returns EXIT_FAILURE upon an error.
-            Returns EXIT_SUCCESS upon successful completion.
+            Returns FATAL_ERR upon an error.
+            Returns RET_SUCCESS upon successful completion.
         Case 2 -- returnDatasetID != 0:
-            Returns EXIT_FAILURE upon an error.
+            Returns FATAL_ERR upon an error.
             Returns the identifier to the newly created dataset upon success.
 */
 /* OutputFileID is not used. NO need to have this parameter. MY 2017-03-03 */
@@ -95,7 +95,7 @@ hid_t insertDataset(  hid_t const *outputFileID, hid_t *datasetGroup_ID, int ret
         FATAL_MSG("Unable to create dataset \"%s\".\n", datasetName );
         H5Sclose(memspace);
         free(correct_dsetname);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
     status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, (VOIDP)data_out );
@@ -105,7 +105,7 @@ hid_t insertDataset(  hid_t const *outputFileID, hid_t *datasetGroup_ID, int ret
         H5Dclose(dataset);
         H5Sclose(memspace);
         free(correct_dsetname);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
     /* Free all remaining memory */
@@ -119,7 +119,7 @@ hid_t insertDataset(  hid_t const *outputFileID, hid_t *datasetGroup_ID, int ret
     if ( returnDatasetID == 0 )
     {
         H5Dclose(dataset);
-        return EXIT_SUCCESS;
+        return RET_SUCCESS;
     }
 
 
@@ -142,14 +142,14 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
     if(plist_id <0)
     {
         FATAL_MSG("Cannot create the HDF5 dataset creation property list.\n");
-        return(EXIT_FAILURE);
+        return(FATAL_ERR);
     }
     // The chunk size is the same as the array size
     if(H5Pset_chunk(plist_id,rank,datasetDims)<0)
     {
         FATAL_MSG("Cannot set chunk for the HDF5 dataset creation property list.\n");
         H5Pclose(plist_id);
-        return(EXIT_FAILURE);
+        return(FATAL_ERR);
     }
 
     short gzip_comp_level = 0;
@@ -170,7 +170,7 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
         {
             FATAL_MSG("Cannot set deflate for the HDF5 dataset creation property list.\n");
             H5Pclose(plist_id);
-            return(EXIT_FAILURE);
+            return(FATAL_ERR);
         }
     }
 
@@ -179,7 +179,7 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
     {
         FATAL_MSG("Cannot create the memory space.\n");
         H5Pclose(plist_id);
-        return(EXIT_FAILURE);
+        return(FATAL_ERR);
     }
 
     /* This is necessary since "/" is a reserved character in HDF5,we have to change it "_". MY 2016-12-20 */
@@ -197,7 +197,7 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
         H5Pclose(plist_id);
         H5Sclose(memspace);
         free(correct_dsetname);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
     status = H5Dwrite( dataset, dataType, H5S_ALL, H5S_ALL, H5S_ALL, (VOIDP)data_out );
@@ -208,7 +208,7 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
         H5Dclose(dataset);
         H5Sclose(memspace);
         free(correct_dsetname);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
     /* Free all remaining memory */
@@ -223,7 +223,7 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
     if ( returnDatasetID == 0 )
     {
         H5Dclose(dataset);
-        return EXIT_SUCCESS;
+        return RET_SUCCESS;
     }
 
 
@@ -278,9 +278,9 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
         !TWO CASES!
 
         Case returnDatasetID == 0:
-            Returns EXIT_FAILURE if error occurs anywhere. Else, returns EXIT_SUCCESS
+            Returns FATAL_ERR if error occurs anywhere. Else, returns RET_SUCCESS
         Case returnDatasetID != 0:
-            Returns EXIT_FAILURE if error occurs anywhere. Else, returns the dataset identifier
+            Returns FATAL_ERR if error occurs anywhere. Else, returns the dataset identifier
 */
 
 hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
@@ -517,15 +517,15 @@ cleanupFail:
     if ( datasetChunkSize ) free(datasetChunkSize);
     if ( data_out ) free(data_out);
 
-    if ( fail != 0 ) return EXIT_FAILURE;                   // first check if something failed
+    if ( fail != 0 ) return FATAL_ERR;                   // first check if something failed
 
-    if ( returnDatasetID == 0 ) return EXIT_SUCCESS;   // if caller doesn't want ID, return success
+    if ( returnDatasetID == 0 ) return RET_SUCCESS;   // if caller doesn't want ID, return success
 
     if ( fail == 0 ) return dataset;                   // otherwise, caller does want ID
     else                                            // if all these checks failed, something went wrong
     {
         FATAL_MSG("Something strange just happened.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
 }
@@ -550,7 +550,7 @@ cleanupFail:
         first argument) with the necessary information to access the file.
 
     RETURN:
-        Returns EXIT_FAILURE upon failure to open file. Otherwise, returns EXIT_SUCCESS
+        Returns FATAL_ERR upon failure to open file. Otherwise, returns RET_SUCCESS
 */
 
 herr_t openFile( hid_t *file, char* inputFileName, unsigned flags  )
@@ -564,10 +564,10 @@ herr_t openFile( hid_t *file, char* inputFileName, unsigned flags  )
     if ( *file < 0 )
     {
          FATAL_MSG("H5Fopen -- Could not open HDF5 file.\n" );
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 
 }
 
@@ -581,8 +581,8 @@ herr_t openFile( hid_t *file, char* inputFileName, unsigned flags  )
     EFFECTS:
         Creates a new HDF5 file if it doesn't exist. Updates argument 1.
     RETURN:
-        EXIT_FAILURE on failure (equivalent to non-zero number in most environments)
-        EXIT_SUCCESS on success (equivalent to 0 in most systems)
+        FATAL_ERR on failure (equivalent to non-zero number in most environments)
+        RET_SUCCESS on success (equivalent to 0 in most systems)
 */
 
 herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
@@ -591,10 +591,10 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
     if ( *outputFile < 0 )
     {
          FATAL_MSG("H5Fcreate -- Could not create HDF5 file. Does it already exist? If so, delete or don't\n\t    call this function.\n" );
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 }
 
 
@@ -616,8 +616,8 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
         Caller must be aware of this fact that name of the new group will not necessarily
         be the value passed in at groupName.
     RETURN:
-        EXIT_FAILURE on failure
-        EXIT_SUCCESS on success
+        FATAL_ERR on failure
+        RET_SUCCESS on success
 */
 
 herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* groupName)
@@ -629,13 +629,13 @@ herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* groupNam
     if ( *newGroup < 0 )
     {
          FATAL_MSG("H5Gcreate -- Could not create '%s' root group.\n", newGroupName);
-        *newGroup = EXIT_FAILURE;
+        *newGroup = FATAL_ERR;
         free(newGroupName);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     free(newGroupName);
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 }
 
 /*
@@ -652,7 +652,7 @@ herr_t createGroup( hid_t const *referenceGroup, hid_t *newGroup, char* groupNam
         Creates uninitialized attribute at the object specified by objectID
     RETURN:
         Returns the attribute identifier upon success.
-        Returns EXIT_FAILURE upon failure.
+        Returns FATAL_ERR upon failure.
 */
 
 hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID )
@@ -671,7 +671,7 @@ hid_t attributeCreate( hid_t objectID, const char* attrName, hid_t datatypeID )
     if ( attrID < 0 )
     {
          FATAL_MSG("H5Acreate -- Could not create attribute \"%s\".\n", attrName );
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     // close dataspace
@@ -740,7 +740,7 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname)
             {
                 FATAL_MSG("Failed to obtain name length.\n");
                 free(ref_array);
-                return EXIT_FAILURE;
+                return FATAL_ERR;
             }
 
             vgroup_name = (char *) HDmalloc(sizeof(char *) * (name_len+1));
@@ -748,7 +748,7 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname)
             {
                  FATAL_MSG("HDmalloc failed. Not enough memory for vgroup_name!\n");
                 free(ref_array);
-                return EXIT_FAILURE;
+                return FATAL_ERR;
             }
             status_32 = Vgetname (vgroup_id, vgroup_name);
             if ( status_32 < 0 )
@@ -756,7 +756,7 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname)
                 FATAL_MSG("Failed to obtain V group name.\n");
                 free(ref_array);
                 HDfree(vgroup_name);
-                return EXIT_FAILURE;
+                return FATAL_ERR;
             }
             if(strncmp(vgroup_name,groupname,strlen(vgroup_name))==0)
             {
@@ -817,8 +817,8 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname)
         to contain the corresponding rank and dimension size of the read data.
 
     RETURN:
-        Returns EXIT_FAILURE on failure.
-        Else, returns EXIT_SUCCESS.
+        Returns FATAL_ERR on failure.
+        Else, returns RET_SUCCESS.
 */
 
 int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *retRank, int32* retDimsizes, int32 dataType, int32*h4_start,int32*h4_stride,int32*h4_count )
@@ -840,14 +840,14 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
     if( sds_index < 0 )
     {
          FATAL_MSG("SDnametoindex: Failed to get index of dataset.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     sds_id = SDselect( fileID, sds_index );
     if ( sds_id < 0 )
     {
          FATAL_MSG("SDselect: Failed to select dataset.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     /* Initialize dimsizes elements to 1 */
@@ -864,7 +864,7 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
     {
          FATAL_MSG("SDgetinfo: Failed to get info from dataset.\n");
         SDendaccess(sds_id);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
 
@@ -940,7 +940,7 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
     default:
         FATAL_MSG("Invalid data type.\nIt may be the case that your datatype has not been accounted for in the %s function.\nIf that is the case, simply add your datatype to the function as a switch case.\n",__func__ );
         SDendaccess(sds_id);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     if(h4_count!=NULL)
@@ -953,7 +953,7 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
          FATAL_MSG("SDreaddata: Failed to read data.\n");
         SDendaccess(sds_id);
         if ( data != NULL ) free(data);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
 
@@ -967,7 +967,7 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
         else
             for ( int i = 0; i < DIM_MAX; i++ ) retDimsizes[i] = dimsizes[i];
     }
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 }
 
 /*
@@ -990,7 +990,7 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
         A new string attribute will be created for the object objectID.
 
     RETURN:
-        Returns EXIT_FAILURE upon an error.
+        Returns FATAL_ERR upon an error.
         Else, returns the attribute identifier. It is the duty of the caller to close
         the identifier using H5Aclose().
 */
@@ -1010,11 +1010,11 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
 
 
     attrID = attributeCreate( objectID, name, stringType );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
          FATAL_MSG("H5Aclose: Unable to create %s attribute.\n", name);
         H5Tclose(stringType);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     status = H5Awrite( attrID, stringType, value );
@@ -1023,7 +1023,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
          FATAL_MSG("H5Awrite: Unable to write %s attribute.\n", name);
         H5Tclose(stringType);
         H5Aclose(attrID);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     H5Tclose(stringType);
 
@@ -1069,7 +1069,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
         H5Dclose().
 
     RETURN:
-        Returns the dataset identifier if successful. Else returns EXIT_FAILURE upon
+        Returns the dataset identifier if successful. Else returns FATAL_ERR upon
         any errors.
 */
 
@@ -1086,11 +1086,11 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
     status = H4readData( inputFileID, inDatasetName,
                          (void**)&dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL );
 
-    if ( status == EXIT_FAILURE )
+    if ( status == FATAL_ERR )
     {
         FATAL_MSG("Unable to read \"%s\" data.\n", inDatasetName );
         if ( dataBuffer != NULL ) free(dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
     /* END READ DATA. BEGIN INSERTION OF DATA */
@@ -1112,14 +1112,14 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
         datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                    temp, outputDataType, inDatasetName, dataBuffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
         // Have warning const char* to char*:
         const char* tempStr = outDatasetName ? outDatasetName : inDatasetName;
         FATAL_MSG("Error writing \"%s\" dataset.\n", tempStr );
         free(dataBuffer);
         H5Dclose(datasetID);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
 
@@ -1192,7 +1192,7 @@ float ReverseFloat( const float inFloat )
         H5Dclose().
 
     RETURN:
-        Returns the dataset identifier if successful. Else returns EXIT_FAILURE upon
+        Returns the dataset identifier if successful. Else returns FATAL_ERR upon
         any errors.
 */
 
@@ -1209,7 +1209,7 @@ hid_t readThenWriteSubset( int CER_LATLON, const char* outDatasetName, hid_t out
     status = H4readData( inputFileID, inDatasetName,
                          (void**)&dataBuffer, &dataRank, dataDimSizes, inputDataType,start,stride,count );
 
-    if ( status == EXIT_FAILURE )
+    if ( status == FATAL_ERR )
     {
         FATAL_MSG("Unable to read \"%s\" data.\n", inDatasetName );
         goto cleanupFail;
@@ -1289,7 +1289,7 @@ hid_t readThenWriteSubset( int CER_LATLON, const char* outDatasetName, hid_t out
         datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                    temp, outputDataType, inDatasetName, dataBuffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
         // Have warning const char* to char*:
         const char* tempStr = outDatasetName ? outDatasetName : inDatasetName;
@@ -1301,7 +1301,7 @@ hid_t readThenWriteSubset( int CER_LATLON, const char* outDatasetName, hid_t out
     if ( 0 )
     {
 cleanupFail:
-        retVal = EXIT_FAILURE;
+        retVal = FATAL_ERR;
         if ( datasetID ) H5Dclose(datasetID);
     }
 
@@ -1412,7 +1412,7 @@ char *correct_name(const char* oldname)
         H5Dclose().
 
     RETURN:
-        Returns the dataset identifier if successful. Else returns EXIT_FAILURE upon
+        Returns the dataset identifier if successful. Else returns FATAL_ERR upon
         any errors.
 */
 /* MY 2016-12-20, routine to unpack ASTER data */
@@ -1433,7 +1433,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
     if(unc < 0)
     {
          FATAL_MSG("There is no valid Unit Conversion Coefficient for this dataset  %s.\n",  datasetName );
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
 
     }
 
@@ -1451,16 +1451,16 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
     else
     {
          FATAL_MSG("Unsupported datatype. Datatype must be either DFNT_UINT16 or DFNT_UINT8.\n" );
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
 
-    if ( status == EXIT_FAILURE )
+    if ( status == FATAL_ERR )
     {
          FATAL_MSG("Unable to read %s data.\n",  datasetName );
         if ( vsir_dataBuffer != NULL ) free(vsir_dataBuffer);
         if ( tir_dataBuffer != NULL ) free(tir_dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
     {
@@ -1548,13 +1548,13 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
     }
 
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
          FATAL_MSG("Error writing %s dataset.\n", datasetName );
         if ( vsir_dataBuffer != NULL ) free(vsir_dataBuffer);
         if ( tir_dataBuffer != NULL ) free(tir_dataBuffer);
         if ( output_dataBuffer != NULL ) free(output_dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
     if ( vsir_dataBuffer != NULL ) free(vsir_dataBuffer);
@@ -1604,7 +1604,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
         H5Dclose().
 
     RETURN:
-        Returns the dataset identifier if successful. Else returns EXIT_FAILURE upon
+        Returns the dataset identifier if successful. Else returns FATAL_ERR upon
         any errors.
 */
 /* MY-2016-12-20 Routine to unpack MISR data */
@@ -1623,7 +1623,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
     if(scale_factor < 0)
     {
          FATAL_MSG("The scale_factor of %s is less than 0.\n",  datasetName );
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
 
     }
     status = H4readData( inputFileID, datasetName,
@@ -1632,7 +1632,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
     {
          FATAL_MSG("Unable to read %s data.\n",  datasetName );
         if ( input_dataBuffer != NULL ) free(input_dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
     /* Before unpacking the data, we want to re-arrange the name */
@@ -1650,7 +1650,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
     else  // We will fail here.
     {
          FATAL_MSG("Error: The dataset name doesn't end with /RDQI\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
 
@@ -1759,7 +1759,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
             la_pos_dsetid = insertDataset( &outputFile, &outputGroupID, 1, la_pos_dset_rank,
                                            la_pos_dset_dims, H5T_NATIVE_INT, la_pos_dset_name, la_data_pos );
 
-            if ( la_pos_dsetid == EXIT_FAILURE )
+            if ( la_pos_dsetid == FATAL_ERR )
             {
                  FATAL_MSG("Error writing %s dataset.\n", newdatasetName );
                 if(la_pos_dset_name)
@@ -1767,7 +1767,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
                 if(la_data_pos)
                     free(la_data_pos);
                 H5Dclose(la_pos_dsetid);
-                return (EXIT_FAILURE);
+                return (FATAL_ERR);
             }
             if(la_pos_dset_name)
                 free(la_pos_dset_name);
@@ -1821,13 +1821,13 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
     //datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
     //    temp, outputDataType, newdatasetName, output_dataBuffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
          FATAL_MSG("Error writing %s dataset.\n", datasetName );
         if(newdatasetName) free(newdatasetName);
         if( input_dataBuffer) free(input_dataBuffer);
         if( output_dataBuffer) free(output_dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
     if ( retDatasetNamePtr )
@@ -1841,7 +1841,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
            if(newdatasetName) free(newdatasetName);
            if( input_dataBuffer) free(input_dataBuffer);
            if( output_dataBuffer) free(output_dataBuffer);
-           return (EXIT_FAILURE);
+           return (FATAL_ERR);
 
        }
     */
@@ -1886,7 +1886,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
         H5Dclose().
 
     RETURN:
-        Returns the dataset identifier if successful. Else returns EXIT_FAILURE upon
+        Returns the dataset identifier if successful. Else returns FATAL_ERR upon
         any errors.
 */
 
@@ -1920,7 +1920,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
     {
          FATAL_MSG("Unable to read %s data.\n",  datasetName );
         if ( input_dataBuffer ) free(input_dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
 
@@ -1948,7 +1948,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
         {
              FATAL_MSG("-- SDnametoindex -- Failed to get index of dataset.\n");
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         sds_id = SDselect( inputFileID, sds_index );
@@ -1956,7 +1956,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
         {
              FATAL_MSG("SDselect -- Failed to get the ID of the dataset.\n");
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         radi_sc_index = SDfindattr(sds_id,radi_scales);
@@ -1965,7 +1965,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
              FATAL_MSG("Cannot find attribute %s of variable %s\n",radi_scales,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         if(SDattrinfo (sds_id, radi_sc_index, temp_attr_name, &radi_sc_type, &num_radi_sc_values)<0)
@@ -1973,7 +1973,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
              FATAL_MSG("Cannot obtain SDS attribute %s of variable %s\n",radi_scales,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         radi_off_index = SDfindattr(sds_id,radi_offset);
@@ -1982,7 +1982,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
              FATAL_MSG("Cannot find attribute %s of variable %s\n",radi_offset,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
 
@@ -1991,7 +1991,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
              FATAL_MSG("Cannot obtain SDS attribute %s of variable %s\n",radi_offset,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         if(radi_sc_type != DFNT_FLOAT32 || radi_sc_type != radi_off_type || num_radi_sc_values != num_radi_off_values)
@@ -2001,7 +2001,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
             fprintf(stderr, "\tThis is for the variable %s\n",datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
 
@@ -2015,7 +2015,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
             free(radi_off_values);
             SDendaccess(sds_id);
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
 
@@ -2026,7 +2026,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
             free(radi_off_values);
             SDendaccess(sds_id);
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         SDendaccess(sds_id);
@@ -2044,7 +2044,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
             free(radi_sc_values);
             free(radi_off_values);
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         assert(dataRank>1);
@@ -2124,12 +2124,12 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
     datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                temp, outputDataType, datasetName, output_dataBuffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
          FATAL_MSG("Error writing %s dataset.\n", datasetName );
         free(input_dataBuffer);
         free(output_dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
 
@@ -2169,7 +2169,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
     {
          FATAL_MSG("Unable to read %s data.\n",  datasetName );
         if( input_dataBuffer ) free(input_dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
 
@@ -2196,7 +2196,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
         {
              FATAL_MSG("SDnametoindex -- Failed to get index of dataset.\n");
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         sds_id = SDselect( inputFileID, sds_index );
@@ -2204,7 +2204,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
         {
              FATAL_MSG("SDselect -- Failed to get ID of dataset.\n");
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         sc_index = SDfindattr(sds_id,scaling_factor);
@@ -2213,7 +2213,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
              FATAL_MSG("SDfindattr -- Cannot find attribute %s of variable %s\n",scaling_factor,datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         if(SDattrinfo (sds_id, sc_index, temp_attr_name, &sc_type, &num_sc_values)<0)
@@ -2221,7 +2221,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
              FATAL_MSG("SDattrinfo -- Cannot obtain SDS attribute %s of variable %s\n",scaling_factor,datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         uncert_index = SDfindattr(sds_id,specified_uncert);
@@ -2230,7 +2230,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
              FATAL_MSG("SDfindattr -- Cannot find attribute %s of variable %s\n",specified_uncert,datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
 
@@ -2239,7 +2239,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
              FATAL_MSG("SDattrinfo -- Cannot obtain attribute %s of variable %s\n",specified_uncert,datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         if(sc_type != DFNT_FLOAT32 || num_sc_values != num_uncert_values)
@@ -2248,7 +2248,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
             fprintf(stderr, "\tThis is for the variable %s\n",datasetName);
             free(input_dataBuffer);
             SDendaccess(sds_id);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
 
@@ -2262,7 +2262,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
             SDendaccess(sds_id);
             free(sc_values);
             free(uncert_values);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         if(SDreadattr(sds_id,uncert_index,uncert_values) <0)
@@ -2272,7 +2272,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
             SDendaccess(sds_id);
             free(sc_values);
             free(uncert_values);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         SDendaccess(sds_id);
@@ -2290,7 +2290,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
             free(input_dataBuffer);
             free(sc_values);
             free(uncert_values);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         assert(dataRank>1);
@@ -2370,12 +2370,12 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
     //datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank ,
     //     temp, outputDataType, datasetName, output_dataBuffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
          FATAL_MSG("Error writing %s dataset.\n", datasetName );
         free(input_dataBuffer);
         free(output_dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
 
@@ -2418,7 +2418,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
         H5Dclose().
 
     RETURN:
-        Returns the dataset identifier if successful. Else returns EXIT_FAILURE upon
+        Returns the dataset identifier if successful. Else returns FATAL_ERR upon
         any errors.
 */
 
@@ -2442,7 +2442,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
     {
          FATAL_MSG("Unable to read %s data.\n",  datasetName );
         if ( input_dataBuffer ) free(input_dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
 
@@ -2468,7 +2468,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
         {
              FATAL_MSG("-- SDnametoindex -- Failed to get index of dataset.\n");
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         sds_id = SDselect( inputFileID, sds_index );
@@ -2476,7 +2476,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
         {
              FATAL_MSG("SDselect -- Failed to get the ID of the dataset.\n");
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         radi_sc_index = SDfindattr(sds_id,radi_scales);
@@ -2485,7 +2485,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
              FATAL_MSG("Cannot find attribute %s of variable %s\n",radi_scales,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         if(SDattrinfo (sds_id, radi_sc_index, temp_attr_name, &radi_sc_type, &num_radi_sc_values)<0)
@@ -2493,7 +2493,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
              FATAL_MSG("Cannot obtain SDS attribute %s of variable %s\n",radi_scales,datasetName);
             SDendaccess(sds_id);
             free(input_dataBuffer);
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 #endif
 
@@ -2570,12 +2570,12 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
     datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                temp, outputDataType, datasetName, output_dataBuffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
          FATAL_MSG("Error writing %s dataset.\n", datasetName );
         free(input_dataBuffer);
         free(output_dataBuffer);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
 
@@ -2719,28 +2719,28 @@ herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* b
     if ( dsetIndex < 0 )
     {
         FATAL_MSG("Failed to get dataset index.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     int32 dsetID = SDselect(h4FileID, dsetIndex);
     if ( dsetID < 0 )
     {
         FATAL_MSG("Failed to get dataset ID.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     int32 attrIdx = SDfindattr(dsetID,attrName);
     if ( attrIdx < 0 )
     {
         FATAL_MSG("Failed to get attribute index.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     statusn = SDreadattr(dsetID,attrIdx,(VOIDP) buffer );
     if ( statusn < 0 )
     {
         FATAL_MSG("Failed to read attribute.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 }
 
 /*                              getTime
@@ -3834,7 +3834,7 @@ herr_t copyDimension( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_
                 tempInt = 2;
                 float floatBuffer[2] = {1.0f, 2.0f};
                 h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
-                if ( h5dimID == EXIT_FAILURE )
+                if ( h5dimID == FATAL_ERR )
                 {
                     h5dimID = 0;
                     FATAL_MSG("Failed to insert dataset.\n");
@@ -3851,7 +3851,7 @@ herr_t copyDimension( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_
                 tempInt = 5;
                 float floatBuffer[5] = {3.0f, 4.0f, 5.0f, 6.0f, 7.0f};
                 h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
-                if ( h5dimID == EXIT_FAILURE )
+                if ( h5dimID == FATAL_ERR )
                 {
                     h5dimID = 0;
                     FATAL_MSG("Failed to insert dataset.\n");
@@ -3864,7 +3864,7 @@ herr_t copyDimension( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_
                 float floatBuffer[15] = { 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 13.5f, 14.0f, 14.5f, 15.0f, 16.0f, 17.0f, 18.0f, 19.0f, 26.0f };
                 tempInt = 15;
                 h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
-                if ( h5dimID == EXIT_FAILURE )
+                if ( h5dimID == FATAL_ERR )
                 {
                     h5dimID = 0;
                     FATAL_MSG("Failed to insert dataset.\n");
@@ -3877,7 +3877,7 @@ herr_t copyDimension( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_
                 float floatBuffer[16] = { 20.0f, 21.0f, 22.0f, 23.0f, 24.0f, 25.0f, 27.0f, 28.0f, 29.0f, 30.0f, 31.0f, 32.0f, 33.0f, 34.0f, 35.0f, 36.0f };
                 tempInt = 16;
                 h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
-                if ( h5dimID == EXIT_FAILURE )
+                if ( h5dimID == FATAL_ERR )
                 {
                     h5dimID = 0;
                     FATAL_MSG("Failed to insert dataset.\n");
@@ -3922,7 +3922,7 @@ herr_t copyDimension( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_
 
                     tempInt = size;
                     h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, h5type, catString, dimBuffer);
-                    if ( h5dimID == EXIT_FAILURE )
+                    if ( h5dimID == FATAL_ERR )
                     {
                         h5dimID = 0;
                         FATAL_MSG("Failed to insert dataset.\n");
@@ -4202,7 +4202,7 @@ herr_t copyDimensionSubset( char* dimSuffix, int32 h4fileID, char* h4datasetName
 
                 tempInt = size;
                 h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, h5type, output_dim_name, dimBuffer);
-                if ( h5dimID == EXIT_FAILURE )
+                if ( h5dimID == FATAL_ERR )
                 {
                     h5dimID = 0;
                     FATAL_MSG("Failed to insert dataset.\n");
@@ -4341,7 +4341,7 @@ herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* data
     datasetID = insertDataset( &dummy_output_file_id, &h5_group, 1, 2,
                                temp, h5_type, dsetname, databuffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
          FATAL_MSG("Error writing %s dataset.\n", dsetname );
         return -1;
@@ -4399,7 +4399,7 @@ hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimS
     herr_t status = 0;
 
     dsetID = insertDataset ( &outputFile, &h5dimGroupID, 1, 1, &dimSize, dimScaleNumType, dimName, scaleBuffer);
-    if ( dsetID == EXIT_FAILURE )
+    if ( dsetID == FATAL_ERR )
     {
         dsetID = 0;
         FATAL_MSG("Failed to insert dataset.\n");
@@ -4460,8 +4460,8 @@ hid_t MOPITTaddDimension ( hid_t h5dimGroupID, const char* dimName, hsize_t dimS
         again.
 
     RETURN:
-        EXIT_FAILURE
-        EXIT_SUCCESS
+        FATAL_ERR
+        RET_SUCCESS
 
 */
 
@@ -4479,7 +4479,7 @@ herr_t initializeTimeOffset()
     if ( TAI93toUTCoffset == NULL )
     {
         FATAL_MSG("Failed to allocate memory for time offset array.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     /* Initialize the offset Array */
@@ -4506,7 +4506,7 @@ herr_t initializeTimeOffset()
     for ( int i = 8768; i < NUM_DAYS; i++ )    // Jan 2017 -> June 2017
         TAI93toUTCoffset[i] = -10.0;                  // Currently, value not known past June 30th 2017
 
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 }
 
 /*
@@ -4548,7 +4548,7 @@ herr_t TAItoUTCconvert ( double* buffer, unsigned int size )
     if ( TAI93toUTCoffset == NULL )
         status = initializeTimeOffset();
 
-    if ( status == EXIT_FAILURE )
+    if ( status == FATAL_ERR )
     {
         FATAL_MSG("Failed to initialize TAI to UTC time offset.\n");
         return FAIL;
@@ -4609,8 +4609,8 @@ herr_t TAItoUTCconvert ( double* buffer, unsigned int size )
         IT IS THE DUTY OF THE CALLER to release buffer to avoid memory leaks.
 
     RETURN:
-        EXIT_FAILURE
-        EXIT_SUCCESS
+        FATAL_ERR
+        RET_SUCCESS
 */
 
 herr_t H5allocateMemDouble ( hid_t inputFile, const char* datasetPath, void** buffer, long int* size )
@@ -4687,9 +4687,9 @@ cleanupFail:
     if ( dataset ) H5Dclose(dataset);
     if ( dataspace ) H5Sclose(dataspace);
     if ( datasetDims ) free(datasetDims);
-    if ( fail ) return EXIT_FAILURE;
+    if ( fail ) return FATAL_ERR;
 
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 }
 
 /*
@@ -4712,8 +4712,8 @@ cleanupFail:
         Modifies the memory pointed to by TAI93timestamp
 
     RETURN:
-        EXIT_FAILURE
-        EXIT_SUCCESS
+        FATAL_ERR
+        RET_SUCCESS
 
 */
 herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
@@ -4721,12 +4721,12 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     if ( date.year < 1993 )
     {
         FATAL_MSG("Cannot convert to TAI93 with dates before the year 1993.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     if ( TAI93timestamp == NULL )
     {
         FATAL_MSG("TAI93timestamp argument cannot be NULL.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     double TAI93 = 0.0;
@@ -4762,7 +4762,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     else
     {
         FATAL_MSG("Failed to find how many leap years since 1993. Maybe this function is\n\tout of date?\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
 
@@ -4772,7 +4772,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     if ( leapYear < 0 )
     {
         FATAL_MSG("Failed to determine if it is a leap year.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     // Account for the number of seconds in a month
     // Note that we increment TAI93 based on how many FULL months have passed.
@@ -4819,7 +4819,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
         break;
     default:
         FATAL_MSG("Problem occurred trying to convert date to TAI93 time.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     // Add extra day if leap year and month is March or after
@@ -4835,7 +4835,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     else
     {
         FATAL_MSG("Failed to account for the number of days passed in the current month.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     // Account for the number of FULL hours that have passed in this day
@@ -4846,7 +4846,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     else
     {
         FATAL_MSG("Failed to acount for the number of hours passed in a day.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     // Account for the number of FULL minutes that have passed in this hour
@@ -4856,7 +4856,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
     else
     {
         FATAL_MSG("Failed to account for number of minutes passed.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     // Finally, increment the seconds
@@ -4865,7 +4865,7 @@ herr_t getTAI93 ( GDateInfo_t date, double* TAI93timestamp )
 
     *TAI93timestamp = TAI93;
 
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 }
 
 /*
@@ -5068,7 +5068,7 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     time.second = (double) cur_orbit_info.start_second;
 
     status = getTAI93 ( time, &startTAI93 );
-    if ( status == EXIT_FAILURE )
+    if ( status == FATAL_ERR )
     {
         FATAL_MSG("Failed to get TAI93 timestamp.\n");
         goto cleanupFail;
@@ -5083,7 +5083,7 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
 
 
     status = getTAI93 ( time, &endTAI93 );
-    if ( status == EXIT_FAILURE )
+    if ( status == FATAL_ERR )
     {
         FATAL_MSG("Failed to get TAI93 timestamp.\n");
         goto cleanupFail;
@@ -5479,8 +5479,8 @@ int numDigits(int digit)
  *      IT IS THE DUTY OF THE CALLER to free the granList memory when finished!
  *
  * RETURN:
- *      EXIT_FAILURE.
- *      EXIT_SUCCESS.
+ *      FATAL_ERR.
+ *      RET_SUCCESS.
  */
 
 herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
@@ -5489,13 +5489,13 @@ herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
     {
         FATAL_MSG("No arguments to this function can be NULL.\n\tgranList = %p\n\tcurSize = %p\n\tnewGran = %p\n", granList,
                    curSize, newGran);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     size_t granLen = strlen( newGran );
     if ( granLen < 2 )
     {
         FATAL_MSG("The newGran argument contains no string!\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     size_t granListSize = 0;
@@ -5508,14 +5508,14 @@ herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
         if ( *curSize != 0 )
         {
             FATAL_MSG("A NULL pointer was passed for the string but the size was indicated to be non-zero.\n");
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         *granList = calloc( granLen+2, 1 );
         if ( *granList == NULL )
         {
             FATAL_MSG("Failed to allocate memory.\n");
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
 
         *curSize = granLen+2;
@@ -5530,7 +5530,7 @@ herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
         if ( tempPtr == NULL )
         {
             FATAL_MSG("Failed to allocate memory.\n");
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
         *granList = (char*) tempPtr;
 
@@ -5544,6 +5544,6 @@ herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
     (*granList)[newGranListSize]   = ',';
     (*granList)[newGranListSize+1] = '\0';
 
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 }
 

@@ -82,7 +82,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
     char* VNIRlon = NULL;
     char* VNIRcoord = NULL;
     ssize_t pathSize = 0;
-    int fail = 0;
+    int retVal = RET_SUCCESS;
     int i;
     herr_t errStatus = 0;
     herr_t status = 0;
@@ -165,9 +165,9 @@ int ASTER( char* argv[],int aster_count,int unpack)
     inHFileID = Hopen(argv[1],DFACC_READ, 0);
     if ( inHFileID < 0 )
     {
-        FATAL_MSG("Failed to open ASTER file.\n\t%s\n", argv[1]);
+        WARN_MSG("Failed to open ASTER file.\n\t%s\n", argv[1]);
         inHFileID = 0;
-        goto cleanupFail;
+        goto cleanupFO;
     }
 
     /*
@@ -176,8 +176,8 @@ int ASTER( char* argv[],int aster_count,int unpack)
     h4_status = Vstart (inHFileID);
     if ( h4_status < 0 )
     {
-        FATAL_MSG("Failed to start V interface.\n");
-        goto cleanupFail;
+        WARN_MSG("Failed to start V interface.\n");
+        goto cleanupFO;
     }
 
     /* If VNIR exists, vnir_grp_ref should be > 0 */
@@ -1590,7 +1590,12 @@ int ASTER( char* argv[],int aster_count,int unpack)
     if ( 0 )
     {
 cleanupFail:
-        fail = 1;
+        retVal = FATAL_ERR;
+    }
+    if ( 0 )
+    {
+cleanupFO:
+        retVal = FAIL_OPEN;
     }
 
     if ( solar_geometryGroup ) H5Gclose(solar_geometryGroup);
@@ -1645,8 +1650,7 @@ cleanupFail:
     if ( SWIRlat ) free(SWIRlat);
     if ( SWIRlon ) free(SWIRlon);
     if ( SWIRcoord) free(SWIRcoord);
-    if ( fail ) return EXIT_FAILURE;
-    return EXIT_SUCCESS;
+    return retVal;
 
 }
 

@@ -11,8 +11,8 @@
 #define TIME_UNIT "seconds since 1993-01-01"
 
 /*
-    NOTE: argv[1] = INPUT_FILE
-          argv[2] = OUTPUT_FILE
+    NOTE: argv[1] = input file path
+          argv[2] = output file path
 */
 
 hid_t outputFile;
@@ -49,9 +49,8 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
 
 
     int tempInt = 0;
-    int fail = 0;
+    int retVal = RET_SUCCESS;
     int* intArray = NULL;
-
     unsigned int startIdx = 0;
     unsigned int endIdx = 0;
     unsigned int bound[2];
@@ -66,9 +65,9 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     // open the input file
     if ( openFile( &file, argv[1], H5F_ACC_RDONLY ) )
     {
-        FATAL_MSG("Unable to open MOPITT file.\n\t%s\n", argv[1]);
+        WARN_MSG("Unable to open MOPITT file.\n\t%s\n", argv[1]);
         file = 0;
-        goto cleanupFail;
+        goto cleanupFO;
     }
 
     /* Extract the file time from the file name */
@@ -96,7 +95,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     if ( exists == 0 )
     {
         // create the root group
-        if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) == EXIT_FAILURE )
+        if ( createGroup( &outputFile, &MOPITTroot, "MOPITT" ) == FATAL_ERR )
         {
             FATAL_MSG("Unable to create MOPITT root group.\n");
             MOPITTroot = 0;
@@ -136,7 +135,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     /* The granule group will be named "granule_[fileTime]" */
     sprintf(granName,"granule_%s", fileTime);
     status = createGroup( &MOPITTroot, &granuleID, granName );
-    if ( status == EXIT_FAILURE )
+    if ( status == FATAL_ERR )
     {
         FATAL_MSG("Failed to create granule group.\n");
         granuleID = 0;
@@ -190,7 +189,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
 
     // insert the radiance dataset
     radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "MOPITTRadiances", H5T_NATIVE_FLOAT, 1, bound );
-    if ( radianceDataset == EXIT_FAILURE )
+    if ( radianceDataset == FATAL_ERR )
     {
         FATAL_MSG("Unable to insert MOPITT radiance dataset.\n");
         radianceDataset = 0;
@@ -390,7 +389,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
 
     // insert the longitude dataset
     longitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LONGITUDE, "Longitude", H5T_NATIVE_FLOAT, 1, bound );
-    if ( longitudeDataset == EXIT_FAILURE )
+    if ( longitudeDataset == FATAL_ERR )
     {
         FATAL_MSG("Unable to insert MOPITT longitude dataset.\n");
         longitudeDataset = 0;
@@ -483,7 +482,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
 
     // insert the latitude dataset
     latitudeDataset = MOPITTinsertDataset( &file, &geolocationGroup, LATITUDE, "Latitude", H5T_NATIVE_FLOAT, 1, bound );
-    if ( latitudeDataset == EXIT_FAILURE )
+    if ( latitudeDataset == FATAL_ERR )
     {
         FATAL_MSG("Unable to insert MOPITT latitude dataset.\n");
         latitudeDataset = 0;
@@ -626,7 +625,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     /*#############*/
 
     attrID = attributeCreate( radianceGroup, "TrackCount", H5T_NATIVE_INT );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Unable to create MOPITT TrackCout attribute.\n");
         attrID = 0;
@@ -682,7 +681,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     /*#################*/
 
     attrID = attributeCreate( radianceDataset, "missing_invalid", H5T_NATIVE_FLOAT );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Unable to create missing_invalid attribute.\n");
         goto cleanupFail;
@@ -748,7 +747,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     /*################*/
 
     attrID = attributeCreate( radianceDataset, "missing_nodata", H5T_NATIVE_FLOAT );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Unable to create missing_invalid attribute.\n");
         attrID = 0;
@@ -831,7 +830,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
 
 
     attrID = attributeCreate( radianceDataset, "units", stringType );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Unable to create radiance_unit attribute.\n");
         attrID = 0;
@@ -878,7 +877,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
 
 
     attrID = attributeCreate( geolocationGroup, "Latitude_unit", stringType );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Unable to create attribute.\n",__FILE__,__func__,__LINE__);
         attrID = 0;
@@ -898,7 +897,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     /* Longitude_unit */
 
     attrID = attributeCreate( geolocationGroup, "Longitude_unit", stringType );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Unable to create attribute.\n",__FILE__,__func__,__LINE__);
         attrID = 0;
@@ -944,7 +943,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     //attrID = attributeCreate( geolocationGroup, "units", stringType );
     // The units should be for Time rather than for the whole group MY 2017-06-15
     attrID = attributeCreate( timeDataset, "units", stringType );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Unable to create attribute.\n");
         attrID = 0;
@@ -961,7 +960,13 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     if ( 0 )
     {
 cleanupFail:
-        fail = 1;
+        retVal = FATAL_ERR;
+    }
+
+    if ( 0 )
+    {
+cleanupFO:
+        retVal = FAIL_OPEN;
     }
 
 cleanup:
@@ -993,10 +998,7 @@ cleanup:
     if ( coordinatePath )   free(coordinatePath);
     if ( latPath )          free(latPath);
     if ( lonPath )          free(lonPath);
-    if ( fail )
-        return EXIT_FAILURE;
-
-    return EXIT_SUCCESS;
-
+    
+    return retVal;
 
 }

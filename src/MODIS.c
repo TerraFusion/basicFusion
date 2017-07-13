@@ -9,9 +9,6 @@
 #define DIM_MAX 10
 #endif
 
-//#ifndef M_PI
-//#    define M_PI 3.14159265358979323846
-//#endif
 
 
 /*
@@ -26,8 +23,35 @@
 
 /* MY 2016-12-20, handling the MODIS files with and without MOD02HKM and MOD02QKM. */
 
-//void upscaleLatLonSpherical(double * oriLat, double * oriLon, int nRow, int nCol, int scanSize, double * newLat, double * newLon);
 int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID,hid_t outputFile);
+
+/*      MODIS()
+
+ DESCRIPTION:
+    This function handles transferring the MODIS data from the input HDF4 granules to the
+    output HDF5 granule.
+
+ ARGUMENTS:
+    argv[0]     = main program name
+    argv[1]     = 1km filename
+    argv[2]     = 500m filename
+    argv[3]     = 250m filename
+    argv[4]     = MOD03 filename
+    argv[5]     = NOT USED
+    argv[6]     = output filename (already exists);
+    modis_count = The granule's index
+    unpack      = A boolean value that specifies if unpacking should be performed
+
+ EFFECTS:
+    Modifies the output HDF5 file (already exists, the identifier is a global variable) to contain the proper MODIS data.
+    Allocates memory as needed.
+
+ RETURN:
+    RET_SUCCESS     -- Successful completion
+    FATAL_ERR       -- Upon a generic fatal error
+    FAIL_OPEN       -- Some input file failed to open
+*/
+
 int MODIS( char* argv[],int modis_count, int unpack)
 {
     /*************
@@ -46,10 +70,10 @@ int MODIS( char* argv[],int modis_count, int unpack)
     hid_t MODIS1KMgeolocationGroupID = 0;
     hid_t MODIS500mgeolocationGroupID = 0;
     hid_t MODIS250mgeolocationGroupID = 0;
-    herr_t status = EXIT_SUCCESS;
+    herr_t status = RET_SUCCESS;
     float fltTemp = 0.0;
     intn statusn = 0;
-    int fail = 0;
+    int retVal = RET_SUCCESS;
     char* correctedName = NULL;
     char* fileTime = NULL;
     int32 dsetID = 0;
@@ -162,12 +186,15 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
 
     /* open the input files */
+
+    short openFailed = 0;
+    /* The program will skip this granule if any of the files failed to open */
     _1KMFileID = SDstart( argv[1], DFACC_READ );
     if ( _1KMFileID < 0 )
     {
-        FATAL_MSG( "Unable to open 1KM file.\n\t%s\n", argv[1] );
+        WARN_MSG( "Unable to open 1KM file.\n\t%s\n", argv[1] );
         _1KMFileID = 0;
-        return (EXIT_FAILURE);
+        openFailed = 1;
     }
 
     if (argv[2]!= NULL)
@@ -175,9 +202,9 @@ int MODIS( char* argv[],int modis_count, int unpack)
         _500mFileID = SDstart( argv[2], DFACC_READ );
         if ( _500mFileID < 0 )
         {
-            FATAL_MSG("Unable to open 500m file.\n\t%s\n", argv[2]);
+            WARN_MSG("Unable to open 500m file.\n\t%s\n", argv[2]);
             _500mFileID = 0;
-            goto cleanupFail;
+            openFailed = 1;
         }
     }
 
@@ -186,19 +213,21 @@ int MODIS( char* argv[],int modis_count, int unpack)
         _250mFileID = SDstart( argv[3], DFACC_READ );
         if ( _250mFileID < 0 )
         {
-            FATAL_MSG("Unable to open 250m file.\n\t%s\n", argv[3]);
+            WARN_MSG("Unable to open 250m file.\n\t%s\n", argv[3]);
             _250mFileID = 0;
-            goto cleanupFail;
+            openFailed = 1;
         }
     }
 
     MOD03FileID = SDstart( argv[4], DFACC_READ );
     if ( MOD03FileID < 0 )
     {
-        FATAL_MSG("Unable to open MOD03 file.\n\t%s\n", argv[4]);
+        WARN_MSG("Unable to open MOD03 file.\n\t%s\n", argv[4]);
         MOD03FileID = 0;
-        goto cleanupFail;
+        openFailed = 1;
     }
+
+    if ( openFailed ) goto cleanupFO;
 
 
     /********************************************************************************
@@ -208,9 +237,11 @@ int MODIS( char* argv[],int modis_count, int unpack)
     /* outputfile already exists (created by main). Create the group directories */
     //create root MODIS group
 
-    if (modis_count == 1)
+    // Check if MODIS group exists yet
+    htri_t exists = H5Lexists( outputFile, "MODIS", H5P_DEFAULT );
+    if ( exists <= 0 )
     {
-        if ( createGroup( &outputFile, &MODISrootGroupID, "MODIS" ) == EXIT_FAILURE )
+        if ( createGroup( &outputFile, &MODISrootGroupID, "MODIS" ) == FATAL_ERR )
         {
             FATAL_MSG("Failed to create MODIS root group.\n");
             MODISrootGroupID = 0;
@@ -413,7 +444,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     latitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
                                        "Latitude",
                                        DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-    if ( latitudeDatasetID == EXIT_FAILURE )
+    if ( latitudeDatasetID == FATAL_ERR )
     {
         FATAL_MSG("Failed to transfer latitude data.\n");
         latitudeDatasetID = 0;
@@ -466,7 +497,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     longitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
                                         "Longitude",
                                         DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-    if ( longitudeDatasetID == EXIT_FAILURE )
+    if ( longitudeDatasetID == FATAL_ERR )
     {
         FATAL_MSG("Failed to transfer longitude data.\n");
         longitudeDatasetID = 0;
@@ -578,7 +609,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
             _1KMDatasetID = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", DFNT_UINT16,
                             _1KMFileID);
-            if ( _1KMDatasetID == EXIT_FAILURE )
+            if ( _1KMDatasetID == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_1KM_RefSB data.\n");
                 _1KMDatasetID = 0; // Done to prevent program from trying to close this ID erroneously
@@ -589,7 +620,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             
             _1KMUncertID = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes",
                            DFNT_UINT8, _1KMFileID );
-            if ( _1KMUncertID == EXIT_FAILURE )
+            if ( _1KMUncertID == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_1KM_RefSB_Uncert_Indexes data.\n");
                 _1KMUncertID = 0;
@@ -603,7 +634,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     {
         _1KMDatasetID = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", DFNT_UINT16,
                                        H5T_NATIVE_USHORT, _1KMFileID);
-        if ( _1KMDatasetID == EXIT_FAILURE )
+        if ( _1KMDatasetID == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_1KM_RefSB data.\n");
             _1KMDatasetID = 0;
@@ -614,7 +645,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
         _1KMUncertID = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes",
                                       DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
-        if ( _1KMUncertID == EXIT_FAILURE )
+        if ( _1KMUncertID == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_1KM_RefSB_Uncert_Indexes data.\n");
             _1KMUncertID = 0;
@@ -708,7 +739,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
         _1KMEmissive = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive",
                        DFNT_UINT16, _1KMFileID);
-        if ( _1KMEmissive == EXIT_FAILURE )
+        if ( _1KMEmissive == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_1KM_Emissive data.\n");
             _1KMEmissive = 0;
@@ -720,7 +751,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         _1KMEmissiveUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID,
                              "EV_1KM_Emissive_Uncert_Indexes",
                              DFNT_UINT8, _1KMFileID);
-        if ( _1KMEmissiveUncert == EXIT_FAILURE )
+        if ( _1KMEmissiveUncert == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_1KM_Emissive_Uncert_Indexes data.\n");
             _1KMEmissiveUncert = 0;
@@ -733,7 +764,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     {
         _1KMEmissive = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive",
                                       DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
-        if ( _1KMEmissive == EXIT_FAILURE )
+        if ( _1KMEmissive == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_1KM_Emissive data.\n");
             _1KMEmissive = 0;
@@ -743,7 +774,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         _1KMEmissiveUncert = readThenWrite( NULL, MODIS1KMdataFieldsGroupID,
                                             "EV_1KM_Emissive_Uncert_Indexes",
                                             DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);
-        if ( _1KMEmissiveUncert == EXIT_FAILURE )
+        if ( _1KMEmissiveUncert == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_1KM_Emissive_Uncert_Indexes data.\n");
             _1KMEmissiveUncert = 0;
@@ -837,7 +868,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
             _250Aggr1km = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB",
                           DFNT_UINT16, _1KMFileID);
-            if ( _250Aggr1km == EXIT_FAILURE )
+            if ( _250Aggr1km == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_Aggr1km_RefSB data.\n");
                 _250Aggr1km = 0;
@@ -848,7 +879,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             _250Aggr1kmUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID,
                                 "EV_250_Aggr1km_RefSB_Uncert_Indexes",
                                 DFNT_UINT8, _1KMFileID);
-            if ( _250Aggr1kmUncert == EXIT_FAILURE )
+            if ( _250Aggr1kmUncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_Aggr1km_RefSB_Uncert_Indexes data.\n");
                 _250Aggr1kmUncert = 0;
@@ -863,7 +894,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
         _250Aggr1km = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB",
                                      DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
-        if ( _250Aggr1km == EXIT_FAILURE )
+        if ( _250Aggr1km == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_250_Aggr1km_RefSB data.\n");
             _250Aggr1km = 0;
@@ -875,7 +906,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         _250Aggr1kmUncert = readThenWrite( NULL, MODIS1KMdataFieldsGroupID,
                                            "EV_250_Aggr1km_RefSB_Uncert_Indexes",
                                            DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);
-        if ( _250Aggr1kmUncert == EXIT_FAILURE )
+        if ( _250Aggr1kmUncert == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_250_Aggr1km_RefSB_Uncert_Indexes data.\n");
             _250Aggr1kmUncert = 0;
@@ -970,7 +1001,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
             _500Aggr1km = readThenWrite_MODIS_Unpack( MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB",
                           DFNT_UINT16, _1KMFileID );
-            if ( _500Aggr1km == EXIT_FAILURE )
+            if ( _500Aggr1km == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_500_Aggr1km_RefSB data.\n");
                 _500Aggr1km = 0;
@@ -982,7 +1013,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             _500Aggr1kmUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS1KMdataFieldsGroupID,
                                 "EV_500_Aggr1km_RefSB_Uncert_Indexes",
                                 DFNT_UINT8, _1KMFileID );
-            if ( _500Aggr1kmUncert == EXIT_FAILURE )
+            if ( _500Aggr1kmUncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_500_Aggr1km_RefSB_Uncert_Indexes data.\n");
                 _500Aggr1kmUncert = 0;
@@ -998,7 +1029,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     {
         _500Aggr1km = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB",
                                      DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID );
-        if ( _500Aggr1km == EXIT_FAILURE )
+        if ( _500Aggr1km == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_500_Aggr1km_RefSB data.\n");
             _500Aggr1km = 0;
@@ -1008,7 +1039,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         _500Aggr1kmUncert = readThenWrite( NULL, MODIS1KMdataFieldsGroupID,
                                            "EV_500_Aggr1km_RefSB_Uncert_Indexes",
                                            DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
-        if ( _500Aggr1kmUncert == EXIT_FAILURE )
+        if ( _500Aggr1kmUncert == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_500_Aggr1km_RefSB_Uncert_Indexes data.\n");
             _500Aggr1kmUncert = 0;
@@ -1093,7 +1124,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     /*_______________Sensor Zenith under the granule group______________*/
     SensorZenithDatasetID = readThenWrite_MODIS_GeoMetry_Unpack(MODISgranuleGroupID,"SensorZenith",
                             DFNT_FLOAT32,  MOD03FileID);
-    if ( SensorZenithDatasetID == EXIT_FAILURE )
+    if ( SensorZenithDatasetID == FATAL_ERR )
     {
         FATAL_MSG("Failed to transfer Sensor zenith data.\n");
         SensorZenithDatasetID = 0;
@@ -1119,7 +1150,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     /*_______________Sensor Azimuth under the granule group______________*/
     SensorAzimuthDatasetID = readThenWrite_MODIS_GeoMetry_Unpack(MODISgranuleGroupID,"SensorAzimuth",
                              DFNT_FLOAT32,  MOD03FileID);
-    if ( SensorAzimuthDatasetID == EXIT_FAILURE )
+    if ( SensorAzimuthDatasetID == FATAL_ERR )
     {
         FATAL_MSG("Failed to transfer Sensor zenith data.\n");
         SensorAzimuthDatasetID = 0;
@@ -1144,7 +1175,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     /*_______________Solar Zenith under the granule group______________*/
     SolarZenithDatasetID = readThenWrite_MODIS_GeoMetry_Unpack(MODISgranuleGroupID,"SolarZenith",
                            DFNT_FLOAT32,  MOD03FileID);
-    if ( SolarZenithDatasetID == EXIT_FAILURE )
+    if ( SolarZenithDatasetID == FATAL_ERR )
     {
         FATAL_MSG("Failed to transfer Solar zenith data.\n");
         SolarZenithDatasetID = 0;
@@ -1170,7 +1201,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     /*_______________Solar Azimuth under the granule group______________*/
     SolarAzimuthDatasetID = readThenWrite_MODIS_GeoMetry_Unpack(MODISgranuleGroupID,"SolarAzimuth",
                             DFNT_FLOAT32,  MOD03FileID);
-    if ( SolarAzimuthDatasetID == EXIT_FAILURE )
+    if ( SolarAzimuthDatasetID == FATAL_ERR )
     {
         FATAL_MSG("Failed to transfer Solar zenith data.\n");
         SolarAzimuthDatasetID = 0;
@@ -1197,7 +1228,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     /*_______________Sun angle under the granule group______________*/
     SDSunzenithDatasetID = readThenWrite( NULL,MODISgranuleGroupID,"SD Sun zenith",
                                           DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-    if ( SDSunzenithDatasetID == EXIT_FAILURE )
+    if ( SDSunzenithDatasetID == FATAL_ERR )
     {
         FATAL_MSG("Failed to transfer SD Sun zenith data.\n");
         SDSunzenithDatasetID = 0;
@@ -1263,7 +1294,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
     SDSunazimuthDatasetID = readThenWrite( NULL,MODISgranuleGroupID,"SD Sun azimuth",
                                            DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
-    if ( SDSunazimuthDatasetID == EXIT_FAILURE )
+    if ( SDSunazimuthDatasetID == FATAL_ERR )
     {
         FATAL_MSG("Failed to transfer SD Sun azimuth data.\n");
         SDSunazimuthDatasetID = 0;
@@ -1349,7 +1380,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             _250Aggr500 = readThenWrite_MODIS_Unpack( MODIS500mdataFieldsGroupID,
                           "EV_250_Aggr500_RefSB",
                           DFNT_UINT16, _500mFileID );
-            if ( _250Aggr500 == EXIT_FAILURE )
+            if ( _250Aggr500 == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_Aggr500_RefSB data.\n");
                 _250Aggr500 = 0;
@@ -1360,7 +1391,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             _250Aggr500Uncert = readThenWrite_MODIS_Uncert_Unpack( MODIS500mdataFieldsGroupID,
                                 "EV_250_Aggr500_RefSB_Uncert_Indexes",
                                 DFNT_UINT8, _500mFileID );
-            if ( _250Aggr500Uncert == EXIT_FAILURE )
+            if ( _250Aggr500Uncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_Aggr500_RefSB_Uncert_Indexes data.\n");
                 _250Aggr500Uncert = 0;
@@ -1375,7 +1406,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                                          "EV_250_Aggr500_RefSB",
                                          DFNT_UINT16,H5T_NATIVE_USHORT,  _500mFileID );
 
-            if ( _250Aggr500 == EXIT_FAILURE )
+            if ( _250Aggr500 == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_Aggr500_RefSB data.\n");
                 _250Aggr500 = 0;
@@ -1386,7 +1417,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             _250Aggr500Uncert = readThenWrite( NULL, MODIS500mdataFieldsGroupID,
                                                "EV_250_Aggr500_RefSB_Uncert_Indexes",
                                                DFNT_UINT8,H5T_STD_U8LE, _500mFileID );
-            if ( _250Aggr500Uncert == EXIT_FAILURE )
+            if ( _250Aggr500Uncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_Aggr500_RefSB_Uncert_Indexes data.\n");
                 _250Aggr500Uncert = 0;
@@ -1464,7 +1495,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
             _500RefSB = readThenWrite_MODIS_Unpack( MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
                                                     _500mFileID );
-            if ( _500RefSB == EXIT_FAILURE )
+            if ( _500RefSB == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_500_RefSB data.\n");
                 _500RefSB = 0;
@@ -1474,7 +1505,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
             _500RefSBUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS500mdataFieldsGroupID, "EV_500_RefSB_Uncert_Indexes",
                               DFNT_UINT8, _500mFileID );
-            if ( _500RefSBUncert == EXIT_FAILURE )
+            if ( _500RefSBUncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_500_RefSB_Uncert_Indexes data.\n");
                 _500RefSBUncert = 0;
@@ -1487,7 +1518,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             _500RefSB = readThenWrite( NULL, MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
                                        H5T_NATIVE_USHORT, _500mFileID );
             /*____________EV_500_RefSB_Uncert_Indexes_____________*/
-            if ( _500RefSB == EXIT_FAILURE )
+            if ( _500RefSB == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_500_RefSB data.\n");
                 _500RefSB = 0;
@@ -1495,7 +1526,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             }
             _500RefSBUncert = readThenWrite( NULL, MODIS500mdataFieldsGroupID, "EV_500_RefSB_Uncert_Indexes",
                                              DFNT_UINT8, H5T_STD_U8LE, _500mFileID );
-            if ( _500RefSBUncert == EXIT_FAILURE )
+            if ( _500RefSBUncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_500_RefSB_Uncert_Indexes data.\n");
                 _500RefSBUncert = 0;
@@ -1579,7 +1610,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         {
             _250RefSB = readThenWrite_MODIS_Unpack( MODIS250mdataFieldsGroupID, "EV_250_RefSB", DFNT_UINT16,
                                                     _250mFileID );
-            if ( _250RefSB == EXIT_FAILURE )
+            if ( _250RefSB == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_RefSB data.\n");
                 _250RefSB = 0;
@@ -1589,7 +1620,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
             _250RefSBUncert = readThenWrite_MODIS_Uncert_Unpack( MODIS250mdataFieldsGroupID, "EV_250_RefSB_Uncert_Indexes",
                               DFNT_UINT8, _250mFileID);
-            if ( _250RefSBUncert == EXIT_FAILURE )
+            if ( _250RefSBUncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_RefSB_Uncert_Indexes data.\n");
                 _250RefSBUncert = 0;
@@ -1601,7 +1632,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         {
             _250RefSB = readThenWrite( NULL, MODIS250mdataFieldsGroupID, "EV_250_RefSB", DFNT_UINT16,
                                        H5T_NATIVE_USHORT, _250mFileID );
-            if ( _250RefSB == EXIT_FAILURE )
+            if ( _250RefSB == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_RefSB data.\n");
                 _250RefSB = 0;
@@ -1611,7 +1642,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
             _250RefSBUncert = readThenWrite( NULL, MODIS250mdataFieldsGroupID, "EV_250_RefSB_Uncert_Indexes",
                                              DFNT_UINT8, H5T_STD_U8LE, _250mFileID);
-            if ( _250RefSBUncert == EXIT_FAILURE )
+            if ( _250RefSBUncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_RefSB_Uncert_Indexes data.\n");
                 _250RefSBUncert = 0;
@@ -1916,7 +1947,12 @@ int MODIS( char* argv[],int modis_count, int unpack)
     if ( 0 )
     {
 cleanupFail:
-        fail = 1;
+        retVal = FATAL_ERR;
+    }
+    if ( 0 )
+    {
+cleanupFO:
+        retVal = FAIL_OPEN;
     }
 
     /* release associated identifiers */
@@ -2016,10 +2052,8 @@ cleanupFail:
     if ( HKMcoord_500M_Path ) free(HKMcoord_500M_Path );
     if ( QKMcoord_250M_Path ) free (QKMcoord_250M_Path);    
     if ( granuleNameCorrect ) free ( granuleNameCorrect );
-    if ( fail ) return EXIT_FAILURE;
 
-    return EXIT_SUCCESS;
-
+    return retVal;
 }
 
 int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID,hid_t outputFileID)
@@ -2175,7 +2209,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     datasetID = insertDataset( &dummy_output_file_id, &MODIS500mgeoGroupID, 1, latRank,
                                temp, h5_type, latname, lat_output_500m_buffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
         FATAL_MSG("Error writing %s dataset.\n", latname );
         free(latBuffer);
@@ -2233,7 +2267,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     datasetID = insertDataset( &dummy_output_file_id, &MODIS500mgeoGroupID, 1, lonRank,
                                temp, h5_type, lonname, lon_output_500m_buffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
         FATAL_MSG("Error writing %s dataset.\n", lonname );
         free(latBuffer);
@@ -2344,7 +2378,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     datasetID = insertDataset( &dummy_output_file_id, &MODIS250mgeoGroupID, 1, latRank,
                                temp, h5_type, latname, lat_output_250m_buffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
         FATAL_MSG("Error writing %s dataset.\n", latname );
         free(lat_output_250m_buffer);
@@ -2372,7 +2406,7 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     datasetID = insertDataset( &dummy_output_file_id, &MODIS250mgeoGroupID, 1, lonRank,
                                temp, h5_type, lonname, lon_output_250m_buffer );
 
-    if ( datasetID == EXIT_FAILURE )
+    if ( datasetID == FATAL_ERR )
     {
         FATAL_MSG("Error writing %s dataset.\n", latname );
         free(lon_output_250m_buffer);

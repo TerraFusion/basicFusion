@@ -18,6 +18,10 @@ do { \
     fprintf(stderr, __VA_ARGS__); \
     } while(0)
 
+#define RET_SUCCESS 0
+#define FATAL_ERR -1
+#define FAIL_OPEN 1
+
 #ifndef STR_LEN
 #define STR_LEN 500
 #endif

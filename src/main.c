@@ -17,27 +17,6 @@ int getNextLine ( char* string, FILE* const inputFile );
 int main( int argc, char* argv[] )
 {
 
-    /* Check that this program is not being run on a login node or a MOM node.
-     * If it is, shame on you!
-     */
-
-#if 0
-    {
-        const char* hostname = getenv("HOSTNAME");
-        printf("%s", hostname );
-        if ( strstr( hostname, LOGIN_NODE ) != NULL )
-        {
-            fprintf( stderr, "\n\t\x1b[1m\x1b[31m\x1b[47m*******************\n");
-            fprintf( stderr, "\t* \x1b[4mCRITICAL ERROR\x1b[24m! *\n");
-            fprintf( stderr, "\t*******************\x1b[0m\n\n");
-            fprintf( stderr, "You have attempted to run this program on a non-compute node!\n");
-            fprintf( stderr, "Don't ever do such a thing! Please refer to README.txt in the root project directory.\n\n");
-            return EXIT_FAILURE;
-        }
-
-    }
-#endif
-
     char* MOPITTargs[3] = {NULL};
     char* CERESargs[4] = {NULL};
     char* MODISargs[7] = {NULL};
@@ -47,7 +26,7 @@ int main( int argc, char* argv[] )
     char* granuleList = NULL;
     size_t granListSize = 0;
     char* granTempPtr = NULL;
-    int status = EXIT_SUCCESS;
+    int status = RET_SUCCESS;
     int fail = 0;
     int CERESgranuleNum = 0;
     herr_t errStatus;
@@ -162,7 +141,7 @@ int main( int argc, char* argv[] )
 
     /* Get the orbit number from inputFiles.txt */
     status = getNextLine( inputLine, inputFile );
-    if ( status == EXIT_FAILURE )
+    if ( status == FATAL_ERR )
     {
         FATAL_MSG("Failed to get the next line.\n");
         goto cleanupFail;
@@ -247,7 +226,7 @@ int main( int argc, char* argv[] )
     /* get the MOPITT input file paths from our inputFiles.txt */
     status = getNextLine( inputLine, inputFile);
 
-    if ( status == EXIT_FAILURE )
+    if ( status == FATAL_ERR )
     {
         FATAL_MSG("Failed to get MOPITT line. Exiting program.\n");
         goto cleanupFail;
@@ -255,7 +234,7 @@ int main( int argc, char* argv[] )
 
 
     /* strcmp returns 0 if the strings match */
-    if ( strcmp(inputLine, "MOP N/A" ) )
+    if ( strcmp(inputLine, "MOP N/A" ) != 0 )
     { 
         // minor: strstr may be called twice in the loop. No need to change. KY 2017-04-10
         do
@@ -285,13 +264,13 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
             errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-            if ( errStatus == EXIT_FAILURE )
+            if ( errStatus == FATAL_ERR )
             {
                 FATAL_MSG("Failed to update the granule list.\n");
                 goto cleanupFail;
             }
 
-            if ( MOPITT( MOPITTargs, current_orbit_info ) == EXIT_FAILURE )
+            if ( MOPITT( MOPITTargs, current_orbit_info ) == FATAL_ERR )
             {
                 FATAL_MSG("MOPITT failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                 goto cleanupFail;
@@ -302,7 +281,7 @@ int main( int argc, char* argv[] )
 
             status = getNextLine( inputLine, inputFile);
 
-            if ( status == EXIT_FAILURE )
+            if ( status == FATAL_ERR )
             {
                 FATAL_MSG("Failed to get MOPITT line. Exiting program.\n");
                 goto cleanupFail;
@@ -319,7 +298,7 @@ int main( int argc, char* argv[] )
         printf("No files for MOPITT found.\nTransferring CERES...");
         fflush(stdout);
         status = getNextLine( inputLine, inputFile );
-        if ( status == EXIT_FAILURE )
+        if ( status == FATAL_ERR )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
             goto cleanupFail;
@@ -371,7 +350,7 @@ int main( int argc, char* argv[] )
                 
                 strncpy( CERESargs[2], inputLine, strlen(inputLine) );
                 status = CERES_OrbitInfo(CERESargs,ceres_start_index_ptr,ceres_end_index_ptr,current_orbit_info);
-                if ( status == EXIT_FAILURE )
+                if ( status == FATAL_ERR )
                 {
                     FATAL_MSG("CERES failed to obtain orbit info.\nExiting program.\n");
                     goto cleanupFail;
@@ -391,13 +370,13 @@ int main( int argc, char* argv[] )
                         goto cleanupFail;
                     }
                     errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-                    if ( errStatus == EXIT_FAILURE )
+                    if ( errStatus == FATAL_ERR )
                     {
                         FATAL_MSG("Failed to update the granule list.\n");
                         goto cleanupFail;
                     }
                     status = CERES(CERESargs,1,ceres_fm1_count,(int32*)ceres_start_index_ptr,NULL,ceres_subset_num_elems_ptr);
-                    if ( status == EXIT_FAILURE )
+                    if ( status == FATAL_ERR )
                     {
                         FATAL_MSG("CERES failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                         goto cleanupFail;
@@ -414,7 +393,7 @@ int main( int argc, char* argv[] )
                 strncpy( CERESargs[2], inputLine, strlen(inputLine) );
                 
                 status = CERES_OrbitInfo(CERESargs,ceres_start_index_ptr,ceres_end_index_ptr,current_orbit_info);
-                if ( status == EXIT_FAILURE )
+                if ( status == FATAL_ERR )
                 {
                     FATAL_MSG("CERES failed to obtain orbit info.\nExiting program.\n");
                     goto cleanupFail;
@@ -432,13 +411,13 @@ int main( int argc, char* argv[] )
                         goto cleanupFail;
                     }
                     errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-                    if ( errStatus == EXIT_FAILURE )
+                    if ( errStatus == FATAL_ERR )
                     {
                         FATAL_MSG("Failed to update the granule list.\n");
                         goto cleanupFail;
                     }
                     status = CERES(CERESargs,2,ceres_fm2_count,(int32*)ceres_start_index_ptr,NULL,ceres_subset_num_elems_ptr);
-                    if ( status == EXIT_FAILURE )
+                    if ( status == FATAL_ERR )
                     {
                         FATAL_MSG("CERES failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                         goto cleanupFail;
@@ -453,7 +432,7 @@ int main( int argc, char* argv[] )
             }
 
             status = getNextLine( inputLine, inputFile);
-            if ( status == EXIT_FAILURE )
+            if ( status == FATAL_ERR )
             {
                 FATAL_MSG("Failed to get next line. Exiting program.\n");
                 goto cleanupFail;
@@ -483,7 +462,7 @@ int main( int argc, char* argv[] )
         printf("No CERES files found.\nTransferring MODIS...");
         fflush(stdout);
         status = getNextLine( inputLine, inputFile);
-        if ( status == EXIT_FAILURE )
+        if ( status == FATAL_ERR )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
             goto cleanupFail;
@@ -527,7 +506,7 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
             errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-            if ( errStatus == EXIT_FAILURE )
+            if ( errStatus == FATAL_ERR )
             {
                 FATAL_MSG("Failed to update the granule list.\n");
                 goto cleanupFail;
@@ -539,7 +518,7 @@ int main( int argc, char* argv[] )
             strncpy( MODISargs[1], inputLine, strlen(inputLine));
 
             status = getNextLine( inputLine, inputFile );
-            if ( status == EXIT_FAILURE )
+            if ( status == FATAL_ERR )
             {
                 FATAL_MSG("Failed to get MODIS line. Exiting program.\n");
                 goto cleanupFail;
@@ -553,7 +532,7 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
             errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-            if ( errStatus == EXIT_FAILURE )
+            if ( errStatus == FATAL_ERR )
             {
                 FATAL_MSG("Failed to update the granule list.\n");
                 goto cleanupFail;
@@ -570,7 +549,7 @@ int main( int argc, char* argv[] )
 
                 /* Get the MODIS 250m file */
                 status = getNextLine( inputLine, inputFile );
-                if ( status == EXIT_FAILURE )
+                if ( status == FATAL_ERR )
                 {
                     FATAL_MSG("Failed to get MODIS line. Exiting program.\n");
                     goto cleanupFail;
@@ -584,7 +563,7 @@ int main( int argc, char* argv[] )
                     goto cleanupFail;
                 }
                 errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-                if ( errStatus == EXIT_FAILURE )
+                if ( errStatus == FATAL_ERR )
                 {
                     FATAL_MSG("Failed to update the granule list.\n");
                     goto cleanupFail;
@@ -596,13 +575,12 @@ int main( int argc, char* argv[] )
                     goto cleanupFail;
                 }
 
-                MODISargs[3] = malloc( strlen(inputLine)+1 );
-                memset(MODISargs[3],0,strlen(inputLine)+1);
+                MODISargs[3] = calloc( strlen(inputLine)+1 , 1);
                 strncpy( MODISargs[3], inputLine, strlen(inputLine) );
 
                 /* Get the MODIS MOD03 file */
                 status = getNextLine( inputLine, inputFile );
-                if ( status == EXIT_FAILURE )
+                if ( status == FATAL_ERR )
                 {
                     FATAL_MSG("Failed to get MODIS line. Exiting program.\n");
                     goto cleanupFail;
@@ -616,7 +594,7 @@ int main( int argc, char* argv[] )
                     goto cleanupFail;
                 }
                 errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-                if ( errStatus == EXIT_FAILURE )
+                if ( errStatus == FATAL_ERR )
                 {
                     FATAL_MSG("Failed to update the granule list.\n");
                     goto cleanupFail;
@@ -636,13 +614,13 @@ int main( int argc, char* argv[] )
                 sprintf(modis_granule_suffix,"%d",modis_count);
 
                 status = MODIS( MODISargs,modis_count,unpack);
-                if ( status == EXIT_FAILURE )
+                if ( status == FATAL_ERR )
                 {    
                     FATAL_MSG("MODIS failed data transfer on this granule:\n)");
                     for ( int j = 1; j < 5; j++ )
                     {    
                         if ( MODISargs[j] )
-                            printf("\t%s\n", MODISargs[j]);
+                            fprintf( stderr, "\t%s\n", MODISargs[j]);
                     }
                     printf("Exiting program.\n");
                     goto cleanupFail;
@@ -658,18 +636,17 @@ int main( int argc, char* argv[] )
                 MODISargs[3] = NULL;
 
                 /* Allocate memory */
-                MODISargs[4] = malloc( strlen( inputLine )+1 );
-                memset(MODISargs[4],0,strlen(inputLine)+1);
+                MODISargs[4] = calloc( strlen( inputLine )+1, 1);
                 strncpy( MODISargs[4], inputLine, strlen(inputLine) );
 
                 sprintf(modis_granule_suffix,"%d",modis_count);
-                MODISargs[5] = malloc(strlen(granule)+strlen(modis_granule_suffix)+1);
-                memset(MODISargs[5],0,strlen(granule)+strlen(modis_granule_suffix)+1);
+                MODISargs[5] = calloc(strlen(granule)+strlen(modis_granule_suffix)+1, 1);
+                
                 strncpy(MODISargs[5],granule,strlen(granule));
                 strncat(MODISargs[5],modis_granule_suffix,strlen(modis_granule_suffix));
 
                 status = MODIS( MODISargs,modis_count,unpack );
-                if ( status == EXIT_FAILURE )
+                if ( status == FATAL_ERR )
                 {
                     FATAL_MSG("MODIS failed data transfer on this granule:\n)");
                     for ( int j = 1; j < 5; j++ )
@@ -701,7 +678,7 @@ int main( int argc, char* argv[] )
 
             /* get the next MODIS 1KM file */
             status = getNextLine( inputLine, inputFile);
-            if ( status == EXIT_FAILURE )
+            if ( status == FATAL_ERR )
             {
                 FATAL_MSG("Failed to get next line. Exiting program.\n");
                 goto cleanupFail;
@@ -719,7 +696,7 @@ int main( int argc, char* argv[] )
         printf("No MODIS files found.\nTransferring ASTER...");
         fflush(stdout);
         status = getNextLine( inputLine, inputFile);
-        if ( status == EXIT_FAILURE )
+        if ( status == FATAL_ERR )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
             goto cleanupFail;
@@ -750,20 +727,19 @@ int main( int argc, char* argv[] )
                     goto cleanupFail;
                 }
                 errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-                if ( errStatus == EXIT_FAILURE )
+                if ( errStatus == FATAL_ERR )
                 {
                     FATAL_MSG("Failed to update the granule list.\n");
                     goto cleanupFail;
                 }
                 /* Allocate memory for the argument */
-                ASTERargs[1] = malloc( strlen(inputLine )+1);
-                memset(ASTERargs[1],0,strlen(inputLine)+1);
+                ASTERargs[1] = calloc( strlen(inputLine )+1, 1);
                 strncpy( ASTERargs[1], inputLine, strlen(inputLine) );
 
                 /* EXECUTE ASTER DATA TRANSFER */
                 status = ASTER( ASTERargs,aster_count,unpack);
 
-                if ( status == EXIT_FAILURE )
+                if ( status == FATAL_ERR )
                 {
                     FATAL_MSG("ASTER failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                     goto cleanupFail;
@@ -776,7 +752,7 @@ int main( int argc, char* argv[] )
                 ASTERargs[2] = NULL;
 
                 status = getNextLine( inputLine, inputFile );
-                if ( status == EXIT_FAILURE )
+                if ( status == FATAL_ERR )
                 {
                     FATAL_MSG("Failed to get ASTER line. Exiting program.\n");
                     goto cleanupFail;
@@ -796,7 +772,7 @@ int main( int argc, char* argv[] )
         printf("No ASTER files found.\nTransferring MISR...");
         fflush(stdout);
         status = getNextLine( inputLine, inputFile);
-        if ( status == EXIT_FAILURE )
+        if ( status == FATAL_ERR )
         {
             FATAL_MSG("Failed to get next line. Exiting program.\n");
             goto cleanupFail;
@@ -824,7 +800,7 @@ int main( int argc, char* argv[] )
             }
             errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
             
-            if ( errStatus == EXIT_FAILURE )
+            if ( errStatus == FATAL_ERR )
             {
                 FATAL_MSG("Failed to update the granule list.\n");
                 goto cleanupFail;
@@ -840,7 +816,7 @@ int main( int argc, char* argv[] )
             strncpy( MISRargs[i], inputLine, strlen(inputLine) );
             status = getNextLine( inputLine, inputFile );
 
-            if ( status == EXIT_FAILURE )
+            if ( status == FATAL_ERR )
             {
                 FATAL_MSG("Failed to get MISR line. Exiting program.\n");
                 goto cleanupFail;
@@ -855,7 +831,7 @@ int main( int argc, char* argv[] )
             goto cleanupFail;
         }
         errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-        if ( errStatus == EXIT_FAILURE )
+        if ( errStatus == FATAL_ERR )
         {
             FATAL_MSG("Failed to update the granule list.\n");
             goto cleanupFail;
@@ -870,7 +846,7 @@ int main( int argc, char* argv[] )
         MISRargs[10] = calloc ( strlen( inputLine ) +1, 1);
         strncpy( MISRargs[10], inputLine, strlen(inputLine) );
         status = getNextLine( inputLine, inputFile );
-        if ( status == EXIT_FAILURE )
+        if ( status == FATAL_ERR )
         {
             FATAL_MSG("Failed to get MISR line. Exiting program.\n");
             goto cleanupFail;
@@ -890,7 +866,7 @@ int main( int argc, char* argv[] )
             goto cleanupFail;
         }
         errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-        if ( errStatus == EXIT_FAILURE )
+        if ( errStatus == FATAL_ERR )
         {
             FATAL_MSG("Failed to update the granule list.\n");
             goto cleanupFail;
@@ -901,7 +877,7 @@ int main( int argc, char* argv[] )
         strncpy( MISRargs[11], inputLine, strlen(inputLine) );
 
         status = getNextLine( inputLine, inputFile );
-        if ( status == EXIT_FAILURE )
+        if ( status == FATAL_ERR )
         {
             FATAL_MSG("Failed to get MISR line. Exiting program.\n");
             goto cleanupFail;
@@ -921,7 +897,7 @@ int main( int argc, char* argv[] )
             goto cleanupFail;
         }
         errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-        if ( errStatus == EXIT_FAILURE )
+        if ( errStatus == FATAL_ERR )
         {
             FATAL_MSG("Failed to update the granule list.\n");
             goto cleanupFail;
@@ -933,7 +909,7 @@ int main( int argc, char* argv[] )
 
         // EXECUTE MISR DATA TRANSFER
         status = MISR( MISRargs,unpack);
-        if ( status == EXIT_FAILURE )
+        if ( status == FATAL_ERR )
         {
             FATAL_MSG("MISR failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
             goto cleanupFail;
@@ -1001,7 +977,7 @@ int getNextLine ( char* string, FILE* const inputFile )
             if ( feof(inputFile) != 0 )
                 return -1;
             FATAL_MSG("Unable to get next line.\n");
-            return EXIT_FAILURE;
+            return FATAL_ERR;
         }
     } while ( string[0] == '#' || string[0] == '\n' || string[0] == ' ' );
 
@@ -1010,7 +986,7 @@ int getNextLine ( char* string, FILE* const inputFile )
     if ( string[len] == '\n' || string[len] == ' ')
         string[len] = '\0';
 
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 }
 
 
@@ -1041,7 +1017,7 @@ int validateInFiles( char* inFileList, OInfo_t orbitInfo )
     if ( inputFile == NULL )
     {
         FATAL_MSG("file \"%s\" does not exist\n", inFileList);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
 
@@ -1051,7 +1027,7 @@ int validateInFiles( char* inFileList, OInfo_t orbitInfo )
     do
     {
         status = getNextLine(string, inputFile );
-        if ( status == EXIT_FAILURE )
+        if ( status == FATAL_ERR )
         {
             FATAL_MSG("Failed to get next line.\n");
             goto cleanupFail;
@@ -1230,8 +1206,8 @@ cleanupFail:
 
     if (MODIStime) free(MODIStime);
     if ( fail )
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     else
-        return EXIT_SUCCESS;
+        return RET_SUCCESS;
 }
 #endif
