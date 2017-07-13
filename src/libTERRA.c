@@ -736,6 +736,13 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname)
             */
             vgroup_id = Vattach (file_id, ref_array[lone_vg_number], "r");
             status_32 = Vgetnamelen(vgroup_id, &name_len);
+            if ( status_32 < 0 )
+            {
+                FATAL_MSG("Failed to obtain name length.\n");
+                free(ref_array);
+                return EXIT_FAILURE;
+            }
+
             vgroup_name = (char *) HDmalloc(sizeof(char *) * (name_len+1));
             if (vgroup_name == NULL)
             {
@@ -744,7 +751,13 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname)
                 return EXIT_FAILURE;
             }
             status_32 = Vgetname (vgroup_id, vgroup_name);
-
+            if ( status_32 < 0 )
+            {
+                FATAL_MSG("Failed to obtain V group name.\n");
+                free(ref_array);
+                HDfree(vgroup_name);
+                return EXIT_FAILURE;
+            }
             if(strncmp(vgroup_name,groupname,strlen(vgroup_name))==0)
             {
                 ret_value = ref_array[lone_vg_number];
@@ -781,13 +794,13 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname)
                           the data buffer given by the caller (a single pointer/array)
                           will be updated to point to the information read (hence, a
                           double pointer). This data will be stored on the heap.
-        4. rank        -- A pointer to a variable. The caller will pass in a pointer
+        4. retRank     -- A pointer to a variable. The caller will pass in a pointer
                           to its local rank variable. The caller's rank variable will be
                           updated with the rank (number of dimensions) of the dataset
                           read.
                           PASS NULL IF CALLER DOESN'T WANT
 
-        5. dimsizes    -- The caller will pass in an array which
+        5. retDimsizes -- The caller will pass in an array which
                           will be updated to contain the sizes of each dimension in the
                           dataset that was read.
 
@@ -929,44 +942,6 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
         SDendaccess(sds_id);
         return EXIT_FAILURE;
     }
-#if 0
-    switch ( dataType )
-    {
-    case DFNT_FLOAT32:
-        *((float**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]*dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9] * sizeof( float ) );
-        break;
-
-    case DFNT_FLOAT64:
-        *((double**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
-                                    *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9]
-                                    * sizeof( double ) );
-        break;
-
-    case DFNT_UINT16:
-        *((unsigned short int**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
-                                                *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9]
-                                                * sizeof( unsigned short int ) );
-        break;
-
-    case DFNT_UINT8:
-        *((uint8_t**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
-                                     *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9]
-                                     * sizeof( uint8_t ) );
-        break;
-
-    case DFNT_INT32:
-        *((int32_t**)data) = malloc (dimsizes[0]*dimsizes[1] * dimsizes[2] * dimsizes[3] * dimsizes[4]
-                                     *dimsizes[5] * dimsizes[6] * dimsizes[7] * dimsizes[8] * dimsizes[9]
-                                     * sizeof( int32_t ) );
-        break;
-
-    default:
-        FATAL_MSG("Invalid data type.\nIt may be the case that your datatype has not been accounted for in the %s function.\nIf that is the case, simply add your datatype to the function as a switch case.\n",__func__ );
-        SDendaccess(sds_id);
-        return EXIT_FAILURE;
-    }
-
-#endif
 
     if(h4_count!=NULL)
         status = SDreaddata( sds_id, start, stride, count, *data );
@@ -1152,6 +1127,22 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
 
     return datasetID;
 }
+
+float ReverseFloat( const float inFloat )
+{
+   float retVal;
+   char *floatToConvert = ( char* ) & inFloat;
+   char *returnFloat = ( char* ) & retVal;
+
+   // swap the bytes into a temporary buffer
+   returnFloat[0] = floatToConvert[3];
+   returnFloat[1] = floatToConvert[2];
+   returnFloat[2] = floatToConvert[1];
+   returnFloat[3] = floatToConvert[0];
+
+   return retVal;
+}
+
 /*
                     readThenWriteSubset
     DESCRIPTION:
@@ -1162,31 +1153,38 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
         Once all writing is done, it frees allocated memory and returns the HDF5 dataset
         identifier that was created in the output file.
 
+        This function is the subset version of readThenWrite(). Additional arguments are
+        provided to speicify which portion of the dataset to write to the output.
+
     ARGUMENTS:
-        0. outDatasetName -- The name that the output HDF5 dataset will have. Note that the actual
+        0. CER_LATLON     -- This boolean integer specifies whether the CERES geolocation units should be
+                             converted to latitude/longitude (from colatitude and longitude). 0 for no,
+                             non-zero for yes.
+
+        1. outDatasetName -- The name that the output HDF5 dataset will have. Note that the actual
                              name the output dataset will have is the one given by correct_name(outDatasetName).
                              Therefore you cannot assume that the output name will be exactly what
                              is passed to this argument.
                              Set to NULL if the same name as the inDatasetName is desired.
 
-        1. outputGroupID  -- The HDF5 group/directory identifier for where the data is to
+        2. outputGroupID  -- The HDF5 group/directory identifier for where the data is to
                              be written. Can either be an actual group ID or can be the
                              file ID (in the latter case, data will be written to the root
                              directory).
-        2. inDatasetName    -- A string containing the name of the dataset in the input HDF4
+        3. inDatasetName    -- A string containing the name of the dataset in the input HDF4
                              file. The output dataset will have the same name.
-        3. inputDataType  -- An HDF4 datatype identifier. Must match the data type of the
+        4. inputDataType  -- An HDF4 datatype identifier. Must match the data type of the
                              input dataset. Please reference Section 3 of the HDF4
                              Reference Manual for a list of HDF types.
-        4. outputDataType -- An HDF5 datatype identifier. Must be of the same general type
+        5. outputDataType -- An HDF5 datatype identifier. Must be of the same general type
                              of the input data type. Please reference the HDF5 API
                              specification under "Predefined Datatypes" for a list of HDF5
                              datatypes.
-        5. inputFileID    -- The HDF4 input file identifier
+        6. inputFileID    -- The HDF4 input file identifier
 
-        6. start
-        7. stride
-        8. count
+        7. start
+        8. stride
+        9. count
     EFFECTS:
         Reads the input file dataset and then writes to the HDF5 output file. Returns
         a dataset identifier for the new dataset created in the output file. It is the
@@ -1198,12 +1196,12 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
         any errors.
 */
 
-hid_t readThenWriteSubset( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType,
+hid_t readThenWriteSubset( int CER_LATLON, const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType,
                            hid_t outputDataType, int32 inputFileID,int32 *start,int32*stride,int32*count )
 {
     int32 dataRank;
     int32 dataDimSizes[DIM_MAX];
-    unsigned int* dataBuffer = NULL;
+    void* dataBuffer = NULL;
     hid_t datasetID;
 
     herr_t status;
@@ -1214,9 +1212,63 @@ hid_t readThenWriteSubset( const char* outDatasetName, hid_t outputGroupID, cons
     if ( status == EXIT_FAILURE )
     {
         FATAL_MSG("Unable to read \"%s\" data.\n", inDatasetName );
-        if ( dataBuffer != NULL ) free(dataBuffer);
-        return (EXIT_FAILURE);
+        goto cleanupFail;
     }
+
+    /* Landon Clipp Jul 12, 2017: CERES needs its geolocation units to be consistent with other
+     * instruments. The formula for converting the geolocation is: 
+     * 
+     * latitude (new) = 90 - Colatitude (CERES old)
+     * if ( longitude > 180 )
+     *   longitude=longitude-360
+     *
+     */
+    if ( CER_LATLON )
+    {
+        /* Perform the conversion */
+        // Check if this dataset is Latitude or Longitude
+        int index = 0;
+        if ( strstr(outDatasetName, "Latitude" ) )
+        {
+            // Iterate through every dimension
+            for ( int dim = 0; dim < dataRank; dim++ )
+            {
+                // Iterate through every element in each dimension
+                for ( int elem = 0; elem < dataDimSizes[dim]; elem++ )
+                {
+
+                    /* Databuffer has to be cast to a float* for proper pointer arithmetic.
+                       This is specific just to the geolocation datasets. We know in advance that
+                       it is a floating point number.
+                     */
+                    ( (float*) dataBuffer)[index] = (float)(90.0f - ( (float*) dataBuffer)[index]);
+                    index++;
+                }
+            }
+        }
+
+        else if ( strstr(outDatasetName, "Longitude" ) )
+        {
+            // Iterate through every dimension
+            for ( int dim = 0; dim < dataRank; dim++ )
+            {
+                // Iterate through every element in each dimension
+                for ( int elem = 0; elem < dataDimSizes[dim]; elem++ )
+                {   
+                    if ( ((float*) dataBuffer)[index] > 180.0f )
+                        ( (float *) dataBuffer)[index] = ( (float *) dataBuffer)[index] - 360.0f;
+                    index++;
+                }
+            }
+        }
+
+        else
+        {
+            FATAL_MSG("The CERES_LATLON argument was given as non-zero, but neither a Latitude nor Longitude\n\tdataset was transferred!\n");
+            goto cleanupFail;
+        }
+    }
+
 
     /* END READ DATA. BEGIN INSERTION OF DATA */
 
@@ -1242,15 +1294,20 @@ hid_t readThenWriteSubset( const char* outDatasetName, hid_t outputGroupID, cons
         // Have warning const char* to char*:
         const char* tempStr = outDatasetName ? outDatasetName : inDatasetName;
         FATAL_MSG("Error writing \"%s\" dataset.\n", tempStr );
-        free(dataBuffer);
-        H5Dclose(datasetID);
-        return (EXIT_FAILURE);
+        goto cleanupFail;
     }
 
+    hid_t retVal = datasetID;
+    if ( 0 )
+    {
+cleanupFail:
+        retVal = EXIT_FAILURE;
+        if ( datasetID ) H5Dclose(datasetID);
+    }
 
-    free(dataBuffer);
+    if ( dataBuffer != NULL ) free(dataBuffer);
 
-    return datasetID;
+    return retVal;
 }
 
 
@@ -1277,7 +1334,6 @@ char *correct_name(const char* oldname)
 
     char* newname = NULL;
     short offset = 0;
-    short neededCorrect = 0;
 #define IS_DIGIT(c)  ('0' <= (c) && (c) <= '9')
 #define IS_ALPHA(c)  (('a' <= (c) && (c) <= 'z') || ('A' <= (c) && (c) <= 'Z'))
 #define IS_OTHER(c)  ((c) == '_')
@@ -1295,7 +1351,6 @@ char *correct_name(const char* oldname)
     if ( IS_DIGIT(oldname[0]) )
     {
         offset = 1;
-        neededCorrect = 1;
     }
 
     newname = calloc(strlen(oldname)+1+offset, 1);
@@ -1316,17 +1371,9 @@ char *correct_name(const char* oldname)
         else
         {
             newname[i+offset] = '_';
-            neededCorrect = 1;
         }
     }
 
-#if DEBUG
-    if ( neededCorrect )
-    {
-        fprintf(stderr, "DEBUG INFO: Output object name differs from input object name.\n");
-        fprintf(stderr, "Old name: %s\nNew name: %s\n", oldname, newname);
-    }
-#endif
 
     return newname;
 }
@@ -2542,14 +2589,17 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
 herr_t convert_SD_Attrs(int32 sd_id,hid_t h5parobj_id,char*h5obj_name,char*sds_name)
 {
 
-    int   i;
-    intn  h4_status;
-    int32 sds_id,sds_index;
-    int32 dim_sizes[H4_MAX_VAR_DIMS];
-    int32 rank, data_type, n_attrs;
-    int32   n_values;
-    char    dummy_sds_name[H4_MAX_NC_NAME];
-    char    attr_name[H4_MAX_NC_NAME];
+    int   i = 0;
+    intn  h4_status = 0;
+    int32 sds_id = 0;
+    int32 sds_index = 0;
+    int32 dim_sizes[H4_MAX_VAR_DIMS] = {0};
+    int32 rank = 0;
+    int32 data_type = 0;
+    int32 n_attrs = 0;
+    int32   n_values = 0;
+    char    dummy_sds_name[H4_MAX_NC_NAME] = {'\0'};
+    char    attr_name[H4_MAX_NC_NAME] = {'\0'};
     char*   attr_values= NULL;
 
 
@@ -2563,13 +2613,12 @@ herr_t convert_SD_Attrs(int32 sd_id,hid_t h5parobj_id,char*h5obj_name,char*sds_n
 
     h4_status = SDgetinfo (sds_id, dummy_sds_name, &rank, dim_sizes,
                            &data_type, &n_attrs);
-
-#if 0
-    printf ("name = %s\n", dummy_sds_name);
-    printf ("rank = %d\n", rank);
-    printf ("dimension sizes are : ");
-    printf ("number of attributes is  %d\n", n_attrs);
-#endif
+    if ( h4_status == -1 )
+    {
+        FATAL_MSG("Failed to get dataset info.\n");
+        if ( sds_id ) SDendaccess(sds_id);
+        return -1;
+    }
 
     for( i = 0; i <n_attrs; i++)
     {
@@ -2915,13 +2964,12 @@ int  h4type_to_h5type(
 {
 
     size_t h4memsize = 0;
-    size_t h4size = 0;
     switch (h4type)
     {
 
     case DFNT_CHAR8:
 
-        h4size = 1;
+        
         h4memsize = sizeof(int8);
         /* assume DFNT_CHAR8 C type character. */
         *h5memtype = H5T_STRING;
@@ -2930,7 +2978,6 @@ int  h4type_to_h5type(
 
     case DFNT_UCHAR8:
 
-        h4size = 1;
         h4memsize = sizeof(int8);
         *h5memtype = H5T_STRING;
         //if(h5type) *h5type = H5T_STRING;
@@ -2938,7 +2985,7 @@ int  h4type_to_h5type(
 
     case DFNT_INT8:
 
-        h4size = 1;
+        
         //if(h5type) *h5type = H5T_STD_I8BE;
         h4memsize = sizeof(int8);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -2958,7 +3005,7 @@ int  h4type_to_h5type(
 
     case DFNT_UINT8:
 
-        h4size =1;
+        
         //if(h5type) *h5type = H5T_STD_U8BE;
         h4memsize = sizeof(int8);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -2979,7 +3026,7 @@ int  h4type_to_h5type(
     case DFNT_NINT8:
         /*printf("warning, Native HDF datatype is encountered");
         printf(" the converting result may not be correct.\n");*/
-        h4size = 1;
+        
         //if(h5type) *h5type = H5T_NATIVE_SCHAR;
         h4memsize = sizeof(int8);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3000,7 +3047,7 @@ int  h4type_to_h5type(
     case DFNT_NUINT8:
         /*printf("warning, Native HDF datatype is encountered");
         printf(" the converting result may not be correct.\n");*/
-        h4size = 1;
+        
         //if(h5type) *h5type = H5T_NATIVE_UCHAR;
         h4memsize = sizeof(int8);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3019,7 +3066,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_LINT8:
-        h4size = 1;
+        
         //if(h5type) *h5type = H5T_STD_I8LE;
         h4memsize = sizeof(int8);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3039,7 +3086,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_LUINT8:
-        h4size = 1;
+        
         //if(h5type) *h5type = H5T_STD_U8LE;
         h4memsize = sizeof(int8);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3058,7 +3105,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_INT16:
-        h4size = 2;
+        
         //if(h5type) *h5type = H5T_STD_I16BE;
         h4memsize = sizeof(int16);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3077,7 +3124,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_UINT16:
-        h4size = 2;
+        
         //if(h5type) *h5type = H5T_STD_U16BE;
         h4memsize = sizeof(int16);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3098,7 +3145,7 @@ int  h4type_to_h5type(
     case DFNT_NINT16:
         /*printf("warning, Native HDF datatype is encountered");
         printf(" the converting result may not be correct.\n");*/
-        h4size = 2;
+        
         //if(h5type) *h5type = H5T_NATIVE_SHORT;
         h4memsize = sizeof(int16);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3119,7 +3166,7 @@ int  h4type_to_h5type(
     case DFNT_NUINT16:
         /*printf("warning, Native HDF datatype is encountered");
         printf(" the converting result may not be correct.\n");*/
-        h4size = 2;
+        
         //if(h5type) *h5type = H5T_NATIVE_USHORT;
         h4memsize = sizeof(int16);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3138,7 +3185,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_LINT16:
-        h4size = 2;
+        
         //if(h5type) *h5type = H5T_STD_I16LE;
         h4memsize = sizeof(int16);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3157,7 +3204,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_LUINT16:
-        h4size = 2;
+        
         //if(h5type) *h5type = H5T_STD_U16LE;
         h4memsize = sizeof(int16);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3176,7 +3223,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_INT32:
-        h4size = 4;
+        
         //if(h5type) *h5type = H5T_STD_I32BE;
         h4memsize = sizeof(int32);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3195,7 +3242,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_UINT32:
-        h4size = 4;
+        
         //if(h5type) *h5type = H5T_STD_U32BE;
         h4memsize = sizeof(int32);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3216,7 +3263,7 @@ int  h4type_to_h5type(
     case DFNT_NINT32:
         /*printf("warning, Native HDF datatype is encountered");
         printf(" the converting result may not be correct.\n");*/
-        h4size = 4;
+        
         //if(h5type) *h5type = H5T_NATIVE_INT;
         h4memsize = sizeof(int32);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3237,7 +3284,7 @@ int  h4type_to_h5type(
     case DFNT_NUINT32:
         /*printf("warning, Native HDF datatype is encountered");
         printf(" the converting results may not be correct.\n");*/
-        h4size =4;
+        
         //if(h5type) *h5type = H5T_NATIVE_UINT;
         h4memsize = sizeof(int32);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3256,7 +3303,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_LINT32:
-        h4size =4;
+        
         //if(h5type) *h5type = H5T_STD_I32LE;
         h4memsize = sizeof(int32);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3275,7 +3322,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_LUINT32:
-        h4size =4;
+        
         //if(h5type) *h5type = H5T_STD_U32LE;
         h4memsize = sizeof(int32);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3294,7 +3341,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_INT64:
-        h4size = 8;
+        
         //if(h5type) *h5type = H5T_STD_I64BE;
         h4memsize = sizeof(long);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3315,7 +3362,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_UINT64:
-        h4size = 8;
+        
         //if(h5type) *h5type = H5T_STD_U64BE;
         h4memsize = sizeof(long);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3338,7 +3385,7 @@ int  h4type_to_h5type(
     case DFNT_NINT64:
         /*printf("warning, Native HDF datatype is encountered");
         printf(" the converting result may not be correct.\n");*/
-        h4size = 8;
+        
         //if(h5type) *h5type = H5T_NATIVE_INT;
         h4memsize = sizeof(long);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3361,7 +3408,7 @@ int  h4type_to_h5type(
     case DFNT_NUINT64:
         /*printf("warning, Native HDF datatype is encountered");
         printf(" the converting results may not be correct.\n");*/
-        h4size =8;
+        
         //if(h5type) *h5type = H5T_NATIVE_UINT;
         h4memsize = sizeof(long);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3382,7 +3429,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_LINT64:
-        h4size =8;
+        
         //if(h5type) *h5type = H5T_STD_I64LE;
         h4memsize = sizeof(long);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3403,7 +3450,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_LUINT64:
-        h4size =8;
+        
         //if(h5type) *h5type = H5T_STD_U64LE;
         h4memsize = sizeof(long);
         if(h4memsize == H5Tget_size(H5T_NATIVE_CHAR))
@@ -3424,7 +3471,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_FLOAT32:
-        h4size =4;
+        
         //if(h5type) *h5type = H5T_IEEE_F32BE;
         h4memsize = sizeof(float32);
         if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
@@ -3439,7 +3486,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_FLOAT64:
-        h4size = 8;
+        
         //if(h5type) *h5type = H5T_IEEE_F64BE;
         h4memsize = sizeof(float64);
         if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
@@ -3458,7 +3505,7 @@ int  h4type_to_h5type(
     case DFNT_NFLOAT32:
         /*printf("warning, Native HDF datatype is encountered");
         printf(" the converting results may not be correct.\n");*/
-        h4size = 4;
+        
         //if(h5type) *h5type = H5T_NATIVE_FLOAT;
         h4memsize = sizeof(float32);
         if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
@@ -3475,7 +3522,7 @@ int  h4type_to_h5type(
     case DFNT_NFLOAT64:
         /*    printf("warning, Native HDF datatype is encountered");
             printf(" the converting result may not be correct.\n");*/
-        h4size = 8;
+        
         //if(h5type) *h5type = H5T_NATIVE_DOUBLE;
         h4memsize = sizeof(float64);
         if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
@@ -3492,7 +3539,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_LFLOAT32:
-        h4size = 4;
+        
         //if(h5type) *h5type = H5T_IEEE_F32LE;
         h4memsize = sizeof(float32);
         if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
@@ -3507,7 +3554,7 @@ int  h4type_to_h5type(
         break;
 
     case DFNT_LFLOAT64:
-        h4size = 8;
+        
         //if(h5type) *h5type = H5T_IEEE_F64LE;
         h4memsize = sizeof(float64);
         if(h4memsize == H5Tget_size(H5T_NATIVE_FLOAT))
@@ -3635,14 +3682,14 @@ int change_dim_attr_NAME_value(hid_t h5dset_id)
 
     ARGUMENTS:
         IN
-            char* outDimName      -- Name of the output dimension scale. Datasets passed to this function should be
+            char* dimSuffix      -- Name of the output dimension scale. Datasets passed to this function should be
                                      given a unique dimension scale name in the case that their HDF4 dimensions have the
                                      same name (across multiple HDF4 files) but are not identical dimensions (different
                                      dimension size, different values inside the dimension). This string will be appended
                                      to the name of the input HDF4 dataset in the output HDF5 dataset. For instance, if
                                      the input HDF4 dimension is named:
                                         "inHDF4dimName"
-                                     and outDimName is:
+                                     and dimSuffix is:
                                         "_g1"
                                      The name of the dimension in the HDF5 file will be:
                                         "inHDF4dimName_g1"
@@ -3668,7 +3715,7 @@ int change_dim_attr_NAME_value(hid_t h5dset_id)
 
 */
 
-herr_t copyDimension( char* outDimName, int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID )
+herr_t copyDimension( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID )
 {
     hsize_t tempInt = 0;
     char* correct_dsetname = NULL;
@@ -3747,19 +3794,19 @@ herr_t copyDimension( char* outDimName, int32 h4fileID, char* h4datasetName, hid
         }
 
 
-        /* If outDimName is provided, we need to append this string to the dimName variable.*/
+        /* If dimSuffix is provided, we need to append this string to the dimName variable.*/
        
         correct_dsetname = correct_name(dimName);
 
-        if ( outDimName ) 
+        if ( dimSuffix ) 
         {
             // store allocated memory in temp pointer
             strcpy(tempStack, dimName);
-            temp = calloc ( sizeof(tempStack) + sizeof(outDimName) + 1, 1 );
+            temp = calloc ( sizeof(tempStack) + sizeof(dimSuffix) + 1, 1 );
             // copy dimName to the temp pointer memory
             strcpy(temp, tempStack);
-            // concatenate dimName with outDimName
-            strcat(temp,outDimName);
+            // concatenate dimName with dimSuffix
+            strcat(temp,dimSuffix);
             // Fix the name to comply with netCDF standards
             catString = correct_name(temp);
             // free the temp memory (catString is separately allocated memory, malloc'ed in the correct_name function
@@ -3976,8 +4023,57 @@ cleanupFail:
     return SUCCEED;
 
 }
-// Just see if it works
-herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID,int32 s_size,char*fm_number_str, int gran_number)
+
+/*
+            copyDimensionSubset
+
+    TODO
+        This function documentation needs to be fixed. This was just copied over from the copyDimension
+
+    DESCRIPTION:
+        This function copies the dimension scales from the HDF4 object to the HDF5 object.
+        If the dimension scale does not yet exist in the HDF5 file, it is created. If it does exist, the
+        HDF5 object will have its dimensions attached to the appropriate scale.
+
+        
+
+    ARGUMENTS:
+        IN
+            char* dimSuffix      -- Name of the output dimension scale. Datasets passed to this function should be
+                                     given a unique dimension scale name in the case that their HDF4 dimensions have the
+                                     same name (across multiple HDF4 files) but are not identical dimensions (different
+                                     dimension size, different values inside the dimension). This string will be appended
+                                     to the name of the input HDF4 dataset in the output HDF5 dataset. For instance, if
+                                     the input HDF4 dimension is named:
+                                        "inHDF4dimName"
+                                     and dimSuffix is:
+                                        "_g1"
+                                     The name of the dimension in the HDF5 file will be:
+                                        "inHDF4dimName_g1"
+
+                                     Pass NULL in for this argument if a unique dimension is not required. If NULL is passed,
+                                     this function will attempt to share the generated HDF5 dimension for all objects that
+                                     reference it in the input HDF4 files.
+
+                                     This string must be null terminated, or else a seg fault may occur.
+
+            int32 h4fileID        -- The HDF4 file ID returned by SDstart
+            char* h4datasetName   -- The name of the HDF4 dataset from which to copy from
+            hid_t h5dimGroupID    -- The HDF5 group ID in which to store and/or find the dimension scales
+            hid_t h5dsetID        -- The HDF5 dataset ID in which to attach dimension scales
+            int32 s_size          -- The subset size
+
+    EFFECTS:
+        Creates dimension scale if it doesn't exist under the h5dimGroupID group. Attaches the dimension scale
+        to the h5dsetID dataset.
+
+    RETURN:
+        FAIL upon failure.
+        SUCCEED upon success.
+
+*/
+herr_t copyDimensionSubset( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID,
+                            int32 s_size )
 {
     hsize_t tempInt = 0;
     char* dimName = NULL;
@@ -3995,8 +4091,7 @@ herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGrou
     short wasHardCodeCopy = 0;
 
     char* correct_dimName = NULL;
-    char* ceres_sub_dim_name = NULL;
-    char ceres_granule_suffix[3] = {'\0'};
+    char* output_dim_name = NULL;
 
     /* Get dataset index */
     int32 sds_index = SDnametoindex(h4fileID, h4datasetName );
@@ -4045,9 +4140,6 @@ herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGrou
 
         /* get various useful info about this dimension */
         statusn = SDdiminfo( h4dimID, dimName, &size, &ntype, &num_attrs );
-        //int32 dimRank = 0;
-        //int32 dimSizes = 0;
-        //statusn = SDgetinfo( h4dimID, dimName, &dimRank, &dimSizes, &ntype, &num_attrs);
         if ( statusn == FAIL )
         {
             FATAL_MSG("Failed to get dimension info.\n");
@@ -4055,95 +4147,94 @@ herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGrou
         }
 
         size = s_size;
+
+        correct_dimName = correct_name(dimName);
+
+        // Now we need to add the granule number for this dimenson since each granule will be different.
+        if ( dimSuffix != NULL )
+        {
+            output_dim_name=calloc(strlen(correct_dimName) + 
+                                      strlen(dimSuffix) + 1, 1);
+
+            // Copy over the new dimension name
+            sprintf( output_dim_name, "%s%s", correct_dimName, dimSuffix );
+        }
+        else
+        {
+            // We have to calloc separately because free() will be called on both output_dim_name and correct_dimName
+            output_dim_name = calloc ( strlen(correct_dimName) + 1, 1 );
+            strncpy( output_dim_name, correct_dimName, strlen(correct_dimName) );
+        }
+
         /* Since dimension scales are shared, it is possible this dimension already exists in HDF5 file (previous
            call to this function created it). Check to see if it does. If so, use the dimension that eixsts.
         */
+        dsetExists = H5Lexists(h5dimGroupID, output_dim_name, H5P_DEFAULT);
 
-        correct_dimName = correct_name(dimName);
-        // Now we need to add the granule number for this dimenson since each granule will be different.
-        memset(ceres_granule_suffix,0,3);
-        sprintf(ceres_granule_suffix,"%d",gran_number);
-        ceres_sub_dim_name=malloc(strlen(correct_dimName)+strlen(fm_number_str)+strlen(ceres_granule_suffix)+1);
-        memset(ceres_sub_dim_name,0,strlen(correct_dimName)+strlen(fm_number_str)+strlen(ceres_granule_suffix)+1);
-
-        strncpy(ceres_sub_dim_name,correct_dimName,strlen(correct_dimName));
-        strncat(ceres_sub_dim_name,fm_number_str,strlen(fm_number_str));
-        strncat(ceres_sub_dim_name,ceres_granule_suffix,strlen(ceres_granule_suffix));
-
-        //dsetExists = H5Lexists(h5dimGroupID, correct_dsetname, H5P_DEFAULT);
-        dsetExists = H5Lexists(h5dimGroupID, ceres_sub_dim_name, H5P_DEFAULT);
         // if dsetExists is <= 0, then dimension does not yet exist.
         if ( dsetExists <= 0 )
         {
-            /* If the dimension is one of the following, we will do an explicit dimension scale copy (hard code
-             * the scale values)
-             */
+            wasHardCodeCopy = 0;
+            /* SDdiminfo will return 0 for ntype if the dimension has no scale information. This is the case when
+               it is a pure dimension.  We need two separate cases for when it is and is not a pure dim
+            */
+
+            if ( ntype != 0 )
             {
-                wasHardCodeCopy = 0;
-                /* SDdiminfo will return 0 for ntype if the dimension has no scale information. This is the case when
-                   it is a pure dimension.  We need two separate cases for when it is and is not a pure dim
-                */
-
-                if ( ntype != 0 )
+                /* get the correct HDF5 datatype from ntype */
+                status = h4type_to_h5type( ntype, &h5type );
+                if ( status != 0 )
                 {
-                    /* get the correct HDF5 datatype from ntype */
-                    status = h4type_to_h5type( ntype, &h5type );
-                    if ( status != 0 )
-                    {
-                        FATAL_MSG("Failed to convert HDF4 to HDF5 datatype.\n");
-                        goto cleanupFail;
-                    }
-
-                    /* read the dimension scale into a buffer */
-                    dimBuffer = malloc(size);
-                    //int32 start[1] = {0};
-                    //int32 stride[1] = {1};
-                    //statusn = SDreaddata( h4dimID, start, stride, &dimSizes, dimBuffer );
-                    statusn = SDgetdimscale(h4dimID, dimBuffer);
-                    if ( statusn != 0 )
-                    {
-                        FATAL_MSG("Failed to get dimension scale.\n");
-                        goto cleanupFail;
-                    }
-
-                    /* make a new dataset for our dimension scale */
-
-                    tempInt = size;
-                    h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, h5type, ceres_sub_dim_name, dimBuffer);
-                    if ( h5dimID == EXIT_FAILURE )
-                    {
-                        h5dimID = 0;
-                        FATAL_MSG("Failed to insert dataset.\n");
-                        goto cleanupFail;
-                    }
-
-                    free(dimBuffer);
-                    dimBuffer = NULL;
+                    FATAL_MSG("Failed to convert HDF4 to HDF5 datatype.\n");
+                    goto cleanupFail;
                 }
 
-                else
+                /* read the dimension scale into a buffer */
+                dimBuffer = malloc(size);
+                statusn = SDgetdimscale(h4dimID, dimBuffer);
+                if ( statusn != 0 )
                 {
-                    hsize_t tempSize2 = 0;
+                    FATAL_MSG("Failed to get dimension scale.\n");
+                    goto cleanupFail;
+                }
 
-                    tempSize2 = (hsize_t) size;
-                    memspace = H5Screate_simple( 1, &tempSize2, NULL );
+                /* make a new dataset for our dimension scale */
 
-                    h5dimID = H5Dcreate( h5dimGroupID, ceres_sub_dim_name, H5T_NATIVE_INT, memspace,
-                                         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
-                    if ( h5dimID < 0 )
-                    {
-                        FATAL_MSG("Failed to create dataset.\n");
-                        h5dimID = 0;
-                        goto cleanupFail;
-                    }
+                tempInt = size;
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, h5type, output_dim_name, dimBuffer);
+                if ( h5dimID == EXIT_FAILURE )
+                {
+                    h5dimID = 0;
+                    FATAL_MSG("Failed to insert dataset.\n");
+                    goto cleanupFail;
+                }
 
-                    H5Sclose(memspace);
-                    memspace = 0;
-
-                } // end else
+                free(dimBuffer);
+                dimBuffer = NULL;
             }
 
-            errStatus = H5DSset_scale(h5dimID, ceres_sub_dim_name);
+            else
+            {
+                hsize_t tempSize2 = 0;
+
+                tempSize2 = (hsize_t) size;
+                memspace = H5Screate_simple( 1, &tempSize2, NULL );
+
+                h5dimID = H5Dcreate( h5dimGroupID, output_dim_name, H5T_NATIVE_INT, memspace,
+                                     H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+                if ( h5dimID < 0 )
+                {
+                    FATAL_MSG("Failed to create dataset.\n");
+                    h5dimID = 0;
+                    goto cleanupFail;
+                }
+
+                H5Sclose(memspace);
+                memspace = 0;
+
+            } // end else
+
+            errStatus = H5DSset_scale(h5dimID, output_dim_name);
             if ( errStatus != 0 )
             {
                 FATAL_MSG("Failed to set dataset as a dimension scale.\n");
@@ -4167,7 +4258,7 @@ herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGrou
 
         else
         {
-            h5dimID = H5Dopen2(h5dimGroupID, ceres_sub_dim_name, H5P_DEFAULT);
+            h5dimID = H5Dopen2(h5dimGroupID, output_dim_name, H5P_DEFAULT);
             if ( h5dimID < 0 )
             {
                 h5dimID = 0;
@@ -4175,7 +4266,6 @@ herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGrou
                 goto cleanupFail;
             }
         }
-
 
         errStatus = H5DSattach_scale(h5dsetID, h5dimID, dim_index);
         if ( errStatus != 0 )
@@ -4186,8 +4276,8 @@ herr_t copyDimensionSubset( int32 h4fileID, char* h4datasetName, hid_t h5dimGrou
 
         free(correct_dimName);
         correct_dimName = NULL;
-        free(ceres_sub_dim_name);
-        ceres_sub_dim_name = NULL;
+        free(output_dim_name);
+        output_dim_name = NULL;
         H5Dclose(h5dimID);
         h5dimID = 0;
     }   // end for loop
@@ -5125,8 +5215,6 @@ int comp_greg(GDateInfo_t j1, GDateInfo_t j2)
 
 void get_greg(double julian, int*yearp,int*monthp,int*dayp,int*hourp,int*mmp,double*ssp)
 {
-
-    int JGREG = 15 + 31*(10+12*1582);
 
     double julian_fract = julian-(int)julian;
     double total_ss,ss;

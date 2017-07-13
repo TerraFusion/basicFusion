@@ -54,11 +54,14 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
 
     char* fileTime = NULL;
     char* correctName = NULL;
+    char* dimSuffix = NULL;
     short fail = 0;
     char* tmpCharPtr = NULL;
+    char* NewcorrectName = NULL;
     char granuleName[20] = {'\0'};
-    const char* UNITS1 = {"Watts/m^2/steradian"};
-    const char* UNITS2 = {"Watts/m^2/micrometer/steradian"};
+    // These UNITS are not currently used. Units copied over from input HDF dataset
+    //const char* UNITS1 = {"Watts/m^2/steradian"};
+    //const char* UNITS2 = {"Watts/m^2/micrometer/steradian"};
     char* inTimePosName[NUM_TIME] = {"Time of observation", "Colatitude of CERES FOV at surface",
                                      "Longitude of CERES FOV at surface"
                                     };
@@ -162,8 +165,6 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         }
     }
 
-    free(fileTime);
-    fileTime = NULL;
 
     if (index == 1)
         strncpy( cameraName, "FM1", 3 ); 
@@ -222,6 +223,18 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         goto cleanupFail;
     }
 
+    /* Prepare the granule suffixes for the dimensions */
+    if ( index == 1 )
+    {    
+        dimSuffix = calloc( strlen("_FM1_g") + strlen(fileTime) + 1, 1 );
+        sprintf( dimSuffix, "_FM1_g%s", fileTime );
+    }
+    else if ( index == 2 )
+    {
+        dimSuffix = calloc( strlen("_FM2_g") + strlen(fileTime) + 1, 1 );
+        sprintf( dimSuffix, "_FM2_g%s", fileTime );
+    }
+
     /************************
      * Time and Position *
      ************************/
@@ -249,7 +262,12 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
             goto cleanupFail;
         }
 
-        generalDsetID_d = readThenWriteSubset( outTimePosName[i], geolocationID_g, inTimePosName[i], h4Type, h5Type,
+        /* Only do the CERES geolocation unit conversion if transferring lat or lon */
+        if ( strstr("Latitude", outTimePosName[i] ) || strstr("Longitude", outTimePosName[i]) )
+            generalDsetID_d = readThenWriteSubset( 1, outTimePosName[i], geolocationID_g, inTimePosName[i], h4Type, h5Type,
+                                               fileID,c_start,c_stride,c_count);
+        else
+            generalDsetID_d = readThenWriteSubset( 0, outTimePosName[i], geolocationID_g, inTimePosName[i], h4Type, h5Type,
                                                fileID,c_start,c_stride,c_count);
 
 
@@ -265,10 +283,15 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
          * The dataset name in output HDF5 file is not the same as dataset name in input HDF4 file. Name is passed
          * according to the correct_name function.
          */
+
         if(index == 1)
-            status = copyDimensionSubset( fileID, inTimePosName[i], outputFile, generalDsetID_d,*c_count,"_FM1_",ceres_fm_count );
+        {
+            status = copyDimensionSubset( dimSuffix, fileID, inTimePosName[i], outputFile, generalDsetID_d, *c_count );
+        }
         else
-            status = copyDimensionSubset( fileID, inTimePosName[i], outputFile, generalDsetID_d,*c_count,"_FM2_",ceres_fm_count );
+        { 
+            status = copyDimensionSubset( dimSuffix, fileID, inTimePosName[i], outputFile, generalDsetID_d, *c_count );
+        }
         if ( status == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions for %s.\n", inTimePosName[i]);
@@ -278,19 +301,38 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         H5Dclose(generalDsetID_d);
         generalDsetID_d = 0;
 
-        char* NewcorrectName = correct_name(outTimePosName[i]);
-        convert_SD_Attrs(fileID,geolocationID_g,NewcorrectName,inTimePosName[i]);
-        free(NewcorrectName);
+        NewcorrectName = correct_name(outTimePosName[i]);
+        status = convert_SD_Attrs(fileID,geolocationID_g,NewcorrectName,inTimePosName[i]);
+        if ( status != 0 )
+        {
+            FATAL_MSG("Failed to convert the SD attributes from HDF4 to HDF5.\n");
+            goto cleanupFail;
+        }
+        free(NewcorrectName); NewcorrectName = NULL;
+
+        free(dimSuffix);
+        dimSuffix = NULL;
 
         // Quick way to change the attribute unit of latitude and longitude
         // LEAVE this block of code, we may need this later.
-#if 0
         if(i == 1)// latitude
-            H5LTset_attribute_string(geolocationID_g,"Latitude","units","degrees_north");
+        {
+            status = H5LTset_attribute_string(geolocationID_g,"Latitude","units","degrees_north");
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to set attributes.\n");
+                goto cleanupFail;
+            }
+        }
         else if( i==2)
-            H5LTset_attribute_string(geolocationID_g,"Longitude","units","degrees_east");
-#endif
-
+        {
+            status = H5LTset_attribute_string(geolocationID_g,"Longitude","units","degrees_east");
+            if ( status < 0 )       
+            {
+                FATAL_MSG("Failed to set attributes.\n");
+                goto cleanupFail;
+            }
+        }
     }
 
     /******************
@@ -302,7 +344,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         h4Type = DFNT_FLOAT32;
         h5Type = H5T_NATIVE_FLOAT;
 
-        generalDsetID_d = readThenWriteSubset( outViewingAngles[i], viewingAngleID_g, inViewingAngles[i], h4Type, h5Type, fileID,c_start,c_stride,c_count);
+        generalDsetID_d = readThenWriteSubset( 0, outViewingAngles[i], viewingAngleID_g, inViewingAngles[i], h4Type, h5Type, fileID,c_start,c_stride,c_count);
         if ( generalDsetID_d == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to insert \"%s\" dataset.\n", inViewingAngles[i]);
@@ -311,9 +353,9 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         }
 
         if(index == 1)
-            status = copyDimensionSubset( fileID, inViewingAngles[i], outputFile, generalDsetID_d,*c_count,"_FM1_",ceres_fm_count );
+            status = copyDimensionSubset( dimSuffix, fileID, inViewingAngles[i], outputFile, generalDsetID_d,*c_count );
         else
-            status = copyDimensionSubset( fileID, inViewingAngles[i], outputFile, generalDsetID_d,*c_count,"_FM2_",ceres_fm_count );
+            status = copyDimensionSubset( dimSuffix, fileID, inViewingAngles[i], outputFile, generalDsetID_d,*c_count );
         if ( status == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions for %s.\n", inViewingAngles[i] );
@@ -345,7 +387,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
             h5Type = H5T_NATIVE_INT;
         }
 
-        generalDsetID_d = readThenWriteSubset( outFilteredRadiance[i], radianceID_g, inFilteredRadiance[i], h4Type, h5Type, fileID,c_start,c_stride,c_count);
+        generalDsetID_d = readThenWriteSubset( 0, outFilteredRadiance[i], radianceID_g, inFilteredRadiance[i], h4Type, h5Type, fileID,c_start,c_stride,c_count);
         if ( generalDsetID_d == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to insert \"%s\" dataset.\n", inFilteredRadiance[i]);
@@ -354,9 +396,9 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         }
 
         if(index == 1)
-            status = copyDimensionSubset( fileID, inFilteredRadiance[i], outputFile, generalDsetID_d,*c_count,"_FM1_",ceres_fm_count );
+            status = copyDimensionSubset( dimSuffix, fileID, inFilteredRadiance[i], outputFile, generalDsetID_d,*c_count );
         else
-            status = copyDimensionSubset( fileID, inFilteredRadiance[i], outputFile, generalDsetID_d,*c_count,"_FM2_",ceres_fm_count );
+            status = copyDimensionSubset( dimSuffix, fileID, inFilteredRadiance[i], outputFile, generalDsetID_d,*c_count );
         if ( status == FAIL )
         {
             FATAL_MSG("Failed to copy dimensions for %s.\n", inFilteredRadiance[i] );
@@ -367,6 +409,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         generalDsetID_d = 0;
         char* NewcorrectName = correct_name(outFilteredRadiance[i]);
         convert_SD_Attrs(fileID,radianceID_g,NewcorrectName,inFilteredRadiance[i]);
+
         free(NewcorrectName);
     }
 
@@ -379,7 +422,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         h4Type = DFNT_FLOAT32;
         h5Type = H5T_NATIVE_FLOAT;
 
-        generalDsetID_d = readThenWriteSubset( outUnfilteredRadiance[i], radianceID_g, inUnfilteredRadiance[i], h4Type, h5Type, fileID,c_start,c_stride,c_count);
+        generalDsetID_d = readThenWriteSubset( 0, outUnfilteredRadiance[i], radianceID_g, inUnfilteredRadiance[i], h4Type, h5Type, fileID,c_start,c_stride,c_count);
         if ( generalDsetID_d == EXIT_FAILURE )
         {
             FATAL_MSG("Failed to insert \"%s\" dataset.\n", inUnfilteredRadiance[i]);
@@ -388,9 +431,9 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         }
 
         if(index == 1)
-            status = copyDimensionSubset( fileID, inUnfilteredRadiance[i], outputFile, generalDsetID_d,*c_count,"_FM1_",ceres_fm_count );
+            status = copyDimensionSubset( dimSuffix, fileID, inUnfilteredRadiance[i], outputFile, generalDsetID_d,*c_count );
         else
-            status = copyDimensionSubset( fileID, inUnfilteredRadiance[i], outputFile, generalDsetID_d,*c_count,"_FM2_",ceres_fm_count );
+            status = copyDimensionSubset( dimSuffix, fileID, inUnfilteredRadiance[i], outputFile, generalDsetID_d,*c_count );
 
         if ( status == FAIL )
         {
@@ -421,6 +464,9 @@ cleanupFail:
     if ( viewingAngleID_g ) H5Gclose(viewingAngleID_g);
     if ( generalDsetID_d )  H5Dclose(generalDsetID_d);
     if ( correctName )      free(correctName);
+    if ( dimSuffix )        free(dimSuffix);
+    if ( NewcorrectName )   free(NewcorrectName);
+
     if ( fail )             return EXIT_FAILURE;
 
     return EXIT_SUCCESS;
@@ -500,7 +546,6 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
         return EXIT_FAILURE;
     }
 
-//printf("julian_date[0] is %lf \n",julian_date[0]);
 
     if(obtain_start_end_index(start_index_ptr,end_index_ptr,julian_date,dimsizes[0],orbit_info) == EXIT_FAILURE)
     {
