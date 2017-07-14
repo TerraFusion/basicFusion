@@ -37,6 +37,8 @@ int MISR( char* argv[],int unpack )
                                     "DfAzimuth","DfGlitter","DfScatter","DfZenith"
                                    };
 
+    char* perBlockMet = "PerBlockMetadataTime";
+    char* blockCent   = "BlockCenterTime";
     char *solar_geom_name[2] = {"SolarAzimuth","SolarZenith"};
     char *geo_name[2] = {"GeoLatitude","GeoLongitude"};
 
@@ -46,7 +48,6 @@ int MISR( char* argv[],int unpack )
     char *data_gname="Data Fields";
     char *sensor_geom_gname ="Sensor_Geometry";
     herr_t status = 0;
-    int32 statusn = 0;
     int retVal = RET_SUCCESS;
     herr_t errStatus = 0;
     float tempFloat = 0.0;
@@ -61,6 +62,10 @@ int MISR( char* argv[],int unpack )
     size_t granSize = 0;
     ssize_t pathSize = 0;
     int i;
+    int32 status32;
+    intn statusn;
+    char* perBlockMetaBuf = NULL;
+    int32 vdataID = 0;
     /******************
      * geo data files *
      ******************/
@@ -474,7 +479,7 @@ int MISR( char* argv[],int unpack )
             goto cleanupFail;
         }
 
-
+        printf("%s\n", camera_name[i]);
         createGroup(&MISRrootGroupID, &h5GroupID, camera_name[i]);
         if ( h5GroupID == FATAL_ERR )
         {
@@ -627,18 +632,74 @@ int MISR( char* argv[],int unpack )
 
         } // End for (second inner j loop)
 
-        statusn = SDend(h4FileID[i]);
+        /* Insert the "perBlockMetadataTime" into output file */
+        // Get the vdata reference number
+        int32 vdataRef = VSfind( inHFileID[i], perBlockMet );
+        if ( vdataRef == 0 )
+        {
+            FATAL_MSG("Failed to find the reference number for %s.\n", perBlockMet ); 
+            goto cleanupFail;
+        }
+        
+        vdataID = VSattach( inHFileID[i], vdataRef, "r" );
+        if ( vdataID == FAIL )
+        {
+            FATAL_MSG("Failed to attach to the vdataset %s.\n", perBlockMet); 
+            goto cleanupFail;
+        }
+
+        // Find how many records are in this vdata
+        int32 n_records;
+
+        statusn = VSinquire( vdataID, &n_records, NULL, NULL, NULL, NULL );
+        if ( statusn == FAIL )
+        {
+            FATAL_MSG("Failed to retrieve information about Vdata %s.\n", perBlockMet);
+            goto cleanupFail;
+        }
+
+        // Allocate the perBlockMetaBuf. We can safely assume the size of all the records is 28
+        perBlockMetaBuf = calloc ( n_records * 28, sizeof(char));
+
+        // Set the fields for reading (there is only one field name)
+        // blockCent = "BlockCenterTime"
+        statusn = VSsetfields( vdataID, blockCent );    
+        if ( statusn == FAIL )
+        {
+            FATAL_MSG("Failed to set the V fields for reading.\n");
+            goto cleanupFail;
+        }
+
+        // Read the data
+        int32 n_read = VSread( vdataID, (uint8*) perBlockMetaBuf, n_records, FULL_INTERLACE );
+        if ( n_read == FAIL )
+        {
+            FATAL_MSG("Failed to read the V data %s.\n", perBlockMet);
+            goto cleanupFail;
+        }
+
+        for ( int x = 0; x < n_read; x++ )
+        {
+            for ( int y = 0; y < 28; y++ )
+                printf("%c", (char)perBlockMetaBuf[x*28 + y]);
+            printf("\n");
+        }
+
+        status32 = SDend(h4FileID[i]);
         h4FileID[i] = 0;
         /* No need inHFileID, close H and V interfaces */
         h4_status = Vend(inHFileID[i]);
         h4_status = Hclose(inHFileID[i]);
+        inHFileID[i] = 0;
         status = H5Gclose(h5DataGroupID);
         h5DataGroupID = 0;
         status = H5Gclose(h5SensorGeomGroupID);
         h5SensorGeomGroupID = 0;
         status = H5Gclose(h5GroupID);
         h5GroupID = 0;
-    }
+        VSdetach(vdataID); vdataID = 0;
+        free(perBlockMetaBuf); perBlockMetaBuf = NULL;
+    } // end loop all cameras
 
 
     if ( 0 )
@@ -654,6 +715,8 @@ cleanupFO:
     }
 
 
+
+    if ( vdataID )              VSdetach(vdataID);
     if (MISRrootGroupID)        H5Gclose(MISRrootGroupID);
     if ( geoFileID )            SDend(geoFileID);
     if ( hgeoFileID )           SDend(hgeoFileID);
@@ -685,7 +748,7 @@ cleanupFO:
     if ( LRgeoLat )             free(LRgeoLat);
     if ( LRgeoLon )             free(LRgeoLon);
     if ( LRcoord )              free(LRcoord);
-
+    if ( perBlockMetaBuf )      free(perBlockMetaBuf);
     return retVal;
 }
 

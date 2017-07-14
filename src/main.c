@@ -102,6 +102,8 @@ int main( int argc, char* argv[] )
     {
         fprintf( stderr, "Usage: %s [outputFile] [inputFiles.txt] [orbit_info.bin]\n", argv[0] );
         fprintf( stderr, "Set environment variable TERRA_DATA_UNPACK to non-zero for unpacking.\n");
+        fprintf( stderr, "Set environment variable USE_GZIP to enable HDF GZIP compression.\n");
+        fprintf( stderr, "Set environment variable USE_CHUNK to enable HDF dataset chunking.\n");
         goto cleanupFail;
     }
 
@@ -295,7 +297,7 @@ int main( int argc, char* argv[] )
     }
     else
     {
-        printf("No files for MOPITT found.\nTransferring CERES...");
+        printf("No MOPITT files found.\nTransferring CERES...");
         fflush(stdout);
         status = getNextLine( inputLine, inputFile );
         if ( status == FATAL_ERR )
@@ -911,7 +913,7 @@ int main( int argc, char* argv[] )
         status = MISR( MISRargs,unpack);
         if ( status == FATAL_ERR )
         {
-            FATAL_MSG("MISR failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
+            FATAL_MSG("MISR failed data transfer.\nExiting program.\n");
             goto cleanupFail;
         }
         printf("MISR done.\n");
