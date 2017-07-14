@@ -65,7 +65,11 @@ int MISR( char* argv[],int unpack )
     int32 status32;
     intn statusn;
     char* perBlockMetaBuf = NULL;
+    hid_t perBlockMetaDset = 0;
+    hid_t perBlockMetaDspace = 0;
     int32 vdataID = 0;
+    int32* vdata_size = NULL;
+    hid_t stringType = 0;
     /******************
      * geo data files *
      ******************/
@@ -94,7 +98,7 @@ int MISR( char* argv[],int unpack )
     hid_t solarAzimuthID = 0;
     hid_t solarZenithID = 0;
 
-    hid_t h5GroupID = 0;
+    hid_t h5CameraGroupID = 0;
     hid_t h5DataGroupID = 0;
     hid_t h5SensorGeomGroupID = 0;
 
@@ -479,16 +483,15 @@ int MISR( char* argv[],int unpack )
             goto cleanupFail;
         }
 
-        printf("%s\n", camera_name[i]);
-        createGroup(&MISRrootGroupID, &h5GroupID, camera_name[i]);
-        if ( h5GroupID == FATAL_ERR )
+        createGroup(&MISRrootGroupID, &h5CameraGroupID, camera_name[i]);
+        if ( h5CameraGroupID == FATAL_ERR )
         {
-            h5GroupID = 0;
+            h5CameraGroupID = 0;
             FATAL_MSG("Failed to create an HDF5 group.\n");
             goto cleanupFail;
         }
 
-        createGroup(&h5GroupID,&h5DataGroupID,data_gname);
+        createGroup(&h5CameraGroupID,&h5DataGroupID,data_gname);
         if ( h5DataGroupID == FATAL_ERR )
         {
             h5DataGroupID = 0;
@@ -580,7 +583,7 @@ int MISR( char* argv[],int unpack )
             correctedName = NULL;
         } // End for (first inner j loop)
 
-        createGroup(&h5GroupID,&h5SensorGeomGroupID,sensor_geom_gname);
+        createGroup(&h5CameraGroupID,&h5SensorGeomGroupID,sensor_geom_gname);
         if ( h5SensorGeomGroupID == FATAL_ERR )
         {
             FATAL_MSG("Failed to create an HDF5 group.\n");
@@ -632,7 +635,11 @@ int MISR( char* argv[],int unpack )
 
         } // End for (second inner j loop)
 
+
+        /******************************************************/
         /* Insert the "perBlockMetadataTime" into output file */
+        /******************************************************/
+        // TODO put the following code into a separate function???
         // Get the vdata reference number
         int32 vdataRef = VSfind( inHFileID[i], perBlockMet );
         if ( vdataRef == 0 )
@@ -650,16 +657,28 @@ int MISR( char* argv[],int unpack )
 
         // Find how many records are in this vdata
         int32 n_records;
-
         statusn = VSinquire( vdataID, &n_records, NULL, NULL, NULL, NULL );
         if ( statusn == FAIL )
         {
             FATAL_MSG("Failed to retrieve information about Vdata %s.\n", perBlockMet);
             goto cleanupFail;
         }
+        vdata_size = calloc ( n_records, sizeof(int32) );
 
-        // Allocate the perBlockMetaBuf. We can safely assume the size of all the records is 28
-        perBlockMetaBuf = calloc ( n_records * 28, sizeof(char));
+        /* Find the size of each record */
+        statusn = VSinquire( vdataID, NULL, NULL, NULL, vdata_size, NULL );
+        if ( statusn == FAIL )
+        {
+            FATAL_MSG("Failed to retrieve information about Vdata %s.\n", perBlockMet);
+            goto cleanupFail;
+        }
+
+
+        /* Allocate the perBlockMetaBuf. We can safely assume the size of all the records is the size
+           of the first record ( vdata_size[0] )
+         */
+        int perBMB_size = n_records * vdata_size[0];
+        perBlockMetaBuf = calloc ( perBMB_size, sizeof(char));
 
         // Set the fields for reading (there is only one field name)
         // blockCent = "BlockCenterTime"
@@ -678,12 +697,69 @@ int MISR( char* argv[],int unpack )
             goto cleanupFail;
         }
 
+        /* perBlockMetaBuf now contains the vdata. They are a contiguous array of vdata_size[0] number of null-terminated
+           strings. Even empty entries into the vdataset are of size vdata_size[0].
+         */
+
+        // First need to create the string datatype
+        if ( stringType == 0 )
+        {
+            // copy the atomic 1-character string type
+            stringType = H5Tcopy(H5T_C_S1);
+            if ( stringType < 0 )
+            {
+                FATAL_MSG("Failed to copy the datatype.\n");
+                stringType = 0;
+                goto cleanupFail;
+            }
+            // Set the length to vdata_size[0]
+            status = H5Tset_size( stringType, (size_t) vdata_size[0] );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to set the size of the string datatype.\n");
+                goto cleanupFail;
+            }            
+        }
+
+        // Create the dataspace
+        if ( perBlockMetaDspace  == 0 )
+        {
+            hsize_t tempSize = (hsize_t) n_records;
+            perBlockMetaDspace = H5Screate_simple( 1, &tempSize, NULL );
+            if ( perBlockMetaDspace < 0 )
+            {
+                perBlockMetaDspace = 0;
+                FATAL_MSG("Failed to create the dataspace.\n");
+                goto cleanupFail;
+            }
+        }
+
+        perBlockMetaDset = H5Dcreate2(h5CameraGroupID, "BlockCenterTime", stringType, perBlockMetaDspace, H5P_DEFAULT,
+                                     H5P_DEFAULT, H5P_DEFAULT );
+        if ( perBlockMetaDset < 0 )
+        {
+            perBlockMetaDset = 0;
+            FATAL_MSG("Failed to create the dataset.\n");
+            goto cleanupFail;
+        }
+
+        // Write to the dataset our buffer
+        status = H5Dwrite(perBlockMetaDset, stringType, perBlockMetaDspace, perBlockMetaDspace, H5P_DEFAULT, 
+                          (void*) perBlockMetaBuf);
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to write to the dataset.\n");
+            goto cleanupFail;
+        }
+        
+
+#if 0
         for ( int x = 0; x < n_read; x++ )
         {
             for ( int y = 0; y < 28; y++ )
-                printf("%c", (char)perBlockMetaBuf[x*28 + y]);
-            printf("\n");
+                printf("%d: %c\n", x*28+y, (char)(perBlockMetaBuf[x*28 + y]) );
         }
+#endif 
 
         status32 = SDend(h4FileID[i]);
         h4FileID[i] = 0;
@@ -695,10 +771,13 @@ int MISR( char* argv[],int unpack )
         h5DataGroupID = 0;
         status = H5Gclose(h5SensorGeomGroupID);
         h5SensorGeomGroupID = 0;
-        status = H5Gclose(h5GroupID);
-        h5GroupID = 0;
+        status = H5Gclose(h5CameraGroupID);
+        h5CameraGroupID = 0;
         VSdetach(vdataID); vdataID = 0;
         free(perBlockMetaBuf); perBlockMetaBuf = NULL;
+        free( vdata_size ); vdata_size = NULL;
+        H5Dclose(perBlockMetaDset); perBlockMetaDset = 0;
+        
     } // end loop all cameras
 
 
@@ -728,7 +807,7 @@ cleanupFO:
         Vend(inHFileID[i]);
         if ( inHFileID[i] )     Hclose(inHFileID[i]);
     }
-    if ( h5GroupID )            H5Gclose(h5GroupID);
+    if ( h5CameraGroupID )      H5Gclose(h5CameraGroupID);
     if ( h5DataGroupID )        H5Gclose(h5DataGroupID);
     if ( h5DataFieldID )        H5Dclose(h5DataFieldID);
     if ( h5SensorGeomGroupID )  H5Gclose(h5SensorGeomGroupID);
@@ -749,6 +828,10 @@ cleanupFO:
     if ( LRgeoLon )             free(LRgeoLon);
     if ( LRcoord )              free(LRcoord);
     if ( perBlockMetaBuf )      free(perBlockMetaBuf);
+    if ( vdata_size )           free(vdata_size);
+    if ( stringType )           H5Tclose(stringType);
+    if ( perBlockMetaDset )     H5Dclose(perBlockMetaDset);
+    if ( perBlockMetaDspace )   H5Sclose(perBlockMetaDspace);
     return retVal;
 }
 
