@@ -1,3 +1,10 @@
+"""
+@author : Shashank Bansal
+@email : sbansal6@illinois.edu
+
+Date Created: June 27, 2017
+"""
+
 from os import path
 import os
 import fnmatch
