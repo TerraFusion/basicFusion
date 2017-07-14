@@ -1,3 +1,10 @@
+"""
+@author : Shashank Bansal
+@email : sbansal6@illinois.edu
+
+Date Created: June 27, 2017
+"""
+
 from os import path
 import os
 import fnmatch
@@ -27,6 +34,8 @@ def main():
 			year = sys.argv[4]
 			orbFile = sys.argv[5]
 			run(dirpath, logfile, year, orbFile)
+	else:
+		usage()
 
 	# arg = sys.argv[1:]
 	# dirpath = (arg[0])
@@ -55,16 +64,16 @@ def main():
 	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2015.txt", '2015')
 
 def usage():
-	print("\n\n#------------------========================USAGE=======================-------------------#\n")
+	print("\n\nUSAGE:  python MISR_all_years.py [-h | -a | -r]\n")
 	print("Options:\n")
-	print("-h -help     						More information about the different functions and how they work\n")
-	print("-a           						More information about the arguments and the format\n")
-	print("-r dirpath logfile year orbFile  			Run the program\n")
+	print("-h     									More information about the different functions and how they work\n")
+	print("-a           								More information about the arguments and the format to run the program\n")
+	print("-r [dirpath] [logfile] [year] [orbFile]  				Run the program\n")
 	#print("-m           						Run the program on multiple years at once.")
 
 
 def help():
-	print("\nThere are 2 main functions in this program.")
+	print("\nDESCRIPTION:\n\nThere are 2 main functions in this program- ")
 	print("1. check_Orbit(dirpath, logPath, year, orbFile)")
 	print("2. check_OrbitFile_in_Correct_date(orbitNo, orbFile)\n")
 	print("1. check_Orbit(dirpath, logPath, year, orbFile):")
@@ -74,26 +83,33 @@ def help():
 	print("2. check_Orbit_in_Correct_date(orbitNo, orbFile):\nThis function checks if the orbitFiles are in the correct date.\n")
 
 def arguments():
-	print("\nFor this program to run properly, you need 4 arguments. All of the arguments are for check_Orbit.\n")
-	print("1. The first is the directory path. For example, it should look something like:")
-	print("\npath/to/dir or /projects/TDataFus/gyzhao/TF/data/MISR/MI1B2E.003\n")
-	print("In order for the program to run smoothly, you need to provide the absolute path and make sure that you")
-	print("provide the dirpath only uptil just before the dates.\n")
+	print("\nARGUMENTS TO RUN PROGRAM:\n\n python MISR_all_years.py -r [absolute/path/to/dir] [filepath/to/logfile] [year] [absolute/path/to/orbFile]\n")
+	print("For more information on each argument, type i.")
+	info = str(raw_input())
 	
-	print("2. The second argument is the file path to the logfile where you wish to write the names of the missing files.")
-	print("For example, it should look something like,")
-	print("\n/path/to/logfile/logfile.txt or /home/user/scratch/BasicFusion/MISR_logfiles/logfile.txt\n")
-	print("The second argument also need to have the name of the .txt file where you wish to log all the missing files.")
-	print("You don't need to make a TextFile, just give the name in the second argument and the program will make a txtfle")
-	print("with that name in the specified directory.\n")
-	
-	print("3. The third argument is the year you wish to run the program on. The range of years that the database currently")
-	print("has is between 2000 to 2016.\n")
-	
-	print("4. The fourth argument is the path to the orbit_dateTime or the orbFile file. It should be a txt file that")
-	print("contains all the orbits with the dates they are suppose to be in. For example,")
-	print("\npath/to/orbFile or /home/user/File_Verification_Scripts/scripts/Orbit_Path_Time.txt\n")
+	if info == 'i' or info == 'I':
+		print("MORE INFORMATION: \n\nFor this program to run properly, you need 4 arguments. All of the arguments are for check_Orbit.\n")
+		print("1. The first is the directory path. For example, it should look something like:")
+		print("\npath/to/dir or /projects/TDataFus/gyzhao/TF/data/MISR/MI1B2E.003\n")
+		print("In order for the program to run smoothly, you need to provide the absolute path and make sure that you")
+		print("provide the dirpath only uptil just before the dates.\n")
+		
+		print("2. The second argument is the file path to the logfile where you wish to write the names of the missing files.")
+		print("For example, it should look something like,")
+		print("\n/path/to/logfile/logfile.txt or /home/user/scratch/BasicFusion/MISR_logfiles/logfile.txt\n")
+		print("The second argument also need to have the name of the .txt file where you wish to log all the missing files.")
+		print("You don't need to make a TextFile, just give the name in the second argument and the program will make a txtfle")
+		print("with that name in the specified directory.\n")
+		
+		print("3. The third argument is the year you wish to run the program on. The range of years that the database currently")
+		print("has is between 2000 to 2016.\n")
+		
+		print("4. The fourth argument is the path to the orbit_dateTime or the orbFile file. It should be a txt file that")
+		print("contains all the orbits with the dates they are suppose to be in. For example,")
+		print("\npath/to/orbFile or /home/user/File_Verification_Scripts/scripts/Orbit_Path_Time.txt\n")
 
+	else:
+		return
 
 def run(dirpath, logfile, year, orbFile):
 
