@@ -67,6 +67,7 @@ int MISR( char* argv[],int unpack )
     char* perBlockMetaBuf = NULL;
     hid_t perBlockMetaDset = 0;
     hid_t perBlockMetaDspace = 0;
+    hid_t dimID = 0;
     int32 vdataID = 0;
     int32* vdata_size = NULL;
     hid_t stringType = 0;
@@ -751,6 +752,20 @@ int MISR( char* argv[],int unpack )
             FATAL_MSG("Failed to write to the dataset.\n");
             goto cleanupFail;
         }
+
+        dimID = H5Dopen2( outputFile, "SOMBlockDim_NIRBand", H5P_DEFAULT);
+        if ( dimID < 0 )
+        {
+            FATAL_MSG("Failed to open the dimension.\n");
+            dimID = 0;
+            goto cleanupFail;
+        }        
+
+        if ( H5DSattach_scale( perBlockMetaDset, dimID, 0 ) < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension.\n");
+            goto cleanupFail;
+        }
         
 
 #if 0
@@ -777,7 +792,7 @@ int MISR( char* argv[],int unpack )
         free(perBlockMetaBuf); perBlockMetaBuf = NULL;
         free( vdata_size ); vdata_size = NULL;
         H5Dclose(perBlockMetaDset); perBlockMetaDset = 0;
-        
+        H5Dclose(dimID); dimID = 0;
     } // end loop all cameras
 
 
@@ -832,6 +847,7 @@ cleanupFO:
     if ( stringType )           H5Tclose(stringType);
     if ( perBlockMetaDset )     H5Dclose(perBlockMetaDset);
     if ( perBlockMetaDspace )   H5Sclose(perBlockMetaDspace);
+    if ( dimID )                H5Dclose(dimID);
     return retVal;
 }
 
