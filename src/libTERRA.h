@@ -147,6 +147,7 @@ herr_t copyDimensionSubset( char* dimSuffix, int32 h4fileID, char* h4datasetName
                             int32 s_size );
 
 herr_t attachDimension(hid_t h5fileID, char* dimname, hid_t h5dsetID, int dim_index);
+herr_t makeDimFromBuf( hid_t locID, char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID );
 size_t obtainDimSize(hid_t dsetID);
 herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size);
 

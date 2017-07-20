@@ -4321,6 +4321,89 @@ herr_t attachDimension(hid_t fileID,char*dimname, hid_t dsetID,int dim_index)
     return SUCCEED;
 }
 
+/*
+        makeDimFromBuf
+
+ DESCRIPTION:
+    makeDimFromBuf takes as input a data buffer containing the data that a new dimension will contain.
+    This function makes sure that the dimension complies with netCDF standards.
+
+ ARGUMENTS:
+    IN
+        hid_t locID         -- The HDF5 group identifier where the dataset will be placed underneath
+        char* dimName       -- The name that the dataset will have
+        void* dataBuffer    -- The buffer containing the data to be written to the dataset
+        hid_t dataspace     -- The HDF5 dataspace identifier. Contains information on the dimensionality
+                               of dataBuffer
+        hid_t h5Type        -- The HDF5 datatype identifier of dataBuffer
+        
+    IN/OUT
+        hid_t* retID        -- If this pointer is set to non-null, the resultant dimension identifier will
+                               be placed at this memory location. Also, if this is non-null, it will be
+                               the duty of the caller to free this ID with H5Dclose() when done.
+ EFFECTS:
+    Creates a new HDF dimension at locID. If retID is non-null, the ID will be returned. Else if it is null,
+    the identifier will be closed before returning.
+
+ RETURN:
+    RET_SUCCESS
+    FATAL_ERR  
+
+*/
+herr_t makeDimFromBuf( hid_t locID, char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID )
+{
+    hid_t dimID = 0;
+    herr_t retVal = RET_SUCCESS;
+    herr_t status = 0;
+    int stat1 = 0;
+
+    dimID = H5Dcreate2( locID, dimName, h5Type, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    if ( dimID < 0 )
+    {
+        FATAL_MSG("Failed to create the HDF5 dataset.\n");
+        dimID = 0;
+        goto cleanupFail;
+    }
+
+    status = H5Dwrite( dimID, h5Type, H5S_ALL, H5S_ALL, H5P_DEFAULT, dataBuffer );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to write to the dataset.\n");
+        goto cleanupFail;
+    }    
+    
+    // Make this new dataset a dimension
+    status = H5DSset_scale( dimID, dimName );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to make the dataset a dimension.\n");
+        goto cleanupFAIL;
+    }
+
+    // Change the NAME attribute (created by H5DSset_scale) according to netCDF standards
+    stat1 = change_dim_attr_NAME_value( dimID );
+    if ( stat1 == FAIL )
+    {
+        FATAL_MSG("Failed to change the NAME attribute.\n");
+        goto cleanupFail;
+    }    
+
+    if ( retID )
+        *retID = dimID
+    else
+        H5Dclose(retID);
+
+    if ( 0 )
+    {
+cleanupFail:
+        retVal = FATAL_ERR;        
+    }
+
+    if ( dimID ) H5Dclose(dimID);
+    
+    return retVal;
+}
+
 size_t obtainDimSize(hid_t dsetID)
 {
 
