@@ -1,3 +1,15 @@
+"""
+    AUTHOR:
+        Yat Long Lo
+
+    EMAIL:
+        yllo2@illinois.edu
+
+    
+    Tool for metadata validation and ingestion (ECHO10 specification) to NASA's Common Metadata Repository for the TerraFusion project
+"""
+
+
 import sys
 import requests
 import json

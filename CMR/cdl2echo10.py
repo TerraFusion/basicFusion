@@ -1,3 +1,14 @@
+"""
+    AUTHOR:
+        Yat Long Lo
+
+    EMAIL:
+        yllo2@illinois.edu
+
+    
+    Metadata generation for the TerraFusion project, code modified from work of Phil Bentley (https://github.com/rockdoc/cdlparser)     
+"""
+
 __version_info__ = (0, 0, 8, 'beta', 0)
 __version__ = "%d.%d.%d-%s" % __version_info__[0:4]
 
@@ -95,12 +106,10 @@ class CDLParser(object) :
       optional ncfile argument. If that is not specified then the output filename is derived
       from the name specified in the first line of the CDL file (which is the normal behaviour
       of the ncgen command).
-
       If successful, this method returns an open handle to a netCDF4.Dataset object. Client code
       is responsible for calling the Dataset.close() method when the handle is no longer required.
       Alternatively, this can be done immediately upon completion of parsing by setting the
       close_on_completion keyword argument to True when instantiating the CDLParser instance.
-
       :param cdlfile: Pathname of the CDL file to parse.
       :param ncfile: Optional pathname of the netCDF file to receive output.
       :returns: A handle to a netCDF4.Dataset object.
@@ -117,12 +126,10 @@ class CDLParser(object) :
       optional ncfile argument. If that is not specified then the output filename is derived
       from the name specified in the first line of the CDL text (which is the normal behaviour
       of the ncgen command).
-
       If successful, this method returns an open handle to a netCDF4.Dataset object. Client code
       is responsible for calling the Dataset.close() method when the handle is no longer required.
       Alternatively, this can be done immediately upon completion of parsing by setting the
       close_on_completion keyword argument to True when instantiating the CDLParser instance.
-
       :param cdltext: String containing the CDL text to parse.
       :param ncfile: Optional pathname of the netCDF file to receive output.
       :returns: A handle to a netCDF4.Dataset object.
@@ -156,7 +163,6 @@ class CDL3Parser(CDLParser) :
    Class for parsing a CDL file encoded in netCDF-3 classic format. Please refer to this module's
    docstring and also the docstrings in the CDLParser base class for information regarding
    recommended usage patterns.
-
    All of the tokens making up the CDL3 grammar are encoded as attributes or methods whose names
    begin with 't_'. Similarly, all of the CDL3 parsing rules are encapsulated within methods whose
    names being with 'p_'. These naming conventions are as required by the PLY lexer and parser.
@@ -1063,7 +1069,6 @@ def write_to_xml(cdlfile, ncdataset, destfile):
     Extracts data from the cdlfile and ncdataset variable and writes them to a xml file in ECHO10 specification
     in order to ingest into CMR server. The function is currently able to handle granule files but not collection
     files.
-
     :param cdlfile: path to the cdl file
     :params ncdataset: netcdf dataset variable
     :params destfile: file variable for resultant xml file
@@ -1119,7 +1124,7 @@ def main() :
    """Rudimentary main function - primarily for testing purposes at this point in time."""
    global is_collection 
    if len(sys.argv) < 4 :
-      print("usage: python cdlparser.py cdlfile destXML doctype[-c/-g] [keyword=value, ...]")
+      print("usage: python cdl2echo10.py cdlfile destXML doctype[-c/-g] [keyword=value, ...]")
       sys.exit(1)
    cdlfile = sys.argv[1]
    destfile = sys.argv[2]
