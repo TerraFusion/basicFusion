@@ -74,7 +74,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*,int32*,int32*);
 int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 int MODIS( char* argv[],int modis_count,int unpack );
 int ASTER( char* argv[],int aster_count,int unpack );
-int MISR( char* argv[],int unpack );
+int MISR( char* fileList[],int unpack );
 
 hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID,
                      int returnDatasetID, int rank, hsize_t* datasetDims,
@@ -147,7 +147,7 @@ herr_t copyDimensionSubset( char* dimSuffix, int32 h4fileID, char* h4datasetName
                             int32 s_size );
 
 herr_t attachDimension(hid_t h5fileID, char* dimname, hid_t h5dsetID, int dim_index);
-herr_t makeDimFromBuf( hid_t locID, char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID );
+herr_t makeDimFromBuf( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID );
 size_t obtainDimSize(hid_t dsetID);
 herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size);
 

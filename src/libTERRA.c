@@ -4350,7 +4350,7 @@ herr_t attachDimension(hid_t fileID,char*dimname, hid_t dsetID,int dim_index)
     FATAL_ERR  
 
 */
-herr_t makeDimFromBuf( hid_t locID, char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID )
+herr_t makeDimFromBuf( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID )
 {
     hid_t dimID = 0;
     herr_t retVal = RET_SUCCESS;
@@ -4377,7 +4377,7 @@ herr_t makeDimFromBuf( hid_t locID, char* dimName, void* dataBuffer, hid_t datas
     if ( status < 0 )
     {
         FATAL_MSG("Failed to make the dataset a dimension.\n");
-        goto cleanupFAIL;
+        goto cleanupFail;
     }
 
     // Change the NAME attribute (created by H5DSset_scale) according to netCDF standards
@@ -4389,18 +4389,21 @@ herr_t makeDimFromBuf( hid_t locID, char* dimName, void* dataBuffer, hid_t datas
     }    
 
     if ( retID )
-        *retID = dimID
+        *retID = dimID;
     else
-        H5Dclose(retID);
+        H5Dclose(dimID);
 
     if ( 0 )
     {
 cleanupFail:
         retVal = FATAL_ERR;        
+        if ( dimID ) 
+        {
+            H5Dclose(dimID);
+            *retID = 0;
+        }
     }
-
-    if ( dimID ) H5Dclose(dimID);
-    
+ 
     return retVal;
 }
 
