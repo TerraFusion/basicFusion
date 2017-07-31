@@ -1012,7 +1012,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
     attrID = attributeCreate( objectID, name, stringType );
     if ( attrID == FATAL_ERR )
     {
-         FATAL_MSG("H5Aclose: Unable to create %s attribute.\n", name);
+        FATAL_MSG("Unable to create %s attribute.\n", name);
         H5Tclose(stringType);
         return FATAL_ERR;
     }
@@ -2741,6 +2741,155 @@ herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* b
     }
 
     return RET_SUCCESS;
+}
+
+/*
+        copyAttrFromName
+
+ DESCRIPTION:
+    This function copies the attribute attrName located at the HDF4 object inObjID to the 
+    HDF5 object outObjID.
+
+ ARGUMENTS:
+    IN
+        int32 inFileID          -- The input HDF4 file
+        const char* inObjID     -- The name of the dataset where attrName is located.
+        const char* attrName    -- The name of the attribute to be copied
+    OUT
+        hid_t outObjID          -- Where the attribute will be copied to.
+
+ EFFECTS:
+    Adds an attribute to the object outObjID
+
+ RETURN:
+    FATAL_ERR
+    RET_SUCCESS
+
+*/
+herr_t copyAttrFromName( int32 inFileID, const char* inObjName, const char* attrName, hid_t outObjID )
+{
+    int32 attrIdx = 0;
+    herr_t retVal = RET_SUCCESS;
+    intn statusn = 0;
+    int32 ntype = 0;
+    int32 count = 0;
+    int statusi = 0;
+    hid_t h5TypeOld = 0;
+    void* attrBuf = NULL;
+    hid_t attrDataspace = 0;
+    hid_t attrID = 0;
+    herr_t statuse = 0;
+    hid_t h5TypeNew = 0;
+    int32 sds_index = 0;
+    int32 sds_id = 0;
+
+    // OPEN THE INPUT DATASET
+    /* get the index of the dataset from the dataset's name */
+    sds_index = SDnametoindex( inFileID, inObjName );
+    if( sds_index < 0 )
+    {
+        FATAL_MSG("SDnametoindex: Failed to get index of dataset.\n");
+        return FATAL_ERR;
+    }
+    // Select the dataset
+    sds_id = SDselect( inFileID, sds_index );
+    if ( sds_id < 0 )
+    {
+        FATAL_MSG("SDselect: Failed to select dataset.\n");
+        return FATAL_ERR;
+    }
+    // Find the index of the attribute
+    attrIdx = SDfindattr( sds_id, attrName );
+    if ( attrIdx == FAIL )
+    {
+        FATAL_MSG("Failed to find the attribute.\n");
+        goto cleanupFail;
+    }
+
+    // Get info on the attribute
+    char dummy[STR_LEN];
+    statusn = SDattrinfo( sds_id, attrIdx, dummy, &ntype, &count );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to obtain attribute info.\n");
+        goto cleanupFail;
+    }
+
+    // Find the corresponding HDF5 datatype
+    statusi = h4type_to_h5type( ntype, &h5TypeOld );
+    if ( statusi == FAIL )
+    {
+        FATAL_MSG("Failed to obtain the HDF5 datatype.\n");
+        goto cleanupFail;
+    }
+
+    // Need to convert the datatype to a string of the appropriate length
+    if ( h5TypeOld == H5T_STRING )
+    {
+        h5TypeNew = H5Tcopy(H5T_C_S1);
+        H5Tset_size( h5TypeNew, count );
+    }    
+    else
+        h5TypeNew = h5TypeOld;
+
+    // Allocate attribute buffer
+    size_t size = H5Tget_size(h5TypeNew);
+    if ( size == 0 )
+    {
+        FATAL_MSG("Failed to get size of datatype.\n");
+        goto cleanupFail;
+    }
+    
+    if ( h5TypeOld == H5T_STRING ) size = 1;
+
+    attrBuf = calloc( count + 1, size );
+
+    // Read the attribute
+    statusn = SDreadattr( sds_id, attrIdx, attrBuf );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to read the attribute.\n");
+        goto cleanupFail;
+    }
+
+    // Create a simple dataspace for the attribute
+    // We only want one string of length count, so temp_hsize will just be 1
+    const hsize_t temp_hsize = 1;
+    attrDataspace = H5Screate_simple( 1, &temp_hsize,  NULL );
+    if ( attrDataspace < 0 )
+    {
+        FATAL_MSG("Failed to create a dataspace.\n");
+        attrDataspace = 0;
+        goto cleanupFail;
+    }
+    
+    // Create an attribute
+    attrID = H5Acreate2( outObjID, attrName, h5TypeNew, attrDataspace, H5P_DEFAULT, H5P_DEFAULT ); 
+    if ( attrID < 0 )
+    {
+        FATAL_MSG("Failed to create an attribute.\n");
+        attrID = 0;
+        goto cleanupFail;
+    }
+
+    // Write the attribute
+    statuse = H5Awrite( attrID, h5TypeNew, attrBuf );
+    if ( statuse < 0 )
+    {
+        FATAL_MSG("Failed to write to attribute.\n");
+        goto cleanupFail;
+    }
+
+    if ( 0 )
+    {
+cleanupFail:
+        retVal = FATAL_ERR;
+    }
+
+    if ( attrBuf )          free(attrBuf);
+    if ( attrDataspace )    H5Sclose(attrDataspace);    
+    if ( attrID )           H5Aclose(attrID);
+    return retVal;    
 }
 
 /*                              getTime
