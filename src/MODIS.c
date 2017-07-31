@@ -687,6 +687,13 @@ int MODIS( char* argv[],int modis_count, int unpack)
             goto cleanupFail;
         }
  
+        status = copyAttrFromName( _1KMFileID, "EV_1KM_RefSB", "band_names", _1KMDatasetID );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
         // Copy the dimensions over
         errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
         if ( errStatus == FAIL )
@@ -784,6 +791,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
 
     // ATTRIBUTES
+//________________________________________________________________________//
     status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","units","Watts/m^2/micrometer/steradian");
     if ( status < 0 )
     {
@@ -811,6 +819,15 @@ int MODIS( char* argv[],int modis_count, int unpack)
         FATAL_MSG("Failed to set string attribute.\n");
         goto cleanupFail;
     }
+
+    status = copyAttrFromName( _1KMFileID, "EV_1KM_Emissive", "band_names", _1KMEmissive );
+    if ( status == FATAL_ERR )
+    {
+        FATAL_MSG("Failed to copy attribute.\n");
+        goto cleanupFail;
+    }
+
+//_______________________________________________________________________________//
     status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive_Uncert_Indexes","units","percent");
     if ( status < 0 )
     {
@@ -1554,7 +1571,16 @@ int MODIS( char* argv[],int modis_count, int unpack)
         {
             FATAL_MSG("Failed to add EV_500_RefSB valid_min attribute.\n");
             goto cleanupFail;
+        } 
+        status = copyAttrFromName( _500mFileID, "EV_500_RefSB", "band_names", _500RefSB );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
         }
+
+//________________________________________________________________________________________________________//
+ 
         status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_500_RefSB_Uncert_Indexes","units","percent");
         if ( status < 0 )
         {
@@ -1568,8 +1594,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_500_RefSB_Uncert_Indexes _FillValue attribute.\n");
             goto cleanupFail;
         }
-
-
+//________________________________________________________________________________________________________//
 
         // Copy the dimensions over
         errStatus = copyDimension( NULL, _500mFileID, "EV_500_RefSB", outputFile, _500RefSB);
@@ -1651,6 +1676,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         }
 
         // ATTRIBUTES
+//__________________________________________________________________________________//
         status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB","units","Watts/m^2/micrometer/steradian");
         if ( status < 0 )
         {
@@ -1672,6 +1698,14 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_250_RefSB valid_min attribute.\n");
             goto cleanupFail;
         }
+
+        status = copyAttrFromName( _250mFileID, "EV_250_RefSB", "band_names", _250RefSB );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+//____________________________________________________________________________________//
         status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB_Uncert_Indexes","units","percent");
         if ( status < 0 )
         {
