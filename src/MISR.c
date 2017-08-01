@@ -7,7 +7,7 @@
 
 /* MT 2016-12-20, mostly re-write the handling of MISR */
 float Obtain_scale_factor(int32 h4_file_id, char* band_name);
-herr_t blockCentrTme( int32 inHFileID, hid_t groupID, hid_t dimGroupID );
+herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID );
 
 /* May provide a list for all MISR group and variable names */
 /*
@@ -465,7 +465,6 @@ int MISR( char* fileList[],int unpack )
     /* Loop all 9 cameras */
     for( i = 0; i<9; i++)
     {
-
         /*
          *          *    * Initialize the V interface.
          *                   *       */
@@ -916,12 +915,14 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name)
 
  DESCRIPTION:
     This function copies the Vdata "BlockCenterTime" inside the MISR metadata "PerBlockMetadataTime" from the input file
-    inHFileID and copies it over to the HDF5 groupID group. It also creates the appropriate dimension for the new dataset
-    and attaches the dimension to the dataset.
+    inSDID and copies it over to the HDF5 groupID group. It also creates the appropriate dimension for the new dataset
+    and attaches the dimension to the dataset. Both the dimension and the dataset created will be of size 180. Fill values
+    will be inserted into the BlockCenterTime for blocks that do not contain valid data. Information on which blocks are
+    valid come from the "Start_block" and "End_block" attributes in the root HDF object of the input MISR granules.
 
  ARGUMENTS:
     IN
-        int32 inHFileID     -- The input HDF4 MISR file where the BlockCenterTime Vdata will be found
+        int32 inHFileID     -- The input HDF4 H identifier where the BlockCenterTime Vdata will be found
         hid_t BCTgroupID    -- Where the output BlockCenterTime dataset will go
         hid_t dimGroupID    -- Where the corresponding dimension will be placed (if it does not already exist)
 
@@ -950,7 +951,33 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
     int *dimBuf = NULL;
     hid_t dSpaceID = 0;
     const char* dimName = "SOMBlock_Time";
-    
+    const hsize_t BCTsize = 180;
+    long startBlock = 0;
+    long endBlock = 0;
+    char* BCTbuf = NULL;
+    const char *fillVal = "0000-00-00T00:00:00.000000Z";
+    int32 inSDID = 0;
+
+    // Get the filename
+    char *fileName = NULL;
+    intn dummy1;
+    intn dummy2;
+    statusn = Hfidinquire( inHFileID, &fileName, &dummy1, &dummy2 );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to inquire the HDF4 filename.\n");
+        goto cleanupFail;
+    }
+
+    // Start the SD interface
+    inSDID = SDstart( fileName, DFACC_READ );
+    if ( inSDID == FAIL )
+    {
+        FATAL_MSG("Failed to start the SD interface.\n");
+        inSDID = 0;
+        goto cleanupFail;
+    }
+
     // Get the vdata reference number
     int32 vdataRef = VSfind( inHFileID, perBlockMet );
     if ( vdataRef == 0 )
@@ -1011,7 +1038,7 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
     /* perBlockMetaBuf now contains the vdata. They are a contiguous array of vdata_size[0] number of null-terminated
        strings. Even empty entries into the vdataset are of size vdata_size[0].
      */
-
+    
     // First need to create the string datatype
     // copy the atomic 1-character string type
     stringType = H5Tcopy(H5T_C_S1);
@@ -1029,9 +1056,9 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
         goto cleanupFail;
     }            
 
-    // Create the dataspace
-    hsize_t tempSize = (hsize_t) n_records;
-    perBlockMetaDspace = H5Screate_simple( 1, &tempSize, NULL );
+    // Create the dataspace for BlockCenterTime
+
+    perBlockMetaDspace = H5Screate_simple( 1, &BCTsize, NULL );
     if ( perBlockMetaDspace < 0 )
     {
         perBlockMetaDspace = 0;
@@ -1048,9 +1075,82 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
         goto cleanupFail;
     }
 
+    /* The HDF5 dataset has been created, and we have read the BlockCenterTime into a buffer. There is now a mismatch
+       of size... the perBlockMetaDset is of size BCTsize, and buffer is of size n_records. We need to move perBlockMetaBuf
+       to a new buffer of size BCTsize, adding the fill values as required. The elements that will be filled are determined
+       by the Start_block and End_block attributes found in the root HDF4 object of the MISR input file.
+    */
+    BCTbuf = calloc ( BCTsize * vdata_size[0], sizeof(char) );
+
+    /* BCTbuf is allocated, so now retrieve the Start_block and End_block attributes from the input MISR file */
+    // Start_block
+    int32 startAttrIdx = SDfindattr( inSDID, "Start_block");
+    if ( startAttrIdx == FAIL )
+    {
+        FATAL_MSG("Failed to find the Start_block attribute.\n");
+        goto cleanupFail;
+    }
+    statusn = SDreadattr( inSDID, startAttrIdx, &startBlock );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to read Start_block attribute.\n");
+        goto cleanupFail;
+    }
+
+    // End_block (note: End_block is actually named "End block" in MISR file, with no underscore. This is strange?!)
+    int32 endAttrIdx = SDfindattr( inSDID, "End block");
+    if ( endAttrIdx == FAIL )
+    {
+        FATAL_MSG("Failed to find the End_block attribute.\n");
+        goto cleanupFail;
+    }
+    statusn = SDreadattr( inSDID, endAttrIdx, &endBlock );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to read End_block attribute.\n");
+        goto cleanupFail;
+    }
+
+    startBlock--;
+    endBlock--;
+
+    // Add the fill values to all of the non-valid blocks
+    int i;
+    for ( i = 0; i < 180; i++ )
+    {
+        if ( i < startBlock || i > endBlock )
+            strncpy( &(BCTbuf[ i * vdata_size[0]]), fillVal, vdata_size[0] - 1 );
+
+        /* TODO
+            I don't like this else statement. The boundaries seem too error-prone. Perhaps rework to make it more robust.
+            This code would fail if the input MISR Start_block and End_block values are incorrect.
+        */
+
+        else if ( i == startBlock )
+        {
+            // Find the first valid entry in perBlockMetaBuf
+            int j;
+            for ( j = 0; j < n_records * vdata_size[0]; j++ )
+                if ( perBlockMetaBuf[j] != '\0' )
+                    break;
+            
+            // Copy the entire valid data in perBlockMetaBuf
+            memcpy( (void*) &(BCTbuf[ i * vdata_size[0]]), (void*) &(perBlockMetaBuf[j]), 
+                    (size_t) ( (endBlock-startBlock + 1) * vdata_size[0] ) );
+            // Skip i to the end of the valid data
+            i = endBlock;
+        }
+        else
+        {
+            // Either the if or the else if should always catch. If they don't, something bad happened.
+            FATAL_MSG("Something funky just happened. Please debug to figure out what went wrong!\n");
+        }
+    }
+    
+
     // Write to the dataset our buffer
     status = H5Dwrite(perBlockMetaDset, stringType, perBlockMetaDspace, perBlockMetaDspace, H5P_DEFAULT, 
-                      (void*) perBlockMetaBuf);
+                      (void*) BCTbuf);
     if ( status < 0 )
     {
         FATAL_MSG("Failed to write to the dataset.\n");
@@ -1076,10 +1176,11 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
     }
     else
     {
-        dimBuf = calloc(n_records, sizeof(int) );
+        dimBuf = calloc( BCTsize, sizeof(int) );
         // Create the dataspace for the dimension
-        const hsize_t dimSize = n_records;
-        dSpaceID = H5Screate_simple( 1, &dimSize, NULL );
+        // Dimension will always be of size 180
+        
+        dSpaceID = H5Screate_simple( 1, &BCTsize, NULL );
         if ( dSpaceID < 0 )
         {
             FATAL_MSG("Failed to create a dataspace.\n");
@@ -1116,6 +1217,8 @@ cleanupFail:
     if ( perBlockMetaDspace )   H5Sclose(perBlockMetaDspace);
     if ( dimBuf )               free(dimBuf);
     if ( dSpaceID )             H5Sclose(dSpaceID);
+    if ( BCTbuf )               free(BCTbuf);
+    if ( inSDID )               SDend(inSDID);
     return retVal; 
 }
 
