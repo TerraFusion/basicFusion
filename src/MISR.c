@@ -7,15 +7,16 @@
 
 /* MT 2016-12-20, mostly re-write the handling of MISR */
 float Obtain_scale_factor(int32 h4_file_id, char* band_name);
-/* May provide a list for all MISR group and variable names */
+herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID );
 
+/* May provide a list for all MISR group and variable names */
 /*
- * argv[1] through argv[9]: GRP
- * argv[10]: AGP
- * argv[11]: GP
- * argv[12]: HRLL
+ * fileList[1] through fileList[9]: GRP
+ * fileList[10]: AGP
+ * fileList[11]: GP
+ * fileList[12]: HRLL
  */
-int MISR( char* argv[],int unpack )
+int MISR( char* fileList[],int unpack )
 {
     /****************************************
      *      VARIABLES       *
@@ -46,7 +47,6 @@ int MISR( char* argv[],int unpack )
     char *data_gname="Data Fields";
     char *sensor_geom_gname ="Sensor_Geometry";
     herr_t status = 0;
-    int32 statusn = 0;
     int retVal = RET_SUCCESS;
     herr_t errStatus = 0;
     float tempFloat = 0.0;
@@ -61,6 +61,8 @@ int MISR( char* argv[],int unpack )
     size_t granSize = 0;
     ssize_t pathSize = 0;
     int i;
+    int32 status32;
+    intn statusn;
     /******************
      * geo data files *
      ******************/
@@ -89,7 +91,7 @@ int MISR( char* argv[],int unpack )
     hid_t solarAzimuthID = 0;
     hid_t solarZenithID = 0;
 
-    hid_t h5GroupID = 0;
+    hid_t h5CameraGroupID = 0;
     hid_t h5DataGroupID = 0;
     hid_t h5SensorGeomGroupID = 0;
 
@@ -101,26 +103,26 @@ int MISR( char* argv[],int unpack )
      */
     short openFail = 0;
 
-    geoFileID = SDstart( argv[10], DFACC_READ );
+    geoFileID = SDstart( fileList[10], DFACC_READ );
     if ( geoFileID == -1 )
     {
-        WARN_MSG("Failed to open MISR file.\n\t%s\n", argv[10]);
+        WARN_MSG("Failed to open MISR file.\n\t%s\n", fileList[10]);
         geoFileID = 0;
         openFail = 1;
     }
 
-    gmpFileID = SDstart( argv[11], DFACC_READ );
+    gmpFileID = SDstart( fileList[11], DFACC_READ );
     if ( gmpFileID == -1 )
     {
-        WARN_MSG("Failed to open MISR file.\n\t%s\n", argv[11]);
+        WARN_MSG("Failed to open MISR file.\n\t%s\n", fileList[11]);
         gmpFileID = 0;
         openFail = 1;
     }
 
-    hgeoFileID = SDstart( argv[12], DFACC_READ );
+    hgeoFileID = SDstart( fileList[12], DFACC_READ );
     if ( hgeoFileID == -1 )
     {
-        WARN_MSG("Failed to open MISR file.\n\t%s\n", argv[12]);
+        WARN_MSG("Failed to open MISR file.\n\t%s\n", fileList[12]);
         hgeoFileID = 0;
         openFail = 1;
     }
@@ -128,11 +130,11 @@ int MISR( char* argv[],int unpack )
 
     for ( i = 0; i < 9; i++ )
     { 
-        h4FileID[i] = SDstart(argv[i+1],DFACC_READ);
+        h4FileID[i] = SDstart(fileList[i+1],DFACC_READ);
         if ( h4FileID[i] < 0 )
         {
             h4FileID[i] = 0;
-            WARN_MSG("Failed to open MISR file.\n\t%s\n", argv[i+1]);
+            WARN_MSG("Failed to open MISR file.\n\t%s\n", fileList[i+1]);
             openFail = 1;
         }
         /*
@@ -140,7 +142,7 @@ int MISR( char* argv[],int unpack )
         *                     *       */
 
         /* Need to use the H interface to obtain scale_factor */
-        inHFileID[i] = Hopen(argv[i+1],DFACC_READ, 0);
+        inHFileID[i] = Hopen(fileList[i+1],DFACC_READ, 0);
         if(inHFileID[i] <0)
         {
             inHFileID[i] = 0;
@@ -160,9 +162,9 @@ int MISR( char* argv[],int unpack )
 
     for ( i = 1; i < 13; i++ )
     {
-        if ( argv[i] )
+        if ( fileList[i] )
         {
-            tmpCharPtr = strrchr(argv[i], '/');
+            tmpCharPtr = strrchr(fileList[i], '/');
             if ( tmpCharPtr == NULL )
             {
                 FATAL_MSG("Failed to find a specific character within the string.\n");
@@ -186,7 +188,7 @@ int MISR( char* argv[],int unpack )
 
 
     // Extract the time substring from the file path
-    fileTime = getTime( argv[1], 4 );
+    fileTime = getTime( fileList[1], 4 );
     if(H5LTset_attribute_string(outputFile,"MISR","GranuleTime",fileTime)<0)
     {
         FATAL_MSG("Cannot add the time stamp\n");
@@ -463,7 +465,6 @@ int MISR( char* argv[],int unpack )
     /* Loop all 9 cameras */
     for( i = 0; i<9; i++)
     {
-
         /*
          *          *    * Initialize the V interface.
          *                   *       */
@@ -474,16 +475,15 @@ int MISR( char* argv[],int unpack )
             goto cleanupFail;
         }
 
-
-        createGroup(&MISRrootGroupID, &h5GroupID, camera_name[i]);
-        if ( h5GroupID == FATAL_ERR )
+        createGroup(&MISRrootGroupID, &h5CameraGroupID, camera_name[i]);
+        if ( h5CameraGroupID == FATAL_ERR )
         {
-            h5GroupID = 0;
+            h5CameraGroupID = 0;
             FATAL_MSG("Failed to create an HDF5 group.\n");
             goto cleanupFail;
         }
 
-        createGroup(&h5GroupID,&h5DataGroupID,data_gname);
+        createGroup(&h5CameraGroupID,&h5DataGroupID,data_gname);
         if ( h5DataGroupID == FATAL_ERR )
         {
             h5DataGroupID = 0;
@@ -575,7 +575,7 @@ int MISR( char* argv[],int unpack )
             correctedName = NULL;
         } // End for (first inner j loop)
 
-        createGroup(&h5GroupID,&h5SensorGeomGroupID,sensor_geom_gname);
+        createGroup(&h5CameraGroupID,&h5SensorGeomGroupID,sensor_geom_gname);
         if ( h5SensorGeomGroupID == FATAL_ERR )
         {
             FATAL_MSG("Failed to create an HDF5 group.\n");
@@ -627,18 +627,36 @@ int MISR( char* argv[],int unpack )
 
         } // End for (second inner j loop)
 
-        statusn = SDend(h4FileID[i]);
+
+        /******************************************************/
+        /* Insert the "perBlockMetadataTime" into output file */
+        /******************************************************/
+        status = blockCentrTme( inHFileID[i], h5CameraGroupID, outputFile);    
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to create the BlockCenterTime dataset.\n");
+            goto cleanupFail;
+        }
+#if 0
+        for ( int x = 0; x < n_read; x++ )
+        {
+            for ( int y = 0; y < 28; y++ )
+                printf("%d: %c\n", x*28+y, (char)(perBlockMetaBuf[x*28 + y]) );
+        }
+#endif 
+
+        Vend(inHFileID[i]);
+        Hclose(inHFileID[i]);
+        inHFileID[i] = 0;
+        SDend(h4FileID[i]);
         h4FileID[i] = 0;
-        /* No need inHFileID, close H and V interfaces */
-        h4_status = Vend(inHFileID[i]);
-        h4_status = Hclose(inHFileID[i]);
         status = H5Gclose(h5DataGroupID);
         h5DataGroupID = 0;
         status = H5Gclose(h5SensorGeomGroupID);
         h5SensorGeomGroupID = 0;
-        status = H5Gclose(h5GroupID);
-        h5GroupID = 0;
-    }
+        status = H5Gclose(h5CameraGroupID);
+        h5CameraGroupID = 0;
+    } // end loop all cameras
 
 
     if ( 0 )
@@ -654,6 +672,7 @@ cleanupFO:
     }
 
 
+
     if (MISRrootGroupID)        H5Gclose(MISRrootGroupID);
     if ( geoFileID )            SDend(geoFileID);
     if ( hgeoFileID )           SDend(hgeoFileID);
@@ -665,7 +684,7 @@ cleanupFO:
         Vend(inHFileID[i]);
         if ( inHFileID[i] )     Hclose(inHFileID[i]);
     }
-    if ( h5GroupID )            H5Gclose(h5GroupID);
+    if ( h5CameraGroupID )      H5Gclose(h5CameraGroupID);
     if ( h5DataGroupID )        H5Gclose(h5DataGroupID);
     if ( h5DataFieldID )        H5Dclose(h5DataFieldID);
     if ( h5SensorGeomGroupID )  H5Gclose(h5SensorGeomGroupID);
@@ -685,7 +704,6 @@ cleanupFO:
     if ( LRgeoLat )             free(LRgeoLat);
     if ( LRgeoLon )             free(LRgeoLon);
     if ( LRcoord )              free(LRcoord);
-
     return retVal;
 }
 
@@ -890,6 +908,318 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name)
     Vdetach(band_group_id);
 
     return (float)sc;
+}
+
+/*
+        blockCentrTme()
+
+ DESCRIPTION:
+    This function copies the Vdata "BlockCenterTime" inside the MISR metadata "PerBlockMetadataTime" from the input file
+    inSDID and copies it over to the HDF5 groupID group. It also creates the appropriate dimension for the new dataset
+    and attaches the dimension to the dataset. Both the dimension and the dataset created will be of size 180. Fill values
+    will be inserted into the BlockCenterTime for blocks that do not contain valid data. Information on which blocks are
+    valid come from the "Start_block" and "End_block" attributes in the root HDF object of the input MISR granules.
+
+ ARGUMENTS:
+    IN
+        int32 inHFileID     -- The input HDF4 H identifier where the BlockCenterTime Vdata will be found
+        hid_t BCTgroupID    -- Where the output BlockCenterTime dataset will go
+        hid_t dimGroupID    -- Where the corresponding dimension will be placed (if it does not already exist)
+
+ EFFECTS:
+    Adds 1 dataset and 1 dimension to the output HDF5 file "outputFile" (which is a global variable)
+
+ RETURN:
+    RET_SUCCESS
+    FATAL_ERR
+*/
+herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
+{
+    
+    const char* perBlockMet = "PerBlockMetadataTime";
+    const char* blockCent   = "BlockCenterTime";
+    int32* vdata_size = NULL; 
+    int32 vdataID = 0;
+    char* perBlockMetaBuf = NULL;
+    herr_t retVal = RET_SUCCESS;
+    hid_t dimID = 0;
+    intn statusn = 0;
+    hid_t stringType = 0;
+    hid_t perBlockMetaDspace = 0;
+    herr_t status = 0;
+    hid_t perBlockMetaDset = 0;
+    int *dimBuf = NULL;
+    hid_t dSpaceID = 0;
+    const char* dimName = "SOMBlock_Time";
+    const hsize_t BCTsize = 180;
+    long startBlock = 0;
+    long endBlock = 0;
+    char* BCTbuf = NULL;
+    const char *fillVal = "0000-00-00T00:00:00.000000Z";
+    int32 inSDID = 0;
+
+    // Get the filename
+    char *fileName = NULL;
+    intn dummy1;
+    intn dummy2;
+    statusn = Hfidinquire( inHFileID, &fileName, &dummy1, &dummy2 );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to inquire the HDF4 filename.\n");
+        goto cleanupFail;
+    }
+
+    // Start the SD interface
+    inSDID = SDstart( fileName, DFACC_READ );
+    if ( inSDID == FAIL )
+    {
+        FATAL_MSG("Failed to start the SD interface.\n");
+        inSDID = 0;
+        goto cleanupFail;
+    }
+
+    // Get the vdata reference number
+    int32 vdataRef = VSfind( inHFileID, perBlockMet );
+    if ( vdataRef == 0 )
+    {
+        FATAL_MSG("Failed to find the reference number for %s.\n", perBlockMet ); 
+        goto cleanupFail;
+    }
+    
+    vdataID = VSattach( inHFileID, vdataRef, "r" );
+    if ( vdataID == FAIL )
+    {
+        FATAL_MSG("Failed to attach to the vdataset %s.\n", perBlockMet); 
+        goto cleanupFail;
+    }
+
+    // Find how many records are in this vdata
+    int32 n_records;
+    statusn = VSinquire( vdataID, &n_records, NULL, NULL, NULL, NULL );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to retrieve information about Vdata %s.\n", perBlockMet);
+        goto cleanupFail;
+    }
+    vdata_size = calloc ( n_records, sizeof(int32) );
+
+    /* Find the size of each record */
+    statusn = VSinquire( vdataID, NULL, NULL, NULL, vdata_size, NULL );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to retrieve information about Vdata %s.\n", perBlockMet);
+        goto cleanupFail;
+    }
+
+
+    /* Allocate the perBlockMetaBuf. We can safely assume the size of all the records is the size
+       of the first record ( vdata_size[0] )
+     */
+    int perBMB_size = n_records * vdata_size[0];
+    perBlockMetaBuf = calloc ( perBMB_size, sizeof(char));
+
+    // Set the fields for reading (there is only one field name)
+    // blockCent = "BlockCenterTime"
+    statusn = VSsetfields( vdataID, blockCent );    
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to set the V fields for reading.\n");
+        goto cleanupFail;
+    }
+
+    // Read the data
+    int32 n_read = VSread( vdataID, (uint8*) perBlockMetaBuf, n_records, FULL_INTERLACE );
+    if ( n_read == FAIL )
+    {
+        FATAL_MSG("Failed to read the V data %s.\n", perBlockMet);
+        goto cleanupFail;
+    }
+
+    /* perBlockMetaBuf now contains the vdata. They are a contiguous array of vdata_size[0] number of null-terminated
+       strings. Even empty entries into the vdataset are of size vdata_size[0].
+     */
+    
+    // First need to create the string datatype
+    // copy the atomic 1-character string type
+    stringType = H5Tcopy(H5T_C_S1);
+    if ( stringType < 0 )
+    {
+        FATAL_MSG("Failed to copy the datatype.\n");
+        stringType = 0;
+        goto cleanupFail;
+    }
+    // Set the length to vdata_size[0]
+    status = H5Tset_size( stringType, (size_t) vdata_size[0] );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set the size of the string datatype.\n");
+        goto cleanupFail;
+    }            
+
+    // Create the dataspace for BlockCenterTime
+
+    perBlockMetaDspace = H5Screate_simple( 1, &BCTsize, NULL );
+    if ( perBlockMetaDspace < 0 )
+    {
+        perBlockMetaDspace = 0;
+        FATAL_MSG("Failed to create the dataspace.\n");
+        goto cleanupFail;
+    }
+
+    perBlockMetaDset = H5Dcreate2(BCTgroupID, blockCent, stringType, perBlockMetaDspace, H5P_DEFAULT,
+                                 H5P_DEFAULT, H5P_DEFAULT );
+    if ( perBlockMetaDset < 0 )
+    {
+        perBlockMetaDset = 0;
+        FATAL_MSG("Failed to create the dataset.\n");
+        goto cleanupFail;
+    }
+
+    /* The HDF5 dataset has been created, and we have read the BlockCenterTime into a buffer. There is now a mismatch
+       of size... the perBlockMetaDset is of size BCTsize, and buffer is of size n_records. We need to move perBlockMetaBuf
+       to a new buffer of size BCTsize, adding the fill values as required. The elements that will be filled are determined
+       by the Start_block and End_block attributes found in the root HDF4 object of the MISR input file.
+    */
+    BCTbuf = calloc ( BCTsize * vdata_size[0], sizeof(char) );
+
+    /* BCTbuf is allocated, so now retrieve the Start_block and End_block attributes from the input MISR file */
+    // Start_block
+    int32 startAttrIdx = SDfindattr( inSDID, "Start_block");
+    if ( startAttrIdx == FAIL )
+    {
+        FATAL_MSG("Failed to find the Start_block attribute.\n");
+        goto cleanupFail;
+    }
+    statusn = SDreadattr( inSDID, startAttrIdx, &startBlock );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to read Start_block attribute.\n");
+        goto cleanupFail;
+    }
+
+    // End_block (note: End_block is actually named "End block" in MISR file, with no underscore. This is strange?!)
+    int32 endAttrIdx = SDfindattr( inSDID, "End block");
+    if ( endAttrIdx == FAIL )
+    {
+        FATAL_MSG("Failed to find the End_block attribute.\n");
+        goto cleanupFail;
+    }
+    statusn = SDreadattr( inSDID, endAttrIdx, &endBlock );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to read End_block attribute.\n");
+        goto cleanupFail;
+    }
+
+    startBlock--;
+    endBlock--;
+
+    // Add the fill values to all of the non-valid blocks
+    int i;
+    for ( i = 0; i < 180; i++ )
+    {
+        if ( i < startBlock || i > endBlock )
+            strncpy( &(BCTbuf[ i * vdata_size[0]]), fillVal, vdata_size[0] - 1 );
+
+        /* TODO
+            I don't like this else statement. The boundaries seem too error-prone. Perhaps rework to make it more robust.
+            This code would fail if the input MISR Start_block and End_block values are incorrect.
+        */
+
+        else if ( i == startBlock )
+        {
+            // Find the first valid entry in perBlockMetaBuf
+            int j;
+            for ( j = 0; j < n_records * vdata_size[0]; j++ )
+                if ( perBlockMetaBuf[j] != '\0' )
+                    break;
+            
+            // Copy the entire valid data in perBlockMetaBuf
+            memcpy( (void*) &(BCTbuf[ i * vdata_size[0]]), (void*) &(perBlockMetaBuf[j]), 
+                    (size_t) ( (endBlock-startBlock + 1) * vdata_size[0] ) );
+            // Skip i to the end of the valid data
+            i = endBlock;
+        }
+        else
+        {
+            // Either the if or the else if should always catch. If they don't, something bad happened.
+            FATAL_MSG("Something funky just happened. Please debug to figure out what went wrong!\n");
+        }
+    }
+    
+
+    // Write to the dataset our buffer
+    status = H5Dwrite(perBlockMetaDset, stringType, perBlockMetaDspace, perBlockMetaDspace, H5P_DEFAULT, 
+                      (void*) BCTbuf);
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to write to the dataset.\n");
+        goto cleanupFail;
+    }
+
+    /* We need to create a dimension specifically for the BlockCenterTime dataset. It will be a pure dimension. */
+    htri_t linkExists = H5Lexists( outputFile, dimName, H5P_DEFAULT);
+    if ( linkExists < 0 )
+    {
+        FATAL_MSG("Failed to determine if the dimension %s exists.\n", dimName);
+        goto cleanupFail;
+    }
+    if ( linkExists )
+    {
+        dimID = H5Dopen2( outputFile, dimName, H5P_DEFAULT);
+        if ( dimID < 0 )
+        {
+            FATAL_MSG("Failed to open the dimension.\n");
+            dimID = 0;
+            goto cleanupFail;
+        }        
+    }
+    else
+    {
+        dimBuf = calloc( BCTsize, sizeof(int) );
+        // Create the dataspace for the dimension
+        // Dimension will always be of size 180
+        
+        dSpaceID = H5Screate_simple( 1, &BCTsize, NULL );
+        if ( dSpaceID < 0 )
+        {
+            FATAL_MSG("Failed to create a dataspace.\n");
+            dSpaceID = 0;
+            goto cleanupFail;
+        }
+
+        status = makeDimFromBuf( dimGroupID, dimName, dimBuf, dSpaceID, H5T_NATIVE_INT, &dimID );
+        if ( status != RET_SUCCESS )
+        {
+            FATAL_MSG("Failed to create dimension.\n");
+            goto cleanupFail;
+        }
+    }
+
+    if ( H5DSattach_scale( perBlockMetaDset, dimID, 0 ) < 0 )
+    {
+        FATAL_MSG("Failed to attach dimension.\n");
+        goto cleanupFail;
+    }
+
+    if ( 0 )
+    {
+cleanupFail:
+        retVal = FATAL_ERR;
+    }
+
+    if ( vdataID )              VSdetach(vdataID);
+    if ( perBlockMetaBuf )      free(perBlockMetaBuf);
+    if ( vdata_size)            free( vdata_size );
+    if ( perBlockMetaDset )     H5Dclose(perBlockMetaDset);
+    if ( dimID )                H5Dclose(dimID); 
+    if ( stringType )           H5Tclose(stringType);
+    if ( perBlockMetaDspace )   H5Sclose(perBlockMetaDspace);
+    if ( dimBuf )               free(dimBuf);
+    if ( dSpaceID )             H5Sclose(dSpaceID);
+    if ( BCTbuf )               free(BCTbuf);
+    if ( inSDID )               SDend(inSDID);
+    return retVal; 
 }
 
 #if 0
