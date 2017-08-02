@@ -920,6 +920,8 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name)
     will be inserted into the BlockCenterTime for blocks that do not contain valid data. Information on which blocks are
     valid come from the "Start_block" and "End_block" attributes in the root HDF object of the input MISR granules.
 
+    The attributes "units" and "fill_value" are added to the BlockCenterTime dataset.
+
  ARGUMENTS:
     IN
         int32 inHFileID     -- The input HDF4 H identifier where the BlockCenterTime Vdata will be found
@@ -1074,6 +1076,21 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
         FATAL_MSG("Failed to create the dataset.\n");
         goto cleanupFail;
     }
+
+    // Set the attributes for the BlockCenterTime dataset
+    status = H5LTset_attribute_string( BCTgroupID, blockCent, "Units", "UTC" );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set attribute.\n");
+        goto cleanupFail;
+    }
+    status = H5LTset_attribute_string( BCTgroupID, blockCent, "FillValue", fillVal );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to set attribute.\n");
+        goto cleanupFail;
+    }
+
 
     /* The HDF5 dataset has been created, and we have read the BlockCenterTime into a buffer. There is now a mismatch
        of size... the perBlockMetaDset is of size BCTsize, and buffer is of size n_records. We need to move perBlockMetaBuf
