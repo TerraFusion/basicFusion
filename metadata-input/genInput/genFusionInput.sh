@@ -204,6 +204,146 @@ fatalError(){
     return 0
 }
 
+# belongsToOrbit()
+#
+# DESCRIPTION:
+#   This function determines whether or not the file time passed to it belongs to the current orbit. The logic for
+#   determining whether it belongs to the orbit given the time in the filename is described below. This logic is
+#   what is used throughout all of the basic fusion project and is documented on the GitHub wiki.
+#
+# ARGUMENTS:
+#   1: Orbit start time             -- In format YYYYMMDDHHmmSS
+#   2: Orbit end time               -- In format YYYYMMDDHHmmSS
+#   3: The time given in file name  -- Each Terra file gives some sort of time indication in the filename itself.
+#                                      MOP: YYYYMMDD
+#                                      CER: YYYYMMDDHH
+#                                      MOD: YYYYjjj.HHmm where jjj is the day of the year
+#                                      AST: DDMMYYYYHHmmSS
+#                                      MIS: Orbit number
+#   4: Instrument                   -- Can be the string "MOP", "MIS", "MOD", "AST", or "CER"
+#   5: Orbit number                 -- The orbit number that the files will be checked against
+#
+# EFFECTS:
+#   None
+#
+# RETURN:
+#   Returns 0 if file belongs to orbit $5
+#   Returns 1 if it does not.
+
+belongsToOrbit(){
+    declare Orbit_sTime="$1"
+    declare Orbit_eTime="$2"
+    declare fileDate="$3"
+    declare instr="$4"
+    declare orbitNum="$5"
+
+    declare -a MOPdate
+    declare -a CERdate
+    declare -a MISdate
+    declare -a ASTdate
+    declare -a MODdate
+    declare fileEnd
+
+    # Pad the orbitNum with leading 0's so that it is always the same width
+    orbitNum=$(printf "%06d\n" $orbitNum)
+
+    # I've been having problems with the Orbit_eTime containing a ^M character. Removing this now.
+    Orbit_eTime=$(tr -dc '[[:print:]]' <<< "$Orbit_eTime")
+
+    if [ "$instr" == "MOP" ]; then
+        # The rule for MOPITT is that if any portion of the granule overlaps the orbit, then include it.
+        # MOPITT files provide time information up to the day. We need to expand fileDate so that it includes
+        # up to the second. We safely assume that MOPITT files start at time 00:00:00 where HH:MM:SS.
+        fileDate="${fileDate}000000"
+
+        # MOPITT end is 24 hours, or 1 day from fileDate.
+        fileEnd=$((fileDate + 1000000))
+
+        if [ $fileDate -le $Orbit_sTime  -a  $fileEnd -ge $Orbit_eTime ] || \
+           [ $fileDate -ge $Orbit_sTime  -a  $fileDate -le $Orbit_eTime ] || \
+           [ $fileEnd -ge $Orbit_sTime   -a $fileEnd -le $Orbit_eTime ]; then
+            return 0
+        else
+            printf "Warning:\n" >&2
+            printf "\tThis file does not belong to the orbit!\n" >&2
+            return 1
+        fi
+
+    elif [ "$instr" == "CER" ]; then
+        # The rule for CERES is the same for MOPITT.
+        # CERES SSF filenames provide a file time up to the hour. So we need to expand fileDate so that it 
+        # includes up to the second. We safely assume that CERES files start exactly on the hour.
+        fileDate="${fileDate}0000"
+        
+        # CERES SSF granularity is one hour.
+        fileEnd=$((fileDate + 10000))
+
+        if [ $fileDate -le $Orbit_sTime -a $fileEnd -ge $Orbit_eTime ] || \
+           [ $fileDate -ge $Orbit_sTime -a $fileDate -le $Orbit_eTime ] || \
+           [ $fileEnd -ge $Orbit_sTime -a $fileEnd -le $Orbit_eTime ]; then
+            return 0
+        else
+            printf "Warning:\n" >&2
+            printf "\tThis file does not belong to the orbit!\n" >&2
+            return 1
+        fi
+        
+    elif [ "$instr" == "MIS" ]; then 
+        # MISR files have a granularity of 1 orbit. Thus, the check to see if it belongs in the orbit is trivial,
+        # just see if the file's orbit number matches the current orbit.
+        if [[ $fileDate == $orbitNum ]]; then
+            return 0
+        else
+            printf "Warning:\n" >&2
+            printf "\tThis file does not belong to the orbit!\n" >&2
+            return 1
+        fi
+    elif [ "$instr" == "AST" ]; then
+        # ASTER filename times provide a resolution up to the second.
+        # Convert the ASTER date into our common format
+        fileDate=$(date -d "${fileDate:4:4}-${fileDate:0:2}-${fileDate:2:2} ${fileDate:8:2}:${fileDate:10:2}:${fileDate:12:2}" +"%Y%m%d%0k%M%S")
+    
+        if [[ $fileDate -ge $Orbit_sTime && $fileDate -le $Orbit_eTime  ]]; then
+            return 0
+        else
+            printf "Warning:\n" >&2
+            printf "\tThis file does not belong to the orbit!\n" >&2
+            echo "$fileDate"
+            echo "$Orbit_sTime $Orbit_eTime"
+            return 1
+        fi
+
+    elif [ "$instr" == "MOD" ]; then
+        # Rule for MODIS is that if the file starts inside the orbit, then include it. File end time is not considered.
+        # MODIS granularity is 5 minutes. Unfortunately, MODIS files provide the date in YYYYDDD.MMMM where DDD is the
+        # running total day count (max value is 365 or 366 depending on if it is a leap year), and MMMM is the running
+        # total minute counter of the day. So we have to do some really nasty shit to make this work...
+        #
+        # Remove the period
+        fileDate="${fileDate//./}"
+   
+        # Need to subtract 1 from the day because the fileDate was always 1 day ahead of what it was supposed to be
+        MODdays=$(( ${fileDate:4:3} - 1 ))
+        # Get the date into a common format
+        fileDate=$(date -d "${fileDate:0:4}-01-01 + $MODdays days ${fileDate:7:2} hours ${fileDate:9:2} minutes" +"%Y%m%d%0k%M%S")
+        
+        if [[ ( $fileDate -ge $Orbit_sTime ) && ( $fileDate -le $Orbit_eTime ) ]]; then
+            return 0
+        else
+            printf "Warning:\n" >&2
+            printf "\tThis file does not belong to the orbit!\n" >&2
+            echo "$fileDate"
+            echo "$Orbit_sTime $Orbit_eTime"
+            return 1
+        fi
+    else
+        printf "Fatal Error:\n" >&2
+        printf "\tThe instrument argument to function belongsToOrbit() should be either:\n" >&2
+        printf "\tMOP, CER, MIS, AST or MOD.\n" >&2
+        return 1
+    fi
+}
+
 # Args:
 # 1 = ordered input file
 # 2 = orbit_info.bin file
@@ -232,44 +372,63 @@ verifyFiles()
     local orbitNum=0
     local numRegExp='^[0-9]+$'
 
-    # TODO
-    # Finish the code below for adding orbit starting time to the file name
+
+    ##################################################
+    #           GATHER DATE INFO OF ORBIT            #
+    ##################################################
+
+    local linenum
+    linenum=0
 
     # Get the orbit starting and ending info
     # First find the orbit number from the top of the file
-    #orbitNum=$(head -n 1 $DEBUGFILE)
-    #if [[ $line =~ $numRegExp ]]; then
-    #    orbitNum=$line
-    #    continue
-    #else
-    #    fatalError $linenum
-    #    printf "\tThe first line in input file is not a valid orbit number.\n" >&2
-    #    return 1
-    #fi
+    local orbitNum=$(head -n 1 $DEBUGFILE)
+    if ! [[ $orbitNum =~ $numRegExp ]]; then
+        fatalError 1
+        printf "\tThe first line in input file is not a valid orbit number.\n" >&2
+        echo "$orbitNum"
+        return 1
+    fi
 
     # Get the corresponding line in the orbit_info file
-    #oInfoLine=$(grep "$orbitNum " $DEBUGFILE)
-    #if [[ ${#oInfoLine} == 0 ]]; then
-    #    printf "Fatal Error:\n" >&2
-    #    printf "\tFailed to find the proper line in the orbit info file.\n" >&2
-    #fi
+    local oInfoLine=$(grep "$orbitNum " $orbitInfo)
+    if [[ ${#oInfoLine} == 0 ]]; then
+        printf "Fatal Error:\n" >&2
+        printf "\tFailed to find the proper line in the orbit info file.\n" >&2
+        return 1
+    fi
 
     # Split the oInfoLine with a delimiter of the space character. This will split each section into an element of an array.
-    #oInfoSplit=(${oInfoLine// / })
-    # Now, oInfoSplit[0] has orbit num, [1] has beginning time, [2] has end time.
+    local oInfoSplit=(${oInfoLine// / })
+    # Now, oInfoSplit[0] has orbit num, [2] has beginning time, [3] has end time.
     # Make two more arrays that split the beginning and end times into their respective year/month/day/hour/minue/seconds.
-    #startTime[0]=${oInfoSplit[1]
+    local startTime
+    # Remove all the unnecessary characters from oInfoSplit[2] so that only numbers remain
+    startTime="${oInfoSplit[2]//-/}"
+    startTime="${startTime//T/}"
+    startTime="${startTime//:/}"
+    startTime="${startTime//Z/}"
+
+    local endTime
+    # Remove all the unnecessary characters from oInfoSplit[3] so that only numbers remain
+    endTime="${oInfoSplit[3]//-/}"
+    endTime="${endTime//T/}"
+    endTime="${endTime//:/}"
+    endTime="${endTime//Z/}"
+
+    #########################################
+    #           BEGIN FILE CHECKING         #
+    #########################################
 
     # Read through the DEBUGFILE file.
     # Remember, DEBUGFILE is the variable our script will do the debugging on. It may
     # or may not be set to the OUTFILE variable.
-    linenum=0
     
     while read -r line; do
         
         let "linenum++"
-        
-        # Grab the orbit number. Use a regular expression to determine if the first line is a number
+       
+        # First line is always the orbit number 
         if [[ $linenum == 1 ]]; then
             continue
         fi
@@ -341,9 +500,17 @@ verifyFiles()
                 printf "\tFile: $line\n" >&2
             fi
 
+            # VERIFY THAT MOPITT BELONGS TO ORBIT
+            belongsToOrbit "$startTime" "$endTime" "$curDate" MOP $orbitNum
+            retVal=$?
+            if [ $retVal -ne 0 ]; then
+                printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+            fi
+
             prevDate="$curDate"
             prevfilename="$curfilename"
 
+            
                           #########
                           # CERES #
                           #########
@@ -400,6 +567,13 @@ verifyFiles()
 
             prevDate="$curDate"
             prevfilename="$curfilename"
+
+            # VERIFY THAT CERES BELONGS TO ORBIT
+            belongsToOrbit "$startTime" "$endTime" "$curDate" CER $orbitNum
+            retVal=$?
+            if [ $retVal -ne 0 ]; then
+                printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+            fi
 
                           #########
                           # MODIS #
@@ -543,6 +717,13 @@ verifyFiles()
                 fi
             fi
 
+            # VERIFY THAT MODIS BELONGS TO ORBIT
+            belongsToOrbit "$startTime" "$endTime" "$curDate" MOD $orbitNum
+            retVal=$?
+            if [ $retVal -ne 0 ]; then
+                printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+            fi
+
             prevDate="$curDate"
             prevRes="$curRes"
             prevfilename="$curfilename"
@@ -594,6 +775,13 @@ verifyFiles()
                 fi
             fi
 
+            # VERIFY THAT ASTER BELONGS TO ORBIT
+            belongsToOrbit "$startTime" "$endTime" "$curDate" AST $orbitNum
+            retVal=$?
+            if [ $retVal -ne 0 ]; then
+                printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+            fi
+
 
             prevDate="$curDate"
             prevfilename="$curfilename"
@@ -606,21 +794,30 @@ verifyFiles()
 
         elif [ "$instrumentSection" == "MIS" ]; then
             # note: "cam" refers to which camera, ie "AA", "AF", "AN" etc.
-            if [ -z "$prevDate" ]; then
-                prevfilename=$(echo ${line##*/})
-                # extract the date
-                prevDate=$(echo "$prevfilename" | cut -f6,7 -d'_')
-                prevCam=$(echo "$prevfilename" | cut -f8,8 -d'_' )
-                curGroupDate="$prevDate"
-                continue
-            fi
-
+            
             # CHECK FOR CAMEREA CONSISTENCY
 
-            curDate=$(echo "$curfilename" | cut -f6,7 -d'_')
-            curCam=$(echo "$curfilename" | cut -f8,8 -d'_' )
+            curDate=$(echo "$curfilename" | cut -f7 -d'_')
+            # Get rid of the "O" at the front
+            curDate=${curDate//O/}
+            curCam=$(echo "$curfilename" | cut -f8 -d'_' )
 
-            if [[ "$prevCam" == "AA" ]]; then
+            if [[ "$curCam" == "AA" ]]; then
+                # VERIFY THAT MISR BELONGS TO ORBIT
+                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                retVal=$?
+                if [ $retVal -ne 0 ]; then
+                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                fi
+                
+                prevDate="$curDate"
+                prevCam="$curCam"
+                prevfilename="$curfilename"
+                curGroupDate="$curDate"
+                # There are no further checks that can be done on the AA file, so skip to the next line
+                continue    
+                
+            elif [[ "$prevCam" == "AA" ]]; then
                 if [[ "$curCam" != "AF" ]]; then
                     printf "Fatal Error: " >&2
                     printf "MISR files are out of order.\n" >&2
@@ -629,6 +826,13 @@ verifyFiles()
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
                     return 1
+                fi
+
+                # VERIFY THAT MISR BELONGS TO ORBIT
+                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                retVal=$?
+                if [ $retVal -ne 0 ]; then
+                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
                 fi
             elif [[ "$prevCam" == "AF" ]]; then
                 if [[ "$curCam" != "AN" ]]; then
@@ -639,6 +843,12 @@ verifyFiles()
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
                     return 1
+                fi
+                # VERIFY THAT MISR BELONGS TO ORBIT
+                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                retVal=$?
+                if [ $retVal -ne 0 ]; then
+                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
                 fi
             elif [[ "$prevCam" == "AN" ]]; then
                 if [[ "$curCam" != "BA" ]]; then
@@ -651,6 +861,12 @@ verifyFiles()
                     return 1
                 fi
 
+                # VERIFY THAT MISR BELONGS TO ORBIT
+                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                retVal=$?
+                if [ $retVal -ne 0 ]; then
+                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                fi
             elif [[ "$prevCam" == "BA" ]]; then
                 if [[ "$curCam" != "BF" ]]; then
                     printf "Fatal Error: " >&2
@@ -660,6 +876,12 @@ verifyFiles()
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
                     return 1
+                fi
+                # VERIFY THAT MISR BELONGS TO ORBIT
+                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                retVal=$?
+                if [ $retVal -ne 0 ]; then
+                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
                 fi
             elif [[ "$prevCam" == "BF" ]]; then
                 if [[ "$curCam" != "CA" ]]; then
@@ -671,6 +893,12 @@ verifyFiles()
                     printf "\tFile: $line\n" >&2
                     return 1
                 fi
+                # VERIFY THAT MISR BELONGS TO ORBIT
+                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                retVal=$?
+                if [ $retVal -ne 0 ]; then
+                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                fi
             elif [[ "$prevCam" == "CA" ]]; then
                 if [[ "$curCam" != "CF" ]]; then
                     printf "Fatal Error: " >&2
@@ -680,6 +908,12 @@ verifyFiles()
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
                     return 1
+                fi
+                # VERIFY THAT MISR BELONGS TO ORBIT
+                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                retVal=$?
+                if [ $retVal -ne 0 ]; then
+                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
                 fi
             elif [[ "$prevCam" == "CF" ]]; then
                 if [[ "$curCam" != "DA" ]]; then
@@ -691,6 +925,12 @@ verifyFiles()
                     printf "\tFile: $line\n" >&2
                     return 1
                 fi
+                # VERIFY THAT MISR BELONGS TO ORBIT
+                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                retVal=$?
+                if [ $retVal -ne 0 ]; then
+                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                fi
             elif [[ "$prevCam" == "DA" ]]; then
                 if [[ "$curCam" != "DF" ]]; then
                     printf "Fatal Error: " >&2
@@ -700,6 +940,12 @@ verifyFiles()
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
                     return 1
+                fi
+                # VERIFY THAT MISR BELONGS TO ORBIT
+                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                retVal=$?
+                if [ $retVal -ne 0 ]; then
+                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
                 fi
             elif [[ "$prevCam" == "DF" ]]; then
                 if [[ "$(echo "$curfilename" | cut -f7,3 -d'_')" != "AGP" ]]; then
@@ -732,15 +978,10 @@ verifyFiles()
                     return 1
                 fi
             elif [[ "$(echo "$prevfilename" | cut -f2,2 -d'_')" == "HRLL" ]]; then
-                if [[ "$curCam" != "AA" ]]; then
-                    printf "Fatal Error: " >&2
-                    printf "MISR files are out of order.\n" >&2
-                    printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
-                    printf "\tExpected to see AA file after HRLL file.\n" >&2
-                    printf "\tLine: $linenum\n" >&2
-                    printf "\tFile: $line\n" >&2
-                    return 1
-                fi
+                printf "Fatal Error: " >&2
+                printf "Two MISR granules detected.\n" >&2
+                printf "\tOnly one MISR granule should ever be present!\n" >&2
+                return 1
             else
                 printf "Fatal Error: " >&2
                 printf "Unknown error at line $linenum.\n" >&2
@@ -751,25 +992,6 @@ verifyFiles()
             # CHECK FOR DATE CONSISTENCY
             
            
-            if [[ "$curCam" == "AA" ]]; then
-                prevGroupDate="$curGroupDate"
-                curGroupDate="$curDate"
-                # if prevGroupDate has not yet been set (we are on our first group)
-                if [ -z "$prevGroupDate" ]; then
-                    continue
-                # else check if the current group's date correctly follows the previous group's date
-                else
-                    if [[ "$curDate" < "$prevGroupDate" || "$curDate" == "$prevGroupDate" ]]; then
-                        printf "Warning: " >&2
-                        printf "MISR date inconsistency found.\n"
-                        printf "\tThe group proceeding \"$curfilename\" has a date of: $curGroupDate.\n" >&2
-                        printf "\tThe previous group had a date of: $prevGroupDate.\n" >&2
-                        printf "\tDates should be strictly increasing between groups!\n" >&2
-                        printf "\tLine: $linenum\n" >&2
-                        printf "\tFile: $line\n" >&2
-                    fi
-                fi
-            fi
 
             # check that the current line's date is the same as the rest its group. Each file in a group should
             # have the same date.
@@ -788,7 +1010,7 @@ verifyFiles()
                     printf "\tFile: $line\n" >&2
                 fi
             elif [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
-                curDate=$(echo "$curfilename" | cut -f5,6 -d'_')
+                curDate=$(echo "$curfilename" | cut -f6 -d'_' | cut -f2 -d'O')
                 if [[ "$curDate" != "$curGroupDate" ]]; then
                     printf "Warning: " >&2
                     printf "MISR date inconsistency found.\n"
@@ -838,6 +1060,7 @@ verifyFiles()
             fi
 
 
+
             prevDate="$curDate"
             prevCam="$curCam"
             prevfilename="$curfilename"
@@ -877,6 +1100,9 @@ verifyFiles()
 
 #}
 
+#set -x 
+#PS4='$LINENO: '
+
 if [ "$#" -ne 3 ]; then
     echo "Usage: ./genFusionFiles [database file] [orbit number] [.txt output filepath]"
     exit 0
@@ -886,6 +1112,7 @@ DB=$1
 UNORDERED="$3".unorderedDB
 ORDERED="$3"
 SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ORBITINFO="$SCRIPT_PATH/../data/Orbit_Path_Time.txt"
 
 mkdir -p $(dirname $ORDERED)/unorderedDatabaseReturn
 UNORDERED=$(dirname $ORDERED)/unorderedDatabaseReturn/$(basename $ORDERED).unordered
@@ -948,7 +1175,7 @@ fi
 echo -e "$2\n$(cat $ORDERED)" > "$ORDERED"
 
 # Perform verification (ensures BF program won't crash due to bad input)
-verifyFiles "$ORDERED"
+verifyFiles "$ORDERED" "$ORBITINFO"
 if [ "$?" -ne 0 ]; then
     printf "Failed to verify files.\n" >&2
     printf "Exiting script.\n" >&2
