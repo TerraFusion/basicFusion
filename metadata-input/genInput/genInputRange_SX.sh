@@ -209,7 +209,7 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe"           >> job$i.pbs
     echo "#PBS -l walltime=$WALLTIME"                           >> job$i.pbs
     echo "#PBS -q $QUEUE"                                       >> job$i.pbs
-    echo "#PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}" >> job$i.pbs
+    echo "#PBS -N TerraInput_${jobOSTART[$i]}_${jobOEND[$i]}"   >> job$i.pbs
     # The PMI environment variables are added as a workaround to a known Application Level Placement
     # Scheduler (ALPS) bug on Blue Waters. Not entirely sure what they do but BW staff told me
     # that it works, and it does!
