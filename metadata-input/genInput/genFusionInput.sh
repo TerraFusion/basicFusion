@@ -332,8 +332,6 @@ belongsToOrbit(){
         else
             printf "Warning:\n" >&2
             printf "\tThis file does not belong to the orbit!\n" >&2
-            echo "$fileDate"
-            echo "$Orbit_sTime $Orbit_eTime"
             return 1
         fi
     else
