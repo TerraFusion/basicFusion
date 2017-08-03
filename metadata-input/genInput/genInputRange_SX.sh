@@ -133,6 +133,9 @@ fi
 # For each job, figure out the range of orbits it will be responsible for
 accumulator=$OSTART
 
+# If MAX_NPJ * MAX_PPN doesn't evenly divide the number of orbits to process,
+# then we'll need one extra job to handle the "stragglers". i.e., we'll have one extra
+# job that will handle any remaining orbits after all the other jobs have been completely filled.
 if [ $((numOrbits % $((MAX_NPJ * MAX_PPN)) )) -ne 0 ]; then
     let "numJobs++"
 fi

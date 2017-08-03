@@ -1112,6 +1112,9 @@ ORDERED="$3"
 SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ORBITINFO="$SCRIPT_PATH/../data/Orbit_Path_Time.txt"
 
+# Set this to non-zero if you want the unordered database queries to be saved.
+SAVE_UNORDERED=0
+
 mkdir -p $(dirname $ORDERED)/unorderedDatabaseReturn
 UNORDERED=$(dirname $ORDERED)/unorderedDatabaseReturn/$(basename $ORDERED).unordered
 
@@ -1180,4 +1183,7 @@ if [ "$?" -ne 0 ]; then
     exit 1
 fi
 
+if [ "$SAVE_UNORDERED" -eq 0 ]; then
+    rm -r "$UNORDERED"
+fi
 exit 0
