@@ -259,7 +259,7 @@ belongsToOrbit(){
         # MOPITT end is 24 hours, or 1 day from fileDate.
         # The 10# is to force the arithmetic to interpret it as a base 10 number. Leading 0's in the number
         # will cause it to interpret the number as octal.
-        fileEnd=$(( 10#$fileDate + 1000000))
+        fileEnd=$(date --utc -d "${fileDate:0:4}-${fileDate:4:2}-${fileDate:6:2} ${fileDate:8:2} hours ${fileDate:10:2} minutes ${fileDate:12:2} seconds + 1 day" +"%Y%m%d%0k%M%S")
 
         if [ $fileDate -le $Orbit_sTime  -a  $fileEnd -ge $Orbit_eTime ] || \
            [ $fileDate -ge $Orbit_sTime  -a  $fileDate -le $Orbit_eTime ] || \
@@ -278,7 +278,7 @@ belongsToOrbit(){
         fileDate="${fileDate}0000"
         
         # CERES SSF granularity is one hour.
-        fileEnd=$(( 10#$fileDate + 10000))
+        fileEnd=$(date --utc -d "${fileDate:0:4}-${fileDate:4:2}-${fileDate:6:2} ${fileDate:8:2} hours ${fileDate:10:2} minutes ${fileDate:12:2} seconds + 1 hour" +"%Y%m%d%0k%M%S")
 
         if [ $fileDate -le $Orbit_sTime -a $fileEnd -ge $Orbit_eTime ] || \
            [ $fileDate -ge $Orbit_sTime -a $fileDate -le $Orbit_eTime ] || \
@@ -303,15 +303,13 @@ belongsToOrbit(){
     elif [ "$instr" == "AST" ]; then
         # ASTER filename times provide a resolution up to the second.
         # Convert the ASTER date into our common format
-        fileDate=$(date -d "${fileDate:4:4}-${fileDate:0:2}-${fileDate:2:2} ${fileDate:8:2}:${fileDate:10:2}:${fileDate:12:2}" +"%Y%m%d%0k%M%S")
+        fileDate=$(date --utc -d "${fileDate:4:4}-${fileDate:0:2}-${fileDate:2:2} ${fileDate:8:2}:${fileDate:10:2}:${fileDate:12:2}" +"%Y%m%d%0k%M%S")
     
         if [[ $fileDate -ge $Orbit_sTime && $fileDate -le $Orbit_eTime  ]]; then
             return 0
         else
             printf "Warning:\n" >&2
             printf "\tThis file does not belong to the orbit!\n" >&2
-            echo "$fileDate"
-            echo "$Orbit_sTime $Orbit_eTime"
             return 1
         fi
 
@@ -324,11 +322,10 @@ belongsToOrbit(){
         # Remove the period
         fileDate="${fileDate//./}"
    
-        # Need to subtract 1 from the day because the fileDate was always 1 day ahead of what it was supposed to be
+        # Need to subtract 1 from the day because the fileDate was always 1 day ahead of what it was supposed to be (it is 1-indexed)
         MODdays=$(( 10#${fileDate:4:3} - 1 ))
         # Get the date into a common format
-        fileDate=$(date -d "${fileDate:0:4}-01-01 + $MODdays days ${fileDate:7:2} hours ${fileDate:9:2} minutes" +"%Y%m%d%0k%M%S")
-        
+        fileDate=$(date --utc -d "${fileDate:0:4}-01-01 + $MODdays days ${fileDate:7:2} hours ${fileDate:9:2} minutes" +"%Y%m%d%0k%M%S")
         if [[ ( $fileDate -ge $Orbit_sTime ) && ( $fileDate -le $Orbit_eTime ) ]]; then
             return 0
         else
