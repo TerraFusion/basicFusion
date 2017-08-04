@@ -257,7 +257,9 @@ belongsToOrbit(){
         fileDate="${fileDate}000000"
 
         # MOPITT end is 24 hours, or 1 day from fileDate.
-        fileEnd=$((fileDate + 1000000))
+        # The 10# is to force the arithmetic to interpret it as a base 10 number. Leading 0's in the number
+        # will cause it to interpret the number as octal.
+        fileEnd=$(( 10#$fileDate + 1000000))
 
         if [ $fileDate -le $Orbit_sTime  -a  $fileEnd -ge $Orbit_eTime ] || \
            [ $fileDate -ge $Orbit_sTime  -a  $fileDate -le $Orbit_eTime ] || \
@@ -276,7 +278,7 @@ belongsToOrbit(){
         fileDate="${fileDate}0000"
         
         # CERES SSF granularity is one hour.
-        fileEnd=$((fileDate + 10000))
+        fileEnd=$(( 10#$fileDate + 10000))
 
         if [ $fileDate -le $Orbit_sTime -a $fileEnd -ge $Orbit_eTime ] || \
            [ $fileDate -ge $Orbit_sTime -a $fileDate -le $Orbit_eTime ] || \
@@ -323,7 +325,7 @@ belongsToOrbit(){
         fileDate="${fileDate//./}"
    
         # Need to subtract 1 from the day because the fileDate was always 1 day ahead of what it was supposed to be
-        MODdays=$(( ${fileDate:4:3} - 1 ))
+        MODdays=$(( 10#${fileDate:4:3} - 1 ))
         # Get the date into a common format
         fileDate=$(date -d "${fileDate:0:4}-01-01 + $MODdays days ${fileDate:7:2} hours ${fileDate:9:2} minutes" +"%Y%m%d%0k%M%S")
         
@@ -1102,7 +1104,7 @@ verifyFiles()
 #PS4='$LINENO: '
 
 if [ "$#" -ne 3 ]; then
-    echo "Usage: ./genFusionFiles [database file] [orbit number] [.txt output filepath]"
+    echo "Usage: ./$0 [database file] [orbit number] [.txt output filepath]"
     exit 0
 fi
 
