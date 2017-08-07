@@ -2954,7 +2954,7 @@ char* getTime( char* pathname, int instrument )
 
         /* We want just the 7 characters after start */
         len = 7;
-        retString = calloc ( len,1 );
+        retString = calloc ( len+1,1 );
         strncpy( retString, start, len);
 
         return retString;
