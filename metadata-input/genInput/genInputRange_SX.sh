@@ -32,10 +32,10 @@ OUT_PATH=$4                                             # Where the resultant ou
 OUT_PATH=$(cd "$OUT_PATH" && pwd)
 
 #____________JOB PARAMETERS____________#
-MAX_NPJ=32                                              # Maximum number of nodes per job
+MAX_NPJ=18                                              # Maximum number of nodes per job
 MAX_PPN=16                                              # Maximum number of processors (cores) per node.
 MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
-WALLTIME="01:00:00"                                     # Requested wall clock time for the jobs
+WALLTIME="00:30:00"                                     # Requested wall clock time for the jobs
 QUEUE="normal"                                            # Which queue to put the jobs in
 #--------------------------------------#
 
@@ -52,19 +52,16 @@ fi
 # Get the absolute path of this script
 ABS_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Make the LISTING_PATH an absolute path
-LISTING_PATH="$(cd $(dirname $LISTING_PATH) && pwd)/$(basename $LISTING_PATH)"
-
 # Get the absolute path of the basic fusion binary directory
 BIN_DIR="$ABS_PATH/../../bin"
-BIN_DIR="$(cd $(dirname $BIN_DIR) && pwd)/$(basename $BIN_DIR)"
+BIN_DIR="$(cd $(dirname "$BIN_DIR") && pwd)/$(basename $BIN_DIR)"
 
 # Get the path of BF repository
 BF_PATH="$(cd "$BIN_DIR/../" && pwd)"
 
 # Get the path of the Scheduler repository
 SCHED_PATH="$BF_PATH/externLib/Scheduler"
-echo "$SCHED_PATH"
+
 # Check that Scheduler has already been downloaded
 if [ ! -d "$SCHED_PATH" ]; then
     echo "Fatal error: Scheduler has not been downloaded. Please run the configureEnv.sh script in the basicFusion/util directory." >&2
