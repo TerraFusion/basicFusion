@@ -2952,8 +2952,8 @@ char* getTime( char* pathname, int instrument )
         /* end points to the '.'. Offset it by -1 */
         end += -1;
 
-        /* We want just the 7 characters after start */
-        len = 7;
+        /* We want just the 8 characters after start */
+        len = 8;
         retString = calloc ( len+1,1 );
         strncpy( retString, start, len);
 
@@ -2984,7 +2984,7 @@ char* getTime( char* pathname, int instrument )
         }
 
         len = 10;
-        retString = calloc(len,1);
+        retString = calloc(len+1,1);
         strncpy( retString, end-9, len );
         return retString;
 
@@ -3035,10 +3035,10 @@ char* getTime( char* pathname, int instrument )
 
         } while ( 0 );
 
-        len = 13;
+        len = 12;
 
-        retString = calloc(len,1);
-        strncpy( retString, start, len-1 );
+        retString = calloc(len+1,1);
+        strncpy( retString, start, len );
         return retString;
     }
 
@@ -3056,9 +3056,9 @@ char* getTime( char* pathname, int instrument )
 
         // Skip the version number
         start += 7;
-        len = 15;
-        retString = calloc(len,1);
-        strncpy( retString, start, len-1 );
+        len = 14;
+        retString = calloc(len+1,1);
+        strncpy( retString, start, len);
         return retString;
     }
 
@@ -3076,9 +3076,9 @@ char* getTime( char* pathname, int instrument )
 
         // Just want the orbit number
         start += 32;
-        len = 7;
-        retString = calloc(len,1);
-        strncpy( retString, start, len-1 );
+        len = 6;
+        retString = calloc(len+1,1);
+        strncpy( retString, start, len);
         return retString;
     }
 
