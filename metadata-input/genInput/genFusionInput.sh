@@ -1114,8 +1114,7 @@ ORBITINFO="$SCRIPT_PATH/../data/Orbit_Path_Time.txt"
 # Set this to non-zero if you want the unordered database queries to be saved.
 SAVE_UNORDERED=0
 
-mkdir -p $(dirname $ORDERED)/unorderedDatabaseReturn
-UNORDERED=$(dirname $ORDERED)/unorderedDatabaseReturn/$(basename $ORDERED).unordered
+UNORDERED=$(dirname $ORDERED)/$(basename $ORDERED).unordered
 
 source "$SCRIPT_PATH/../queries.bash"
 

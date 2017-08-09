@@ -1,7 +1,8 @@
 #!/bin/bash
 
-if [ $# -ne 4 ]; then
-    printf "\nUSAGE: $0 [input granule listing path] [orbit start] [orbit end] [output path]\n" >&2
+usage(){
+
+    printf "\nUSAGE: $0 [input granule listing path] [orbit start] [orbit end] [output path] [FLAGS]\n" >&2
     description="NAME: process\"BasicFusion\"_\"SchedulerX\".sh
 DESCRIPTION:
  
@@ -17,25 +18,66 @@ DESCRIPTION:
 \tThis script uses the Scheduler.x program to submit the task to the Blue Waters job scheduler.
 \tNCSA Scheduler can be found at: https://github.com/ncsa/Scheduler
 
-\tLog files for the job are stored in the basicFusion/jobFiles/BFprocess directory."   
+\tLog files for the job are stored in the basicFusion/jobFiles/BFprocess directory.
+
+ARGUMENTS:
+\t[input granule listing path] -- The path where all the input granule listings reside. These files cannot be within any
+\t                                subdirectory of this path.
+\t[orbit start]                -- The starting orbit to process
+\t[orbit end]                  -- The ending orbit to process
+\t[output path]                -- This is where all the output Basic Fusion files will go.
+\t[FLAGS]                      -- Valid flags are:
+\t                                --GZIP    This enables HDF GZIP compression
+\t                                --CHUNK   This enables HDF chunking
+"   
     while read -r line; do
         printf "$line\n"
     done <<< "$description"
+}
+
+if [ $# -lt 4 -a $# -gt 6 ]; then
+    usage
     exit 1
 fi
 
 LISTING_PATH=$1
-OSTART=$2
-OEND=$3
-OUT_PATH=$4                                             # Where the resultant output HDF files will go
+if [ ! -d "$LISTING_PATH" ]; then
+    echo "Illegal parameter:" >&2
+    printf "\t$LISTING_PATH\n" >&2
+    printf "\tIs not a valid path to a directory.\n" >&2
+    exit 1
+fi
+shift
+OSTART=$1
+shift
+OEND=$1
+shift
+OUT_PATH=$1                                             # Where the resultant output HDF files will go
 OUT_PATH=$(cd "$OUT_PATH" && pwd)
+shift
+USE_GZIP=0
+USE_CHUNK=0
+
+for i in $(seq 1 "$#"); do
+    if [ "$1" == "--GZIP" ]; then
+        USE_GZIP=1
+        echo "_____GZIP ENABLED______"
+    elif [ "$1" == "--CHUNK" ]; then
+        USE_CHUNK=1
+        echo "_____HDF CHUNKING ENABLED______"
+    else
+        echo "Illegal parameter: $1"
+        exit 1
+    fi
+    shift
+done
 
 #____________JOB PARAMETERS____________#
 MAX_NPJ=32                                              # Maximum number of nodes per job
 MAX_PPN=16                                              # Maximum number of processors (cores) per node.
 MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="06:00:00"                                     # Requested wall clock time for the jobs
-QUEUE="normal"                                            # Which queue to put the jobs in
+QUEUE="normal"                                          # Which queue to put the jobs in
 #--------------------------------------#
 
 #____________FILE NAMING_______________#
@@ -76,8 +118,8 @@ numProcessPerJob=$((numOrbits / $MAX_NUMJOB))
 # Find the remainder of this division
 let "numExtraProcess= $numOrbits % $MAX_NUMJOB"
 
-# Find how many jobs need to be submitted assuming each job is completely filled (MAX_NPJ and MAX_PPN)
-let "numJobs= $numOrbits / $(($MAX_NPJ * $MAX_PPN))"
+# Find how many jobs need to be submitted assuming each job is completely filled (MAX_NPJ * MAX_PPN - 1)
+let "numJobs= $numOrbits / $(($MAX_NPJ * $MAX_PPN - 1))"
 
 # If the number of jobs is greater than MAX_NUMJOB, then we will need to overfill
 if [ $numJobs -ge $MAX_NUMJOB ]; then 
@@ -101,10 +143,11 @@ else
     for i in $(seq 0 $((numJobs - 1)) ); do         # Assign the first few jobs to have maximum number of PPN and NPJ
         PPN[$i]=$MAX_PPN
         NPJ[$i]=$MAX_NPJ
-        numProcess[$i]=$((MAX_PPN * MAX_NPJ))       # Each job will handle exactly MAX_PPN * MAX_NPJ processes
+        numProcess[$i]=$((MAX_PPN * MAX_NPJ - 1))       # Each job will handle MAX_PPN * MAX_NPJ - 1 processes.
+                                                        # It's -1 because Scheduler needs one core to itself.
     done
 
-    let "numExtraProcess = $numOrbits - (MAX_NPJ * MAX_PPN * numJobs)"  # Find the remaining number of jobs to process
+    let "numExtraProcess = $numOrbits - ((MAX_NPJ * MAX_PPN - 1) * numJobs)"  # Find the remaining number of jobs to process
     numProcess[$numJobs]=$numExtraProcess
     
     if [ $numExtraProcess -gt 0 ]; then             # If the remaning number of processes is greater than 0.
@@ -213,10 +256,14 @@ for i in $(seq 0 $((numJobs-1)) ); do
     # that it works, and it does!
     echo "export PMI_NO_FORK=1"                                 >> job$i.pbs
     echo "export PMI_NO_PREINITIALIZE=1"                        >> job$i.pbs
+    echo "export USE_GZIP=${USE_GZIP}"                          >> job$i.pbs
+    echo "export USE_CHUNK=${USE_CHUNK}"                        >> job$i.pbs
     echo "cd $runDir"                                           >> job$i.pbs
     echo "source /opt/modules/default/init/bash"                >> job$i.pbs
     echo "module load hdf4 hdf5"                                >> job$i.pbs
 
+    # littleN (-n) tells us how many total processes in the job.
+    # 
     littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
     bigR=4
     if [ $bigR -ge ${PPN[$i]} ]; then
