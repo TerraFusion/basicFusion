@@ -28,7 +28,7 @@ export PYTHONPATH="$SCRIPT_DIR"/../../externLib/BFpyEnv/lib/python2.7/site-packa
 #____________________________________________#
 
 
-if [ 0 -eq 1 ]; then
+if [ 1 -eq 1 ]; then
     eval $findFiles "$INDIR"
 
     if [ $? -ne 0 ]; then
@@ -38,8 +38,9 @@ if [ 0 -eq 1 ]; then
     fi
 
     for i in ASTER MODIS MISR MOPITT CERES; do
-       gzip -f "$DATADIR"/$i.list 
-        if [ $? -ne 0 ]; then
+       gzip -f "$DATADIR"/$i.list
+        retVal=$? 
+        if [ $retVal -ne 0 ]; then
             echo "gzip returned with exit status of $?."
             echo "Exiting script."
             exit 1
