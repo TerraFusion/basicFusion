@@ -35,7 +35,7 @@ ARGUMENTS:
     done <<< "$description"
 }
 
-if [ $# -lt 4 -a $# -gt 6 ]; then
+if [ $# -lt 4 -o $# -gt 6 ]; then
     usage
     exit 1
 fi
@@ -104,7 +104,7 @@ BF_PATH="$(cd "$BIN_DIR/../" && pwd)"
 
 # Get the path of the Scheduler repository
 SCHED_PATH="$BF_PATH/externLib/Scheduler"
-echo "$SCHED_PATH"
+
 # Check that Scheduler has already been downloaded
 if [ ! -d "$SCHED_PATH" ]; then
     echo "Fatal error: Scheduler has not been downloaded. Please run the configureEnv.sh script in the basicFusion/util directory." >&2
@@ -245,22 +245,6 @@ cd PBSscripts
 echo "Generating PBS scripts in: $(pwd)"
 
 for i in $(seq 0 $((numJobs-1)) ); do
-    echo "#!/bin/bash"                                          >> job$i.pbs
-    echo "#PBS -j oe"                                           >> job$i.pbs
-    echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe"           >> job$i.pbs
-    echo "#PBS -l walltime=$WALLTIME"                           >> job$i.pbs
-    echo "#PBS -q $QUEUE"                                       >> job$i.pbs
-    echo "#PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}" >> job$i.pbs
-    # The PMI environment variables are added as a workaround to a known Application Level Placement
-    # Scheduler (ALPS) bug on Blue Waters. Not entirely sure what they do but BW staff told me
-    # that it works, and it does!
-    echo "export PMI_NO_FORK=1"                                 >> job$i.pbs
-    echo "export PMI_NO_PREINITIALIZE=1"                        >> job$i.pbs
-    echo "export USE_GZIP=${USE_GZIP}"                          >> job$i.pbs
-    echo "export USE_CHUNK=${USE_CHUNK}"                        >> job$i.pbs
-    echo "cd $runDir"                                           >> job$i.pbs
-    echo "source /opt/modules/default/init/bash"                >> job$i.pbs
-    echo "module load hdf4 hdf5"                                >> job$i.pbs
 
     # littleN (-n) tells us how many total processes in the job.
     # 
@@ -270,8 +254,27 @@ for i in $(seq 0 $((numJobs-1)) ); do
         bigR=0      # Done in the cases where small number of nodes used. -R tells how many node failures are
                     # acceptable
     fi
-    echo "aprun -n $littleN -N ${PPN[$i]} -R $bigR $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err" >> job$i.pbs
-    echo "exit 0"                                               >> job$i.pbs
+    
+    pbsFile="\
+#!/bin/bash
+#PBS -j oe
+#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe
+#PBS -l walltime=$WALLTIME
+#PBS -q $QUEUE
+#PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}
+export PMI_NO_PREINITIALIZE=1
+export USE_GZIP=${USE_GZIP}
+export USE_CHUNK=${USE_CHUNK}
+export PMI_NO_FORK=1
+cd $runDir
+source /opt/modules/default/init/bash
+module load hdf4 hdf5
+aprun -n $littleN -N ${PPN[$i]} -R $bigR $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err
+exit 0
+"
+
+    echo "$pbsFile" > job$i.pbs
+
 done
 
 ############################
@@ -298,7 +301,8 @@ done
 mkdir "$logDir"/basicFusion
 mkdir "$logDir"/basicFusion/errors
 mkdir "$logDir"/basicFusion/logs
-
+BFfullPath="$runDir/$(basename $BF_PROG)"
+logPath="$runDir/logs/basicFusion"
 # Copy the basicFusion binary to the job directory. Use this copy of the bianry.
 cp $BF_PROG $runDir 
 
@@ -320,9 +324,20 @@ for job in $(seq 0 $((numJobs-1)) ); do
         # Get rid of the 'Z'
         orbit_start=${orbit_start//Z/}
         evalFileName=$(eval echo "$FILENAME")
+
+        outGranule="$OUT_PATH/$evalFileName"
+
         # BF program call looks like this:
         # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
-        echo "$runDir/$(basename $BF_PROG) \"$OUT_PATH/$evalFileName\" \"$LISTING_PATH/input$orbit.txt\" \"$BIN_DIR/orbit_info.bin\" 2> \"$runDir/logs/basicFusion/errors/$orbit.err\" 1> \"$runDir/logs/basicFusion/logs/$orbit.log\"" > "${jobDir[$job]}/orbit$orbit.sh"
+        programCalls="\
+\"$BFfullPath\" \"$outGranule\" \"$LISTING_PATH/input$orbit.txt\" \"$BIN_DIR/orbit_info.bin\" 2> \"$logPath/errors/$orbit.err\" 1> \"$logPath/logs/$orbit.log\"
+
+# We will now save the MD5 checksum.
+mkdir -p \"$OUT_PATH/checksum\"
+md5sum \"$OUT_PATH/$evalFileName\" > \"$OUT_PATH/checksum/$orbit.md5\"
+"
+
+        echo "$programCalls" > "${jobDir[$job]}/orbit$orbit.sh"
 
     chmod +x "${jobDir[$job]}/orbit$orbit.sh"
     done
