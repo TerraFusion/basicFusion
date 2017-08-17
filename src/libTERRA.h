@@ -69,7 +69,7 @@ extern hid_t outputFile;
 extern double* TAI93toUTCoffset; // The array containing the TAI93 to UTC offset values
 int numDigits(int digit);
 
-int MOPITT( char* argv[], OInfo_t cur_orbit_info);
+int MOPITT( char* inputLine, OInfo_t cur_orbit_info);
 int CERES( char* argv[],int index,int ceres_fm_count,int32*,int32*,int32*);
 int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t orbit_info);
 int MODIS( char* argv[],int modis_count,int unpack );
