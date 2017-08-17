@@ -10,14 +10,26 @@
 #define LAT_LON_UNIT "degree"
 #define TIME_UNIT "seconds since 1993-01-01"
 
-/*
-    NOTE: argv[1] = input file path
-          argv[2] = output file path
+/*  MOPITT
+ 
+ DESCRIPTION:
+    This function handles the MOPITT data repacking into the output Fusion file
+    given by the global hid_t variable outputFile. The MOPITT HDF5 file passed 
+    in inputFile will be read into the outputFile.
+
+ ARGUMENTS:
+    inputFile   -- Input MOPITT file path
+
+ EFFECTS:
+    Modifies the output fusion file to contain the appropriate MOPITT data.
+
+ RETURN:
+    FAIL_ERR        -- A general error occured
+    FAIL_OPEN       -- Failed to open the inputFile file
+    RET_SUCCESS     -- Success
 */
 
-hid_t outputFile;
-
-int MOPITT( char* argv[], OInfo_t cur_orbit_info )
+int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
 {
 
     hid_t file = 0;
@@ -63,15 +75,15 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     char* latPath = NULL;
 
     // open the input file
-    if ( openFile( &file, argv[1], H5F_ACC_RDONLY ) )
+    if ( openFile( &file, inputFile, H5F_ACC_RDONLY ) )
     {
-        WARN_MSG("Unable to open MOPITT file.\n\t%s\n", argv[1]);
+        WARN_MSG("Unable to open MOPITT file.\n\t%s\n", inputFile);
         file = 0;
         goto cleanupFO;
     }
 
     /* Extract the file time from the file name */
-    fileTime = getTime( argv[1], 0 );
+    fileTime = getTime( inputFile, 0 );
 
     /* LandonClipp Apr 7 2017. Before inserting datasets, we need to find the starting and ending indices for subsetting. */
     status = MOPITT_OrbitInfo ( file, cur_orbit_info, TIME, &startIdx, &endIdx );
@@ -144,7 +156,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
 
     /* Set the attributes for the granule group indicating information about the original file */
 
-    tmpCharPtr = strrchr(argv[1], '/');
+    tmpCharPtr = strrchr(inputFile, '/');
     if ( tmpCharPtr == NULL )
     {
         FATAL_MSG("Failed to find a specific character within a string.\n");
@@ -210,7 +222,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     dimSize = bound[1] - bound[0] + 1;
     intArray = calloc ( dimSize, sizeof(int) );
 
-    /* group_info.nlinks can give us the granule index */
+    /* group_info.nlinks can give us the granule's index */
     if ( group_info.nlinks == 0 )
     {
         ntrackID = MOPITTaddDimension( outputFile, "ntrack_1", dimSize, intArray, H5T_NATIVE_INT );
@@ -303,6 +315,10 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
             goto cleanupFail;
         }
 
+        /* We don't need to create these dimensions again (they were initially created in the case where group_info.nlinks
+           equaled 0). So, just open them.
+        */
+
         nstareID = H5Dopen2( outputFile, "nstare", H5P_DEFAULT);
         if ( nstareID < 0 )
         {
@@ -350,6 +366,7 @@ int MOPITT( char* argv[], OInfo_t cur_orbit_info )
     }
 
     /* Attach these dimensions to the dataset */
+    
     status = H5DSattach_scale( radianceDataset, ntrackID, 0 );
     if ( status < 0 )
     {

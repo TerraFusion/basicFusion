@@ -10,12 +10,40 @@ float Obtain_scale_factor(int32 h4_file_id, char* band_name);
 herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID );
 
 /* May provide a list for all MISR group and variable names */
-/*
- * fileList[1] through fileList[9]: GRP
- * fileList[10]: AGP
- * fileList[11]: GP
- * fileList[12]: HRLL
- */
+
+/*  MISR
+
+ DESCRIPTION:
+    This function handles the repackaging of the MISR files into the output HDF5 file.
+    The input files to this function are specified in the fileList argument.
+
+ ARGUMENTS:
+    fileList[0]     -- Program name
+    fileList[1]     -- AA file path
+    fileList[2]     -- AF file path
+    fileList[3]     -- AN file path
+    fileList[4]     -- BA file path
+    fileList[5]     -- BF file path
+    fileList[6]     -- CA file path
+    fileList[7]     -- CF file path
+    fileList[8]     -- DA file path
+    fileList[9]     -- DF file path
+    fileList[10]    -- MISR AGP file path
+    fileList[11]    -- MISR GP file path
+    fileList[12]    -- MISR HRLL file path
+
+    int unpack      -- Determines whether unpacking behavior is enabled.
+
+ EFFECTS:
+    Modifies the outputFile HDF5 file to contain the appropriate MISR data.
+    Allocates memory as needed.
+
+ RETURN:
+    FAIL_OPEN       -- Failed to open a file ( NOT IMPLEMENTED IN THIS FUNCTION )
+    FATAL_ERR       -- General error
+    RET_SUCCESS     -- Success
+*/
+    
 int MISR( char* fileList[],int unpack )
 {
     /****************************************

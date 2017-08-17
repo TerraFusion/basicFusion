@@ -41,6 +41,27 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
     argv[3] = output file name
 */
 
+/*  ASTER
+
+ DESCRIPTION:
+    This function handles the ASTER repacking from the input HDF4 granule to the output HDF5 file.
+
+ ARGUMENTS:
+    argv[0] = program name
+    argv[1] = input granule file path
+    argv[2] = NOT USED
+    argv[3] = output file name
+
+ EFFECTS:
+    Modifies the output file denoted by the globla outputFile hid_t variable. 
+    Allocates spaces as needed.
+
+ RETURN:
+    FATAL_ERR       -- General error occured
+    FAIL_OPEN       -- Failed to open an HDF file
+    RET_SUCCESS     -- Success
+*/
+
 int ASTER( char* argv[],int aster_count,int unpack)
 {
     /*

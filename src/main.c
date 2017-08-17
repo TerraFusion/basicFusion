@@ -13,11 +13,11 @@
 
 
 int getNextLine ( char* string, FILE* const inputFile );
+hid_t outputFile;
 
 int main( int argc, char* argv[] )
 {
 
-    char* MOPITTargs[3] = {NULL};
     char* CERESargs[4] = {NULL};
     char* MODISargs[7] = {NULL};
     char* ASTERargs[4] = {NULL};
@@ -248,16 +248,6 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
-            MOPITTargs[0] = argv[0];
-
-            /* allocate space for the argument */
-            MOPITTargs[1] = malloc( strlen(inputLine)+1 );
-            memset(MOPITTargs[1],0,strlen(inputLine)+1);
-
-            /* copy the data over */
-            strncpy( MOPITTargs[1], inputLine, strlen(inputLine) );
-            MOPITTargs[2] = argv[1];
-
             /* strrchr finds last occurance of character in a string */
             granTempPtr = strrchr( inputLine, '/' );
             if ( granTempPtr == NULL )
@@ -272,14 +262,12 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
-            if ( MOPITT( MOPITTargs, current_orbit_info ) == FATAL_ERR )
+            if ( MOPITT( inputLine, current_orbit_info ) == FATAL_ERR )
             {
                 FATAL_MSG("MOPITT failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                 goto cleanupFail;
             }
 
-            free(MOPITTargs[1]);
-            MOPITTargs[1] = NULL;
 
             status = getNextLine( inputLine, inputFile);
 
@@ -942,7 +930,6 @@ cleanupFail:
 
     if ( outputFile ) H5Fclose(outputFile);
     if ( inputFile ) fclose(inputFile);
-    if ( MOPITTargs[1] ) free(MOPITTargs[1]);
     if ( MODISargs[1] ) free(MODISargs[1]);
     if (  MODISargs[2] ) free( MODISargs[2]);
     if ( MODISargs[3] ) free ( MODISargs[3] );

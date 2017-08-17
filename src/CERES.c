@@ -26,7 +26,14 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
  *      c_stride        -- The HDF5 subsetting stride
  *      c_count         -- The number of elements remaining after subsetting 
  *
- *  TODO: Finish this description
+ *  EFFECTS:
+ *      Modifies the outputFile HDF5 file to contain the appropriate CERES data.
+ *      Allocates memory as needed.
+ *
+ *  RETURN:
+ *      FATAL_ERR       -- General error
+ *      FAIL_OPEN       -- Failed to open a file
+ *      RET_SUCCESS     -- Success
  */
 int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_stride,int32*c_count)
 {
