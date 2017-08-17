@@ -269,7 +269,7 @@ export PMI_NO_FORK=1
 cd $runDir
 source /opt/modules/default/init/bash
 module load hdf4 hdf5
-aprun -n $littleN -N ${PPN[$i]} -R $bigR $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err
+aprun -n $littleN -N ${PPN[$i]} -R $bigR time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err
 exit 0
 "
 
