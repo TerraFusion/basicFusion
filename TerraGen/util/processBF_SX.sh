@@ -115,6 +115,13 @@ if [ ! -x "$SCHED_PATH" ]; then
     exit 1
 fi
 
+# Check that the ORBIT_INFO file exists
+if [ ! -e "$ORBIT_INFO" ]; then
+    echo "Fatal error: The $ORBIT_INFO file does not exist. Please refer to the GitHub wiki on how to generate this file." >&2
+    exit 1
+fi
+
+
 numOrbits=$(($OEND - $OSTART + 1))                      # Total number of orbits to generate
 numProcessPerJob=$((numOrbits / $MAX_NUMJOB)) 
 
