@@ -62,13 +62,23 @@ for i in $(seq 1 "$#"); do
     if [ "$1" == "--GZIP" ]; then
         USE_GZIP=1
         echo "_____GZIP ENABLED______"
-    elif [ "$1" == "--CHUNK" ]; then
+    else
+        echo "_____GZIP DISABLED_____"
+    fi
+
+    if [ "$1" == "--CHUNK" ]; then
         USE_CHUNK=1
         echo "_____HDF CHUNKING ENABLED______"
     else
+        echo "_____HDF CHUNKING DISABLED_____"
+    fi
+
+    # If neither of the valid options are set, then this parameter must be illegal
+    if [ $USE_CHUNK -eq 0 -a $USE_GZIP -eq 0 ]; then
         echo "Illegal parameter: $1"
         exit 1
     fi
+
     shift
 done
 
@@ -86,28 +96,22 @@ FILENAME='TERRA_BF_L1B_O${orbit}_${orbit_start}_F000_V000.h5'          # The var
 
 #--------------------------------------#
 
-# Get the absolute path of this script
-ABS_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Make the LISTING_PATH an absolute path
-LISTING_PATH="$(cd $(dirname $LISTING_PATH) && pwd)/$(basename $LISTING_PATH)"
 
-# Get the absolute path of the basic fusion binary directory
-BIN_DIR="$ABS_PATH/../../bin"
+ABS_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"    # Get the absolute path of this script
+LISTING_PATH="$(cd $(dirname $LISTING_PATH) && pwd)/$(basename $LISTING_PATH)"  # Make the LISTING_PATH an absolute path
+BIN_DIR="$ABS_PATH/../../bin"                                   # Get the absolute path of the basic fusion binary directory
 BIN_DIR="$(cd $(dirname $BIN_DIR) && pwd)/$(basename $BIN_DIR)"
+BF_PROG="$BIN_DIR/basicFusion"                                  # Get the absolute path of the basicFusion program
+BF_PATH="$(cd "$BIN_DIR/../" && pwd)"                           # Get the path of BF repository
+SCHED_PATH="$BF_PATH/externLib/Scheduler"                       # Get the path of the Scheduler repository
+ORBIT_INFO="$BF_PATH/metadata-input/data/Orbit_Path_Time.txt"   # Get the path of the Orbit_info file
 
-# Get the absolute path of the basicFusion program
-BF_PROG="$BIN_DIR/basicFusion"
 
-# Get the path of BF repository
-BF_PATH="$(cd "$BIN_DIR/../" && pwd)"
 
-# Get the path of the Scheduler repository
-SCHED_PATH="$BF_PATH/externLib/Scheduler"
-
-# Check that Scheduler has already been downloaded
-if [ ! -d "$SCHED_PATH" ]; then
-    echo "Fatal error: Scheduler has not been downloaded. Please run the configureEnv.sh script in the basicFusion/util directory." >&2
+# Check that Scheduler has already been downloaded and compiled
+if [ ! -x "$SCHED_PATH" ]; then
+    echo "Fatal error: Scheduler has not been downloaded/compiled or the Fortran executable has not been flagged for execution. Please run the configureEnv.sh script in the basicFusion/util directory." >&2
     exit 1
 fi
 
@@ -190,6 +194,7 @@ done
 # Print the node and job information  #
 # =================================== #
 for i in $(seq 0 $((numJobs-1)) ); do
+    echo "JOB PARAMETERS"
     printf '%d PPN: %-5s NPJ: %-5s numProcess: %-5s start: %-5s end: %-5s\n' $i ${PPN[$i]} ${NPJ[$i]} ${numProcess[$i]} ${jobOSTART[$i]} ${jobOEND[$i]}
 done
 
@@ -311,10 +316,10 @@ for job in $(seq 0 $((numJobs-1)) ); do
 
     for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
         # Read Orbit start time from file
-        opt_file="$ABS_PATH/Orbit_Path_Time.txt"
-        filter="$orbit "
-        # Grab the orbit start time from opt_file
-        orbit_start=$(grep $filter $opt_file | cut -f3 -d" ") 
+        
+        filter="$orbit "        # The filter for grep
+        # Grab the orbit start time from ORBIT_INFO
+        orbit_start=$(grep $filter $ORBIT_INFO | cut -f3 -d" ") 
         # Get rid of the '-' characters
         orbit_start=${orbit_start//-/}
         # Get rid of the 'T' characters
@@ -339,19 +344,23 @@ md5sum \"$OUT_PATH/$evalFileName\" > \"$OUT_PATH/checksum/$orbit.md5\"
 
         echo "$programCalls" > "${jobDir[$job]}/orbit$orbit.sh"
 
-    chmod +x "${jobDir[$job]}/orbit$orbit.sh"
-    done
-done
+        chmod +x "${jobDir[$job]}/orbit$orbit.sh"
+ 
+    done # DONE with for orbit in....
+    
+    ###################
+    #    CALL QSUB    #
+    ###################
+
+    echo "Submitting $runDir/PBSscripts/job$job.pbs to queue."
+    curDir="$(pwd)"
+    cd $runDir/PBSscripts
+    qsub job$job.pbs 
+    # cd back into the curDir directory
+    cd "$curDir"
+    echo
+
+done # DONE with for job in....
 
 echo
-
-###################
-#    CALL QSUB    #
-###################
-cd $runDir/PBSscripts
-for job in $(seq 0 $((numJobs-1)) ); do
-    echo "Submitting $runDir/PBSscripts/job$job.pbs to queue."
-    qsub job$job.pbs
-done
-
 exit 0
