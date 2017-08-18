@@ -2,7 +2,7 @@
 
 usage(){
 
-    printf "\nUSAGE: $0 [input granule listing path] [orbit start] [orbit end] [output path] [FLAGS]\n" >&2
+    printf "\nUSAGE: $0 [input granule listing path] [orbit start] [orbit end] [output path] [OPTS]\n" >&2
     description="NAME: process\"BasicFusion\"_\"SchedulerX\".sh
 DESCRIPTION:
  
@@ -26,16 +26,16 @@ ARGUMENTS:
 \t[orbit start]                -- The starting orbit to process
 \t[orbit end]                  -- The ending orbit to process
 \t[output path]                -- This is where all the output Basic Fusion files will go.
-\t[FLAGS]                      -- Valid flags are:
-\t                                --GZIP    This enables HDF GZIP compression
-\t                                --CHUNK   This enables HDF chunking
+\t[OPTS]                       -- Valid options are:
+\t                                --GZIP [1-9]      Sets the HDF compression level
+\t                                --CHUNK           This enables HDF chunking
 "   
     while read -r line; do
         printf "$line\n"
     done <<< "$description"
 }
 
-if [ $# -lt 4 -o $# -gt 6 ]; then
+if [ $# -lt 4 -o $# -gt 7 ]; then
     usage
     exit 1
 fi
@@ -58,9 +58,26 @@ shift
 USE_GZIP=0
 USE_CHUNK=0
 
+intREG='^[0-9]+$'       # An integer regular expression
+
 for i in $(seq 1 "$#"); do
     if [ "$1" == "--GZIP" ]; then
-        USE_GZIP=1
+        shift
+        USE_GZIP=$1
+
+        # Assert that USE_GZIP is an integer
+        if ! [[ $USE_GZIP =~ $intREG ]]; then
+            echo "An integer between 1-9 must follow the --GZIP option!" > &2
+            exit 1
+        fi
+
+        # Assert that USE_GZIP is between 1 through 9
+        if [ $USE_GZIP -lt 1 -o $USE_GZIP -gt 9 ]; then
+
+            echo "An integer between 1-9 must follow the --GZIP option!" > &2
+            exit 1
+        fi
+
         echo "_____GZIP ENABLED______"
     else
         echo "_____GZIP DISABLED_____"

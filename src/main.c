@@ -18,6 +18,7 @@ hid_t outputFile;
 int main( int argc, char* argv[] )
 {
 
+    /* Various arguments to each instrument function */
     char* CERESargs[4] = {NULL};
     char* MODISargs[7] = {NULL};
     char* ASTERargs[4] = {NULL};
@@ -66,10 +67,6 @@ int main( int argc, char* argv[] )
     char* CER_curTime = NULL;
     char* CER_prevTime = NULL;
 
-    memset(modis_granule_suffix,0,3);
-    memset(aster_granule_suffix,0,3);
-    memset(ceres_granule_suffix,0,3);
-
     /*MY 2016-12-21: MODIS and ASTER have more than one granule for each orbit. We use a counter to stop the loop. */
     int ceres_count = 1;
     int ceres_fm1_count = 1;
@@ -101,8 +98,8 @@ int main( int argc, char* argv[] )
     if ( argc != 4 )
     {
         fprintf( stderr, "Usage: %s [outputFile] [inputFiles.txt] [orbit_info.bin]\n", argv[0] );
-        fprintf( stderr, "Set environment variable TERRA_DATA_UNPACK to non-zero for unpacking.\n");
-        fprintf( stderr, "Set environment variable USE_GZIP to enable HDF GZIP compression.\n");
+        fprintf( stderr, "Set environment variable TERRA_DATA_PACK to non-zero to retain packed data.\n");
+        fprintf( stderr, "Set environment variable USE_GZIP from 1 to 9 to set HDF compression level.\n");
         fprintf( stderr, "Set environment variable USE_CHUNK to enable HDF dataset chunking.\n");
         goto cleanupFail;
     }
@@ -139,7 +136,6 @@ int main( int argc, char* argv[] )
         FATAL_MSG("fread is not successful.\n");
         goto cleanupFail;
     }
-
 
     /* Get the orbit number from inputFiles.txt */
     status = getNextLine( inputLine, inputFile );
@@ -207,6 +203,10 @@ int main( int argc, char* argv[] )
                       Correction: leave it for the time being since the createOutputFile uses the EXCL flag.
                       TODO: Will turn this off in the operation.
     */
+    /* Landon Aug 18 2017: I want to keep this remove here because it will ensure HDF doesn't try to open an existing file.
+     * remove() provides hardly any performance decrease. It's just a safety measure.
+     */
+
     remove( argv[1] );
 
     /* create the output file or open it if it exists */
@@ -235,8 +235,8 @@ int main( int argc, char* argv[] )
     }
 
 
-    /* strcmp returns 0 if the strings match */
-    if ( strcmp(inputLine, "MOP N/A" ) != 0 )
+    /* strstr returns non-null if the strings match */
+    if ( strstr(inputLine, "MOP N/A" ) == NULL )
     { 
         // minor: strstr may be called twice in the loop. No need to change. KY 2017-04-10
         do
@@ -306,7 +306,7 @@ int main( int argc, char* argv[] )
     CERESargs[1] = argv[1];
 
 
-    if ( strcmp(inputLine, "CER N/A" ) )
+    if ( strstr(inputLine, "CER N/A" ) == NULL )
     {
         while(ceres_count != 0)
         {
@@ -470,7 +470,7 @@ int main( int argc, char* argv[] )
     /* MY 2016-12-21: Need to form a loop to read various number of MODIS files
     *  A pre-processing check of the inputFile should be provided to make sure the processing
     *  will not exit prematurely */
-    if ( strcmp(inputLine, "MOD N/A" ) )
+    if ( strstr(inputLine, "MOD N/A" ) == NULL )
     {
         while(modis_count != 0)
         {
@@ -545,7 +545,8 @@ int main( int argc, char* argv[] )
                     goto cleanupFail;
                 }
 
-                
+               
+                /* Find the last occurance of the slash character so we can grab the filename from inputLine */ 
                 granTempPtr = strrchr( inputLine, '/' );
                 if ( granTempPtr == NULL )
                 {
@@ -702,7 +703,7 @@ int main( int argc, char* argv[] )
 
     /* Get the ASTER input files */
     /* MY 2016-12-20, Need to loop ASTER files since the number of granules may be different for each orbit */
-    if ( strcmp(inputLine, "AST N/A" ) != 0 )
+    if ( strstr(inputLine, "AST N/A" ) == NULL )
     {
         while(aster_count != 0)
         {
@@ -775,7 +776,7 @@ int main( int argc, char* argv[] )
      ********/
     MISRargs[0] = argv[0];
 
-    if ( strcmp(inputLine, "MIS N/A" ) )
+    if ( strstr(inputLine, "MIS N/A" ) == NULL )
     {
         
 
@@ -955,6 +956,26 @@ cleanupFail:
 
     return 0;
 }
+
+/*  getNextLine
+
+ DESCRIPTION:
+    This function grabs the next valid file path in inputFile. It skips any line that starts with '#', '\n', or ' '.
+    The result is stored in the string argument. It is the duty of the caller to ensure that string argument has
+    enough space to hold any string in the inputFile. If the string is larger than the macro STR_LEN, the string
+    will be cut off.
+
+ ARGUMENTS:
+    char* string            -- The pointer to a string array where the resultant string will be stored.
+    FILE* const inputFile   -- The file to fetch the next string from.
+
+ EFFECTS:
+    Modifies the memory pointed to by string.
+
+ RETURN:
+    FATAL_ERR
+    RET_SUCCESS
+*/
 
 int getNextLine ( char* string, FILE* const inputFile )
 {

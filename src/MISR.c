@@ -1167,6 +1167,7 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
             strncpy( &(BCTbuf[ i * vdata_size[0]]), fillVal, vdata_size[0] - 1 );
 
         /* TODO
+            Landon Clipp Aug 18 2017
             I don't like this else statement. The boundaries seem too error-prone. Perhaps rework to make it more robust.
             This code would fail if the input MISR Start_block and End_block values are incorrect.
         */
@@ -1266,78 +1267,3 @@ cleanupFail:
     if ( inSDID )               SDend(inSDID);
     return retVal; 
 }
-
-#if 0
-//float Obtain_scale_factor(int32 h4_file_id, char* band_name, char *radiance_name) {
-float Obtain_scale_factor(int32 h4_file_id, char* band_name)
-{
-
-    int32 band_group_ref = -1;
-    int32 sub_group_ref = -1;
-    int32 sub_group_tag = -1;
-    float sc = 0;
-    int num_gobjects = 0;
-    int32 band_group_id  = 0;
-    int32 sub_group_id =0;
-    char* sub_group_name = NULL;
-    char* grid_attr_group_name = "Grid Attributes";
-    char* scale_factor_name = "Scale factor";
-    intn  sc_attr_index = -1;
-    uint16 name_len = 0;
-
-    int32 status = -1;
-
-    /* Obtain the vgroup reference number of this band */
-    band_group_ref = H4ObtainLoneVgroupRef(h4_file_id,band_name);
-    assert(band_group_ref >0);
-
-    band_group_id = Vattach(h4_file_id, band_group_ref, "r");
-    num_gobjects = Vntagrefs(band_group_id);
-    assert(num_gobjects >0);
-
-    for (int i = 0; i < num_gobjects; i++)
-    {
-
-
-        if (Vgettagref (band_group_id, i, &sub_group_tag, &sub_group_ref) == FAIL)
-        {
-            Vdetach (band_group_id);
-            return -1.0;
-        }
-
-        if (Visvg (band_group_id, sub_group_ref) == TRUE)
-        {
-
-            sub_group_id = Vattach (h4_file_id, sub_group_ref, "r");
-            status = Vgetnamelen(sub_group_id, &name_len);
-            sub_group_name = (char *) HDmalloc(sizeof(char *) * (name_len+1));
-            if (sub_group_name == NULL)
-            {
-                fprintf(stderr, "Not enough memory for vgroup_name!\n");
-                return -1.0;
-            }
-            status = Vgetname (sub_group_id, sub_group_name);
-            if(strncmp(sub_group_name,grid_attr_group_name,strlen(grid_attr_group_name))==0)
-            {
-                sc_attr_index = Vfindattr(sub_group_id,scale_factor_name);
-                assert(sc_attr_index !=FAIL);
-                status = Vgetattr(sub_group_id,sc_attr_index,&sc);
-                assert(status!=FAIL);
-            }
-
-            free(sub_group_name);
-            Vdetach(sub_group_id);
-
-            break;
-        }
-
-    }
-    Vdetach(band_group_id);
-
-    return sc;
-}
-#endif
-
-
-
-
