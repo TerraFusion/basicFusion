@@ -175,17 +175,39 @@ int main( int argc, char* argv[] )
         const char *s;
         s = getenv("TERRA_DATA_PACK");
 
-        if(s && isdigit((int)*s))
-            if((unsigned int)strtol(s,NULL,10) == 1)
-                unpack = 0;
+        int envVal;
+
+        if(s && isdigit((int)*s)) 
+        {
+            envVal = strtol(s, NULL, 10);
+            unpack = envVal;
+        }
+        else
+            unpack = 0;
 
         s = getenv("USE_CHUNK");
-        if ( s && isdigit((int)*s))
-            useChunk = 1;
+        
+        if ( s && isdigit((int)*s)) 
+        {   envVal = strtol(s, NULL, 10);
+            useChunk = envVal;
+        }
+        else
+            useChunk = 0;
 
         s = getenv("USE_GZIP");
-        if ( s && isdigit((int)*s))
-            useGZIP = 1;
+        if ( s && isdigit((int)*s)) 
+        {   envVal = strtol(s, NULL, 10);
+            useGZIP = envVal;
+        }
+        else
+            useGZIP = 0;
+
+        // USE_GZIP should always be between 0 through 9. Make sure this is the case.
+        if ( useGZIP < 0 || useGZIP > 9 )
+        {
+            FATAL_MSG("The environment variable USE_GZIP should be between 0 and 9 inclusive.\n\tIts current value is %d.\n", useGZIP);
+            goto cleanupFail;
+        }
 
     }
 
@@ -193,7 +215,7 @@ int main( int argc, char* argv[] )
     else printf("\n_____UNPACKING DISABLED_____\n");
     if ( useChunk ) printf("_____CHUNKING ENABLED_____\n");
     else printf("\n_____CHUNKING DISABLED_____\n");
-    if ( useGZIP ) printf("_____GZIP ENABLED_____\n");
+    if ( useGZIP ) printf("\n_____GZIP ENABLED -- LEVEL %d_____\n", useGZIP );
     else printf("\n_____GZIP DISABLED_____\n");
 
     /* remove output file if it already exists. Note that no conditional statements are used. If file does not exist,
