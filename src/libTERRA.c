@@ -34,9 +34,6 @@
         identifier).
 
     ARGUMENTS:
-        0. outdatasetName  -- The name that the output dataset will have. Can be set to NULL
-                              if the same name as the input is desired. NOTE that any non-alphaneumeric
-                              characters will be changed to '_' to comply with netCDF convention.
         1. outputFileID    -- A pointer to the file identifier of the output file.
         2. datasetGroup_ID -- A pointer to the group in the output file where the data is
                               to be written to.
@@ -53,8 +50,9 @@
                               data_out. Please refer to the HDF5 API specification under
                               the link "Predefined Datatypes."
         7. datasetName     -- A character string describing what the output dataset is to
-                              be named.
-i       8. data_out        -- A single dimensional array containing information of the
+                              be named. NOTE that any non-alphaneumeric characters will be 
+                              changed to '_' to comply with netCF convention.
+        8. data_out        -- A single dimensional array containing information of the
                               data to be written. This is passed as a void pointer because
                               the type of data contained in the array may vary between
                               function calls. The appropriate casting is applied in this
@@ -128,6 +126,51 @@ hid_t insertDataset(  hid_t const *outputFileID, hid_t *datasetGroup_ID, int ret
 
 }
 
+/*
+                        insertDataset_comp
+    DESCRIPTION:
+        This function is identical to the insertDataset() function with the addition of
+        enabling HDF compression. The compression level is set by the environment variable
+        USE_GZIP and can be an integer value from 1 to 9.
+
+    ARGUMENTS:
+        1. outputFileID    -- A pointer to the file identifier of the output file.
+        2. datasetGroup_ID -- A pointer to the group in the output file where the data is
+                              to be written to.
+        3. returnDatasetID -- An integer (boolean). 0 means do not return the identifier
+                              for the newly created dataset in the output file. In such
+                              a case, the function will close the identifier. Non-zero
+                              means return the identifier (and do not close it). In such
+                              a case, it will be the responsibility of the caller to close
+                              the identifier when finished.
+        4. rank            -- The rank (number of dimensions) of the array being written
+        5. datasetDims     -- A single dimension array of size rank describing the size
+                              of each dimension in the data_out array.
+        6. dataType        -- An HDF5 datatype describing the type of data contained in
+                              data_out. Please refer to the HDF5 API specification under
+                              the link "Predefined Datatypes."
+        7. datasetName     -- A character string describing what the output dataset is to
+                              be named. NOTE that any non-alphaneumeric characters will be 
+                              changed to '_' to comply with netCF convention.
+        8. data_out        -- A single dimensional array containing information of the
+                              data to be written. This is passed as a void pointer because
+                              the type of data contained in the array may vary between
+                              function calls. The appropriate casting is applied in this
+                              function.
+
+    EFFECTS:
+        The data_out array will be written under the group provided by datasetGroup_ID.
+        If returnDatasetID is non-zero, an identifier to the newly created dataset will
+        be returned.
+
+    RETURN:
+        Case 1 -- returnDatasetID == 0:
+            Returns FATAL_ERR upon an error.
+            Returns RET_SUCCESS upon successful completion.
+        Case 2 -- returnDatasetID != 0:
+            Returns FATAL_ERR upon an error.
+            Returns the identifier to the newly created dataset upon success.
+*/
 hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID,
                           int rank, hsize_t* datasetDims, hid_t dataType, char* datasetName, void* data_out)
 {
@@ -590,7 +633,7 @@ herr_t createOutputFile( hid_t *outputFile, char* outputFileName)
     *outputFile = H5Fcreate( outputFileName, H5F_ACC_EXCL, H5P_DEFAULT, H5P_DEFAULT );
     if ( *outputFile < 0 )
     {
-         FATAL_MSG("H5Fcreate -- Could not create HDF5 file. Does it already exist? If so, delete or don't\n\t    call this function.\n" );
+         FATAL_MSG("H5Fcreate -- Could not create HDF5 file. Does it already exist? If so, delete or don't\n\tcall this function.\n" );
         return FATAL_ERR;
     }
 
@@ -2095,6 +2138,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
         temp[i] = (hsize_t) dataDimSizes[i];
 
     outputDataType = H5T_NATIVE_FLOAT;
+
 #if 0
     short use_chunk = 0;
 
