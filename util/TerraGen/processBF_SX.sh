@@ -67,14 +67,14 @@ for i in $(seq 1 "$#"); do
 
         # Assert that USE_GZIP is an integer
         if ! [[ $USE_GZIP =~ $intREG ]]; then
-            echo "An integer between 1-9 must follow the --GZIP option!" > &2
+            echo "An integer between 1-9 must follow the --GZIP option!" >&2
             exit 1
         fi
 
         # Assert that USE_GZIP is between 1 through 9
         if [ $USE_GZIP -lt 1 -o $USE_GZIP -gt 9 ]; then
 
-            echo "An integer between 1-9 must follow the --GZIP option!" > &2
+            echo "An integer between 1-9 must follow the --GZIP option!" >&2
             exit 1
         fi
 

@@ -1101,7 +1101,7 @@ verifyFiles()
 #PS4='$LINENO: '
 
 if [ "$#" -ne 3 ]; then
-    echo "Usage: ./$0 [database file] [orbit number] [.txt output filepath]"
+    echo "Usage: $0 [database file] [orbit number] [.txt output filepath]"
     exit 0
 fi
 
