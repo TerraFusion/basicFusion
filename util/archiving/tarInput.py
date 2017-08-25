@@ -8,26 +8,24 @@ import os, sys
 import argparse
 import tarfile
 import subprocess
-from multiprocessing import Process
+from mpi4py import MPI
 
 def eprint( *args, **kwargs):
     print( *args, file=sys.stderr, **kwargs )
 
-def queryFiles( orbits, SQLqueries, args, tmpLoc, instr ):
+def queryFiles( orbitNum, SQLqueries, SQL_DB, tmpLoc, instr ):
     """         queryFiles
     DESCRIPTION:
-        This function handles the task of querying the SQLite database based on the list of orbits passed to it.
-        It only queries for a singular instrument and appends the result to a text file. This text file is
-        located at the path: [tmpLoc]/[orbitNum].txt. This function will also create n number of independent threads
-        for querying the database where n = number of orbits in the orbits list.
+        This function handles the task of querying the SQLite database for orbit orbitNum and for instrument instr.
+        It only queries for a singular instrument/orbit pair and appends the result to a text file. This text file is
+        located at the path: [tmpLoc]/[orbitNum].txt.
 
     ARGUMENTS:
-        orbits (list)           -- A Python list of integers denoting which orbits to query for.
+        orbitNum (int)          -- The orbit to query for
         SQLqueries (string)     -- A path to the queries.bash file. This file contains a series of SQLite calls
                                    wrapped inside of bash functions.
-        args (Namespace)        -- This object is what is returned by the ArgumentParser.parse_args() call. Each
-                                   member variable of this object is simply an argument passed to the whole script.
-                                   This function accesses the args.SQLite variable.
+        SQL_DB (string)         -- The path to the SQLite database on which the queries within SQLqueries will be
+                                   performed.
         tmpLoc (string)         -- This is a directory path to where the database query results will be stored.
         instr (string)          -- This is a 3 character string denoting which instrument to query for. The valid
                                    values are:
@@ -43,48 +41,39 @@ def queryFiles( orbits, SQLqueries, args, tmpLoc, instr ):
     procList = []
     
     if instr == "MOP":
-        for orbitNum in orbits:
-            # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
-            processCall = [ "bash", SQLqueries, "instrumentOverlappingOrbit", args.SQLite, str(orbitNum), "MOP" ]
+        # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
+        processCall = [ "bash", SQLqueries, "instrumentOverlappingOrbit", SQL_DB, str(orbitNum), "MOP" ]
 
-            with open("{}/{}.txt".format( tmpLoc, orbitNum), "a") as out:
-                procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
+        with open("{}/{}.txt".format( tmpLoc, orbitNum), "a") as out:
+            procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
             
     elif instr == "CER":
          
-        procList = []
-        for orbitNum in orbits:
             # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
-            processCall = [ "bash", SQLqueries, "instrumentOverlappingOrbit", args.SQLite, str(orbitNum), "CER" ]
+            processCall = [ "bash", SQLqueries, "instrumentOverlappingOrbit", SQL_DB, str(orbitNum), "CER" ]
 
             with open("{}/{}.txt".format(tmpLoc, orbitNum), "a") as out:
                 procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
             
     elif instr == "AST":
          
-        procList = []
-        for orbitNum in orbits:
             # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
-            processCall = [ "bash", SQLqueries, "instrumentStartingInOrbit", args.SQLite, str(orbitNum), "AST" ]
+            processCall = [ "bash", SQLqueries, "instrumentStartingInOrbit", SQL_DB, str(orbitNum), "AST" ]
 
             with open("{}/{}.txt".format(tmpLoc, orbitNum), "a") as out:
                 procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
             
     elif instr == "MIS":
-        procList = []
-        for orbitNum in orbits:
             # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
-            processCall = [ "bash", SQLqueries, "instrumentStartingInOrbit", args.SQLite, str(orbitNum), "MIS" ]
+            processCall = [ "bash", SQLqueries, "instrumentStartingInOrbit", SQL_DB, str(orbitNum), "MIS" ]
 
             with open("{}/{}.txt".format(tmpLoc, orbitNum), "a") as out:
                 procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
             
     elif instr == "MOD":
 
-        procList = []
-        for orbitNum in orbits:
             # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
-            processCall = [ "bash", SQLqueries, "instrumentInOrbit", args.SQLite, str(orbitNum), "MOD" ]
+            processCall = [ "bash", SQLqueries, "instrumentInOrbit", SQL_DB, str(orbitNum), "MOD" ]
 
             with open("{}/{}.txt".format(tmpLoc, orbitNum), "a") as out:
                 procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
@@ -115,7 +104,10 @@ def createTar( orbitNum, orbitFileList, outputDir ):
     """
 
     # Create a tar file
-    tar = tarfile.open("{}/{}archive.tar".format(outputDir, orbitNum), "w" )
+    try:
+        tar = tarfile.open("{}/{}archive.tar".format(outputDir, orbitNum), "w" )
+    except:
+        print("Failed to open tarfile.")
 
     with open( orbitFileList, "r" ) as f:
         for line in f:
@@ -123,6 +115,21 @@ def createTar( orbitNum, orbitFileList, outputDir ):
 
     tar.close()
  
+def findJobPartition( numProcess, orbits ):
+    processBin = [ 0 ] * numProcess     # Each element tells which process how many orbits it should handle
+    
+    pIndex = 0
+
+    # Loop through all the orbits to fill up the processBin
+    for i in xrange(0, len(orbits) ):
+        if ( pIndex == numProcess ):
+            pIndex = 0
+
+        processBin[pIndex] = processBin[pIndex] + 1
+        pIndex = pIndex + 1
+
+    return processBin
+
 def main():
     """
         main()
@@ -146,6 +153,7 @@ def main():
         0 for success
         Non-zero for failure
     """
+
     # Define the arguments this program can take
     parser = argparse.ArgumentParser()
 
@@ -161,6 +169,7 @@ def main():
     parser.add_argument("--query-loc", dest='queryLoc', help="Where the SQLite query results will be temporarily stored.\
                         This will default to /dev/shm if no value is provided.",\
                         type=str )
+
     args = parser.parse_args()
 
     # Check that some orbit information has been provided
@@ -200,6 +209,16 @@ def main():
     else:
         tmpLoc = args.queryLoc
 
+    # MPI VARIABLES
+    try:
+        comm = MPI.COMM_WORLD
+        rank = MPI.COMM_WORLD.Get_rank()
+        size = MPI.COMM_WORLD.Get_size()
+    except:
+        print("Failed to get MPI values.")
+
+    print("Rank {} reporting. Size {}".format(rank, size) )
+
     #__________END VARIABLES__________#
     
     # Prepare the orbit number list to process
@@ -217,46 +236,51 @@ def main():
                     return 1
 
                 orbits.append(integer)
+
     # The orbit file was not passed, so use the orbit start and orbit end parameters
     else:
         for x in range( args.oStart, args.oEnd + 1 ):
             orbits.append(x)
 
-    # Delete any temporary files if they exists
-    for orbit in orbits:
+
+    # Define which portions of the orbits list to work on using the MPI rank
+    processBin = findJobPartition( size, orbits )
+    # processBin is a list of size "size" (the MPI size) that tells each rank how many orbits it should handle.
+    # Each process knows how many every other process will handle. Using this information, we can figure out the
+    # start and end index of the orbits list that each rank will handle
+    startIndex = 0
+    endIndex = 0
+    for i in xrange( 0, rank ):
+        startIndex = startIndex + processBin[i]
+
+    endIndex = startIndex + processBin[rank] - 1
+
+    # For every orbit in the orbits list, query the SQLite database and save the result into a temporary file
+    pList = {}
+    
+    for i in xrange( startIndex, endIndex + 1 ): 
+        # Delete any temporary files if they exists
         try:
-            os.remove( "{}/{}.txt".format(tmpLoc, orbit) )
+            os.remove( "{}/{}.txt".format(tmpLoc, orbits[i] ) )
         except:
             pass
 
-    # For every orbit in the orbits list, query the SQLite database and save the result into a temporary file
-    queryFiles( orbits, SQLqueries, args, tmpLoc, "MOP" ) 
-    queryFiles( orbits, SQLqueries, args, tmpLoc, "CER" ) 
-    queryFiles( orbits, SQLqueries, args, tmpLoc, "AST" ) 
-    queryFiles( orbits, SQLqueries, args, tmpLoc, "MIS" ) 
-    queryFiles( orbits, SQLqueries, args, tmpLoc, "MOD" ) 
+        # Query for each instrument
+        for instr in ("MOP", "CER", "AST", "MIS", "MOD"):
+            queryFiles( orbits[i], SQLqueries, args.SQLite, tmpLoc, instr )
 
-    # We are ready to create the tar files
-    pList = {}
-    for orbit in orbits:
-        pList[orbit] = Process( target = createTar, args=(orbit, "{}/{}.txt".format(tmpLoc, orbit), args.OUT_DIR ) ) 
-        pList[orbit].start()
+        # We are ready to create the tar file for orbit orbits[i]
+        createTar( orbits[i], "{}/{}.txt".format(tmpLoc, orbits[i]), args.OUT_DIR )
 
-    # Wait for all of the processes to finish
-    for orbit in orbits:
-        pList[orbit].join()
+        # Delete the temporary file created by queryFiles
         
-    # Delete any temporary files if they exists
-    for orbit in orbits:
         try:
-            os.remove( "{}/{}.txt".format(tmpLoc, orbit) )
+            os.remove( "{}/{}.txt".format(tmpLoc, orbits[i] ) )
         except:
             pass
 
     return 0
 
 if __name__ == '__main__':
-    
-    p = Process(target=main)
-    p.start()
-    p.join()
+   
+    main() 
