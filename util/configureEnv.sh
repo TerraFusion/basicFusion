@@ -5,7 +5,7 @@ downloadPY()
     local BF_PATH_l="$1"
     local retVal_l
     local virtEnvName="BFpyEnv"
-    local globUtil="$BF_PATH/util/globus/globusTransfer.py"
+    local globUtil="K:$BF_PATH/util/globus/"
     mkdir -p "$BF_PATH_l"/externLib
     cd "$BF_PATH_l"/externLib
     
