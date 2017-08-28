@@ -5,7 +5,7 @@ downloadPY()
     local BF_PATH_l="$1"
     local retVal_l
     local virtEnvName="BFpyEnv"
-
+    local globUtil="K:$BF_PATH/util/globus/"
     mkdir -p "$BF_PATH_l"/externLib
     cd "$BF_PATH_l"/externLib
     
@@ -42,8 +42,25 @@ downloadPY()
         return $retVal_l
     fi
 
+    pip install globus-sdk
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the Globus SDK module." >&2
+        return $retVal_l
+    fi
+   
+    pip install mpi4py
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the mpi4py module." >&2
+        return $retVal_l
+    fi
+ 
+    # Add a .pth file so that the util/Globus script is in there
+    echo "$globUtil" > "$BF_PATH/externLib/$virtEnvName/lib/python2.7/site-packages/globUtil.pth"
     deactivate
 
+    
     echo "Python setup complete."
     echo
     return 0
@@ -56,22 +73,27 @@ downloadSched()
     local SCHED_URL_l
     local SCHED_PATH_l
     local retVal_l
-    SCHED_URL_l="$1"
-    SCHED_PATH_l="$2"
-
+    local SCHED_URL_l="$1"
+    local SCHED_PATH_l="$2"
     # Change to the required PrgEnv module
     oldPRGENV=$(module list | grep PrgEnv | cut -f3 -d" ")
     if [ ${#oldPRGENV} -ne 0 ]; then
-        module swap $oldPRGENV PrgEnv-gnu
-        retVal_l=$?
+        retVal_l=0
+        if [ $hn != "cg-gpu01" ]; then
+            module swap $oldPRGENV PrgEnv-gnu
+            retVal_l=$?
+        fi
         if [ $retVal_l -ne 0 ]; then
             echo "Failed to swap modules." >&2
             return $retVal_l
         fi
 
     else
-        module load PrgEnv-gnu
-        retVal_l=$?
+        retVal_l=0
+        if [ $hn != "cg-gpu01" ]; then
+            module load PrgEnv-gnu
+            retVal_l=$?
+        fi
         if [ $retVal_l -ne 0 ]; then
             echo "Failed to load the proper modules." >&2
             return $retVal_l
@@ -91,8 +113,16 @@ downloadSched()
 
     # Now need to compile the Fortran executable
     echo "Compiling Scheduler Fortran code..."
-    ftn -o scheduler.x scheduler.F90
-    retVal_l=$?
+    local hn=$(hostname)
+    if [ $hn == "cg-gpu01" ]; then              # ROGER's login hostname is cg-gpu01
+        module load mpich
+        mpif90 -o scheduler.x scheduler.F90
+        retVal_l=$?
+    else
+         ftn -o scheduler.x scheduler.F90
+        retVal_l=$?
+    fi
+
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to compile the Scheduler Fortran code." >&2
         return $retVal_l
@@ -113,6 +143,9 @@ ARGUMENTS:
 \t[-s | -p | -a]                -- -s to download just Scheduler
 \t                                 -p to download just the Python packages
 \t                                 -a to download both Scheduler and Python
+
+REQUIREMENTS:
+\tThis script requires that you have a properly-loaded  MPI module (MPICH is recommended). It also requires that you have a proper Fortran 90 MPI compiler. If Fortran fails to compile, please ensure this requirement is met, and possibly modify this script (downloadSched() function) so that the correct compiler is used.
 "
  
     while read -r line; do
@@ -174,9 +207,13 @@ else
 fi
 
 # Find if a proper programming environment is loaded
-PrgEnv=$(module list | grep PrgEnv)
-if [ ${#PrgEnv} -eq 0 ]; then
-    module load PrgEnv-cray
+
+hn=$(hostname)
+if [ $hn != "cg-gpu01" ]; then
+    PrgEnv=$(module list | grep PrgEnv)
+    if [ ${#PrgEnv} -eq 0 ]; then
+        module load PrgEnv-cray
+    fi
 fi
 
 if [ $DOWNLOAD_PY -eq 1 ]; then
@@ -192,5 +229,6 @@ fi
 if [ $DOWNLOAD_SCHED -eq 1 ]; then
     downloadSched "$SCHED_URL" "$SCHED_PATH"
 fi
+
 
 exit 0
