@@ -5,7 +5,7 @@ downloadPY()
     local BF_PATH_l="$1"
     local retVal_l
     local virtEnvName="BFpyEnv"
-
+    local globUtil="$BF_PATH/util/globus/globusTransfer.py"
     mkdir -p "$BF_PATH_l"/externLib
     cd "$BF_PATH_l"/externLib
     
@@ -48,9 +48,12 @@ downloadPY()
         echo "Failed to download the Globus SDK module." >&2
         return $retVal_l
     fi
-
+    
+    # Add a .pth file so that the util/Globus script is in there
+    echo "$globUtil" > "$BF_PATH/externLib/$virtEnvName/lib/python2.7/site-packages/globUtil.pth"
     deactivate
 
+    
     echo "Python setup complete."
     echo
     return 0
@@ -63,9 +66,8 @@ downloadSched()
     local SCHED_URL_l
     local SCHED_PATH_l
     local retVal_l
-    SCHED_URL_l="$1"
-    SCHED_PATH_l="$2"
-
+    local SCHED_URL_l="$1"
+    local SCHED_PATH_l="$2"
     # Change to the required PrgEnv module
     oldPRGENV=$(module list | grep PrgEnv | cut -f3 -d" ")
     if [ ${#oldPRGENV} -ne 0 ]; then
