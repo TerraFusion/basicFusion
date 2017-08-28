@@ -42,6 +42,13 @@ downloadPY()
         return $retVal_l
     fi
 
+    pip install globus-sdk
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the Globus SDK module." >&2
+        return $retVal_l
+    fi
+
     deactivate
 
     echo "Python setup complete."
@@ -91,7 +98,7 @@ downloadSched()
 
     # Now need to compile the Fortran executable
     echo "Compiling Scheduler Fortran code..."
-    ftn -o scheduler.x scheduler.F90
+    mpif90 -o scheduler.x scheduler.F90
     retVal_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to compile the Scheduler Fortran code." >&2
@@ -192,5 +199,6 @@ fi
 if [ $DOWNLOAD_SCHED -eq 1 ]; then
     downloadSched "$SCHED_URL" "$SCHED_PATH"
 fi
+
 
 exit 0
