@@ -9,6 +9,7 @@ import argparse
 import tarfile
 import subprocess
 from mpi4py import MPI
+import globusTransfer as globus
 
 def eprint( *args, **kwargs):
     print( *args, file=sys.stderr, **kwargs )
