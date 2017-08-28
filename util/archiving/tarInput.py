@@ -116,6 +116,24 @@ def createTar( orbitNum, orbitFileList, outputDir ):
     tar.close()
  
 def findJobPartition( numProcess, orbits ):
+    """         findJobPartition()
+    
+    DESCRIPTION:
+        This function determines which MPI jobs will be responsible for how many orbits. It loops through the
+        list "orbits" and increments each element in the "processBin" list, up to len(orbits) number of orbits.
+    
+    ARGUMENTS:
+        numProcess (int)        -- The number of MPI processes (i.e. the number of bins to fill with orbits)
+        orbits (list: int)      -- A list containing all of the Terra orbits that need to be processed.
+
+    EFFECTS:
+        None
+
+    RETURN:
+        Returns a list of size numProcess. Each element in the list tells how many orbits each MPI process will
+        handle.
+    """
+
     processBin = [ 0 ] * numProcess     # Each element tells which process how many orbits it should handle
     
     pIndex = 0
@@ -169,6 +187,7 @@ def main():
     parser.add_argument("--query-loc", dest='queryLoc', help="Where the SQLite query results will be temporarily stored.\
                         This will default to /dev/shm if no value is provided.",\
                         type=str )
+    #parser.add_argument(
 
     args = parser.parse_args()
 
