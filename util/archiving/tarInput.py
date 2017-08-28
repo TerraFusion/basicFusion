@@ -175,7 +175,7 @@ def main():
     # Define the arguments this program can take
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--orbit-file", dest='orbitFile', help="Path to the text file containing the orbits to process.")
+    parser.add_argument("--orbit-file", "-o", dest='orbitFile', help="Path to the text file containing the orbits to process.")
     parser.add_argument("SQLite", help="The SQLite database containing input HDF Terra files.")
     parser.add_argument("OUT_DIR", help="Where the output tar files will reside.")
     parser.add_argument("--O_START", dest='oStart', \
@@ -187,11 +187,16 @@ def main():
     parser.add_argument("--query-loc", dest='queryLoc', help="Where the SQLite query results will be temporarily stored.\
                         This will default to /dev/shm if no value is provided.",\
                         type=str )
-    #parser.add_argument(
+    parser.add_argument("--globEndID", dest='globEndID', help="When this option is enabled, all of the resultant \
+                        tarred files will be transferred to this Globus endpoint. This option must be used in conjunction with \
+                        the --globDestDir to specify what directory the tar files will reside.", type=str )
+    parser.add_argument("--globDestDir", dest='globDir', help="When this option is enabled, all of the resultant tarred files \
+                        will be transferred to this directory at the Globus endpoint. This option must be used in conjunction \
+                        with the --globEndID option to specify which Globus endpoint to transfer to.", type=str )
 
     args = parser.parse_args()
 
-    # Check that some orbit information has been provided
+    # Check that the arguments passed to script are valid
     if args.orbitFile:
         if args.oStart or args.oEnd:
             eprint("ERROR: --O_START and --O_END cannot be present if --orbit-file is given!")
@@ -206,6 +211,15 @@ def main():
             eprint("ERROR: --O_END must be >= --O_START!")
             return 1
 
+    if args.globEndID:
+        if not args.globDir:
+            eprint("ERROR: --globEndID must be used in conjunction with --globDestDir!")
+            return 1
+    if args.globDir:
+        if not args.globEndID:
+            eprint("ERROR: --globDestDir must be used in conjunction with --globEndID!")
+            return 1
+    
     #______________VARIABLES_______________#
     
     # Get the absolute path of this script
