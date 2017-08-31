@@ -2,7 +2,7 @@
 @author : Shashank Bansal
 @email : sbansal6@illinois.edu
 
-Date : July 10, 2017
+Date : June 22, 2017
 
 """
 
@@ -12,6 +12,20 @@ import thread
 import multiprocessing
 import sys
 
+""" 
+		DESCRIPTION:
+			There are 5 main functions in the code. 
+			1. MODIS_Corrupt
+			2. MOPITT_Corrupt
+			3. MISR_Corrupt
+			4. CERES_Corrupt
+			5. ASTER_Corrupt
+
+			All of them essentially use the same tool to check for corrupt files. The main idea is to go into each directory and check 
+			each file using "hdp dumpsds -h" command. Also MOPITT_Corrupt uses "ncdump" instead of "hdp dumpsds" because MOPITT contains
+			.he5 files and not.hdf files.
+			
+	"""
 
 #python Corrupt_Files_all.py -r /projects/TDataFus/gyzhao/TF/data/MODIS/MOD021KM /home/sbansal6/File_Verification_Scripts/MODIS_Corrupt/MODIS_Corrupt_Check_MOD021KM_2009_1.txt 2009 1
 def main():
@@ -127,6 +141,21 @@ def arguments():
 #this returns the range of days for the value of monthR in MODIS
 def get_range(month):
 
+	""" DESCRIPTION:
+			This divides the 365 days and assigns a range to each value between [1 15]. This was done to parallelize code for 
+			each year. This basically divides up the days of the year into 15 smaller ranges. 
+
+		ARGUMENTS:
+			month (int)			--this is a number between [1 15]
+		
+		EFFECTS:
+			None
+		
+		RETURN:
+			The range assigned to each number. 
+			
+	"""
+
 	if month == 1: 
 		return [1, 23]
 	elif month == 2:
@@ -161,6 +190,26 @@ def get_range(month):
 
 def MODIS_Corrupt(dirpath, logfile, YEAR, monthR):
 
+
+	""" 
+		DESCRIPTION:
+			This function is to find the all the corrupt files for MODIS. It uses hdp dumpsds -h command on each file in 
+			MODIS directory and checks if they are corrupt or not. 
+
+		ARGUMENTS:
+			dirpath (str)		--this is path to the MODIS directory where the files are stored. This is provided by the user.
+			logfile (str)		--this is the path to the logfile where the function will write the names of all the corrupt files. 
+			YEAR (str)			--this is the year for which you wish to perform the corrupt_file check for. 
+			monthR (str)		--this is a number in range [1 15]
+		
+		EFFECTS:
+			None
+		
+		RETURN:
+			Doesnot return anything but writes the names of the corrupt files in the logfile.
+			
+	"""
+
 	fileCheck = open(logfile, "w").close()
 	fileCheck = open(logfile, "w")
 	
@@ -170,11 +219,12 @@ def MODIS_Corrupt(dirpath, logfile, YEAR, monthR):
 	Range = get_range(int(monthR))
 	daylist = []
 
-
+	#this makes a range of days to check through depending on monthR[1, 15]
 	for i in range(Range[0], Range[1]):
 		daylist.append(i)
 		
 	dirPath = os.path.join(dirpath, YEAR)
+	
 	#entering the year to be checked (day number)
 	for fname in os.listdir(dirPath):
 		if(os.listdir(os.path.join(dirPath, fname)) == []):
@@ -184,18 +234,19 @@ def MODIS_Corrupt(dirpath, logfile, YEAR, monthR):
 		else:
 			#this makes sure that we do not enter an empty directory
 			if fname not in emptydir and int(fname) in daylist:
-				#print(fname)
 				inPath = os.path.join(dirPath, fname)
 
+				#filename is the hdf-file in each day
 				for filename in os.listdir(inPath):
-					#print(filename)
 					hdfinfo = os.stat(os.path.join(inPath, filename))
 
+					#makes a list of all the zero size hdf-files
 					if(hdfinfo.st_size == 0):
 						zero_size[filename] = True
 
+					#checks for corrupt file
 					else:
-						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, filename)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
+						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, filename)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 						retval = strin.communicate()
 						retval1 = strin.returncode
 						if int(retval1) != 0:
@@ -251,7 +302,7 @@ def MOPITT_Corrupt(dirpath, logfile, YEAR):
 						zero_size[fname] = True
 
 					else:
-						strin = subprocess.Popen(["ncdump", "-h", os.path.join(inPath, fname)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
+						strin = subprocess.Popen(["ncdump", "-h", os.path.join(inPath, fname)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 						retval = strin.communicate()
 						retval1 = strin.returncode
 						#print(retval1)
@@ -294,16 +345,13 @@ def MISR_Corrupt(dirpath, logfile, YEAR, month):
 			for fname in os.listdir(inPath):
 				if fname.endswith('.hdf'):
 
-					#print(fname)
-
-
 					hdfinfo = os.stat(os.path.join(inPath, fname))
 
 					if(hdfinfo.st_size == 0):
 						zero_size[fname] = True
 
 					else:
-						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, fname)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
+						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, fname)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 						retval = strin.communicate()
 						retval1 = strin.returncode
 						#print(retval1)
@@ -321,12 +369,12 @@ def CERES_Corrupt(dirpath, logfile, YEAR):
 	yearpath = os.path.join(dirpath, year)
 
 	for cerfile in os.listdir(yearpath):
+
+		#there were some .met files in CERES which were not required to be checked and shouldn't have been there
 		if not cerfile.endswith('.met'):
-			#print(cerfile)
 			strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(yearpath, cerfile)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
 			retval = strin.communicate()
 			retval1 = strin.returncode
-			#print retval1
 			if int(retval1) != 0:
 				fileCheck.write(os.path.join(yearpath, cerfile) + '\n')
 
@@ -350,7 +398,103 @@ def ASTER_Corrupt(dirpath, logfile, YEAR, month):
 
 			elif(m>=10 and d < 10):
 				dateStr.append(year + '.' + str(m) + '.0' + str(d))
-			else:
+			else:"""
+2
+@author : Shashank Bansal
+3
+@email : sbansal6@illinois.edu
+4
+​
+5
+Date : July 10, 2017
+6
+​
+7
+"""
+8
+​
+9
+import subprocess 
+10
+import os
+11
+import thread
+12
+import multiprocessing
+13
+import sys
+14
+​
+15
+​
+16
+#python Corrupt_Files_all.py -r /projects/TDataFus/gyzhao/TF/data/MODIS/MOD021KM /home/sbansal6/File_Verification_Scripts/MODIS_Corrupt/MODIS_Corrupt_Check_MOD021KM_2009_1.txt 2009 1
+17
+def main():
+18
+​
+19
+        if not len(sys.argv) > 1:
+20
+                usage()
+21
+​
+22
+        elif sys.argv[1] == '-h' or sys.argv[1] == '-help':
+23
+                help()
+24
+​
+25
+        elif sys.argv[1] == '-a':
+26
+                arguments()
+27
+​
+28
+        elif sys.argv[1] == '-r':
+29
+                if len(sys.argv) <= 6:
+30
+                        arguments()
+31
+                else:
+32
+                        instr = sys.argv[2]
+33
+                        dirpath = sys.argv[3]
+34
+                        logfile = sys.argv[4]
+35
+                        year = sys.argv[5]
+36
+                        
+37
+                        if instr == 'MOPITT' or instr == 'mopitt':
+38
+                                MOPITT_Corrupt(dirpath, logfile, year)
+39
+        
+40
+                        
+41
+                        elif instr == 'MISR' or instr == 'misr':
+42
+                                month = sys.argv[6]
+43
+                                MISR_Corrupt(dirpath, logfile, year, month)
+44
+        
+45
+                        
+46
+                        elif instr == 'CERES' or instr == 'ceres':
+47
+                                CERES_Corrupt(dirpath, logfile, year)
+48
+​
+49
+                        
 				dateStr.append(year + '.' + str(m) + '.' + str(d))
 
 
@@ -362,12 +506,8 @@ def ASTER_Corrupt(dirpath, logfile, YEAR, month):
 			dateStr.remove(date)
 			inPath = os.path.join(dirpath, date)
 
-			#print(date)
 			for fname in os.listdir(inPath):
 				if fname.endswith('.hdf'):
-
-					#print(fname)
-
 
 					hdfinfo = os.stat(os.path.join(inPath, fname))
 
@@ -375,7 +515,7 @@ def ASTER_Corrupt(dirpath, logfile, YEAR, month):
 						zero_size[fname] = True
 
 					else:
-						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, fname)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
+						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, fname)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 						retval = strin.communicate()
 						retval1 = strin.returncode
 						#print(retval1)
