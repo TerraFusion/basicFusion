@@ -33,8 +33,6 @@ def main():
 	else:
 		usage()
 
-
-	
 	#dirpath = '/home/sbansal6/inputFiles/2013'
 	#logfile = '/home/sbansal6/logfiles/CERES_Cont_Check.txt'
 	
@@ -89,9 +87,24 @@ def arguments():
 def run(dirpath, logfile):
 	Continuity_Check(dirpath, logfile)
 
-#checks if the file missing from the input file actually exists
-#in the database
+
 def Existence_Check(checkdirpath, filename):
+
+	""" DESCRIPTION:
+			This function checks if the missing files received from Continuity_Check actually exist in the database.
+			If the file does not exist even in the database then it is removed from the missing file list. 
+
+		ARGUMENTS:
+			checkdirpath (str)			--path to dir where the file is suppose to be existing
+			filename (str) 				--name of the file that has been logged as missing by Continuity_Check(dirpath, logfile)
+		
+		EFFECTS:
+			None
+		
+		RETURN:
+			True if the file exists else False.  
+			
+	"""
 	if os.path.exists(checkdirpath):
 		for hdffile in os.listdir(checkdirpath):
 			if(filename == hdffile):
@@ -103,6 +116,22 @@ def Existence_Check(checkdirpath, filename):
 
 
 def Continuity_Check(dirpath, logfile):
+
+
+	""" DESCRIPTION:
+			This function is used to check if their is any discontinuity/missing FM1 or FM2 hour in the inputFile.txt.
+
+		ARGUMENTS:
+			dirpath (str)			--absolute path to the inputFiles
+			logfile (str)			--text file to which all the missing files are written 
+		
+		EFFECTS:
+			None
+		
+		RETURN:
+			This does not return anything but writes all the missing filenames to a logfile. 
+			
+	"""
 
 	contCheck = open(logfile, "w").close()
 	contCheck = open(logfile, "w")
