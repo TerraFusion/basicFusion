@@ -1,1 +1,1 @@
-This directory is where some of the external dependencies for the BF program will reside. Note that by default, this directory is empty. The external dependencies are added by the user either directly or by running configuration scripts.
+This directory is where some of the external dependencies for the BF program will reside. Note that by default, this directory is empty. The external dependencies are added by the user either directly or by running configuration scripts such as configureEnv.sh.
