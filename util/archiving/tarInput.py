@@ -175,6 +175,7 @@ def main():
     # Define the arguments this program can take
     parser = argparse.ArgumentParser()
 
+    # --orbit-file is not implemented yet
     parser.add_argument("--orbit-file", "-o", dest='orbitFile', help="Path to the text file containing the orbits to process.")
     parser.add_argument("SQLite", help="The SQLite database containing input HDF Terra files.")
     parser.add_argument("OUT_DIR", help="Where the output tar files will reside.")
@@ -186,21 +187,19 @@ def main():
                         type=int )
     parser.add_argument("--query-loc", dest='queryLoc', help="Where the SQLite query results will be temporarily stored.\
                         This will default to /dev/shm if no value is provided.",\
-                        type=str )
-    parser.add_argument("--globEndID", dest='globEndID', help="When this option is enabled, all of the resultant \
-                        tarred files will be transferred to this Globus endpoint. This option must be used in conjunction with \
-                        the --globDestDir to specify what directory the tar files will reside.", type=str )
-    parser.add_argument("--globDestDir", dest='globDir', help="When this option is enabled, all of the resultant tarred files \
-                        will be transferred to this directory at the Globus endpoint. This option must be used in conjunction \
-                        with the --globEndID option to specify which Globus endpoint to transfer to.", type=str )
+                        type=str, default="/dev/shm/" )
 
     args = parser.parse_args()
 
+    # TODO: Uncomment the below code when the --orbit-file argument is finally implemented
     # Check that the arguments passed to script are valid
     if args.orbitFile:
+        raise NotImplementedError('--orbit-file parameter not implemented!')
+
         if args.oStart or args.oEnd:
             eprint("ERROR: --O_START and --O_END cannot be present if --orbit-file is given!")
             return 1
+    
     if not args.orbitFile:
         if not args.oStart or not args.oEnd:
             eprint("ERROR: If --orbit-file isn't given, both --O_START and --O_END must be given!")
@@ -210,16 +209,7 @@ def main():
         if not args.oEnd >= args.oStart:
             eprint("ERROR: --O_END must be >= --O_START!")
             return 1
-
-    if args.globEndID:
-        if not args.globDir:
-            eprint("ERROR: --globEndID must be used in conjunction with --globDestDir!")
-            return 1
-    if args.globDir:
-        if not args.globEndID:
-            eprint("ERROR: --globDestDir must be used in conjunction with --globEndID!")
-            return 1
-    
+ 
     #______________VARIABLES_______________#
     
     # Get the absolute path of this script
@@ -237,20 +227,13 @@ def main():
     # Get the queries.bash path
     SQLqueries = BF_PATH + "metadata-input/queries.bash"
     # Where to store the temporary SQL queries. The default is "/dev/shm", a RAM filesystem mount.
-    if not args.queryLoc:
-        tmpLoc = "/dev/shm"
-    else:
-        tmpLoc = args.queryLoc
+    tmpLoc = args.queryLoc
 
     # MPI VARIABLES
-    try:
-        comm = MPI.COMM_WORLD
-        rank = MPI.COMM_WORLD.Get_rank()
-        size = MPI.COMM_WORLD.Get_size()
-    except:
-        print("Failed to get MPI values.")
+    comm = MPI.COMM_WORLD
+    rank = MPI.COMM_WORLD.Get_rank()
+    size = MPI.COMM_WORLD.Get_size()
 
-    print("Rank {} reporting. Size {}".format(rank, size) )
 
     #__________END VARIABLES__________#
     

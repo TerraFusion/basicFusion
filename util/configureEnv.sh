@@ -42,6 +42,13 @@ downloadPY()
         return $retVal_l
     fi
 
+    pip install globus-cli
+    retVal_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the Globus CLI." >&2
+        return $retVal_l
+    fi
+
     deactivate
 
     echo "Python setup complete."

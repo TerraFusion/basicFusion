@@ -2,6 +2,7 @@ import globus_sdk
 import os.path
 import argparse
 import time
+import sys
 
 BW_ENDPOINT = 'd59900ef-6d04-11e5-ba46-22000b92c6ec'
 NL_ENDPOINT = 'd599008e-6d04-11e5-ba46-22000b92c6ec'
@@ -10,17 +11,11 @@ NL_ENDPOINT = 'd599008e-6d04-11e5-ba46-22000b92c6ec'
 # related to transferring data between two enpoints can be performed.
 
 class globusTransfer:
-    def __init__( self, sourceEndpoint_a, destEndpoint_a, refreshPath_a='./refresh.txt', clientIDPath_a='./clientID.txt'):
+    def __init__( self, sourceEndpoint_a, destEndpoint_a, refreshPath_a= os.path.abspath( os.path.dirname(sys.argv[0])) + '/refresh.txt', \
+                  clientIDPath_a= os.path.abspath( os.path.dirname(sys.argv[0])) + '/clientID.txt'):
         self._sourceEndpoint = sourceEndpoint_a
         self._destEndpoint = destEndpoint_a
 
-        # Begin the authorization 
-        retAuth = self._authTransferStart()
-
-        # The transfer client where API calls will be made
-        self._transClient = retAuth['tc']
-        # The authorizer, just in case we need to reauthorize to the API
-        self._authorizer = retAuth['authorizer']
 
         # How many concurent Globus calls should be made
         self._parallelism = 1
@@ -37,6 +32,14 @@ class globusTransfer:
         self._refreshPath = refreshPath_a
         self._clientIDPath = clientIDPath_a
 
+        # Begin the authorization 
+        retAuth = self._authTransferStart()
+
+        # The transfer client where API calls will be made
+        self._transClient = retAuth['tc']
+        # The authorizer, just in case we need to reauthorize to the API
+        self._authorizer = retAuth['authorizer']
+    
     # Perform an ls operation
     def ls ( self, endPoint_a, path_a ):    
         for entry in self._transClient.operation_ls( endPoint_a, path = path_a ):
@@ -95,7 +98,7 @@ class globusTransfer:
             authorizer (RefreshTokenAuthorizer)         -- The Authorizer object from Globus used to create the transfer
                                                            client.
         """
-        if not os.path.isfile(CLIENT_ID_PATH):
+        if not os.path.isfile( self._clientIDPath ):
             URL="http://globus-sdk-python.readthedocs.io/en/latest/tutorial/"
             print("Please go to this URL and follow steps 1 and 2 to obtain a Client ID: {}".format(URL))
             self._clientID = raw_input("Please enter the Client ID: ")
@@ -226,33 +229,15 @@ class globusTransfer:
         # The last thread will handle the remaining number of entries in _dataList. This is just the modulus operator
         numEntriesLast = len( self._dataList ) % self._parallelism
 
-        j = 0
-
-        if self._parallelism == 1:
-            for i in range ( 0, entriesPerThread + numEntriesLast ):
-                entry = self._dataList[j]
-                self._transferData[i].add_item( entry["source"], entry["dest"] )
-                # Increment the dataList index
-                j = j + 1
-
-        else:
-            for i in range( 0 , self._parallelism ):
-                if i < self._parallelism - 1:
-                    for w in range ( 0, entriesPerThread ):
-                        # Grab the entry source the data list
-                        entry = self._dataList[j]
-                        # Add this entry to this thread's list of files to transfer
-                        self._transferData[i].add_item( entry["source"], entry["dest"] )
-                        # Increment the dataList index
-                        j = j + 1
-                elif i == self._parallelism - 1: 
-                    # The last thread...
-                    for w in range ( 0, numEntriesLast ):
-                        entry = self._dataList[j]
-                        self._transferData[ i ].add_item( entry["source"], entry["dest"] )
-                        # Increment the dataList index
-                        j = j + 1
-
+        i = 0
+        for j in xrange( 0, len( self._dataList ) ):
+            if ( i >= self._parallelism ):
+                i = 0
+            entry = self._dataList[j]
+            # Add this entry to this thread's list of files to transfer
+            self._transferData[i].add_item( entry["source"], entry["dest"] )
+            # Increment the transfer thread
+            i = i + 1
        
         # We now have a list of all the files to transfer ready to pass to the Globus API
         for i in range( 0, self._parallelism ):
@@ -324,21 +309,21 @@ class globusTransfer:
         """
         for i in xrange( 0, len( self._transferResult ) ):
             transInfo = self._transferResult[i]
-            print("Pausing for Globus transfer task: {}".format( transInfo['submission_id'] ) )
-            startTime = time.time()
+            print("Pausing for Globus transfer task: {}".format( transInfo['task_id'] ) )
             # Iterate through every transfer task that was initiated and wait until they complete.
             # By default, task_wait polls Globus servers every 10 seconds (polling_interval=10). Will
             # timeout after 'timeout' number of seconds. While loop keeps interating until the task is complete.
             # NOTE that for large transfers, this can take a very, very long time!!!
-            while not self._transClient.task_wait( transInfo['submission_id'], timeout=60 ):
+            while not self._transClient.task_wait( transInfo['task_id'], timeout=60 ):
                 pass
 
-            print("Transfer task {} completed.".format( transInfo['submission_id'] ) )
-            print("Took {} seconds.".format( time.time() - startTime ) )
+            print("Transfer task {} completed.".format( transInfo['task_id'] ) )
             
 def main():
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="This script handles transferring a single-level directory through the Globus API. \
+                                    This script can only be used to transfer files. It will fail if there are any directories within \
+                                    the SRC_DIR directory. Manual user interaction may be needed to log into the Globus servers.")
     parser.add_argument("SRC_ENDPOINT", help="The source Globus Endpoint ID.", type=str )
     parser.add_argument("DEST_ENDPOINT", help="The destination Globus Endpoint ID", type=str )
     parser.add_argument("SRC_DIR", help="The source directory to recursively transfer. NOTE that only the contents of \
@@ -350,18 +335,27 @@ def main():
                         program.", action='store_true')
     parser.add_argument("--parallelism", help="Define how many Globus transfer requests to submit at one time. Note that by default, \
                         Globus will not allow more than 3 active transfers at once. This value defaults to 3.", type=int, default=3 )
+    parser.add_argument("--check-login", dest="checkLogin", \
+                        help="Use this option to ensure that all Globus credentials are in order. This step is implicitly performed \
+                        any time the script is run, but explicitly giving this command forces the script to ONLY run the log-in checks. \
+                        It may be the case that no login actions will need to be performed. Note that valid values must still be supplied \
+                        for the positional arguments SRC_ENDPOINT and DEST_ENDPOINT, but the SRC and DEST_DIR may be junk values.", \
+                        action='store_true' )
 
     args = parser.parse_args()
 
     transfer = globusTransfer( args.SRC_ENDPOINT, args.DEST_ENDPOINT )
-    # Define the parallelism
-    transfer.parallelism( args.parallelism )
-    transfer.addDir( args.SRC_DIR, args.DEST_DIR)
-    #transfer.mkdir( BW_ENDPOINT, '/scratch/sciteam/clipp/BFoutput/2014' )
-    transfer.executeTransfer()
- 
-    if args.wait:
-       transfer.transferWait()
+    if not args.checkLogin:
+        # Define the parallelism
+        transfer.parallelism( args.parallelism )
+        transfer.addDir( args.SRC_DIR, args.DEST_DIR)
+        #transfer.mkdir( BW_ENDPOINT, '/scratch/sciteam/clipp/BFoutput/2014' )
+        transfer.executeTransfer()
+     
+        if args.wait:
+           transfer.transferWait()
+    else:
+        print("Globus login checks complete.")
  
 if __name__ == '__main__':
     main()
