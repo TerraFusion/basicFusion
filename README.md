@@ -47,22 +47,33 @@ A suite of scripts have been written under `basicFusion/metadataInput/build` to 
 
 The `/path/to/inputfiles` directory MUST contain the following subdirectories inside: ASTER, MISR, MOPITT, MODIS, CERES. This script will parse each of these subdirectories for all of the available files. This script can take some time to generate depending on the total size of the input data.
 
-This shell script uses a Python script called **fusionBuildDB** to parse the listing of all available files and then generate the SQLite database. This script is run using the Python Virtual Environment created during the **Installation** section.
+**NOTE!!!**: This shell script uses a Python script called **fusionBuildDB** to parse the listing of all available files and then generate the SQLite database. This script is run using the Python Virtual Environment created during the **Installation** section. IT IS REQUIRED that you follow the Installation section first to ensure that the virtual environment is installed.
 
 ## Input File Listing Generation
 ### Blue Waters
-Once the database has been generated, we need to generate all of the input file listings as required by the basicFusion program itself. These files tell the BF program which input HDF files to process. Under `basicFusion/metadata-input/genInput`, the genInputRange_SX.sh script can generate any range of input files. This range is specified by starting orbit and ending orbit. Because the process of querying the database is very slow, the execution of these queries on the compute nodes is necessary.
+Once the database has been generated, we need to generate all of the input file listings as required by the basicFusion program itself. These files tell the BF program which input HDF files to process. 
+
+#### Generate a single input file
+Under `basicFusion/metadata-input/genInput`, the genFusionInput.sh script generates one single BasicFusion input file list. This script requires the SQLite database built in the Database Generation section for file querying. An example of how to run this script:
+
+`./genFusionInput.sh /path/to/SQLiteDB.sqlite 69400 /path/to/outputList.txt`
+
+Your resulting input file list will be a properly formatted, canonical BasicFusion input file list.
+
+#### Generate a range of input files
+Under `basicFusion/metadata-input/genInput`, the genInputRange_SX.sh script can generate any range of input files. This range is specified by starting orbit and ending orbit. Because the process of querying the database is very slow, the execution of these queries on the compute nodes is necessary. This script will automatically handle submitting the database queries to the Blue Waters job queue.
+
 An example of how to invoke this script:
 
 ```
-./genInputRange_SX.sh /path/to/SQLiteDB.sqlite 69400 70000 /path/to/output
+./genInputRange_SX.sh /path/to/SQLiteDB.sqlite 69400 70000 /path/to/output/dir
 ```
 
 Use `qstat | grep [your username]` to see the status of your jobs.
 
 Based on the orbit start and end times, as well as the parameters set inside of the script (max job size etc.), it determines how many resources to request of the Blue Waters TORQUE resource manager. It will then generate all of the necessary files for parallel computation in the `basicFusion/jobFiles/BFinputGen` directory and submit its jobs to the queue. The resultant output files will reside in your `/path/to/output` directory.
 
-NOTE: Inside the genInputRange_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. For most purposes, the default values should work fine.
+**NOTE!!!**: Inside the genInputRange_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. For most purposes, the default values should work fine. **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
 
 ## Compilation
 ### Blue Waters
