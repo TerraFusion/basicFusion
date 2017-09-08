@@ -30,7 +30,11 @@ In addition to the HDF libraries, the Basic Fusion program is also dependent on 
     git clone https://YOUR_GITHUB_USERNAME@github.com/TerraFusion/basicFusion
     ```
 1. cd into the `basicFusion/util` directory
-1. Configure the external dependencies by running the configureEnv.sh script. This script handles downloading and setting up the Python dependencies used by the database generation scripts, as well as NCSA's Scheduler program used for parallel execution of the Basic Fusion code. Run `./configureEnv.sh` to see what arguments it needs to run. Use the -a flag to download everything:
+1. Configure the external dependencies by running the configureEnv.sh script. This script handles downloading and setting up the Python dependencies used by the database generation scripts, as well as NCSA's Scheduler program used for parallel execution of the Basic Fusion code. 
+    _REQUIREMENTS_: The following requirements need to be met for configureEnv.sh to properly work.
+    - Ensure that you have an MPI module loaded (mpich is recommended)
+
+Run `./configureEnv.sh` to see what arguments it needs to run. Use the -a flag to download everything:
     ```
     ./configureEnv.sh -a
     ```
