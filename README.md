@@ -44,7 +44,9 @@ In addition to the HDF libraries, the Basic Fusion program is also dependent on 
 
 ## Database generation
 ### Blue Waters
-A suite of scripts have been written under `basicFusion/metadataInput/build` to generate the SQLite database of all the input HDF granules. Run the findThenGenerate.sh script to: 1. Discover all of the input HDF files available and 2. Build the SQLite database from this list.
+A suite of scripts have been written under `basicFusion/metadataInput/build` to generate the SQLite database of all the input HDF granules. Run the findThenGenerate.sh script to:  
+1. Discover all of the input HDF files available and  
+2. Build the SQLite database from this list.
 
 ```
 ./findThenGenerate /path/to/inputfiles /path/to/output/SQLiteDB.sqlite
