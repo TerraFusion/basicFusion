@@ -40,7 +40,7 @@ In addition to the HDF libraries, the Basic Fusion program is also dependent on 
         ./configureEnv.sh -a
         ```
     This will download the dependencies to the basicFusion/externLib directory.
-1. Check your basicFusion/externLib directory to make sure that the BFpyEnv and Scheduler directories have been made. If so, then the programming environment has been successfully created.
+1. Check the output of configureEnv.sh. If it completed without any errors, the dependencies were successfully created.
 
 ## Database generation
 ### Blue Waters
