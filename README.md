@@ -49,10 +49,10 @@ A suite of scripts have been written under `basicFusion/metadataInput/build` to 
 2. Build the SQLite database from this list.
 
 ```
-./findThenGenerate /path/to/inputfiles /path/to/output/SQLiteDB.sqlite
+./findThenGenerate /path/to/inputfiles
 ```
 
-The `/path/to/inputfiles` directory MUST contain the following subdirectories inside: ASTER, MISR, MOPITT, MODIS, CERES. This script will parse each of these subdirectories for all of the available files. This script can take some time to generate depending on the total size of the input data.
+The `/path/to/inputfiles` directory MUST contain the following subdirectories inside: ASTER, MISR, MOPITT, MODIS, CERES. This script will parse each of these subdirectories for all of the available files. This script can take some time to generate depending on the total size of the input data. The SQLite database will be saved as basicFusion/metadata-input/accesslist.sqlite
 
 **NOTE!!!**: This shell script uses a Python script called **fusionBuildDB** to parse the listing of all available files and then generate the SQLite database. This script is run using the Python Virtual Environment created during the **Installation** section. IT IS REQUIRED that you follow the Installation section first to ensure that the virtual environment is installed.
 
