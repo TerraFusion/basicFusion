@@ -137,7 +137,7 @@ if [ $# -ne 1 ]; then
     description="
 DESCRIPTION:
 
-\tThis script generates the environment necessary to run all of the BasicFusion scripts. Namely, the two main dependencies are certain Python modules (for the database generation) and NCSA's Scheduler program. This handles downloading and configuring all of the dependencies. This script only works on Blue Waters.
+\tThis script generates the environment necessary to run all of the BasicFusion scripts. Namely, the two main dependencies are certain Python modules (for the database generation) and NCSA's Scheduler program. This handles downloading and configuring all of the dependencies.
 
 ARGUMENTS:
 \t[-s | -p | -a]                -- -s to download just Scheduler
