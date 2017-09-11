@@ -4,7 +4,7 @@
 # @email: clipp2@illinois.edu
 usage(){
 
-    description="Usage: $0 [SQLite database] [Out dir] [SrcID] [DestID] [DestDir] [Ostart] [Oend]
+    description="Usage: $0 [SQLite database] [Out dir] [SrcID] [DestID] [DestDir] [Ostart] [Oend] [--nodes NODES]
 
 DESCRIPTION:
 \tThis script handles tarring all of the input Basic Fusion files and then transferring them to NCSA Nearline.
@@ -17,6 +17,9 @@ DESCRIPTION:
 \tfile to perform SQLite queries. These files only need to exist at these paths, they don't need to be passed explicitly.
 
 ARGUMENTS:
+
+\tPOSITIONAL
+
 \t[SQLite database]     -- The path to the SQLite database containing records of all the input Terra HDF files.
 \t[Out dir]             -- Where the intermediary tar files will reside on this machine.
 \t[SrcID]               -- The source Globus endpoint ID (the machine running this script)
@@ -24,16 +27,23 @@ ARGUMENTS:
 \t[DestDir]             -- The destination directory where tar files will finally reside on the DestID endpoint
 \t[Ostart]              -- The starting orbit to process
 \t[Oend]                -- The ending orbit to process
+
+\tOPTIONAL
+
+\t--nodes NODES         -- Specify the number of nodes to use for the tarring jobs. Defaults to 5.
 "
     while read -r line; do
         printf "$line\n"
     done <<< "$description"
 }
 
-if [ $# != 7 ]; then
+if [ $# -ne 7 -a $# -ne 9 ]; then
     usage
     exit 1
 fi
+
+intReg='^[0-9]+$'       # Integer regular expression
+programCall="$0 $@"        # Save the command line arguments for this script's call
 
 #
 #       ARGUMENT PARSING
@@ -62,6 +72,8 @@ shift
 oStart="$1"
 shift
 oEnd="$1"
+shift
+
 
 SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BF_PATH="${SCRIPT_PATH%/basicFusion/*}/basicFusion"
@@ -69,12 +81,30 @@ QUERIES="$BF_PATH/metadata-input/queries.bash"
 ORBIT_TIMES="$BF_PATH/metadata-input/data/Orbit_Path_Time.txt"
 PY_ENV="$BF_PATH/externLib/BFpyEnv"
 
-TAR_JOB_NPJ=5                   # Tar job nodes per job
+TAR_JOB_NPJ=5                   # Tar job nodes per job. This specifies the default value.
+                                # Will be overwritten if --nodes is provided.
 TAR_JOB_PPN=20                  # Tar job processors per node
 TAR_JOB_WALLTIME="12:00:00"     # Walltime of tar jobs
 TAR_JOB_NAME="TerraTar"         # Name of the PBS job
 GLOBUS_WALLTIME="24:00:00"      # The Globus transfer walltime
 GLOBUS_NAME="TerraGlobus"       # The Globus transfer job name
+
+    
+if [ "$1" == "--nodes" ]; then
+    shift
+    numNodes="$1"
+
+    if ! [[ "$numNodes" =~ $intReg ]]; then
+        echo "Error: A positive integer should follow the --nodes parameter!" >&2
+        exit 1
+    fi
+
+    TAR_JOB_NPJ="$numNodes"
+
+elif [ "$1" != "" ]; then
+    echo "Error: Illegal parameter: $1" >&2
+    exit 1
+fi
 
 # Check that the queries.bash and Orbit_Path_Time.txt files exists
 if [ ! -e "$QUERIES" ]; then
@@ -90,7 +120,7 @@ fi
 # Check that the Python virtual environment exists
 if [ ! -d "$PY_ENV" ]; then
     echo "Error: The $PY_ENV virtual environment does not exist! Use the" >&2
-    echo "basicFusion/util/configureEnv.sh script to create this"
+    echo "basicFusion/util/configureEnv.sh script to create this" >&2
     exit 1
 fi
 
@@ -135,28 +165,22 @@ let "lastNum++"
 runDir="$jobFiles/run$lastNum"
 echo "Generating files for parallel execution at: $runDir"
 
+
 mkdir "$runDir"
 retVal=$?
 if [ $retVal -ne 0 ]; then
     echo "Failed to make the run directory!" >&2
     exit 1
 fi
+
+
 # Clean up the path for runDir (remove unnecessary '/' characters)
 runDir="$(cd "$runDir" && pwd)"
 
-mkdir "$runDir/tar"
-retVal=$?
-if [ $retVal -ne 0 ]; then
-    echo "Failed to make the $runDir/tar directory!" >&2
-    exit 1
-fi
+# Save the command line arguments of this script's call into a file
+echo "$programCall" > "$runDir"/cmdLineArgs.txt
 
-mkdir "$runDir/globus"
-retVal=$?
-if [ $retVal -ne 0 ]; then
-    echo "Failed to make the $runDir/globus directory!" >&2
-    exit 1
-fi
+
 
 #
 #       Find how the jobs will be partitioned
@@ -165,7 +189,7 @@ fi
 declare -a jobNumOrbits
 declare -a jobYear
 job=-1
-jobNumOrbits[$i]=0
+jobNumOrbits[0]=0
 curOrbit=$oStart
 prevYear=0
 
@@ -246,7 +270,7 @@ done
 
 # Print the job information
 for i in $(seq 0 $job); do
-    echo "jobYear: ${jobYear[$i]} jobNumOrbits: ${jobNumOrbits[$i]} jobStart: ${jobStart[$i]} jobEnd: ${jobEnd[$i]}"
+    echo "jobYear: ${jobYear[$i]} jobNumOrbits: ${jobNumOrbits[$i]} jobStart: ${jobStart[$i]} jobEnd: ${jobEnd[$i]} NPJ: ${TAR_JOB_NPJ}"
 done
 
 # We now have all the parameters we need for each job!
@@ -268,7 +292,8 @@ cd PBSscripts
 mkdir -p tarJobs
 mkdir -p transferJobs
 
-prevJobID="0"
+declare -a tarJobID
+declare -a globusJobID
 
 echo "Generating PBS scripts in: $(pwd)"
 
@@ -281,6 +306,10 @@ for i in $(seq 0 $job ); do
 
     # Find the number of MPI processes
     MPI_numProc=$(( ${TAR_JOB_NPJ} * ${TAR_JOB_PPN} ))
+
+    # Each job gets its own directory within tempDir that is just the year of the job
+    curStageArea="$tempDir/${jobYear[$i]}"
+
     # Make the tar job PBS script
     pbsFile="\
 #!/bin/bash
@@ -293,12 +322,14 @@ export PMI_NO_FORK=1
 cd $runDir
 source \"$PY_ENV/bin/activate\"
 
-# The following line removes any files that may exist in tempDir
-rm -rf \"$tempDir\"
-mkdir \"$tempDir\"
+# The following line removes any files that are no longer needed
+rm -rf \"$curStageArea\"
+mkdir \"$curStageArea\"
+
 module load mpich
-mpirun -np $MPI_numProc python \"$BF_PATH/util/archiving/tarInput.py\" --O_START ${jobStart[$i]} --O_END ${jobEnd[$i]} $SQL_DB $tempDir 1> \"$runDir/logs/tar/stdout$i.txt\" 2> \"$runDir/logs/tar/stderr$i.txt\"
-exit \$?
+# Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
+{ time mpirun -np $MPI_numProc python \"$BF_PATH/util/archiving/tarInput.py\" --O_START ${jobStart[$i]} --O_END ${jobEnd[$i]} $SQL_DB \"$curStageArea\" ; } &> \"$runDir/logs/tar/stdout_err$i.txt\"
+
 "
     echo "$pbsFile" > tarJobs/job$i.pbs
 
@@ -313,34 +344,93 @@ export PMI_NO_PREINITIALIZE=1
 export PMI_NO_FORK=1
 cd $runDir
 source \"$PY_ENV/bin/activate\"
-python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"$tempDir\" \"$destDir\" 1> \"$runDir/logs/transfer/stdout$i.txt\" 2> \"$runDir/logs/transfer/stderr$i.txt\"
-exit \$?
+globus endpoint activate $srcID
+globus endpoint activate $destID
+# Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
+{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"$curStageArea\" \"$destDir\" ; } &> \"$runDir/logs/transfer/stdout_err$i.txt\" 
+
+rm -rf \"$curStageArea\"
 "
 
     echo "$pbsFile" > transferJobs/job$i.pbs
 
     # Submit the jobs to the queue!!!
-    # Notice that the "depend" line makes the jobs serially dependent. For instance, if we have 3 years of data to transfer, the jobs will
-    # look like this:
-    # 2000 tar -> 2000 transfer -> 2001 tar -> 2001 transfer -> 2002 tar -> 2002 transfer
+    # Notice that the "depend" line makes the jobs serially dependent.
+    # This operation is piplined. The two main instructions are a Tar job followed by a Globus transfer job.
+    # A Tar job can be executed at the same time of the previous Globus transfer job. As an example, the pipeline
+    # looks like this:
+    #
+    #           TAR0              0
+    #          /   
+    #       GLOB0    TAR1         1
+    #             /
+    #            /
+    #           /    
+    #       GLOB1    TAR2         2
+    #             /
+    #            /
+    #           /
+    #       GLOB2    TAR3         3
+    #             /
+    #            /
+    #           /
+    #       GLOB3                 4
 
-    if [ "$prevJobID" == "0" ]; then
-        prevJobID=`qsub tarJobs/job$i.pbs`
-        retVal=$?
+    #                  #
+    #   TAR JOB SUBMIT #
+    #                  #
+    if [ $i -eq 0 ]; then
+        prevTarID=""
+        prevGlobID=""
     else
-        prevJobID=`qsub -W depend=afterok:$prevJobID tarJobs/job$i.pbs`
+        prevTarID=${tarJobID[ $(( i - 1)) ]}
+        prevGlobID=${globusJobID[$((i-1))]}
+    fi
+
+    # This is the first Tar job to submit ( $prevTarID is not available )
+    if [ ${#prevTarID} -eq 0 ]; then
+        tarJobID[$i]=`qsub tarJobs/job$i.pbs`
         retVal=$?
+
+    # This is not the first tar job to submit
+    else
+        # The tar job needs to depend on the Globus job two iterations before
+        if [ $i -le 1 ]; then
+            tarJobID[$i]=`qsub -W depend=afterany:$prevTarID tarJobs/job$i.pbs`
+            retVal=$?
+        else
+            twoPrevGlobID=${globusJobID[ $(( i - 2 )) ]}
+            tarJobID[$i]=`qsub -W depend=afterany:$prevTarID:$twoPrevGlobID tarJobs/job$i.pbs`
+            retVal=$?
+        fi
+        
     fi
 
     if [ $retVal -ne 0 ]; then
-        echo "Error: Failed to submit job to the queue."
+        echo "Error: Failed to submit Tar job to the queue."
         exit 1
     fi
 
-    prevJobID=`qsub -W depend=afterok:$prevJobID transferJobs/job$i.pbs`
-    retVal=$?
+
+    #
+    #   GLOBUS JOB SUBMIT
+    #
+
+    # The Globus job should depend on its respective tar job (the one that was just submitted in the previous code
+    # and also the Globus job submitted during the previous loop iteration.
+    
+    if [ ${#prevGlobID} -eq 0 ]; then
+        # There is no previous globus job to be dependent on
+        globusJobID[$i]=`qsub -W depend=afterany:${tarJobID[$i]} transferJobs/job$i.pbs`
+        retVal=$?
+    else
+        # Depend on the previous globus job ID
+        globusJobID[$i]=`qsub -W depend=afterany:${tarJobID[$i]}:$prevGlobID transferJobs/job$i.pbs`
+        retVal=$?
+    fi
+
     if [ $retVal -ne 0 ]; then
-        echo "Error: Failed to submit job to the queue."
+        echo "Error: Failed to submit Globus job to the queue."
         exit 1
     fi
 
