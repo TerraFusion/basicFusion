@@ -24,7 +24,7 @@ As can be inferred, users of this program must have both HDF4 and HDF5 libraries
 
 In addition to the HDF libraries, the Basic Fusion program is also dependent on the szip and jpeg libraries. These dependencies arise within the HDF libraries themselves. Please note that both Blue Waters and ROGER provide pre-compiled, pre-installed versions of all of these libraries through the use of the "module" construct. You can see a list of available modules by invoking "module avail" in the terminal and grepping the output to see the desired HDF, szip, or jpeg modules you need.
 
-### Blue Waters
+
 1. cd into the desired directory and type
     ```
     git clone https://YOUR_GITHUB_USERNAME@github.com/TerraFusion/basicFusion
@@ -43,7 +43,7 @@ In addition to the HDF libraries, the Basic Fusion program is also dependent on 
 1. Check the output of configureEnv.sh. If it completed without any errors, the dependencies were successfully created.
 
 ## Database generation
-### Blue Waters
+
 A suite of scripts have been written under `basicFusion/metadataInput/build` to generate the SQLite database of all the input HDF granules. Run the findThenGenerate.sh script to:  
 1. Discover all of the input HDF files available and  
 2. Build the SQLite database from this list.
