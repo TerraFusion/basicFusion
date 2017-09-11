@@ -60,6 +60,7 @@ USE_CHUNK=0
 
 intREG='^[0-9]+$'       # An integer regular expression
 
+# Do the OPTS argument parsing
 for i in $(seq 1 "$#"); do
     if [ "$1" == "--GZIP" ]; then
         shift
@@ -109,7 +110,7 @@ QUEUE="normal"                                          # Which queue to put the
 
 #____________FILE NAMING_______________#
 
-FILENAME='TERRA_BF_L1B_O${orbit}_${orbit_start}_F000_V000.h5'          # The variable "orbit" will be expanded later on.
+FILENAME='TERRA_BF_L1B_O${orbit}_${orbit_start}_F000_V000.h5'          # The variables "orbit" and "orbit_start" will be expanded later on.
 
 #--------------------------------------#
 
@@ -228,9 +229,10 @@ BF_PROCESS="$BF_PATH/jobFiles/BFprocess"
 mkdir -p "$BF_PROCESS"
 
 # Find what the highest numbered "run" directory is and grab the number from it.
-# You can run this "bashism" nonsense in the terminal to see what it's doing.
+# If you want, you can run this "bashism" nonsense in the terminal yourself to see what it's doing.
 lastNum=$(ls "$BF_PROCESS" | grep run | sort --version-sort | tail -1 | tr -dc '0-9')
 
+# Just keep it zero-indexed... used to offset the let "lastNum++" line
 if [ ${#lastNum} -eq 0 ]; then
     lastNum=-1
 fi
@@ -278,11 +280,6 @@ for i in $(seq 0 $((numJobs-1)) ); do
     # littleN (-n) tells us how many total processes in the job.
     # 
     littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
-    bigR=4
-    if [ $bigR -ge ${PPN[$i]} ]; then
-        bigR=0      # Done in the cases where small number of nodes used. -R tells how many node failures are
-                    # acceptable
-    fi
     
     pbsFile="\
 #!/bin/bash
@@ -298,7 +295,7 @@ export PMI_NO_FORK=1
 cd $runDir
 source /opt/modules/default/init/bash
 module load hdf4 hdf5
-aprun -n $littleN -N ${PPN[$i]} -R $bigR time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err
+aprun -n $littleN -N ${PPN[$i]} -R 0 time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err
 exit 0
 "
 
