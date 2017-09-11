@@ -98,7 +98,7 @@ Run: `make`. If it compiles without any errors (warnings are acceptable), the co
 
 # The following instructions below are out of date and under construction
 
-## Program Execution
+## Program Execution (Blue Waters Only)
 
 There are multiple ways one can execute the BF program. First, **note that it is strongly recommended that you do NOT simply run the program by invoking "./basicFusion..."**. Running the program this way executes it on a login-node, and the IO-intensive nature of this program means that it will eat up shared resources on the login node, causing other BW users to experience poor responsiveness in the login nodes. Not to mention, this is a breach of the BW terms of use.
 
@@ -111,31 +111,4 @@ Use `qstat | grep [your username]` to see the status of your jobs.
 
 Currently, the `/path/to/input/txt/files` must be the directory where all the input granule list text files are (these text files cannot be in any subdirectories). The `/path/to/output` will be where all of the output HDF5 granules are placed. The script will determine---exactly how the genInputRange_SX.sh does---how many jobs, nodes per job, and processors per node to use based on the number of orbits you desire to process. The maximum values for number of jobs, nodes, and processors can be changed inside the script in the **JOB PARAMETERS** section.
 
-### ROGER
-
-1. Copy Makefile.roger found in the Makefiles directory to Makefile in the root project directory:  
-    ```bash
-    cp Makefiles/Makefile.roger ./Makefile
-    ```
-2. Load the necessary modules:  
-    ```bash
-    module load zlib libjpeg hdf4/4.2.12 hdf5  
-    ```
-    Note that it is useful if you put this command in your ~/.bash_rc file so that these modules are loaded every time you enter a new shell.
-3. Run make under the package root directory:  
-    ```bash
-    make
-    ```
-4. The program is now ready for execution under the bin directory. It requires three arguments: Name of the output HDF5 file, path to a text file containing the input files, path to the orbit_info.bin file. The orbit_info.bin file contains information about orbit start and end times required for the subsetting of MOPITT and CERES. Please see the [relevant Wiki page](https://github.com/TerraFusion/basicFusion/wiki/orbit_info.bin-file) on how to generate this file if needed (a copy of this file should be included by default under the bin directory).
-    - There are multiple ways to run the program. If using a **small** input file list, it can simply be invoked from the login node:
-        ~~~~
-        ./basicFusion out.h5 inputFiles.txt orbit_info.bin
-        ~~~~ 
-    - If not using small input, please refer to the [relevant wiki page](https://github.com/TerraFusion/basicFusion/wiki/ROGER-Parallel-Execution) for parallel execution of the program. Please be careful not to run this program with large input as doing so will consume a large amount of shared resources on the login node! This would be in violation of NCSA terms of use.
-5. NOTES
-    - Some sample input files are located in the inputFileDebug directory. The content inside the file may or may not point to valid file paths, but it nonetheless provides an example of "good" input to the Fusion program. [Please refer to the relevant wiki page](https://github.com/TerraFusion/basicFusion/wiki/Fusion-Program-Input-File-Specification) for details on how these input files must be structured.
-    - The program by default runs unpacking code for some of the datasets. This unpacking behavior can be turned off by setting the proper environment variable:
-        ```
-        export TERRA_DATA_PACK=1
-        ```
-        Unpacking converts some of the integer-valued datasets into floating point values that correspond to real physical units. The data is originally packed from floating point values to integers after being retrieved from the satellites in order to conserve space. It is a form of data compression. Disabling the unpacking behavior will result in some significant changes to the structure of the output HDF5 file (some datasets/attributes will not be added if unpacking is not performed).
+Please refer to the command line description of ./processBF_SX.sh for a full listing of all the available parameters.
