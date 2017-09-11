@@ -63,7 +63,7 @@ Once the database has been generated, we need to generate all of the input file 
 #### Generate a single input file
 Under `basicFusion/metadata-input/genInput`, the genFusionInput.sh script generates one single BasicFusion input file list. This script requires the SQLite database built in the Database Generation section for file querying. An example of how to run this script:
 
-`./genFusionInput.sh /path/to/SQLiteDB.sqlite 69400 /path/to/outputList.txt`
+`./genFusionInput.sh /path/to/accesslist.sqlite 69400 /path/to/outputList.txt`
 
 Your resulting input file list will be a properly formatted, canonical BasicFusion input file list.
 
@@ -73,7 +73,7 @@ Under `basicFusion/metadata-input/genInput`, the genInputRange_SX.sh script can 
 An example of how to invoke this script:
 
 ```
-./genInputRange_SX.sh /path/to/SQLiteDB.sqlite 69400 70000 /path/to/output/dir
+./genInputRange_SX.sh /path/to/accesslist.sqlite 69400 70000 /path/to/output/dir
 ```
 
 Use `qstat | grep [your username]` to see the status of your jobs.
