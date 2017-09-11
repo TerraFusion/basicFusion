@@ -118,8 +118,9 @@ downloadSched()
         module load mpich
         mpif90 -o scheduler.x scheduler.F90
         retVal_l=$?
-    else
-         ftn -o scheduler.x scheduler.F90
+    else                                        # Else assume we are on Blue Waters
+        module load cray-mpich
+        ftn -o scheduler.x scheduler.F90
         retVal_l=$?
     fi
 
@@ -137,15 +138,13 @@ if [ $# -ne 1 ]; then
     description="
 DESCRIPTION:
 
-\tThis script generates the environment necessary to run all of the BasicFusion scripts. Namely, the two main dependencies are certain Python modules (for the database generation) and NCSA's Scheduler program. This handles downloading and configuring all of the dependencies.
+\tThis script generates the environment necessary to run all of the BasicFusion scripts. Namely, the two main dependencies are certain Python modules (for the database generation) and NCSA's Scheduler program. This handles downloading and configuring all of the dependencies. This script was designed to run on either Blue Waters or ROGER. It attempts to detect which system it is on and then loads the appropriate Fortran and MPI modules. If this step fails, please review this script's code and modify it to use the appropriate compiler and/or module.
 
 ARGUMENTS:
 \t[-s | -p | -a]                -- -s to download just Scheduler
 \t                                 -p to download just the Python packages
 \t                                 -a to download both Scheduler and Python
 
-REQUIREMENTS:
-\tThis script requires that you have a properly-loaded  MPI module (MPICH is recommended). It also requires that you have a proper Fortran 90 MPI compiler. If Fortran fails to compile, please ensure this requirement is met, and possibly modify this script (downloadSched() function) so that the correct compiler is used.
 "
  
     while read -r line; do
@@ -166,7 +165,7 @@ fi
 # This virtual environment is needed by the fusionBuildDB python script to build the BasicFusion SQLite database. Virtual
 # environment was created to remove dependencies on the system's Python packages.
 #
-# If the script fails to download the Scheduler program, these are the commands it attempts to make:
+# If the script fails to download the Scheduler program, this is what it was trying to do:
 #   git clone https://github.com/ncsa/Scheduler
 #   cd Scheduler
 #   module load PrgEnv-gnu
