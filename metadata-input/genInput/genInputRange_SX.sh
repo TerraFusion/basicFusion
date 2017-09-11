@@ -36,7 +36,7 @@ MAX_NPJ=18                                              # Maximum number of node
 MAX_PPN=16                                              # Maximum number of processors (cores) per node.
 MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="00:30:00"                                     # Requested wall clock time for the jobs
-QUEUE="normal"                                            # Which queue to put the jobs in
+QUEUE=""                                                # Which queue to put the jobs in. By default, no queue is specified.
 #--------------------------------------#
 
 # Make the DB path absolute
@@ -208,7 +208,9 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "#PBS -j oe"                                           >> job$i.pbs
     echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe"           >> job$i.pbs
     echo "#PBS -l walltime=$WALLTIME"                           >> job$i.pbs
-    echo "#PBS -q $QUEUE"                                       >> job$i.pbs
+    if [ ${#QUEUE} -ne 0 ]; then
+        echo "#PBS -q $QUEUE"                                       >> job$i.pbs
+    fi
     echo "#PBS -N TerraInput_${jobOSTART[$i]}_${jobOEND[$i]}"   >> job$i.pbs
     # The PMI environment variables are added as a workaround to a known Application Level Placement
     # Scheduler (ALPS) bug on Blue Waters. Not entirely sure what they do but BW staff told me
