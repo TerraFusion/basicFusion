@@ -205,14 +205,20 @@ else
     exit 1
 fi
 
-# Find if a proper programming environment is loaded
-
+# Detect whether we are on Blue Waters or ROGER, then load the modules that we need
 hn=$(hostname)
+
+# ON BLUE WATERS (we are assuming)
 if [ $hn != "cg-gpu01" ]; then
     PrgEnv=$(module list | grep PrgEnv)
     if [ ${#PrgEnv} -eq 0 ]; then
         module load PrgEnv-cray
     fi
+    module load cray-mpich
+
+# ON ROGER
+else
+    module load mpich
 fi
 
 if [ $DOWNLOAD_PY -eq 1 ]; then
