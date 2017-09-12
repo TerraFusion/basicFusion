@@ -1,14 +1,14 @@
 #!/bin/bash
 
 if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 [input HDF file directory] [output DB directory]"
+    echo "Usage: $0 [input HDF file directory] "
     exit 1
 fi
 
 # Get the absolute path of this script
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
 
-DBDIR=$2                                        # Where the database will be stored
+DBDIR="$SCRIPT_DIR"/../accesslist.sqlite         # Where the database will be stored
 findFiles="$SCRIPT_DIR/findFiles"               # Where the findFiles script is located
 INDIR=$1                                        # Where the input HDF files are located
 DATADIR="$SCRIPT_DIR/../data"                   # Where to store intermediate results of the findFiles query
@@ -28,26 +28,25 @@ export PYTHONPATH="$SCRIPT_DIR"/../../externLib/BFpyEnv/lib/python2.7/site-packa
 #____________________________________________#
 
 
-if [ 1 -eq 1 ]; then
-    eval $findFiles "$INDIR"
+eval $findFiles "$INDIR"
 
-    if [ $? -ne 0 ]; then
-        echo "$findFiles returned with exit status of $?."
+if [ $? -ne 0 ]; then
+    echo "$findFiles returned with exit status of $?."
+    echo "Exiting script."
+    exit 1
+fi
+
+for i in ASTER MODIS MISR MOPITT CERES; do
+   gzip -f "$DATADIR"/$i.list
+    retVal=$? 
+    if [ $retVal -ne 0 ]; then
+        echo "gzip returned with exit status of $?."
         echo "Exiting script."
         exit 1
     fi
 
-    for i in ASTER MODIS MISR MOPITT CERES; do
-       gzip -f "$DATADIR"/$i.list
-        retVal=$? 
-        if [ $retVal -ne 0 ]; then
-            echo "gzip returned with exit status of $?."
-            echo "Exiting script."
-            exit 1
-        fi
+done
 
-    done
-fi
 
 python ./fusionBuildDB -o -q --discards=discards.txt --anomalies=errors.txt "$DBDIR" "$DATADIR"/Orbit_Path_Time.txt.gz "$DATADIR"/MODIS.list.gz "$DATADIR"/ASTER.list.gz "$DATADIR"/MOPITT.list.gz "$DATADIR"/MISR.list.gz "$DATADIR"/CERES.list.gz
 
