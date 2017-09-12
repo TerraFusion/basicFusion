@@ -29,8 +29,8 @@ export PYTHONPATH="$SCRIPT_DIR"/../../externLib/BFpyEnv/lib/python2.7/site-packa
 
 
 eval $findFiles "$INDIR"
-
-if [ $? -ne 0 ]; then
+retVal=$?
+if [ $retVal -ne 0 ]; then
     echo "$findFiles returned with exit status of $?."
     echo "Exiting script."
     exit 1
