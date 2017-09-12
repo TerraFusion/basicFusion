@@ -28,6 +28,7 @@ export PYTHONPATH="$SCRIPT_DIR"/../../externLib/BFpyEnv/lib/python2.7/site-packa
 #____________________________________________#
 
 
+echo "Investigating $INDIR for Terra files..."
 eval $findFiles "$INDIR"
 retVal=$?
 if [ $retVal -ne 0 ]; then
@@ -35,19 +36,22 @@ if [ $retVal -ne 0 ]; then
     echo "Exiting script."
     exit 1
 fi
+echo "Done."
+
 
 for i in ASTER MODIS MISR MOPITT CERES; do
-   gzip -f "$DATADIR"/$i.list
+    echo "Zipping the $i file list..."
+    gzip -f "$DATADIR"/$i.list
     retVal=$? 
     if [ $retVal -ne 0 ]; then
         echo "gzip returned with exit status of $retVal."
         echo "Exiting script."
         exit 1
     fi
-
+    echo "Done."
 done
 
-
+echo "Building the database..."
 python ./fusionBuildDB -o -q --discards=discards.txt --anomalies=errors.txt "$DBDIR" "$DATADIR"/Orbit_Path_Time.txt.gz "$DATADIR"/MODIS.list.gz "$DATADIR"/ASTER.list.gz "$DATADIR"/MOPITT.list.gz "$DATADIR"/MISR.list.gz "$DATADIR"/CERES.list.gz
 retVal=$?
 if [ $retVal -ne 0 ]; then
@@ -55,4 +59,6 @@ if [ $retVal -ne 0 ]; then
     echo "Exiting script."
     exit 1
 fi
+echo "Done."
 
+exit 0
