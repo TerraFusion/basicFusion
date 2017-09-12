@@ -41,6 +41,7 @@ QUEUE=""                                                # Which queue to put the
 
 # Make the DB path absolute
 DB_PATH="$(cd $(dirname $DB_PATH) && pwd)/$(basename $DB_PATH)"
+hn=$(hostname)  # Hostname of the machine running this script
 
 if [ ! -f "$DB_PATH" ]; then
     echo "The database at:"
@@ -206,7 +207,13 @@ echo "Generating PBS scripts in: $(pwd)"
 for i in $(seq 0 $((numJobs-1)) ); do
     echo "#!/bin/bash"                                          >> job$i.pbs
     echo "#PBS -j oe"                                           >> job$i.pbs
-    echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe"           >> job$i.pbs
+    # Special case for ROGER. ROGER has no notion of node type (xe)
+    if [ "$hn" == "cg-gpu01" ]; then
+        echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}"           >> job$i.pbs
+    # Else assume that we are on Blue Waters
+    else
+        echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe"           >> job$i.pbs
+    fi
     echo "#PBS -l walltime=$WALLTIME"                           >> job$i.pbs
     if [ ${#QUEUE} -ne 0 ]; then
         echo "#PBS -q $QUEUE"                                       >> job$i.pbs

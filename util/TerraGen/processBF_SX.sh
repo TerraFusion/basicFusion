@@ -124,7 +124,7 @@ BF_PROG="$BIN_DIR/basicFusion"                                  # Get the absolu
 BF_PATH="$(cd "$BIN_DIR/../" && pwd)"                           # Get the path of BF repository
 SCHED_PATH="$BF_PATH/externLib/Scheduler"                       # Get the path of the Scheduler repository
 ORBIT_INFO="$BF_PATH/metadata-input/data/Orbit_Path_Time.txt"   # Get the path of the Orbit_info file
-
+hn="$(hostname)"                                                # host name of this machine
 
 
 # Check that Scheduler has already been downloaded and compiled
@@ -275,6 +275,13 @@ mkdir -p PBSscripts
 cd PBSscripts
 echo "Generating PBS scripts in: $(pwd)"
 
+nodeType=""
+# If we're not on ROGER, assume that we are on Blue Waters and set the
+# node type to xe
+if ! [ "$hn" == "cg-gpu01" ]; then
+    nodeType=":xe"
+fi
+
 for i in $(seq 0 $((numJobs-1)) ); do
 
     # littleN (-n) tells us how many total processes in the job.
@@ -284,7 +291,7 @@ for i in $(seq 0 $((numJobs-1)) ); do
     pbsFile="\
 #!/bin/bash
 #PBS -j oe
-#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe
+#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}${nodeType}
 #PBS -l walltime=$WALLTIME
 #PBS -q $QUEUE
 #PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}
