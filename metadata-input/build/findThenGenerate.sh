@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ "$#" -ne 2 ]; then
+if [ "$#" -ne 1 ]; then
     echo "Usage: $0 [input HDF file directory] "
     exit 1
 fi
