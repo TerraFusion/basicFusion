@@ -78,7 +78,7 @@ Use `qstat | grep [your username]` to see the status of your jobs.
 
 Based on the orbit start and end times, as well as the parameters set inside of the script (max job size etc.), it determines how many resources to request of the Blue Waters TORQUE resource manager. It will then generate all of the necessary files for parallel computation in the `basicFusion/jobFiles/BFinputGen` directory and submit its jobs to the queue. The resultant output files will reside in your `/path/to/output` directory.
 
-**NOTE!!!**: Inside the genInputRange_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. For most purposes, the default values should work fine. **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
+**NOTE!!!**: Inside the genInputRange_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters/ROGER. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. Do not run this script without reviewing the **JOB PARAMETERS** to determine if the values there are appropriate for the current system and job that you want to run! **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
 
 ## Compilation
 ### Blue Waters
@@ -106,5 +106,7 @@ A script has been written under `basicFusion/TerraGen/util/processBF_SX.sh` that
 Use `qstat | grep [your username]` to see the status of your jobs.
 
 Currently, the `/path/to/input/txt/files` must be the directory where all the input granule list text files are (these text files cannot be in any subdirectories). The `/path/to/output` will be where all of the output HDF5 granules are placed. The script will determine---exactly how the genInputRange_SX.sh does---how many jobs, nodes per job, and processors per node to use based on the number of orbits you desire to process. The maximum values for number of jobs, nodes, and processors can be changed inside the script in the **JOB PARAMETERS** section.
+
+**NOTE!!!**: Inside the processBF_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters/ROGER. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. Do not run this script without reviewing the **JOB PARAMETERS** to determine if the values there are appropriate for the current system and job that you want to run! **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
 
 Please refer to the command line description of ./processBF_SX.sh for a full listing of all the available parameters.
