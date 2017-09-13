@@ -33,7 +33,7 @@ OUT_PATH=$(cd "$OUT_PATH" && pwd)
 
 #____________JOB PARAMETERS____________#
 MAX_NPJ=18                                              # Maximum number of nodes per job
-MAX_PPN=16                                              # Maximum number of processors (cores) per node.
+MAX_PPN=16                                              # Maximum number of cores per node.
 MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="00:30:00"                                     # Requested wall clock time for the jobs
 QUEUE=""                                                # Which queue to put the jobs in. By default, no queue is specified.
