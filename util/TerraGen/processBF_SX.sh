@@ -297,8 +297,18 @@ for i in $(seq 0 $((numJobs-1)) ); do
     # littleN (-n) tells us how many total processes in the job.
     # 
     littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
-    
-    
+
+    mpiCall=""    
+    if [ "$mpiProg" == "mpirun" ]; then
+        numRanks=$(( ${NPJ[$i]} * ${PPN[$i]} - 1 ))
+        mpiCall="$mpiProg -np $littleN"
+    elif [ "$mpiProg" == "aprun" ]; then
+        mpiCall="$mpiProg -n $littleN -N ${PPN[$i]} -R $bigR"
+    else
+        echo "The MPI program should either be mpirun or aprun!" >&2
+        exit 1
+    fi
+
     pbsFile="\
 #!/bin/bash
 #PBS -j oe
@@ -314,7 +324,7 @@ cd $runDir
 source /opt/modules/default/init/bash
 module load hdf4 hdf5
 $loadMPICH
-$mpiProg -n $littleN -N ${PPN[$i]} -R 0 time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err
+$mpiCall time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/$mpiProg/logs/job$i.log 2> $logDir/$mpiProg/errors/$job$i.err
 exit 0
 "
 
