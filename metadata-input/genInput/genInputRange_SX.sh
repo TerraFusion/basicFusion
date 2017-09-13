@@ -189,11 +189,22 @@ for i in $(seq 0 $((numJobs-1)) ); do
     mkdir -p "${jobDir[$i]}"                        # Makes a directory for each job
 done
 
+# The MPI program is different between ROGER and Blue Waters
+mpiProg=""
+loadMPICH=""
+if [ "$hn" == "cg-gpu01" ]; then
+    loadMPICH="module load mpich"
+    mpiProg="mpirun"
+# Else assume that we are on Blue Waters
+else
+    mpiProg="aprun"
+fi
+
 logDir="$runDir/logs"
 mkdir "$logDir"
-mkdir "$logDir"/aprun
-mkdir "$logDir"/aprun/errors
-mkdir "$logDir"/aprun/logs
+mkdir "$logDir"/$mpiProg
+mkdir "$logDir"/$mpiProg/errors
+mkdir "$logDir"/$mpiProg/logs
 
 ########################
 #   MAKE PBS SCRIPTS   #
@@ -219,23 +230,25 @@ for i in $(seq 0 $((numJobs-1)) ); do
         echo "#PBS -q $QUEUE"                                       >> job$i.pbs
     fi
     echo "#PBS -N TerraInput_${jobOSTART[$i]}_${jobOEND[$i]}"   >> job$i.pbs
+    echo "$loadMPICH"                                           >> job$i.pbs
     # The PMI environment variables are added as a workaround to a known Application Level Placement
     # Scheduler (ALPS) bug on Blue Waters. Not entirely sure what they do but BW staff told me
     # that it works, and it does!
     echo "export PMI_NO_FORK=1"                                 >> job$i.pbs
     echo "export PMI_NO_PREINITIALIZE=1"                        >> job$i.pbs
     echo "cd $runDir"                                           >> job$i.pbs
+    
+
     echo "source /opt/modules/default/init/bash"                >> job$i.pbs
     echo "module load hdf4 hdf5"                                >> job$i.pbs
 
     littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
-    bigR=4
-    if [ $bigR -ge ${PPN[$i]} ]; then
-        bigR=0      # Done in the cases where small number of nodes used. -R tells how many node failures are
-                    # acceptable
-    fi
-    echo "aprun -n $littleN -N ${PPN[$i]} -R $bigR $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err" >> job$i.pbs
+    bigR=0
+
+
+    echo "$mpiProg -n $littleN -N ${PPN[$i]} -R $bigR $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err" >> job$i.pbs
     echo "exit 0"                                               >> job$i.pbs
+
 done
 
 ############################

@@ -260,11 +260,21 @@ for i in $(seq 0 $((numJobs-1)) ); do
     mkdir -p "${jobDir[$i]}"                        # Makes a directory for each job
 done
 
+# The MPI program is different between ROGER and Blue Waters
+mpiProg=""
+loadMPICH=""
+if [ "$hn" == "cg-gpu01" ]; then
+    loadMPICH="module load mpich"
+    mpiProg="mpirun"
+# Else assume that we are on Blue Waters
+else
+    mpiProg="aprun"
+fi
 logDir="$runDir/logs"
 mkdir "$logDir"
-mkdir "$logDir"/aprun
-mkdir "$logDir"/aprun/errors
-mkdir "$logDir"/aprun/logs
+mkdir "$logDir"/$mpiProg
+mkdir "$logDir"/$mpiProg/errors
+mkdir "$logDir"/$mpiProg/logs
 
 ########################
 #   MAKE PBS SCRIPTS   #
@@ -288,6 +298,7 @@ for i in $(seq 0 $((numJobs-1)) ); do
     # 
     littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
     
+    
     pbsFile="\
 #!/bin/bash
 #PBS -j oe
@@ -302,7 +313,8 @@ export PMI_NO_FORK=1
 cd $runDir
 source /opt/modules/default/init/bash
 module load hdf4 hdf5
-aprun -n $littleN -N ${PPN[$i]} -R 0 time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err
+$loadMPICH
+$mpiProg -n $littleN -N ${PPN[$i]} -R 0 time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err
 exit 0
 "
 
