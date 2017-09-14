@@ -105,7 +105,7 @@ MAX_NPJ=32                                              # Maximum number of node
 MAX_PPN=16                                              # Maximum number of processors (cores) per node.
 MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="06:00:00"                                     # Requested wall clock time for the jobs
-QUEUE="normal"                                          # Which queue to put the jobs in
+QUEUE=""                                          # Which queue to put the jobs in
 #--------------------------------------#
 
 #____________FILE NAMING_______________#
@@ -309,12 +309,16 @@ for i in $(seq 0 $((numJobs-1)) ); do
         exit 1
     fi
 
+    queueLine=""
+    if [ ${#QUEUE} -ne 0 ]; then
+        queueLine="#PBS -q $QUEUE"
+    fi
     pbsFile="\
 #!/bin/bash
 #PBS -j oe
 #PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}${nodeType}
 #PBS -l walltime=$WALLTIME
-#PBS -q $QUEUE
+$queueLine
 #PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}
 export PMI_NO_PREINITIALIZE=1
 export USE_GZIP=${USE_GZIP}
