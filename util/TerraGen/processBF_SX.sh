@@ -373,7 +373,7 @@ for job in $(seq 0 $((numJobs-1)) ); do
         
         filter="$orbit "        # The filter for grep
         # Grab the orbit start time from ORBIT_INFO
-        orbit_start=$(grep $filter $ORBIT_INFO | cut -f3 -d" ") 
+        orbit_start=$(grep -w "^$filter" $ORBIT_INFO | cut -f3 -d" ") 
         # Get rid of the '-' characters
         orbit_start=${orbit_start//-/}
         # Get rid of the 'T' characters
