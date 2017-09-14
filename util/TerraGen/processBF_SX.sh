@@ -126,7 +126,6 @@ SCHED_PATH="$BF_PATH/externLib/Scheduler"                       # Get the path o
 ORBIT_INFO="$BF_PATH/metadata-input/data/Orbit_Path_Time.txt"   # Get the path of the Orbit_info file
 hn="$(hostname)"                                                # host name of this machine
 
-
 # Check that Scheduler has already been downloaded and compiled
 if [ ! -x "$SCHED_PATH" ]; then
     echo "Fatal error: Scheduler has not been downloaded/compiled or the Fortran executable has not been flagged for execution. Please run the configureEnv.sh script in the basicFusion/util directory." >&2
@@ -371,19 +370,18 @@ for job in $(seq 0 $((numJobs-1)) ); do
     for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
         # Read Orbit start time from file
         
-        filter="$orbit "        # The filter for grep
+        filter="$orbit"        # The filter for grep
         # Grab the orbit start time from ORBIT_INFO
-        orbit_start=$(grep -w "^$filter" $ORBIT_INFO | cut -f3 -d" ") 
+        orbit_start="$(grep -w "^$filter" "$ORBIT_INFO" | cut -f3 -d" ")"
         # Get rid of the '-' characters
-        orbit_start=${orbit_start//-/}
+        orbit_start="${orbit_start//-/}"
         # Get rid of the 'T' characters
-        orbit_start=${orbit_start//T/}
+        orbit_start="${orbit_start//T/}"
         # Get rid of the ':' characters
-        orbit_start=${orbit_start//:/}
+        orbit_start="${orbit_start//:/}"
         # Get rid of the 'Z'
-        orbit_start=${orbit_start//Z/}
-        evalFileName=$(eval echo "$FILENAME")
-
+        orbit_start="${orbit_start//Z/}"
+        evalFileName=$(eval echo $FILENAME)
         outGranule="$OUT_PATH/$evalFileName"
 
         # TODO: Fix the MD5sum funciton call
