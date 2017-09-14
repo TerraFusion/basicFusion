@@ -230,7 +230,6 @@ for i in $(seq 0 $((numJobs-1)) ); do
         echo "#PBS -q $QUEUE"                                       >> job$i.pbs
     fi
     echo "#PBS -N TerraInput_${jobOSTART[$i]}_${jobOEND[$i]}"   >> job$i.pbs
-    echo "$loadMPICH"                                           >> job$i.pbs
     # The PMI environment variables are added as a workaround to a known Application Level Placement
     # Scheduler (ALPS) bug on Blue Waters. Not entirely sure what they do but BW staff told me
     # that it works, and it does!
@@ -239,9 +238,9 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "cd $runDir"                                           >> job$i.pbs
     
 
-    echo "source /opt/modules/default/init/bash"                >> job$i.pbs
+    echo "source /opt/modules/default/init/bash &> /dev/null"   >> job$i.pbs
     echo "module load hdf4 hdf5"                                >> job$i.pbs
-
+    echo "$loadMPICH"                                           >> job$i.pbs
     littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
     bigR=0
 
