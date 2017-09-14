@@ -386,14 +386,15 @@ for job in $(seq 0 $((numJobs-1)) ); do
 
         outGranule="$OUT_PATH/$evalFileName"
 
+        # TODO: Fix the MD5sum funciton call
         # BF program call looks like this:
         # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
         programCalls="\
 \"$BFfullPath\" \"$outGranule\" \"$LISTING_PATH/input$orbit.txt\" \"$BIN_DIR/orbit_info.bin\" 2> \"$logPath/errors/$orbit.err\" 1> \"$logPath/logs/$orbit.log\"
 
 # We will now save the MD5 checksum.
-mkdir -p \"$OUT_PATH/checksum\"
-md5sum \"$OUT_PATH/$evalFileName\" > \"$OUT_PATH/checksum/$orbit.md5\"
+#mkdir -p \"$OUT_PATH/checksum\"
+#md5sum \"$OUT_PATH/$evalFileName\" > \"$OUT_PATH/checksum/$orbit.md5\"
 "
 
         echo "$programCalls" > "${jobDir[$job]}/orbit$orbit.sh"
