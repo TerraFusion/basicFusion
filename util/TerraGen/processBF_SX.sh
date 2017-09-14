@@ -68,14 +68,14 @@ for i in $(seq 1 "$#"); do
 
         # Assert that USE_GZIP is an integer
         if ! [[ $USE_GZIP =~ $intREG ]]; then
-            echo "An integer between 1-9 must follow the --GZIP option!" > &2
+            echo "An integer between 1-9 must follow the --GZIP option!" >&2
             exit 1
         fi
 
         # Assert that USE_GZIP is between 1 through 9
         if [ $USE_GZIP -lt 1 -o $USE_GZIP -gt 9 ]; then
 
-            echo "An integer between 1-9 must follow the --GZIP option!" > &2
+            echo "An integer between 1-9 must follow the --GZIP option!" >&2
             exit 1
         fi
 
@@ -93,7 +93,7 @@ for i in $(seq 1 "$#"); do
 
     # If neither of the valid options are set, then this parameter must be illegal
     if [ $USE_CHUNK -eq 0 -a $USE_GZIP -eq 0 ]; then
-        echo "Illegal parameter: $1"
+        echo "Illegal parameter: $1" >&2
         exit 1
     fi
 
