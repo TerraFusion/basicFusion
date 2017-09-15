@@ -279,7 +279,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
                                                fileID,c_start,c_stride,c_count);
 
 
-        if ( generalDsetID_d == EXIT_FAILURE )
+        if ( generalDsetID_d == FATAL_ERR )
         {
             FATAL_MSG("Failed to insert CERES %s dataset.\n", inTimePosName[i]);
             generalDsetID_d = 0;
@@ -353,7 +353,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         h5Type = H5T_NATIVE_FLOAT;
 
         generalDsetID_d = readThenWriteSubset( 0, outViewingAngles[i], viewingAngleID_g, inViewingAngles[i], h4Type, h5Type, fileID,c_start,c_stride,c_count);
-        if ( generalDsetID_d == EXIT_FAILURE )
+        if ( generalDsetID_d == FATAL_ERR )
         {
             FATAL_MSG("Failed to insert \"%s\" dataset.\n", inViewingAngles[i]);
             generalDsetID_d = 0;
@@ -396,7 +396,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         }
 
         generalDsetID_d = readThenWriteSubset( 0, outFilteredRadiance[i], radianceID_g, inFilteredRadiance[i], h4Type, h5Type, fileID,c_start,c_stride,c_count);
-        if ( generalDsetID_d == EXIT_FAILURE )
+        if ( generalDsetID_d == FATAL_ERR )
         {
             FATAL_MSG("Failed to insert \"%s\" dataset.\n", inFilteredRadiance[i]);
             generalDsetID_d = 0;
@@ -431,7 +431,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         h5Type = H5T_NATIVE_FLOAT;
 
         generalDsetID_d = readThenWriteSubset( 0, outUnfilteredRadiance[i], radianceID_g, inUnfilteredRadiance[i], h4Type, h5Type, fileID,c_start,c_stride,c_count);
-        if ( generalDsetID_d == EXIT_FAILURE )
+        if ( generalDsetID_d == FATAL_ERR )
         {
             FATAL_MSG("Failed to insert \"%s\" dataset.\n", inUnfilteredRadiance[i]);
             generalDsetID_d = 0;
@@ -498,7 +498,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
     if ( sd_id < 0 )
     {
         FATAL_MSG("Unable to open CERES file.\n\t%s\n", argv[2]);
-        return (EXIT_FAILURE);
+        return (FATAL_ERR);
     }
 
     /* get the index of the dataset from the dataset's name */
@@ -507,7 +507,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
     {
         printf("SDnametoindex\n");
         SDend(sd_id);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     sds_id = SDselect( sd_id, sds_index );
@@ -515,7 +515,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
     {
         printf("SDselect\n");
         SDend(sd_id);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
 
@@ -531,7 +531,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
         FATAL_MSG("SDgetinfo: Failed to get info from dataset.\n");
         SDendaccess(sds_id);
         SDend(sd_id);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
 
@@ -540,7 +540,7 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
         FATAL_MSG("the time dimension rank must be 1 and the datatype must be double.\n");
         SDendaccess(sds_id);
         SDend(sd_id);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     double *julian_date = malloc(sizeof julian_date *dimsizes[0]);
@@ -553,17 +553,17 @@ int CERES_OrbitInfo(char*argv[],int* start_index_ptr,int* end_index_ptr,OInfo_t 
         SDendaccess(sds_id);
         SDend(sd_id);
         if ( julian_date != NULL ) free(julian_date);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
 
-    if(obtain_start_end_index(start_index_ptr,end_index_ptr,julian_date,dimsizes[0],orbit_info) == EXIT_FAILURE)
+    if(obtain_start_end_index(start_index_ptr,end_index_ptr,julian_date,dimsizes[0],orbit_info) == FATAL_ERR)
     {
         FATAL_MSG("Obtain_start_end_index: Failed to obtain the start and end index.\n");
         SDendaccess(sds_id);
         SDend(sd_id);
         if ( julian_date != NULL ) free(julian_date);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
 
 
     }
@@ -590,36 +590,36 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
     herr_t status = 0;
     /********************* long_name*****************************/
     attrID = attrCreateString( objectID, "long_name", long_nameVal );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Cannot create CERES \"long_name\" attribute.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     H5Aclose(attrID);
     /********************* units ********************************/
     attrID = attrCreateString( objectID, "units", unitsVal );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Cannot create CERES \"units\" attribute.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     H5Aclose(attrID);
     /********************* format *******************************/
     attrID = attrCreateString( objectID, "format", "32-BitFloat" );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Cannot create CERES \"format\" attribute.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     H5Aclose(attrID);
     /********************* coordsys *****************************/
     attrID = attrCreateString( objectID, "coordsys", "not used" );
-    if ( attrID == EXIT_FAILURE )
+    if ( attrID == FATAL_ERR )
     {
         FATAL_MSG("Cannot create CERES \"coordsys\" attribute.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     H5Aclose(attrID);
@@ -629,14 +629,14 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
     if ( dataspaceID < 0 )
     {
         FATAL_MSG("Failed to create simple dataspace.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     attrID = H5Acreate(objectID, "valid_range", H5T_NATIVE_FLOAT, dataspaceID, H5P_DEFAULT, H5P_DEFAULT );
     if ( attrID < 0 )
     {
         FATAL_MSG("Failed to create CERES \"valid_range\" attribute\n");
         H5Sclose(dataspaceID);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     floatBuff2[0] = valid_rangeMin;
@@ -647,7 +647,7 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
         FATAL_MSG("Failed to write to CERES attribute.\n");
         H5Sclose(dataspaceID);
         H5Aclose(attrID);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     H5Aclose( attrID );
@@ -658,7 +658,7 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
     if ( dataspaceID < 0 )
     {
         FATAL_MSG("Failed to create simple dataspace.\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     attrID = H5Acreate( objectID, "_FillValue", H5T_NATIVE_FLOAT,
                         dataspaceID, H5P_DEFAULT, H5P_DEFAULT );
@@ -666,7 +666,7 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
     {
         FATAL_MSG("Failed to create CERES \"valid_range\" attribute\n");
         H5Sclose(dataspaceID);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
 
     floatBuff2[0] = 3.4028235e38;
@@ -676,12 +676,12 @@ herr_t CERESinsertAttrs( hid_t objectID, char* long_nameVal, char* unitsVal, flo
         FATAL_MSG("Failed to write to CERES attribute.\n");
         H5Sclose(dataspaceID);
         H5Aclose(attrID);
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     H5Aclose( attrID );
     H5Sclose(dataspaceID);
 
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 
 }
 
@@ -746,7 +746,7 @@ int obtain_start_end_index(int* sindex_ptr,int* eindex_ptr,double *jd,int32 size
             ||((*temp_minutep)>60)||((*temp_secondp)<0) ||((*temp_secondp)>60))
     {
         FATAL_MSG("The UTC time retrieved from CERES array is out of range\n");
-        return EXIT_FAILURE;
+        return FATAL_ERR;
     }
     granule_start_time.year = *temp_yearp;
     granule_start_time.month = *temp_monthp;
@@ -796,7 +796,7 @@ int obtain_start_end_index(int* sindex_ptr,int* eindex_ptr,double *jd,int32 size
             if(temp_index == -1)
             {
                 FATAL_MSG("The CERES subset index is out of range\n");
-                return EXIT_FAILURE;
+                return FATAL_ERR;
             }
 
             *eindex_ptr = temp_index;
@@ -815,14 +815,14 @@ int obtain_start_end_index(int* sindex_ptr,int* eindex_ptr,double *jd,int32 size
             if(temp_index == -1)
             {
                 FATAL_MSG("The CERES subset index is out of range\n");
-                return EXIT_FAILURE;
+                return FATAL_ERR;
             }
 
             *sindex_ptr = 1+temp_index;
         }
     }
 
-    return EXIT_SUCCESS;
+    return RET_SUCCESS;
 }
 
 #if 0
