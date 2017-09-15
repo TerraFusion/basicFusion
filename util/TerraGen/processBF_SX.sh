@@ -164,7 +164,7 @@ if [ $numJobs -ge $MAX_NUMJOB ]; then
         fi
     done
 
-    numJobs=$((MAX_NUMJOB-1))
+    numJobs=$((MAX_NUMJOB))
 
 # Else if we do not need to overfill
 else

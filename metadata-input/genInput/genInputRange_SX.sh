@@ -32,9 +32,9 @@ OUT_PATH=$4                                             # Where the resultant ou
 OUT_PATH=$(cd "$OUT_PATH" && pwd)
 
 #____________JOB PARAMETERS____________#
-MAX_NPJ=18                                              # Maximum number of nodes per job
-MAX_PPN=16                                              # Maximum number of cores per node.
-MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
+MAX_NPJ=4                                               # Maximum number of nodes per job
+MAX_PPN=20                                              # Maximum number of cores per node.
+MAX_NUMJOB=1                                            # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="00:30:00"                                     # Requested wall clock time for the jobs
 QUEUE=""                                                # Which queue to put the jobs in. By default, no queue is specified.
 #--------------------------------------#
@@ -94,7 +94,7 @@ if [ $numJobs -ge $MAX_NUMJOB ]; then
         fi
     done
 
-    numJobs=$((MAX_NUMJOB-1))
+    numJobs=$((MAX_NUMJOB))
 
 # Else if we do not need to overfill
 else
