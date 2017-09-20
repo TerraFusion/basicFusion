@@ -2,7 +2,7 @@
 @author : Shashank Bansal
 @email : sbansal6@illinois.edu
 
-Date Created: June 27, 2017
+Date Created: June 12, 2017
 """
 
 from os import path
@@ -45,23 +45,6 @@ def main():
 	# dirpath = '/projects/TDataFus/gyzhao/TF/data/MISR/MI1B2E.003'
 	#orbFile = ''
 
-	
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2000.txt", "2000")
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2001.txt", '2001')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2002.txt", '2002')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2003.txt", '2003')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2004.txt", '2004')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2005.txt", '2005')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2006.txt", '2006')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2007.txt", '2007')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2008.txt", '2008')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2009.txt", '2009')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2010.txt", '2010')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2011.txt", '2011')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2012.txt", '2012')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2013.txt", '2013')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2014.txt", '2014')
-	# check_Orbit(dirpath, "/home/sbansal6/File_Verification_Scripts/MISR_Check/MISR_Check_2015.txt", '2015')
 
 def usage():
 	print("\n\nUSAGE:  python MISR_all_years.py [-h | -a | -r]\n")
@@ -116,15 +99,39 @@ def run(dirpath, logfile, year, orbFile):
 	check_Orbit(dirpath, logfile, year, orbFile)
 
 
+
 def check_OrbitFile_in_Correct_date(orbitNo, orbFile):
+
+	""" DESCRIPTION:
+		This function checks if the orbit file is in the correct date. 
+
+		ARGUMENTS:
+		orbitNo (int)		-- the orbit number that needs to be checked.
+		orbFile (txt file)  -- the text file that contains all the orbit numbers and the dates they are suppose to be in.
+
+		EFFECTS:
+
+		RETURN:
+			Returns the starting date of the particular orbitNo passed in as an argument if it exists in the txt file else 
+			prints an error message. 
+
+	"""
+	#opens the txt file
 	OrbFile = open(orbFile)
 	s = mmap.mmap(OrbFile.fileno(), 0, access=mmap.ACCESS_READ)
 	linelist = []
-	if s.find(orbitNo) != -1: 
+
+
+	#checks if the orbitNo exists in the file
+	if s.find(orbitNo) != -1:
 		indexNo = s.find(orbitNo)
 		s.seek(indexNo)
 		line = s.readline()
+
+		#makes a list of all the text for the particular orbitNo
 		linelist = line.split(" ")
+
+		#returns the actual starting date for the particular orbitNo
 		if(len(linelist) > 2):
 			return linelist[2][0:10]
 		elif(len(linelist) == 2):
@@ -132,7 +139,35 @@ def check_OrbitFile_in_Correct_date(orbitNo, orbFile):
 		else:
 			print linelist
 
+	else:
+		print "ERROR: Orbit doesnot exist in the textfile.\n"
+
+
 def check_Orbit(dirpath, logPath, year, orbFile):
+
+	""" DESCRIPTION:
+			This function checks if all the hdf files are in the correct date directory and finds all the missing 
+			files from the MISR directory. A file is missing if any of the 9 camera file for any orbitNo is missing
+			A date is missing if it doesn't exist in the MISR data.
+
+
+		ARGUMENTS:
+			dirpath (str)		-- path to the directory where the MISR data is contained
+			logPath (str)		-- path to the log textfile where the missing hdf files will be written
+			year (str)			-- the year for which the MISR data needs to be checked
+			orbFile (str)		-- this contains the info about all the orbitNo and their actual starting date and ending date
+		
+
+		EFFECTS:
+			None
+
+		
+		RETURN:
+			Nothing. This writes all the information to a text file which is provided by the user.
+			
+
+	"""
+
 	leap = ['2000','2004','2008','2012','2016']
 	exist = {}
 	wrongDate = {}
@@ -165,26 +200,37 @@ def check_Orbit(dirpath, logPath, year, orbFile):
 		#path to each date
 		inPath = os.path.join(dirpath,date)
 		
-		#to make a list of all the missing dates
+		#to make a list of all the missing dates by removing the dates that exits from the list of all the dates
 		if date in dateStr:
 			dateStr.remove(date)
 
+			#this is particular for the format of data in ROGER
+			#this opens each date which should contain all the hdf files for that date
 			for fname in os.listdir(inPath):
 				statinfo = os.stat(os.path.join(inPath, fname))
 
+				#checks for only the non-zero size hdffiles
 				if fname.endswith('.hdf') and statinfo.st_size != 0 and '_' in fname:
 					pathOrbitNo = fname.split('_')
+
+					#finds the pathOrbitNo (int) for each hdffile
 					orbitStr = filter(str.isdigit, pathOrbitNo[6])
 					orbitDate =  check_OrbitFile_in_Correct_date(str(int(orbitStr)), orbFile)
 
+					# checks if the actual date and the date of the orbit are the same
 					if(date == ('.'.join(orbitDate.split('-')))):
+
+						#makes a list of all the cameras that exist for that particular orbitNo
 						camera = pathOrbitNo[7]
 						orbitFiles[date + '/' + pathOrbitNo[5] + '_' + pathOrbitNo[6]].append(camera)
+					
+					#if the file is in a different date directory than its supposed to be in then it writes both the dates
+					#in the logfile 
 					else:
 						actualDate = '.'.join(orbitDate.split('-'))
 						fileCheck.write(fname + " is in " + date + " should be in " + actualDate + ".\n")
 
-
+	#finds all the missing cameras for the orbitNo and writes all the missing camera files to the logfile
 	if orbitFiles:
 		fileCheck.write("\n These are the missing files: \n")
 		for orbit in orbitFiles:
@@ -194,7 +240,7 @@ def check_Orbit(dirpath, logPath, year, orbFile):
 					fileCheck.write('MISR/MI1B2E.003' + '/' + orbit[0:10] + '/MISR_AM1_GRP_ELLIPSOID_GM_' + orbit[10:] + '_' + missing[i] + '_F03_0024.hdf')
 					fileCheck.write("\n")
 
-
+	#this removes the extra dates that were additionally added to the list of all the dates
 	if (year + ".02.30") in dateStr:
 		dateStr.remove(year + ".02.30")
 
@@ -213,11 +259,11 @@ def check_Orbit(dirpath, logPath, year, orbFile):
 	if (year + ".11.31") in dateStr:
 		dateStr.remove(year + ".11.31")
 	
+	#special case for a leap year
 	if year not in leap and (year + ".02.29") in dateStr:
 		dateStr.remove(year + ".02.29")
 
-
-
+	#writes all the missing dates to the logfile
 	if dateStr:
 		fileCheck.write("\nThe missing dates are: \n")
 		for i in range(len(dateStr)):

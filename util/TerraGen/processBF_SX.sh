@@ -60,6 +60,7 @@ USE_CHUNK=0
 
 intREG='^[0-9]+$'       # An integer regular expression
 
+# Do the OPTS argument parsing
 for i in $(seq 1 "$#"); do
     if [ "$1" == "--GZIP" ]; then
         shift
@@ -92,7 +93,7 @@ for i in $(seq 1 "$#"); do
 
     # If neither of the valid options are set, then this parameter must be illegal
     if [ $USE_CHUNK -eq 0 -a $USE_GZIP -eq 0 ]; then
-        echo "Illegal parameter: $1"
+        echo "Illegal parameter: $1" >&2
         exit 1
     fi
 
@@ -104,12 +105,12 @@ MAX_NPJ=32                                              # Maximum number of node
 MAX_PPN=16                                              # Maximum number of processors (cores) per node.
 MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="06:00:00"                                     # Requested wall clock time for the jobs
-QUEUE="normal"                                          # Which queue to put the jobs in
+QUEUE=""                                          # Which queue to put the jobs in
 #--------------------------------------#
 
 #____________FILE NAMING_______________#
 
-FILENAME='TERRA_BF_L1B_O${orbit}_${orbit_start}_F000_V000.h5'          # The variable "orbit" will be expanded later on.
+FILENAME='TERRA_BF_L1B_O${orbit}_${orbit_start}_F000_V000.h5'          # The variables "orbit" and "orbit_start" will be expanded later on.
 
 #--------------------------------------#
 
@@ -123,8 +124,7 @@ BF_PROG="$BIN_DIR/basicFusion"                                  # Get the absolu
 BF_PATH="$(cd "$BIN_DIR/../" && pwd)"                           # Get the path of BF repository
 SCHED_PATH="$BF_PATH/externLib/Scheduler"                       # Get the path of the Scheduler repository
 ORBIT_INFO="$BF_PATH/metadata-input/data/Orbit_Path_Time.txt"   # Get the path of the Orbit_info file
-
-
+hn="$(hostname)"                                                # host name of this machine
 
 # Check that Scheduler has already been downloaded and compiled
 if [ ! -x "$SCHED_PATH" ]; then
@@ -164,7 +164,7 @@ if [ $numJobs -ge $MAX_NUMJOB ]; then
         fi
     done
 
-    numJobs=$((MAX_NUMJOB-1))
+    numJobs=$((MAX_NUMJOB))
 
 # Else if we do not need to overfill
 else
@@ -228,9 +228,10 @@ BF_PROCESS="$BF_PATH/jobFiles/BFprocess"
 mkdir -p "$BF_PROCESS"
 
 # Find what the highest numbered "run" directory is and grab the number from it.
-# You can run this "bashism" nonsense in the terminal to see what it's doing.
+# If you want, you can run this "bashism" nonsense in the terminal yourself to see what it's doing.
 lastNum=$(ls "$BF_PROCESS" | grep run | sort --version-sort | tail -1 | tr -dc '0-9')
 
+# Just keep it zero-indexed... used to offset the let "lastNum++" line
 if [ ${#lastNum} -eq 0 ]; then
     lastNum=-1
 fi
@@ -258,11 +259,21 @@ for i in $(seq 0 $((numJobs-1)) ); do
     mkdir -p "${jobDir[$i]}"                        # Makes a directory for each job
 done
 
+# The MPI program is different between ROGER and Blue Waters
+mpiProg=""
+loadMPICH=""
+if [ "$hn" == "cg-gpu01" ]; then
+    loadMPICH="module load mpich"
+    mpiProg="mpirun"
+# Else assume that we are on Blue Waters
+else
+    mpiProg="aprun"
+fi
 logDir="$runDir/logs"
 mkdir "$logDir"
-mkdir "$logDir"/aprun
-mkdir "$logDir"/aprun/errors
-mkdir "$logDir"/aprun/logs
+mkdir "$logDir"/$mpiProg
+mkdir "$logDir"/$mpiProg/errors
+mkdir "$logDir"/$mpiProg/logs
 
 ########################
 #   MAKE PBS SCRIPTS   #
@@ -273,23 +284,40 @@ mkdir -p PBSscripts
 cd PBSscripts
 echo "Generating PBS scripts in: $(pwd)"
 
+nodeType=""
+# If we're not on ROGER, assume that we are on Blue Waters and set the
+# node type to xe
+if ! [ "$hn" == "cg-gpu01" ]; then
+    nodeType=":xe"
+fi
+
 for i in $(seq 0 $((numJobs-1)) ); do
 
     # littleN (-n) tells us how many total processes in the job.
     # 
     littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
-    bigR=4
-    if [ $bigR -ge ${PPN[$i]} ]; then
-        bigR=0      # Done in the cases where small number of nodes used. -R tells how many node failures are
-                    # acceptable
+
+    mpiCall=""    
+    if [ "$mpiProg" == "mpirun" ]; then
+        numRanks=$(( ${NPJ[$i]} * ${PPN[$i]} - 1 ))
+        mpiCall="$mpiProg -np $littleN"
+    elif [ "$mpiProg" == "aprun" ]; then
+        mpiCall="$mpiProg -n $littleN -N ${PPN[$i]} -R $bigR"
+    else
+        echo "The MPI program should either be mpirun or aprun!" >&2
+        exit 1
     fi
-    
+
+    queueLine=""
+    if [ ${#QUEUE} -ne 0 ]; then
+        queueLine="#PBS -q $QUEUE"
+    fi
     pbsFile="\
 #!/bin/bash
 #PBS -j oe
-#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe
+#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}${nodeType}
 #PBS -l walltime=$WALLTIME
-#PBS -q $QUEUE
+$queueLine
 #PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}
 export PMI_NO_PREINITIALIZE=1
 export USE_GZIP=${USE_GZIP}
@@ -298,7 +326,8 @@ export PMI_NO_FORK=1
 cd $runDir
 source /opt/modules/default/init/bash
 module load hdf4 hdf5
-aprun -n $littleN -N ${PPN[$i]} -R $bigR time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err
+$loadMPICH
+$mpiCall time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/$mpiProg/logs/job$i.log 2> $logDir/$mpiProg/errors/$job$i.err
 exit 0
 "
 
@@ -341,29 +370,29 @@ for job in $(seq 0 $((numJobs-1)) ); do
     for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
         # Read Orbit start time from file
         
-        filter="$orbit "        # The filter for grep
+        filter="$orbit"        # The filter for grep
         # Grab the orbit start time from ORBIT_INFO
-        orbit_start=$(grep $filter $ORBIT_INFO | cut -f3 -d" ") 
+        orbit_start="$(grep -w "^$filter" "$ORBIT_INFO" | cut -f3 -d" ")"
         # Get rid of the '-' characters
-        orbit_start=${orbit_start//-/}
+        orbit_start="${orbit_start//-/}"
         # Get rid of the 'T' characters
-        orbit_start=${orbit_start//T/}
+        orbit_start="${orbit_start//T/}"
         # Get rid of the ':' characters
-        orbit_start=${orbit_start//:/}
+        orbit_start="${orbit_start//:/}"
         # Get rid of the 'Z'
-        orbit_start=${orbit_start//Z/}
-        evalFileName=$(eval echo "$FILENAME")
-
+        orbit_start="${orbit_start//Z/}"
+        evalFileName=$(eval echo $FILENAME)
         outGranule="$OUT_PATH/$evalFileName"
 
+        # TODO: Fix the MD5sum funciton call
         # BF program call looks like this:
         # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
         programCalls="\
 \"$BFfullPath\" \"$outGranule\" \"$LISTING_PATH/input$orbit.txt\" \"$BIN_DIR/orbit_info.bin\" 2> \"$logPath/errors/$orbit.err\" 1> \"$logPath/logs/$orbit.log\"
 
 # We will now save the MD5 checksum.
-mkdir -p \"$OUT_PATH/checksum\"
-md5sum \"$OUT_PATH/$evalFileName\" > \"$OUT_PATH/checksum/$orbit.md5\"
+#mkdir -p \"$OUT_PATH/checksum\"
+#md5sum \"$OUT_PATH/$evalFileName\" > \"$OUT_PATH/checksum/$orbit.md5\"
 "
 
         echo "$programCalls" > "${jobDir[$job]}/orbit$orbit.sh"

@@ -1126,6 +1126,8 @@ MOPLINES=$(instrumentOverlappingOrbit "$DB" $2 MOP)
 CERLINES=$(instrumentOverlappingOrbit "$DB" $2 CER)
 MODLINES=$(instrumentStartingInOrbit "$DB" $2 MOD)
 ASTLINES=$(instrumentStartingInOrbit "$DB" $2 AST)
+# The use of "instrumentInOrbit" instead of "instrumentStartingInOrbit" for MISR helps
+# prevent against edge cases
 MISLINES=$(instrumentInOrbit "$DB" $2 MIS)
 
 if [ ${#MOPLINES} -lt 2 ]; then

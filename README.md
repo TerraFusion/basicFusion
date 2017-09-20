@@ -24,45 +24,61 @@ As can be inferred, users of this program must have both HDF4 and HDF5 libraries
 
 In addition to the HDF libraries, the Basic Fusion program is also dependent on the szip and jpeg libraries. These dependencies arise within the HDF libraries themselves. Please note that both Blue Waters and ROGER provide pre-compiled, pre-installed versions of all of these libraries through the use of the "module" construct. You can see a list of available modules by invoking "module avail" in the terminal and grepping the output to see the desired HDF, szip, or jpeg modules you need.
 
-### Blue Waters
+
 1. cd into the desired directory and type
     ```
-    git clone https://github.com/TerraFusion/basicFusion
+    git clone https://YOUR_GITHUB_USERNAME@github.com/TerraFusion/basicFusion
     ```
 1. cd into the `basicFusion/util` directory
-1. Configure the external dependencies by running the configureEnv.sh script. This script handles downloading and setting up the Python dependencies used by the database generation scripts, as well as NCSA's Scheduler program used for parallel execution of the Basic Fusion code. Run `./configureEnv.sh` to see what arguments it needs to run. Use the -a flag to download everything:
-    ```
-    ./configureEnv.sh -a
-    ```
-    This will download the dependencies to the basicFusion/externLib directory.
-1. Check your basicFusion/externLib directory to make sure that the BFpyEnv and Scheduler directories have been made. If so, then the programming environment has been successfully created.
+1. Configure the external dependencies by running the configureEnv.sh script. This script handles downloading and setting up the Python dependencies used by the database generation scripts, as well as NCSA's Scheduler program used for parallel execution of the Basic Fusion code.  
+
+    Run `./configureEnv.sh` to see what arguments it needs to run. Use the -a flag to download everything:
+        ```
+        ./configureEnv.sh -a
+        ```
+    This will download the dependencies to the basicFusion/externLib directory. Note that if at any point this script fails, please check its code to ensure that it is loading a proper MPICH module (the name of the module can change from site to site).
+    
+1. Check the output of configureEnv.sh. If it completed without any errors, the dependencies were successfully created.
 
 ## Database generation
-### Blue Waters
-A suite of scripts have been written under `basicFusion/metadataInput/build` to generate the SQLite database of all the input HDF granules. Run the findThenGenerate.sh script to: 1. Discover all of the input HDF files available and 2. Build the SQLite database from this list.
+
+A suite of scripts have been written under `basicFusion/metadataInput/build` to generate the SQLite database of all the input HDF granules. Run the findThenGenerate.sh script to:  
+1. Discover all of the input HDF files available and  
+2. Build the SQLite database from this list.
 
 ```
-./findThenGenerate /path/to/inputfiles /path/to/output/SQLiteDB.sqlite
+./findThenGenerate /path/to/inputfiles
 ```
 
-The `/path/to/inputfiles` directory MUST contain the following subdirectories inside: ASTER, MISR, MOPITT, MODIS, CERES. This script will parse each of these subdirectories for all of the available files. This script can take some time to generate depending on the total size of the input data.
+The `/path/to/inputfiles` directory MUST contain the following subdirectories inside: ASTER, MISR, MOPITT, MODIS, CERES. This script will parse each of these subdirectories for all of the available files. This script can take some time to generate depending on the total size of the input data. The SQLite database will be saved as basicFusion/metadata-input/accesslist.sqlite
 
-This shell script uses a Python script called **fusionBuildDB** to parse the listing of all available files and then generate the SQLite database. This script is run using the Python Virtual Environment created during the **Installation** section.
+**NOTE!!!**: This shell script uses a Python script called **fusionBuildDB** to parse the listing of all available files and then generate the SQLite database. This script is run using the Python Virtual Environment created during the **Installation** section. IT IS REQUIRED that you follow the Installation section first to ensure that the virtual environment is installed.
 
 ## Input File Listing Generation
-### Blue Waters
-Once the database has been generated, we need to generate all of the input file listings as required by the basicFusion program itself. These files tell the BF program which input HDF files to process. Under `basicFusion/metadata-input/genInput`, the genInputRange_SX.sh script can generate any range of input files. This range is specified by starting orbit and ending orbit. Because the process of querying the database is very slow, the execution of these queries on the compute nodes is necessary.
+
+Once the database has been generated, we need to generate all of the input file listings as required by the basicFusion program itself. These files tell the BF program which input HDF files to process. 
+
+#### Generate a single input file
+Under `basicFusion/metadata-input/genInput`, the genFusionInput.sh script generates one single BasicFusion input file list. This script requires the SQLite database built in the Database Generation section for file querying. An example of how to run this script:
+
+`./genFusionInput.sh /path/to/accesslist.sqlite 69400 /path/to/outputList.txt`
+
+Your resulting input file list will be a properly formatted, canonical BasicFusion input file list.
+
+#### Generate a range of input files
+Under `basicFusion/metadata-input/genInput`, the genInputRange_SX.sh script can generate any range of input files. This range is specified by starting orbit and ending orbit. Because the process of querying the database is very slow, the execution of these queries on the compute nodes is necessary. This script will automatically handle submitting the database queries to the Blue Waters job queue.
+
 An example of how to invoke this script:
 
 ```
-./genInputRange_SX.sh /path/to/SQLiteDB.sqlite 69400 70000 /path/to/output
+./genInputRange_SX.sh /path/to/accesslist.sqlite 69400 70000 /path/to/output/dir
 ```
 
 Use `qstat | grep [your username]` to see the status of your jobs.
 
 Based on the orbit start and end times, as well as the parameters set inside of the script (max job size etc.), it determines how many resources to request of the Blue Waters TORQUE resource manager. It will then generate all of the necessary files for parallel computation in the `basicFusion/jobFiles/BFinputGen` directory and submit its jobs to the queue. The resultant output files will reside in your `/path/to/output` directory.
 
-NOTE: Inside the genInputRange_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. For most purposes, the default values should work fine.
+**NOTE!!!**: Inside the genInputRange_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters/ROGER. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. Do not run this script without reviewing the **JOB PARAMETERS** to determine if the values there are appropriate for the current system and job that you want to run! **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
 
 ## Compilation
 ### Blue Waters
@@ -78,8 +94,8 @@ module load hdf4 hdf5 szip
 Run: `make`. If it compiles without any errors (warnings are acceptable), the compilation was successful.
 
 
-## Program Execution
-### Blue Waters
+## Program Execution (Blue Waters Only)
+
 There are multiple ways one can execute the BF program. First, **note that it is strongly recommended that you do NOT simply run the program by invoking "./basicFusion..."**. Running the program this way executes it on a login-node, and the IO-intensive nature of this program means that it will eat up shared resources on the login node, causing other BW users to experience poor responsiveness in the login nodes. Not to mention, this is a breach of the BW terms of use.
 
 A script has been written under `basicFusion/TerraGen/util/processBF_SX.sh` that handles submitting the basicFusion program for execution. This script expects to find the basicFusion executable, generated by compiling the program, in the basicFusion/bin directory. 
@@ -91,31 +107,6 @@ Use `qstat | grep [your username]` to see the status of your jobs.
 
 Currently, the `/path/to/input/txt/files` must be the directory where all the input granule list text files are (these text files cannot be in any subdirectories). The `/path/to/output` will be where all of the output HDF5 granules are placed. The script will determine---exactly how the genInputRange_SX.sh does---how many jobs, nodes per job, and processors per node to use based on the number of orbits you desire to process. The maximum values for number of jobs, nodes, and processors can be changed inside the script in the **JOB PARAMETERS** section.
 
-### ROGER
+**NOTE!!!**: Inside the processBF_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters/ROGER. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. Do not run this script without reviewing the **JOB PARAMETERS** to determine if the values there are appropriate for the current system and job that you want to run! **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
 
-1. Copy Makefile.roger found in the Makefiles directory to Makefile in the root project directory:  
-    ```bash
-    cp Makefiles/Makefile.roger ./Makefile
-    ```
-2. Load the necessary modules:  
-    ```bash
-    module load zlib libjpeg hdf4/4.2.12 hdf5  
-    ```
-    Note that it is useful if you put this command in your ~/.bash_rc file so that these modules are loaded every time you enter a new shell.
-3. Run make under the package root directory:  
-    ```bash
-    make
-    ```
-4. The program is now ready for execution under the bin directory. It requires three arguments: Name of the output HDF5 file, path to a text file containing the input files, path to the orbit_info.bin file. The orbit_info.bin file contains information about orbit start and end times required for the subsetting of MOPITT and CERES. Please see the [relevant Wiki page](https://github.com/TerraFusion/basicFusion/wiki/orbit_info.bin-file) on how to generate this file if needed (a copy of this file should be included by default under the bin directory).
-    - There are multiple ways to run the program. If using a **small** input file list, it can simply be invoked from the login node:
-        ~~~~
-        ./basicFusion out.h5 inputFiles.txt orbit_info.bin
-        ~~~~ 
-    - If not using small input, please refer to the [relevant wiki page](https://github.com/TerraFusion/basicFusion/wiki/ROGER-Parallel-Execution) for parallel execution of the program. Please be careful not to run this program with large input as doing so will consume a large amount of shared resources on the login node! This would be in violation of NCSA terms of use.
-5. NOTES
-    - Some sample input files are located in the inputFileDebug directory. The content inside the file may or may not point to valid file paths, but it nonetheless provides an example of "good" input to the Fusion program. [Please refer to the relevant wiki page](https://github.com/TerraFusion/basicFusion/wiki/Fusion-Program-Input-File-Specification) for details on how these input files must be structured.
-    - The program by default runs unpacking code for some of the datasets. This unpacking behavior can be turned off by setting the proper environment variable:
-        ```
-        export TERRA_DATA_PACK=1
-        ```
-        Unpacking converts some of the integer-valued datasets into floating point values that correspond to real physical units. The data is originally packed from floating point values to integers after being retrieved from the satellites in order to conserve space. It is a form of data compression. Disabling the unpacking behavior will result in some significant changes to the structure of the output HDF5 file (some datasets/attributes will not be added if unpacking is not performed).
+Please refer to the command line description of ./processBF_SX.sh for a full listing of all the available parameters.

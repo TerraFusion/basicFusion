@@ -32,15 +32,16 @@ OUT_PATH=$4                                             # Where the resultant ou
 OUT_PATH=$(cd "$OUT_PATH" && pwd)
 
 #____________JOB PARAMETERS____________#
-MAX_NPJ=18                                              # Maximum number of nodes per job
-MAX_PPN=16                                              # Maximum number of processors (cores) per node.
-MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
+MAX_NPJ=4                                               # Maximum number of nodes per job
+MAX_PPN=20                                              # Maximum number of cores per node.
+MAX_NUMJOB=1                                            # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="00:30:00"                                     # Requested wall clock time for the jobs
-QUEUE="normal"                                            # Which queue to put the jobs in
+QUEUE=""                                                # Which queue to put the jobs in. By default, no queue is specified.
 #--------------------------------------#
 
 # Make the DB path absolute
 DB_PATH="$(cd $(dirname $DB_PATH) && pwd)/$(basename $DB_PATH)"
+hn=$(hostname)  # Hostname of the machine running this script
 
 if [ ! -f "$DB_PATH" ]; then
     echo "The database at:"
@@ -93,7 +94,7 @@ if [ $numJobs -ge $MAX_NUMJOB ]; then
         fi
     done
 
-    numJobs=$((MAX_NUMJOB-1))
+    numJobs=$((MAX_NUMJOB))
 
 # Else if we do not need to overfill
 else
@@ -188,11 +189,22 @@ for i in $(seq 0 $((numJobs-1)) ); do
     mkdir -p "${jobDir[$i]}"                        # Makes a directory for each job
 done
 
+# The MPI program is different between ROGER and Blue Waters
+mpiProg=""
+loadMPICH=""
+if [ "$hn" == "cg-gpu01" ]; then
+    loadMPICH="module load mpich"
+    mpiProg="mpirun"
+# Else assume that we are on Blue Waters
+else
+    mpiProg="aprun"
+fi
+
 logDir="$runDir/logs"
 mkdir "$logDir"
-mkdir "$logDir"/aprun
-mkdir "$logDir"/aprun/errors
-mkdir "$logDir"/aprun/logs
+mkdir "$logDir"/$mpiProg
+mkdir "$logDir"/$mpiProg/errors
+mkdir "$logDir"/$mpiProg/logs
 
 ########################
 #   MAKE PBS SCRIPTS   #
@@ -206,9 +218,17 @@ echo "Generating PBS scripts in: $(pwd)"
 for i in $(seq 0 $((numJobs-1)) ); do
     echo "#!/bin/bash"                                          >> job$i.pbs
     echo "#PBS -j oe"                                           >> job$i.pbs
-    echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe"           >> job$i.pbs
+    # Special case for ROGER. ROGER has no notion of node type (xe)
+    if [ "$hn" == "cg-gpu01" ]; then
+        echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}"           >> job$i.pbs
+    # Else assume that we are on Blue Waters
+    else
+        echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe"           >> job$i.pbs
+    fi
     echo "#PBS -l walltime=$WALLTIME"                           >> job$i.pbs
-    echo "#PBS -q $QUEUE"                                       >> job$i.pbs
+    if [ ${#QUEUE} -ne 0 ]; then
+        echo "#PBS -q $QUEUE"                                       >> job$i.pbs
+    fi
     echo "#PBS -N TerraInput_${jobOSTART[$i]}_${jobOEND[$i]}"   >> job$i.pbs
     # The PMI environment variables are added as a workaround to a known Application Level Placement
     # Scheduler (ALPS) bug on Blue Waters. Not entirely sure what they do but BW staff told me
@@ -216,17 +236,28 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "export PMI_NO_FORK=1"                                 >> job$i.pbs
     echo "export PMI_NO_PREINITIALIZE=1"                        >> job$i.pbs
     echo "cd $runDir"                                           >> job$i.pbs
-    echo "source /opt/modules/default/init/bash"                >> job$i.pbs
-    echo "module load hdf4 hdf5"                                >> job$i.pbs
+    
 
+    echo "source /opt/modules/default/init/bash &> /dev/null"   >> job$i.pbs
+    echo "module load hdf4 hdf5"                                >> job$i.pbs
+    echo "$loadMPICH"                                           >> job$i.pbs
     littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
-    bigR=4
-    if [ $bigR -ge ${PPN[$i]} ]; then
-        bigR=0      # Done in the cases where small number of nodes used. -R tells how many node failures are
-                    # acceptable
+    bigR=0
+
+    mpiCall=""
+    if [ "$mpiProg" == "mpirun" ]; then
+        numRanks=$(( ${NPJ[$i]} * ${PPN[$i]} - 1 ))
+        mpiCall="$mpiProg -np $littleN"
+    elif [ "$mpiProg" == "aprun" ]; then
+        mpiCall="$mpiProg -n $littleN -N ${PPN[$i]} -R $bigR"
+    else
+        echo "The MPI program should either be mpirun or aprun!" >&2
+        exit 1
     fi
-    echo "aprun -n $littleN -N ${PPN[$i]} -R $bigR $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/aprun/logs/job$i.log 2> $logDir/aprun/errors/$job$i.err" >> job$i.pbs
+
+    echo "$mpiCall $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/$mpiProg/logs/job$i.log 2> $logDir/$mpiProg/errors/$job$i.err" >> job$i.pbs
     echo "exit 0"                                               >> job$i.pbs
+
 done
 
 ############################
