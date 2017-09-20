@@ -58,6 +58,7 @@ downloadPY()
  
     # Add a .pth file so that the util/Globus script is in there
     echo "$globUtil" > "$BF_PATH/externLib/$virtEnvName/lib/python2.7/site-packages/globUtil.pth"
+
     deactivate
 
     

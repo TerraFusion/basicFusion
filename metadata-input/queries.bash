@@ -146,3 +146,6 @@ followingFile() {
   # args: $1=database $2=filename as returned by other query
   DB $1 $(selectFiles) $(follows $2)
 }
+
+# Call the functions verbatim from the arguments to this script
+$@

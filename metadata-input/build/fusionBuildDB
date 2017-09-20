@@ -2,6 +2,11 @@
 
 """buildDB - Build the timespan database from orbits data-file and instrument-file-names data-files
 
+Description:
+    This script builds an SQLite database of Terra files. It parses the lists passed to it for Terra files and either includes
+    or ignores the file in the database based on internal criteria. The only files needed for the Basic Fusion processing
+    are listed in the GitHub documentation.
+
 Usage:
     buildDB [-ohqv] [--trace=FILENAME] [--discards=DISCARDFILE] [--anomalies=ERRORFILE] DB_FILE ORBIT_FILE INSTRUMENT_FILES...
     buildDB -h | --help
@@ -170,6 +175,11 @@ def addmod(directory, fname):
     return
 
 def addmop(directory, fname):
+    
+    # Force that no MOPITT files ending in .hdf are used, only .he5
+    if ( ".hdf" in fname ):
+        raise ValueError("Received a MOPITT file that ends in .hdf!")
+
     sformat = '%Y%m%d'
     ss = fname.split('-')
     stime = mktime_utc(sformat, ss[1])
@@ -180,7 +190,8 @@ def addmop(directory, fname):
 
 def addcer(directory, fname): 
     if('.hdf' in fname):
-        return
+        raise ValueError("Received a CERES file that ends in .hdf!")
+
     timeFmt = '%Y%m%d%H'
     ss = fname.split('.')
     stime = mktime_utc(timeFmt, ss[-1])
@@ -255,7 +266,7 @@ def addInstrumentFile(instFile):
                         print("{}:{}: {}".format(instFile, count,line), file=discards)
                     break
             else:
-                if(re.match(r".*CER.*(.hdf)$", line, re.I)):
+                if( re.match(r".*CER.*(.hdf)$", line, re.I) or re.match(r".*MOP.*(.hdf)$", line, re.I) ):
                     print("{}:{}: {}".format(instFile, count,line), file=discards)
                     continue
                 if line.startswith('/') and line.endswith(':'):
