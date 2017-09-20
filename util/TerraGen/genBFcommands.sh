@@ -13,6 +13,13 @@ if [ $# -ne 6 ]; then
     echo
     printf "The input text file, output, and basicFusion project paths should be directory paths,\nnot a path to any file.\n"
     echo
+    printf "ARGUMENTS:\n"
+    printf "[orbit start]   -- Starting orbit\n"
+    printf "[orbit end]     -- Ending orbit\n"
+    printf "[input file list path]  -- Directory that contains ONLY the BF input file list files, formatted as input[orbitNum].txt\n"
+    printf "[output commands path]  -- Directory where the output commands file will be stored\n"
+    printf "[basicFusion project path] -- Absolute directory to your local basicFusion repository. /path/to/basicFusion\n"
+    echo
     exit 1
 fi
 
