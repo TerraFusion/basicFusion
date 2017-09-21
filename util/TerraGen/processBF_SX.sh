@@ -1,4 +1,114 @@
 #!/bin/bash
+# Author: Landon Clipp
+# Email: clipp2@illinois.edu
+
+#       findJobPartition
+#
+# DESCRIPTION:
+#       This function takes as input a range of orbits and various maximum job parameters
+#       and determines how the orbits will be partitioned among the jobs. The parameters it
+#       determines include the number of cores per node, number of nodes per job, and the
+#       number of jobs.
+#
+# ARGUMENTS:
+#       Command Line:
+#           [Orbit start] [Orbit end] [Max Nodes Per Job] [Max Cores Per Node] [Max num Jobs]
+#       Implicit (global variables):
+#               jobOSTART       -- Array that will contain starting orbits for each job, where
+#                                  each element is a specific job.
+#               jobOEND         -- Array that will contain the ending orbits for each job.
+#               CPN             -- Array that will contain the cores per node of each job.
+#               NPJ             -- Array that will contain the nodes per job of each job.
+#               numJobs         -- Integer variable that will contain the amount of jobs
+#                                  allocated in the partition.
+# EFFECTS:
+#       Modifies the Implicit arguments to contain the proper parameters.
+#
+# RETURN:
+#       Implicit arguments.
+#
+
+findJobPartition(){
+
+    local OSTART_l=$1; shift
+    local OEND_l=$1; shift
+    local MAX_NPJ_l=$1; shift
+    local MAX_CPN_l=$1; shift
+    local MAX_NUMJOB_l=$1; shift
+
+    declare -a numProcess_l 
+    local numProcessPerJob_l
+    local numOrbits_l
+    local numExtraProcess_l
+    local numNodes_l
+    local accumulator_l
+    local jobBrim_l
+
+    numOrbits_l=$(($OEND_l - $OSTART_l + 1))                      # Total number of orbits to generate
+    jobBrim_l=$(( MAX_NPJ_l * MAX_CPN_l ))
+
+    numJobs=0
+
+    # First attempt to fill up all jobs to the brim
+    for i in $(seq 0 $MAX_NUMJOB_l); do
+        numProcess_l[$i]=0              # Initialize to zero
+        CPN[$i]=0
+        NPJ[$i]=0
+        let "numJobs++"
+
+        # Loop over every node in the job       
+        for j in $(seq 0 $MAX_NPJ_l); do
+
+            NPJ[$i]=$(( ${NPJ[$i]} + 1 ))               # Increment the nodes per job
+
+            # Loop over every core in the job
+            for k in $(seq 0 $MAX_CPN_l); do
+                numProcess_l[$i]=$(( ${numProcess_l[$i]} + 1 ))           # Increment this job's number of orbits to process
+                let "numOrbits_l--"                                     # Decrement the remaining orbits left
+
+                # Clip the CPN to the maximum value
+                if [ ${CPN[$i]} -lt $MAX_CPN_l ]; then
+                    CPN[$i]=$(( ${CPN[$i]} + 1 ))
+                fi
+
+                if [ $i -eq $MAX_NUMJOB_l ] && [ ${numProcess_l[$i]} -eq $jobBrim_l ]; then
+                    break 3     # Break out of all for loops
+                fi
+            done
+        done
+
+    done
+
+   
+    # Currently, all jobs are set to hold MAX_NPJ * MAX_CPN number of processes.
+    # Check if there are more orbits to process. If so, distribute the remaining
+    # processes evenly
+    if [ $numOrbits_l -gt 0 ]; then
+        while true; do
+            for i in $(seq 0 $MAX_NUMJOB_l); do
+                if [ $numOrbits_l -eq 0 ]; then
+                    break 2
+                fi
+
+                numProcess_l[$i]=$(( ${numProcess_l[$i]} + 1 ))
+                let "numOrbits_l--"
+            done
+        done
+    fi 
+
+    # For each job, figure out the range of orbits it will be responsible for
+    accumulator_l=$OSTART_l
+
+
+    # Set the starting and ending orbits for each job
+    for i in $(seq 0 $((numJobs-1)) ); do
+        jobOSTART[$i]=$accumulator_l
+        # Orbit end = orbit start + numOrbitsForJob - 1
+        jobOEND[$i]=$((${jobOSTART[$i]} + ${numProcess_l[$i]} - 1))
+        accumulator_l=$((${jobOEND[$i]} + 1))
+    done
+}
+
 
 usage(){
 
@@ -27,8 +137,10 @@ ARGUMENTS:
 \t[orbit end]                  -- The ending orbit to process
 \t[output path]                -- This is where all the output Basic Fusion files will go.
 \t[OPTS]                       -- Valid options are:
-\t                                --GZIP [1-9]      Sets the HDF compression level
-\t                                --CHUNK           This enables HDF chunking
+\t                                --GZIP [1-9]      Sets the HDF compression level. Default 0.
+\t                                --CHUNK           This enables HDF chunking. Default OFF.
+\t                                --GNU             Use GNU Parallel instead of NCSA Scheduler
+
 "   
     while read -r line; do
         printf "$line\n"
@@ -40,7 +152,23 @@ if [ $# -lt 4 -o $# -gt 7 ]; then
     exit 1
 fi
 
+#____________JOB PARAMETERS____________#
+MAX_NPJ=5                                               # Maximum number of nodes per job
+MAX_CPN=16                                              # Maximum number of processors (cores) per node.
+MAX_NUMJOB=5                                            # Maximum number of jobs that can be submitted simultaneously
+WALLTIME="06:00:00"                                     # Requested wall clock time for the jobs
+QUEUE=""                                                # Which queue to put the jobs in. Leave blank for system default.
+#--------------------------------------#
+
+#____________FILE NAMING_______________#
+
+FILENAME='TERRA_BF_L1B_O${orbit}_${orbit_start}_F000_V000.h5'          # The variables "orbit" and "orbit_start" will be expanded later on.
+
+#--------------------------------------#
 LISTING_PATH=$1
+
+
+# ASSERT THAT LISTING_PATH IS A VALID DIRECTORY
 if [ ! -d "$LISTING_PATH" ]; then
     echo "Illegal parameter:" >&2
     printf "\t$LISTING_PATH\n" >&2
@@ -57,10 +185,14 @@ OUT_PATH=$(cd "$OUT_PATH" && pwd)
 shift
 USE_GZIP=0
 USE_CHUNK=0
-
+USE_GNU=0
 intREG='^[0-9]+$'       # An integer regular expression
 
-# Do the OPTS argument parsing
+
+    ########################
+    # OPT ARGUMENT PARSING #
+    ########################
+
 for i in $(seq 1 "$#"); do
     if [ "$1" == "--GZIP" ]; then
         shift
@@ -79,41 +211,35 @@ for i in $(seq 1 "$#"); do
             exit 1
         fi
 
-        echo "_____GZIP ENABLED______"
-    else
-        echo "_____GZIP DISABLED_____"
-    fi
+        echo "___HDF GZIP LEVEL ${USE_GZIP}___"
 
-    if [ "$1" == "--CHUNK" ]; then
+    elif [ "$1" == "--CHUNK" ]; then
         USE_CHUNK=1
-        echo "_____HDF CHUNKING ENABLED______"
+        echo "___HDF CHUNKING ENABLED___"
+    elif [ "$1" == "--GNU" ]; then
+        USE_GNU=1
+        echo "___USING GNU PARALLEL___"
     else
-        echo "_____HDF CHUNKING DISABLED_____"
-    fi
-
-    # If neither of the valid options are set, then this parameter must be illegal
-    if [ $USE_CHUNK -eq 0 -a $USE_GZIP -eq 0 ]; then
-        echo "Illegal parameter: $1" >&2
+        echo "Error: Illegal parameter: $1" >&2
         exit 1
     fi
 
     shift
 done
 
-#____________JOB PARAMETERS____________#
-MAX_NPJ=32                                              # Maximum number of nodes per job
-MAX_PPN=16                                              # Maximum number of processors (cores) per node.
-MAX_NUMJOB=30                                           # Maximum number of jobs that can be submitted simultaneously
-WALLTIME="06:00:00"                                     # Requested wall clock time for the jobs
-QUEUE=""                                          # Which queue to put the jobs in
-#--------------------------------------#
+if [ $USE_GZIP -eq 0 ]; then
+    echo "___HDF GZIP DISABLED___"
+fi
+if [ $USE_CHUNK -eq 0 ]; then
+    echo "___HDF CHUNKING DISABLED___"
+fi
+if [ $USE_GNU -eq 0 ]; then
+    echo "___USING NCSA SCHEDULER___"
+fi
 
-#____________FILE NAMING_______________#
 
-FILENAME='TERRA_BF_L1B_O${orbit}_${orbit_start}_F000_V000.h5'          # The variables "orbit" and "orbit_start" will be expanded later on.
-
-#--------------------------------------#
-
+#####################################################################################################################################
+#                               DIRECTORIES AND PATHS 
 
 
 ABS_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"    # Get the absolute path of this script
@@ -125,6 +251,9 @@ BF_PATH="$(cd "$BIN_DIR/../" && pwd)"                           # Get the path o
 SCHED_PATH="$BF_PATH/externLib/Scheduler"                       # Get the path of the Scheduler repository
 ORBIT_INFO="$BF_PATH/metadata-input/data/Orbit_Path_Time.txt"   # Get the path of the Orbit_info file
 hn="$(hostname)"                                                # host name of this machine
+
+#####################################################################################################################################
+
 
 # Check that Scheduler has already been downloaded and compiled
 if [ ! -x "$SCHED_PATH" ]; then
@@ -138,90 +267,31 @@ if [ ! -e "$ORBIT_INFO" ]; then
     exit 1
 fi
 
+###########################
+# FIND THE JOB PARTITIONS #
+###########################
 
-numOrbits=$(($OEND - $OSTART + 1))                      # Total number of orbits to generate
-numProcessPerJob=$((numOrbits / $MAX_NUMJOB)) 
-
-
-# Find the remainder of this division
-let "numExtraProcess= $numOrbits % $MAX_NUMJOB"
-
-# Find how many jobs need to be submitted assuming each job is completely filled (MAX_NPJ * MAX_PPN - 1)
-let "numJobs= $numOrbits / $(($MAX_NPJ * $MAX_PPN - 1))"
-
-# If the number of jobs is greater than MAX_NUMJOB, then we will need to overfill
-if [ $numJobs -ge $MAX_NUMJOB ]; then 
-    
-    for i in $(seq 0 $((MAX_NUMJOB - 1)) ); do
-        PPN[$i]=$MAX_PPN
-        NPJ[$i]=$MAX_NPJ
-
-        numProcess[$i]=$numProcessPerJob
-        let "numProcess[$i] += $numExtraProcess / $MAX_NUMJOB"
-
-        if [ $i -eq $((MAX_NUMJOB-1)) ]; then
-            let "numProcess[$i] += $numExtraProcess % $MAX_NUMJOB"
-        fi
-    done
-
-    numJobs=$((MAX_NUMJOB))
-
-# Else if we do not need to overfill
-else
-    for i in $(seq 0 $((numJobs - 1)) ); do         # Assign the first few jobs to have maximum number of PPN and NPJ
-        PPN[$i]=$MAX_PPN
-        NPJ[$i]=$MAX_NPJ
-        numProcess[$i]=$((MAX_PPN * MAX_NPJ - 1))       # Each job will handle MAX_PPN * MAX_NPJ - 1 processes.
-                                                        # It's -1 because Scheduler needs one core to itself.
-    done
-
-    let "numExtraProcess = $numOrbits - ((MAX_NPJ * MAX_PPN - 1) * numJobs)"  # Find the remaining number of jobs to process
-    numProcess[$numJobs]=$numExtraProcess
-    
-    if [ $numExtraProcess -gt 0 ]; then             # If the remaning number of processes is greater than 0.
-        numNodes=$((numExtraProcess / MAX_PPN))     # Find the number of nodes the last job needs to have.
-
-        if [ $numNodes -eq 0 ]; then                # If it needs less than one node (assuming MAX_PPN), only request
-            PPN[$numJobs]=$((numExtraProcess+1))    # exact number of cores that we need + 1, and only one node.
-            NPJ[$numJobs]=1                         # We add +1 to it because NCSA Scheduler requires 1 core for itself.
-                                                    # We don't add +1 in the case where there are many processes to be run
-                                                    # because the time difference would be negligible. This is just an
-                                                    # edge case consideration (what if only 1 granule is being processed?)
-        else
-            PPN[$numJobs]=$MAX_PPN                  # Else, assign the MAX_PPN and find number of nodes needed to process remaining orbits
-            
-            if [ $((numExtraProcess % MAX_PPN)) -eq 0 ]; then
-                NPJ[$numJobs]=$numNodes             # An edge case where the numExtraProcesses is a multiple of MAX_PPN
-            else
-                NPJ[$numJobs]=$((numNodes + 1))
-            fi
-        fi
-    fi
-fi
-
-# For each job, figure out the range of orbits it will be responsible for
-accumulator=$OSTART
-
-if [ $((numOrbits % $((MAX_NPJ * MAX_PPN)) )) -ne 0 ]; then
-    let "numJobs++"
-fi
-
-# Set the starting and ending orbits for each job
-for i in $(seq 0 $((numJobs-1)) ); do
-    jobOSTART[$i]=$accumulator
-    # Orbit end = orbit start + numOrbitsForJob - 1
-    jobOEND[$i]=$((${jobOSTART[$i]} + ${numProcess[$i]} - 1))
-    accumulator=$((${jobOEND[$i]} + 1))
-done
+echo "Finding the job partitioning. Please be patient..."
+declare -a jobOSTART    # Outputs of findJobPartition
+declare -a jobOEND
+declare -a CPN
+declare -a NPJ
+declare -a numProcess
+declare numJobs
+findJobPartition $OSTART $OEND $MAX_NPJ $MAX_CPN $MAX_NUMJOB
+echo "Done."
+echo
 
 # =================================== #
 # Print the node and job information  #
 # =================================== #
-for i in $(seq 0 $((numJobs-1)) ); do
-    echo "JOB PARAMETERS"
-    printf '%d PPN: %-5s NPJ: %-5s numProcess: %-5s start: %-5s end: %-5s\n' $i ${PPN[$i]} ${NPJ[$i]} ${numProcess[$i]} ${jobOSTART[$i]} ${jobOEND[$i]}
-done
 
+echo "JOB PARAMETERS"
+
+for i in $(seq 0 $((numJobs-1)) ); do
+    printf '%d CPN: %-5s NPJ: %-5s start: %-5s end: %-5s\n' $i ${CPN[$i]} ${NPJ[$i]} ${jobOSTART[$i]} ${jobOEND[$i]}
+done
+echo
 
 # Time to create the files necessary to submit the jobs to the queue
 BF_PROCESS="$BF_PATH/jobFiles/BFprocess"
@@ -295,14 +365,14 @@ for i in $(seq 0 $((numJobs-1)) ); do
 
     # littleN (-n) tells us how many total processes in the job.
     # 
-    littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
+    littleN=$(( ${NPJ[$i]} * ${CPN[$i]} ))
 
     mpiCall=""    
     if [ "$mpiProg" == "mpirun" ]; then
-        numRanks=$(( ${NPJ[$i]} * ${PPN[$i]} - 1 ))
+        numRanks=$(( ${NPJ[$i]} * ${CPN[$i]} - 1 ))
         mpiCall="$mpiProg -np $littleN"
     elif [ "$mpiProg" == "aprun" ]; then
-        mpiCall="$mpiProg -n $littleN -N ${PPN[$i]} -R $bigR"
+        mpiCall="$mpiProg -n $littleN -N ${CPN[$i]} -R $bigR"
     else
         echo "The MPI program should either be mpirun or aprun!" >&2
         exit 1
@@ -315,7 +385,7 @@ for i in $(seq 0 $((numJobs-1)) ); do
     pbsFile="\
 #!/bin/bash
 #PBS -j oe
-#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}${nodeType}
+#PBS -l nodes=${NPJ[$i]}:ppn=${CPN[$i]}${nodeType}
 #PBS -l walltime=$WALLTIME
 $queueLine
 #PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}
@@ -408,7 +478,7 @@ for job in $(seq 0 $((numJobs-1)) ); do
     echo "Submitting $runDir/PBSscripts/job$job.pbs to queue."
     curDir="$(pwd)"
     cd $runDir/PBSscripts
-    qsub job$job.pbs 
+    #qsub job$job.pbs 
     # cd back into the curDir directory
     cd "$curDir"
     echo

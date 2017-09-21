@@ -347,7 +347,7 @@ source \"$PY_ENV/bin/activate\"
 globus endpoint activate $srcID
 globus endpoint activate $destID
 # Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
-{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"$curStageArea\" \"$destDir\" ; } &> \"$runDir/logs/transfer/stdout_err$i.txt\" 
+{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"$curStageArea\" \"$destDir\"/${jobYear[$i]} ; } &> \"$runDir/logs/transfer/stdout_err$i.txt\" 
 
 rm -rf \"$curStageArea\"
 "
