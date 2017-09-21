@@ -43,26 +43,25 @@ findJobPartition(){
     local numNodes_l
     local accumulator_l
     local jobBrim_l
-
+    local numJobs_l
     numOrbits_l=$(($OEND_l - $OSTART_l + 1))                      # Total number of orbits to generate
     jobBrim_l=$(( MAX_NPJ_l * MAX_CPN_l ))
 
     numJobs=0
 
+    echo $numOrbits_l
     # First attempt to fill up all jobs to the brim
-    for i in $(seq 0 $MAX_NUMJOB_l); do
+    for i in $(seq 0 $((MAX_NUMJOB_l-1))); do
         numProcess_l[$i]=0              # Initialize to zero
         CPN[$i]=0
         NPJ[$i]=0
         let "numJobs++"
 
         # Loop over every node in the job       
-        for j in $(seq 0 $MAX_NPJ_l); do
-
-            NPJ[$i]=$(( ${NPJ[$i]} + 1 ))               # Increment the nodes per job
+        for j in $(seq 0 $((MAX_NPJ_l-1))); do
 
             # Loop over every core in the job
-            for k in $(seq 0 $MAX_CPN_l); do
+            for k in $(seq 0 $((MAX_CPN_l-1))); do
                 numProcess_l[$i]=$(( ${numProcess_l[$i]} + 1 ))           # Increment this job's number of orbits to process
                 let "numOrbits_l--"                                     # Decrement the remaining orbits left
 
@@ -71,22 +70,26 @@ findJobPartition(){
                     CPN[$i]=$(( ${CPN[$i]} + 1 ))
                 fi
 
-                if [ $i -eq $MAX_NUMJOB_l ] && [ ${numProcess_l[$i]} -eq $jobBrim_l ]; then
-                    break 3     # Break out of all for loops
+                if [ $numOrbits_l -le 0 ]; then
+                    break 3
                 fi
             done
+ 
         done
+
+        NPJ[$i]=$((j+1))
 
     done
 
-   
+    NPJ[$i]=$((j+1))
+
     # Currently, all jobs are set to hold MAX_NPJ * MAX_CPN number of processes.
     # Check if there are more orbits to process. If so, distribute the remaining
     # processes evenly
     if [ $numOrbits_l -gt 0 ]; then
         while true; do
-            for i in $(seq 0 $MAX_NUMJOB_l); do
-                if [ $numOrbits_l -eq 0 ]; then
+            for i in $(seq 0 $numJobs); do
+                if [ $numOrbits_l -le 0 ]; then
                     break 2
                 fi
 
@@ -109,6 +112,256 @@ findJobPartition(){
     done
 }
 
+findOrbitStart(){
+
+    local orbit_l=$1; shift
+    local ORBIT_INFO_l="$1"; shift
+
+    # Grab the orbit start time from ORBIT_INFO
+    orbit_start="$(grep -w "^$orbit_l" "$ORBIT_INFO_l" | cut -f3 -d" ")"
+    # Get rid of the '-' characters
+    orbit_start="${orbit_start//-/}"
+    # Get rid of the 'T' characters
+    orbit_start="${orbit_start//T/}"
+    # Get rid of the ':' characters
+    orbit_start="${orbit_start//:/}"
+    # Get rid of the 'Z'
+    orbit_start="${orbit_start//Z/}"
+}
+
+initAndSubmit_GNU(){
+    
+
+    local orbit_start
+    
+    local logDir="$runDir/logs"
+    mkdir "$logDir"
+    mkdir "$logDir"/orbitLevel
+    mkdir "$logDir"/GNU_parallel
+
+    # Copy the basicFusion binary to the job directory. Use this copy of the bianry.
+    cp $BF_PROG $runDir 
+    newBF_PROG="$runDir"/$(basename $BF_PROG)
+
+    # Save the current date into the run directory
+    date > "$runDir/date.txt"
+
+    ########################
+    #   MAKE PBS SCRIPTS   #
+    ########################
+     
+    cd $runDir
+    mkdir -p PBSscripts
+    cd PBSscripts
+    echo "Generating scripts for parallel execution in: $(pwd)"
+    
+    for i in $(seq 0 $((numJobs-1)) ); do
+
+        echo "Making scripts for job ${i}..."
+
+        local CMD_FILE="$runDir/parallel_BF_CMD_job_${i}.txt"
+        rm -f "$CMD_FILE"
+
+        # GNU parallel requires a text file where each line is a command-line call to process. It distributes each of these
+        # command line calls amongst the nodes it governs. Generating this file is easy, just create the appropriate arguments
+        # to the basicFusion program for each orbit, one orbit per line.
+
+        
+        evalFileName=$(eval echo $FILENAME)
+        for orbit in $(seq ${jobOSTART[$i]} ${jobOEND[$i]} ); do
+            
+            orbit_start=""
+            # Find the orbit start time
+            findOrbitStart $orbit $ORBIT_INFO
+
+            export orbit=$orbit
+
+            # Evaluate the filename. Filename relies on the variables "orbit" and "orbit_start" being set to their appropriate values.
+            evalFileName=$(eval echo "$FILENAME")
+            echo "$newBF_PROG \"$OUT_PATH/$evalFileName\" $LISTING_PATH/input${orbit}.txt $ORBIT_INFO &> $logDir/orbitLevel/log${orbit}.txt" >> "$CMD_FILE"
+        
+        done
+ 
+        queueLine=""
+        if [ ${#QUEUE} -ne 0 ]; then
+            queueLine="#PBS -q $QUEUE"
+        fi
+        pbsFile="\
+#!/bin/bash
+#PBS -j oe
+#PBS -l nodes=${NPJ[$i]}:ppn=${CPN[$i]}${NODE_TYPE}
+#PBS -l walltime=$WALLTIME
+$queueLine
+#PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}
+export USE_GZIP=${USE_GZIP}
+export USE_CHUNK=${USE_CHUNK}
+cd $runDir
+source /opt/modules/default/init/bash
+module load hdf4 hdf5 parallel
+export PARALLEL=\"--env PATH --env LD_LIBRARY_PATH --env LOADEDMODULES --env _LMFILES_ --env MODULE_VERSION --env MODULEPATH --env MODULEVERSION_STACK --env MODULESHOME\"
+parallel --jobs \$PBS_NUM_PPN --sshloginfile \$PBS_NODEFILE --workdir $runDir < \"$CMD_FILE\" &> $runDir/logs/GNU_parallel/log${i}.txt
+exit 0
+"
+
+        echo "$pbsFile" > job$i.pbs
+
+
+        echo "Done."
+        echo
+
+        ###################
+        #    CALL QSUB    #
+        ###################
+
+        echo "Submitting $runDir/PBSscripts/job${i}.pbs to queue..."
+        curDir="$(pwd)"
+        cd $runDir/PBSscripts
+        qsub job${i}.pbs 
+        # cd back into the curDir directory
+        cd "$curDir"
+        echo "Done."
+        echo
+
+    done # DONE with for job in....
+}
+
+initAndSubmit_sched(){
+
+    local logDir="$runDir/logs"
+    mkdir "$logDir"
+    mkdir "$runDir"/PBSscripts
+
+    for i in $(seq 0 $((numJobs-1)) ); do
+
+        # Make the job directories inside each run directory
+        mkdir -p "${runDir}/programCalls"
+        for i in $(seq 0 $((numJobs-1)) ); do
+            jobDir[$i]="${runDir}/programCalls/job$i"
+            mkdir -p "${jobDir[$i]}"                        # Makes a directory for each job
+        done
+        
+        # littleN (-n) tells us how many total processes in the job.
+        # 
+        littleN=$(( ${NPJ[$i]} * ${CPN[$i]} ))
+
+        mpiCall=""    
+        if [ "$mpiProg" == "mpirun" ]; then
+            numRanks=$(( ${NPJ[$i]} * ${CPN[$i]} - 1 ))
+            mpiCall="$mpiProg -np $littleN"
+        elif [ "$mpiProg" == "aprun" ]; then
+            mpiCall="$mpiProg -n $littleN -N ${CPN[$i]} -R $bigR"
+        else
+            echo "The MPI program should either be mpirun or aprun!" >&2
+            exit 1
+        fi
+
+        queueLine=""
+        if [ ${#QUEUE} -ne 0 ]; then
+            queueLine="#PBS -q $QUEUE"
+        fi
+        pbsFile="\
+#!/bin/bash
+#PBS -j oe
+#PBS -l nodes=${NPJ[$i]}:ppn=${CPN[$i]}${NODE_TYPE}
+#PBS -l walltime=$WALLTIME
+$queueLine
+#PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}
+export PMI_NO_PREINITIALIZE=1
+export USE_GZIP=${USE_GZIP}
+export USE_CHUNK=${USE_CHUNK}
+export PMI_NO_FORK=1
+cd $runDir
+source /opt/modules/default/init/bash
+module load hdf4 hdf5
+$loadMPICH
+$mpiCall time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/$mpiProg/logs/job$i.log 2> $logDir/$mpiProg/errors/$job$i.err
+exit 0
+"
+        cd $runDir/PBSscripts
+        echo "$pbsFile" > job${i}.pbs
+
+    done
+
+    ############################
+    #    MAKE PROCESS LISTS    #
+    ############################
+
+    # The process lists tell each independent job, up to MAX_NUMJOB number of jobs, what bash scripts to execute.
+    # Each of these bash scripts contain a single function call to the program. They will be created later on.
+     
+    cd ..
+    mkdir -p processLists
+    cd processLists
+    echo "Generating process lists in: $(pwd)"
+
+    for i in $(seq 0 $((numJobs-1)) ); do
+        for orbit in $(seq ${jobOSTART[$i]} ${jobOEND[$i]} ); do
+            echo "$runDir ${jobDir[$i]}/orbit$orbit.sh" >> job$i.list
+        done
+    done
+
+    ############################
+    #    MAKE PROGRAM CALLS    #
+    ############################
+    mkdir "$logDir"/basicFusion
+    mkdir "$logDir"/basicFusion/errors
+    mkdir "$logDir"/basicFusion/logs
+    BFfullPath="$runDir/$(basename $BF_PROG)"
+    logPath="$runDir/logs/basicFusion"
+    # Copy the basicFusion binary to the job directory. Use this copy of the bianry.
+    cp $BF_PROG $runDir 
+
+    for job in $(seq 0 $((numJobs-1)) ); do
+        echo "Writing program calls in: ${jobDir[$job]}"
+
+        for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
+            # Read Orbit start time from file
+            
+            filter="$orbit"        # The filter for grep
+            # Grab the orbit start time from ORBIT_INFO
+            orbit_start="$(grep -w "^$filter" "$ORBIT_INFO" | cut -f3 -d" ")"
+            # Get rid of the '-' characters
+            orbit_start="${orbit_start//-/}"
+            # Get rid of the 'T' characters
+            orbit_start="${orbit_start//T/}"
+            # Get rid of the ':' characters
+            orbit_start="${orbit_start//:/}"
+            # Get rid of the 'Z'
+            orbit_start="${orbit_start//Z/}"
+            evalFileName=$(eval echo $FILENAME)
+            outGranule="$OUT_PATH/$evalFileName"
+
+            # TODO: Fix the MD5sum funciton call
+            # BF program call looks like this:
+            # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
+            programCalls="\
+\"$BFfullPath\" \"$outGranule\" \"$LISTING_PATH/input${orbit}.txt\" \"$BIN_DIR/orbit_info.bin\" 2> \"$logPath/errors/${orbit}.err\" 1> \"$logPath/logs/${orbit}.log\"
+
+# We will now save the MD5 checksum.
+mkdir -p \"$OUT_PATH/checksum\"
+md5sum \"$OUT_PATH/$evalFileName\" > \"$OUT_PATH/checksum/${orbit}.md5\"
+"
+
+            echo "$programCalls" > "${jobDir[$job]}/orbit${orbit}.sh"
+
+            chmod +x "${jobDir[$job]}/orbit${orbit}.sh"
+     
+        done # DONE with for orbit in....
+
+        ###################
+        #    CALL QSUB    #
+        ###################
+
+        echo "Submitting $runDir/PBSscripts/job${job}.pbs to queue."
+        curDir="$(pwd)"
+        cd $runDir/PBSscripts
+        qsub job${job}.pbs 
+        # cd back into the curDir directory
+        cd "$curDir"
+        echo
+
+    done # DONE with for job in....
+}
 
 usage(){
 
@@ -158,6 +411,7 @@ MAX_CPN=16                                              # Maximum number of proc
 MAX_NUMJOB=5                                            # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="06:00:00"                                     # Requested wall clock time for the jobs
 QUEUE=""                                                # Which queue to put the jobs in. Leave blank for system default.
+NODE_TYPE=""
 #--------------------------------------#
 
 #____________FILE NAMING_______________#
@@ -165,8 +419,8 @@ QUEUE=""                                                # Which queue to put the
 FILENAME='TERRA_BF_L1B_O${orbit}_${orbit_start}_F000_V000.h5'          # The variables "orbit" and "orbit_start" will be expanded later on.
 
 #--------------------------------------#
-LISTING_PATH=$1
 
+LISTING_PATH=$1
 
 # ASSERT THAT LISTING_PATH IS A VALID DIRECTORY
 if [ ! -d "$LISTING_PATH" ]; then
@@ -293,6 +547,10 @@ for i in $(seq 0 $((numJobs-1)) ); do
 done
 echo
 
+# ================================================ #
+# Create the directories to hold all the job files #
+# ================================================ #
+
 # Time to create the files necessary to submit the jobs to the queue
 BF_PROCESS="$BF_PATH/jobFiles/BFprocess"
 mkdir -p "$BF_PROCESS"
@@ -318,16 +576,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-
 # Save the current date into the run directory
 date > "$runDir/date.txt"
 
-# Make the job directories inside each run directory
-mkdir -p "${runDir}/programCalls"
-for i in $(seq 0 $((numJobs-1)) ); do
-    jobDir[$i]="${runDir}/programCalls/job$i"
-    mkdir -p "${jobDir[$i]}"                        # Makes a directory for each job
-done
+
+# ========================================================== #
+# Create all of the necessary files for parallel computation #
+# ========================================================== #
 
 # The MPI program is different between ROGER and Blue Waters
 mpiProg=""
@@ -339,151 +594,18 @@ if [ "$hn" == "cg-gpu01" ]; then
 else
     mpiProg="aprun"
 fi
-logDir="$runDir/logs"
-mkdir "$logDir"
-mkdir "$logDir"/$mpiProg
-mkdir "$logDir"/$mpiProg/errors
-mkdir "$logDir"/$mpiProg/logs
 
-########################
-#   MAKE PBS SCRIPTS   #
-########################
- 
-cd $runDir
-mkdir -p PBSscripts
-cd PBSscripts
-echo "Generating PBS scripts in: $(pwd)"
-
-nodeType=""
 # If we're not on ROGER, assume that we are on Blue Waters and set the
 # node type to xe
 if ! [ "$hn" == "cg-gpu01" ]; then
-    nodeType=":xe"
+    NODE_TYPE=":xe"
 fi
 
-for i in $(seq 0 $((numJobs-1)) ); do
-
-    # littleN (-n) tells us how many total processes in the job.
-    # 
-    littleN=$(( ${NPJ[$i]} * ${CPN[$i]} ))
-
-    mpiCall=""    
-    if [ "$mpiProg" == "mpirun" ]; then
-        numRanks=$(( ${NPJ[$i]} * ${CPN[$i]} - 1 ))
-        mpiCall="$mpiProg -np $littleN"
-    elif [ "$mpiProg" == "aprun" ]; then
-        mpiCall="$mpiProg -n $littleN -N ${CPN[$i]} -R $bigR"
-    else
-        echo "The MPI program should either be mpirun or aprun!" >&2
-        exit 1
-    fi
-
-    queueLine=""
-    if [ ${#QUEUE} -ne 0 ]; then
-        queueLine="#PBS -q $QUEUE"
-    fi
-    pbsFile="\
-#!/bin/bash
-#PBS -j oe
-#PBS -l nodes=${NPJ[$i]}:ppn=${CPN[$i]}${nodeType}
-#PBS -l walltime=$WALLTIME
-$queueLine
-#PBS -N TerraProcess_${jobOSTART[$i]}_${jobOEND[$i]}
-export PMI_NO_PREINITIALIZE=1
-export USE_GZIP=${USE_GZIP}
-export USE_CHUNK=${USE_CHUNK}
-export PMI_NO_FORK=1
-cd $runDir
-source /opt/modules/default/init/bash
-module load hdf4 hdf5
-$loadMPICH
-$mpiCall time $SCHED_PATH/scheduler.x $runDir/processLists/job$i.list /bin/bash -noexit 1> $logDir/$mpiProg/logs/job$i.log 2> $logDir/$mpiProg/errors/$job$i.err
-exit 0
-"
-
-    echo "$pbsFile" > job$i.pbs
-
-done
-
-############################
-#    MAKE PROCESS LISTS    #
-############################
-
-# The process lists tell each independent job, up to MAX_NUMJOB number of jobs, what bash scripts to execute.
-# Each of these bash scripts contain a single function call to the program. They will be created later on.
- 
-cd ..
-mkdir -p processLists
-cd processLists
-echo "Generating process lists in: $(pwd)"
-
-for i in $(seq 0 $((numJobs-1)) ); do
-    for orbit in $(seq ${jobOSTART[$i]} ${jobOEND[$i]} ); do
-        echo "$runDir ${jobDir[$i]}/orbit$orbit.sh" >> job$i.list
-    done
-done
-
-############################
-#    MAKE PROGRAM CALLS    #
-############################
-mkdir "$logDir"/basicFusion
-mkdir "$logDir"/basicFusion/errors
-mkdir "$logDir"/basicFusion/logs
-BFfullPath="$runDir/$(basename $BF_PROG)"
-logPath="$runDir/logs/basicFusion"
-# Copy the basicFusion binary to the job directory. Use this copy of the bianry.
-cp $BF_PROG $runDir 
-
-for job in $(seq 0 $((numJobs-1)) ); do
-    echo "Writing program calls in: ${jobDir[$job]}"
-
-    for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
-        # Read Orbit start time from file
-        
-        filter="$orbit"        # The filter for grep
-        # Grab the orbit start time from ORBIT_INFO
-        orbit_start="$(grep -w "^$filter" "$ORBIT_INFO" | cut -f3 -d" ")"
-        # Get rid of the '-' characters
-        orbit_start="${orbit_start//-/}"
-        # Get rid of the 'T' characters
-        orbit_start="${orbit_start//T/}"
-        # Get rid of the ':' characters
-        orbit_start="${orbit_start//:/}"
-        # Get rid of the 'Z'
-        orbit_start="${orbit_start//Z/}"
-        evalFileName=$(eval echo $FILENAME)
-        outGranule="$OUT_PATH/$evalFileName"
-
-        # TODO: Fix the MD5sum funciton call
-        # BF program call looks like this:
-        # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
-        programCalls="\
-\"$BFfullPath\" \"$outGranule\" \"$LISTING_PATH/input$orbit.txt\" \"$BIN_DIR/orbit_info.bin\" 2> \"$logPath/errors/$orbit.err\" 1> \"$logPath/logs/$orbit.log\"
-
-# We will now save the MD5 checksum.
-#mkdir -p \"$OUT_PATH/checksum\"
-#md5sum \"$OUT_PATH/$evalFileName\" > \"$OUT_PATH/checksum/$orbit.md5\"
-"
-
-        echo "$programCalls" > "${jobDir[$job]}/orbit$orbit.sh"
-
-        chmod +x "${jobDir[$job]}/orbit$orbit.sh"
- 
-    done # DONE with for orbit in....
+if [ $USE_GNU -eq 0 ]; then
+    initAndSubmit_sched
+else
+    initAndSubmit_GNU
+fi
     
-    ###################
-    #    CALL QSUB    #
-    ###################
-
-    echo "Submitting $runDir/PBSscripts/job$job.pbs to queue."
-    curDir="$(pwd)"
-    cd $runDir/PBSscripts
-    #qsub job$job.pbs 
-    # cd back into the curDir directory
-    cd "$curDir"
-    echo
-
-done # DONE with for job in....
-
 echo
 exit 0
