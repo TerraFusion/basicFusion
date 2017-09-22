@@ -1,7 +1,16 @@
 #!/bin/bash
 # Author: Landon Clipp
 # Email: clipp2@illinois.edu
+# Preface:
+#       I totally apologize for writing this whole thing in Bash. What began as a simple, small script
+#       turned into an unweildy beast. Kids, always avoid writing in Bash if you can. The only thing it's
+#       good for is if you need an easy interface for external program calling. I sometimes like to tell
+#       myself that I'm justified in using Bash because it's so good at program calling. It's easily
+#       one of the most dirty, unelegant, and obnoxious languages you'll ever have the displeasure of
+#       dealing with.
+#
 
+#============================================================================================
 #       findJobPartition
 #
 # DESCRIPTION:
@@ -27,6 +36,7 @@
 # RETURN:
 #       Implicit arguments.
 #
+#==============================================================================================
 
 findJobPartition(){
 
@@ -111,6 +121,23 @@ findJobPartition(){
     done
 }
 
+#=======================================================================================
+#       findOrbitStart()
+# DESCRIPTION:
+#       This function finds the starting date and time of orbit $1 as determined by the
+#       Orbit_Info.txt file.
+#
+# ARGUMENTS:
+#       $1      -- The orbit to find the starting time of
+#       $2      -- The Orbit_Info.txt file.
+#
+# EFFECTS:
+#       None
+#
+# RETURN:
+#       Modifies the orbit_start global variable.
+#=========================================================================================
+
 findOrbitStart(){
 
     local orbit_l=$1; shift
@@ -128,6 +155,15 @@ findOrbitStart(){
     orbit_start="${orbit_start//Z/}"
 }
 
+#========================================================================================================
+#       initAndSubmit_GNU()
+#
+# DESCRIPTION:
+#       This function creates all of the files necessary to run the BasicFusion program in parallel for
+#       every orbit between the starting and ending orbits. It uses the GNU parallel program to handle
+#       the task distribution on the compute nodes.
+#
+#=========================================================================================================
 initAndSubmit_GNU(){
     
 
@@ -135,7 +171,7 @@ initAndSubmit_GNU(){
     
     local logDir="$runDir/logs"
     mkdir "$logDir"
-    mkdir "$logDir"/orbitLevel
+    mkdir "$logDir"/basicFusion
     mkdir "$logDir"/GNU_parallel
 
     # Copy the basicFusion binary to the job directory. Use this copy of the bianry.
@@ -171,13 +207,13 @@ initAndSubmit_GNU(){
             
             orbit_start=""
             # Find the orbit start time
-            findOrbitStart $orbit $ORBIT_INFO
+            findOrbitStart $orbit $ORBIT_INFO_TXT
 
             export orbit=$orbit
 
             # Evaluate the filename. Filename relies on the variables "orbit" and "orbit_start" being set to their appropriate values.
             evalFileName=$(eval echo "$FILENAME")
-            echo "$newBF_PROG \"$OUT_PATH/$evalFileName\" $LISTING_PATH/input${orbit}.txt $ORBIT_INFO &> $logDir/orbitLevel/log${orbit}.txt" >> "$CMD_FILE"
+            echo "$newBF_PROG \"$OUT_PATH/$evalFileName\" $LISTING_PATH/input${orbit}.txt $ORBIT_INFO_BIN &> $logDir/basicFusion/log${orbit}.txt" >> "$CMD_FILE"
         
         done
  
@@ -315,30 +351,20 @@ exit 0
 
         for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
             # Read Orbit start time from file
-            
-            filter="$orbit"        # The filter for grep
-            # Grab the orbit start time from ORBIT_INFO
-            orbit_start="$(grep -w "^$filter" "$ORBIT_INFO" | cut -f3 -d" ")"
-            # Get rid of the '-' characters
-            orbit_start="${orbit_start//-/}"
-            # Get rid of the 'T' characters
-            orbit_start="${orbit_start//T/}"
-            # Get rid of the ':' characters
-            orbit_start="${orbit_start//:/}"
-            # Get rid of the 'Z'
-            orbit_start="${orbit_start//Z/}"
+           
+            orbit_start=""
+            findOrbitStart $orbit $ORBIT_INFO_TXT             
             evalFileName=$(eval echo $FILENAME)
             outGranule="$OUT_PATH/$evalFileName"
 
-            # TODO: Fix the MD5sum funciton call
             # BF program call looks like this:
             # ./basicFusion [output HDF5 filename] [input file list] [orbit_info.bin]
             programCalls="\
-\"$BFfullPath\" \"$outGranule\" \"$LISTING_PATH/input${orbit}.txt\" \"$BIN_DIR/orbit_info.bin\" 2> \"$logPath/errors/${orbit}.err\" 1> \"$logPath/logs/${orbit}.log\"
+\"$BFfullPath\" \"$outGranule\" \"$LISTING_PATH/input${orbit}.txt\" \"${ORBIT_INFO_BIN}\" 2> \"$logPath/errors/${orbit}.err\" 1> \"$logPath/logs/${orbit}.log\"
 
 # We will now save the MD5 checksum.
-mkdir -p \"$OUT_PATH/checksum\"
-md5sum \"$OUT_PATH/$evalFileName\" > \"$OUT_PATH/checksum/${orbit}.md5\"
+mkdir -p \"$runDir/checksum\"
+md5sum \"$OUT_PATH/$evalFileName\" > \"$runDir/checksum/${orbit}.md5\"
 "
 
             echo "$programCalls" > "${jobDir[$job]}/orbit${orbit}.sh"
@@ -502,7 +528,8 @@ BIN_DIR="$(cd $(dirname $BIN_DIR) && pwd)/$(basename $BIN_DIR)"
 BF_PROG="$BIN_DIR/basicFusion"                                  # Get the absolute path of the basicFusion program
 BF_PATH="$(cd "$BIN_DIR/../" && pwd)"                           # Get the path of BF repository
 SCHED_PATH="$BF_PATH/externLib/Scheduler"                       # Get the path of the Scheduler repository
-ORBIT_INFO="$BF_PATH/metadata-input/data/Orbit_Path_Time.txt"   # Get the path of the Orbit_info file
+ORBIT_INFO_BIN="$BF_PATH/metadata-input/data/Orbit_Path_Time.bin"   # Get the path of the Orbit_info file
+ORBIT_INFO_TXT="$BF_PATH/metadata-input/data/Orbit_Path_Time.txt"   # Get the .txt version of the file     
 hn="$(hostname)"                                                # host name of this machine
 
 #####################################################################################################################################
@@ -514,9 +541,16 @@ if [ ! -x "$SCHED_PATH" ]; then
     exit 1
 fi
 
-# Check that the ORBIT_INFO file exists
-if [ ! -e "$ORBIT_INFO" ]; then
-    echo "Fatal error: The $ORBIT_INFO file does not exist. Please refer to the GitHub wiki on how to generate this file." >&2
+# Check that the ORBIT_INFO_BIN file exists
+if [ ! -e "$ORBIT_INFO_BIN" ]; then
+    echo "Fatal error: The $ORBIT_INFO_BIN file does not exist. Please refer to the GitHub wiki on how to generate this file." >&2
+    exit 1
+fi
+
+
+# Check that the ORBIT_INFO_TXT file exists
+if [ ! -e "$ORBIT_INFO_TXT" ]; then
+    echo "Fatal error: The $ORBIT_INFO_TXT file does not exist. Please refer to the GitHub wiki on how to generate this file." >&2
     exit 1
 fi
 
@@ -576,10 +610,19 @@ runDir="$BF_PROCESS/run$lastNum"
 echo "Generating files for parallel execution at: $runDir"
 
 mkdir "$runDir"
-if [ $? -ne 0 ]; then
+retVal=$?
+if [ $retVal -ne 0 ]; then
     echo "Failed to make the run directory!"
     exit 1
 fi
+
+mkdir "$runDir"/checksum
+retVal=$?
+if [ $retVal -ne 0 ]; then
+    echo "Failed to make the checksum directory!"
+    exit 1
+fi
+
 
 # Save the current date into the run directory
 date > "$runDir/date.txt"
