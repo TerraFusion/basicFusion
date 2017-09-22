@@ -49,6 +49,8 @@ programCall="$0 $@"        # Save the command line arguments for this script's c
 #       ARGUMENT PARSING
 #
 
+cmdLineArgs="$@"
+
 SQL_DB="$1"
 if [ ! -e "$SQL_DB" ]; then
     echo "Error: The SQL Database $SQL_DB does not exist!" >&2
@@ -195,17 +197,24 @@ prevYear=0
 
 # WARNING: This loop takes a long time!!! Possibile TODO is to make this loop faster somehow.
 # Step through each line in the $ORBIT_TIMES file
-while read -r line; do
 
+while true; do
+
+    linenum=$(( curOrbit - 999 ))               # The line number we want to read is simply curOrbit - 999. There is a
+                                                # one-to-one mapping of orbit to line number.
+
+    line="$(sed "${linenum}q;d" "$ORBIT_TIMES")"
+
+    #line="$(grep -w "^$curOrbit" "$ORBIT_TIMES")"
     # Keep stepping through the file until we've found the first line that matches $curOrbit
     lineOrbitNum=$(echo "$line" | cut -d' ' -f1)
-    if [ $curOrbit -gt $lineOrbitNum ]; then
-        continue
-    elif [ $curOrbit -lt $lineOrbitNum ]; then
-        echo "ERROR: The variable lineOrbitNum outpaced the variable curOrbit! curOrbit should always" >&2
-        echo "be greater than or equal to lineOrbitNum!" >&2
-        exit 1
-    fi
+    #if [ $curOrbit -gt $lineOrbitNum ]; then
+    #    continue
+    #elif [ $curOrbit -lt $lineOrbitNum ]; then
+    #    echo "ERROR: The variable lineOrbitNum outpaced the variable curOrbit! curOrbit should always" >&2
+    #    echo "be greater than or equal to lineOrbitNum!" >&2
+    #    exit 1
+    #fi
 
     # The previous if/elif lines assert that curOrbit equals lineOrbitNum.
     # lineOrbitNum is simply the orbit found at the beginning of $line. lineOrbitNum and
@@ -239,7 +248,7 @@ while read -r line; do
         break
     fi
 
-done < "$ORBIT_TIMES"
+done
 
 
 # We now have the number of orbits that each job will process, up to $job number of jobs.
@@ -268,9 +277,19 @@ for i in $(seq 1 $job); do
 
 done
 
-# Print the job information
+cd $runDir
+mkdir -p PBSscripts
+mkdir -p logs
+mkdir -p logs/tar
+mkdir -p logs/transfer
+
+# Save some information about this job, like the date and the command line args
+echo "$cmdLineArgs" > cmdLineArgs.txt
+date > date.txt
+
+# Print the job information, append to the cmdLineArgs.txt file
 for i in $(seq 0 $job); do
-    echo "jobYear: ${jobYear[$i]} jobNumOrbits: ${jobNumOrbits[$i]} jobStart: ${jobStart[$i]} jobEnd: ${jobEnd[$i]} NPJ: ${TAR_JOB_NPJ}"
+    echo "jobYear: ${jobYear[$i]} jobNumOrbits: ${jobNumOrbits[$i]} jobStart: ${jobStart[$i]} jobEnd: ${jobEnd[$i]} NPJ: ${TAR_JOB_NPJ}" | tee -a cmdLineArgs.txt
 done
 
 # We now have all the parameters we need for each job!
@@ -282,11 +301,6 @@ source "$PY_ENV/bin/activate"
     #       Make PBS scripts for the tarring and transfer jobs           #
     ######################################################################
 
-cd $runDir
-mkdir -p PBSscripts
-mkdir -p logs
-mkdir -p logs/tar
-mkdir -p logs/transfer
 
 cd PBSscripts
 mkdir -p tarJobs
@@ -347,7 +361,7 @@ source \"$PY_ENV/bin/activate\"
 globus endpoint activate $srcID
 globus endpoint activate $destID
 # Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
-{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"$curStageArea\" \"$destDir\"/${jobYear[$i]} ; } &> \"$runDir/logs/transfer/stdout_err$i.txt\" 
+{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"${curStageArea}\" \"${destYearDir}\"} ; } &> \"$runDir/logs/transfer/stdout_err$i.txt\" 
 
 rm -rf \"$curStageArea\"
 "

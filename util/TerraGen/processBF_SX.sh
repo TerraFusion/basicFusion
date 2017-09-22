@@ -49,7 +49,6 @@ findJobPartition(){
 
     numJobs=0
 
-    echo $numOrbits_l
     # First attempt to fill up all jobs to the brim
     for i in $(seq 0 $((MAX_NUMJOB_l-1))); do
         numProcess_l[$i]=0              # Initialize to zero
