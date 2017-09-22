@@ -520,6 +520,12 @@ if [ ! -e "$ORBIT_INFO" ]; then
     exit 1
 fi
 
+# Check that the basicFusion program has been compiled
+if [ ! -e "$BF_PROG" ]; then
+    echo "Fatal error: The Basic Fusion program was not found at ${BF_PROG}. Please compile and try again." >&2
+    exit 1
+fi
+
 ###########################
 # FIND THE JOB PARTITIONS #
 ###########################
