@@ -138,7 +138,10 @@ def createTar( orbitNum, orbitFileList, outputDir ):
                     MIS_f.write(MISRFile)
         # TODO: Finish this functionality
             else:
-                tar.add( line.strip(), recursive=False )
+                try:
+                    tar.add( line.strip(), recursive=False )
+                except OSError as e:
+                    eprint("Failed to add {} to the tar for orbit {}.".format( line, orbitNum  ))
 
     # Add the extra MISR files
     if extraMISR == 1:
