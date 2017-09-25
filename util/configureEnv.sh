@@ -1,4 +1,6 @@
 #!/bin/bash
+# Author: Landon Clipp
+# Email: clipp2@illinois.edui
 
 downloadPY()
 {
