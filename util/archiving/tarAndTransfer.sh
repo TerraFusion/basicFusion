@@ -121,8 +121,7 @@ fi
 
 # Check that the Python virtual environment exists
 if [ ! -d "$PY_ENV" ]; then
-    echo "Error: The $PY_ENV virtual environment does not exist! Use the" >&2
-    echo "basicFusion/util/configureEnv.sh script to create this" >&2
+    echo "Error: The $PY_ENV virtual environment does not exist! Use the basicFusion/util/configureEnv.sh script to create it." >&2
     exit 1
 fi
 
