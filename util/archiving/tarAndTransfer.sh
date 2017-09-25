@@ -331,8 +331,6 @@ for i in $(seq 0 $job ); do
 #PBS -l nodes=${TAR_JOB_NPJ}:ppn=${TAR_JOB_PPN}
 #PBS -l walltime=$TAR_JOB_WALLTIME
 #PBS -N ${TAR_JOB_NAME}_${jobYear[$i]}
-export PMI_NO_PREINITIALIZE=1
-export PMI_NO_FORK=1
 cd $runDir
 source \"$PY_ENV/bin/activate\"
 
@@ -354,8 +352,6 @@ pbsFile="\
 #PBS -l nodes=1:ppn=1
 #PBS -l walltime=$GLOBUS_WALLTIME
 #PBS -N ${GLOBUS_NAME}_${jobYear[$i]}
-export PMI_NO_PREINITIALIZE=1
-export PMI_NO_FORK=1
 cd $runDir
 source \"$PY_ENV/bin/activate\"
 globus endpoint activate $srcID
