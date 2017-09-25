@@ -9,7 +9,6 @@ downloadPY()
     mkdir -p "$BF_PATH_l"/externLib
     cd "$BF_PATH_l"/externLib
     
-    module load $PY_MOD     # Load the python module
     # Create the virtual environment
     rm -rf "$virtEnvName"
     echo "Generating the virtual environment..."
@@ -17,6 +16,9 @@ downloadPY()
     retVal_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to establish the virtual environment." >&2
+        echo "Need Python 2.7. Current version is: " >&2
+        python --version
+        echo "Configure your environment such that the \"python\" command calls Python 2.7." >&2
         return $retVal_l
     fi
     echo "Virtual environment created."
@@ -135,6 +137,7 @@ downloadSched()
 }
 
 if [ $# -ne 1 ]; then
+    echo 
     printf "\nUSAGE: $0 [-s | -p | -a]\n" >&2
     description="
 DESCRIPTION:
@@ -146,10 +149,14 @@ ARGUMENTS:
 \t                                 -p to download just the Python packages
 \t                                 -a to download both Scheduler and Python
 
+REQUIREMENTS:
+\tThe following requirements must be met:
+\t\t1. A Python 2.7 interpreter is visible. Current detected version is: $(python --version)
+
 "
  
     while read -r line; do
-        printf "$line\n"
+        printf "$line\n" >&2
     done <<< "$description"
     exit 1
 fi
@@ -178,7 +185,6 @@ fi
 #__________CONFIGURABLE VARIABLES___________#
 DOWNLOAD_OPTS="$1"
 SCHED_URL="https://github.com/ncsa/Scheduler"
-PY_MOD="python"                                 # The site python module to load
 #___________________________________________#
 
 # Get the absolute path of this script
