@@ -527,11 +527,25 @@ verifyFiles()
             
             # we now have the previous date and the current line. Now we need to find the
             # current date from the variable "curfilename" and compare that with the previous date
-            curDate=${curfilename##*.}
-
+            curDate=$(echo $curfilename | rev | cut -d'_' -f1 | rev)
+            curDate=$(echo $curDate | cut -d'.' -f2)
             prevCam=${prevfilename:14:3}
             curCam=${curfilename:14:3}
 
+            # Perform a check that there is the corrsponding camera in the list
+            oppositeCamera=$(grep "$curDate" "$DEBUGFILE" | grep -v "$curCam")
+            if [ ${#oppositeCamera} -le 2 ]; then
+                if [ "$curCam" == "FM1" ]; then
+                    oppositeCamera="FM2"
+                else
+                    oppositeCamera="FM1"
+                fi
+
+                printf "Warning: " >&2
+                printf "Failed to find a corresponding CERES file.\n" >&2
+                printf "\tFile $curfilename was found but its corresponding $oppositeCamera was not found!\n" >&2
+
+            fi
             if [[ "$curCam" == "FM1" ]]; then
                 if [[ ${#prevGroupDate} != 0 ]]; then
                     if [[ $curDate < $prevGroupDate || $curDate == $prevGroupDate ]]; then
@@ -544,22 +558,6 @@ verifyFiles()
                     fi
                 fi
                 prevGroupDate="$curDate"
-            fi
-            if [[ "$prevCam" == "$curCam" ]]; then
-                printf "Warning: " >&2
-                printf "CERES FM1 followed FM1 or FM2 followed FM2.\n" >&2
-                printf "\tAn FM1 file should always be paired with an FM2 file!\n" >&2
-                printf "\tFound at line $linenum\n" >&2
-                printf "\tFile: $line\n" >&2
-            elif [[ "$prevCam" != "$curCam" && "$curCam" == "FM2" ]]; then
-                if [[ "$curDate" != "$prevDate" ]]; then
-                    printf "Warning: " >&2
-                    printf "FM1/FM2 pair don't have the same date.\n" >&2
-                    printf "\tIf an FM1 file is followed by FM2, they must have the same date.\n" >&2
-                    printf "\tprevDate=$prevDate curDate=$curDate" >&2
-                    printf "\tLine $linenum\n" >&2
-                    printf "\tFile: $line" >&2
-                fi
             fi
 
             prevDate="$curDate"
@@ -1116,19 +1114,20 @@ SAVE_UNORDERED=0
 
 UNORDERED=$(dirname $ORDERED)/$(basename $ORDERED).unordered
 
-source "$SCRIPT_PATH/../queries.bash"
+QUERIES="$SCRIPT_PATH/../queries.bash"
+#source "$SCRIPT_PATH/../queries.bash"
 
 rm -f "$ORDERED"
 rm -f "$UNORDERED"
 
 
-MOPLINES=$(instrumentOverlappingOrbit "$DB" $2 MOP)
-CERLINES=$(instrumentOverlappingOrbit "$DB" $2 CER)
-MODLINES=$(instrumentStartingInOrbit "$DB" $2 MOD)
-ASTLINES=$(instrumentStartingInOrbit "$DB" $2 AST)
+MOPLINES=$( $QUERIES instrumentOverlappingOrbit "$DB" $2 MOP)
+CERLINES=$( $QUERIES instrumentOverlappingOrbit "$DB" $2 CER)
+MODLINES=$( $QUERIES instrumentStartingInOrbit "$DB" $2 MOD)
+ASTLINES=$( $QUERIES instrumentStartingInOrbit "$DB" $2 AST)
 # The use of "instrumentInOrbit" instead of "instrumentStartingInOrbit" for MISR helps
 # prevent against edge cases
-MISLINES=$(instrumentInOrbit "$DB" $2 MIS)
+MISLINES=$( $QUERIES instrumentInOrbit "$DB" $2 MIS)
 
 if [ ${#MOPLINES} -lt 2 ]; then
     echo "MOP N/A" >> "$UNORDERED"
