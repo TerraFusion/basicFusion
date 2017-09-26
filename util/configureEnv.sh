@@ -29,37 +29,60 @@ downloadPY()
     # Source the virtualEnv
     cd BFpyEnv
     source ./bin/activate
+    echo "Upgrading pip..."
+    pip install --upgrade pip
+    retVal_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to update pip." >&2
+        return $retVal_l
+    fi
+    echo "Done."
+    echo
 
     # Download the dependencies
     echo "Downloading dependencies"
+    echo
+
+    echo "Downloading docopt..."
     pip install docopt
     retVal_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the docopt module." >&2
         return $retVal_l
     fi
+    echo "Done."
+    echo
 
+    echo "Downloading pytz..."
     pip install pytz 
     retVal_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the pytz module." >&2
         return $retVal_l
     fi
+    echo "Done."
+    echo
 
+    echo "Downloading globus-sdk..."
     pip install globus-sdk
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the Globus SDK module." >&2
         return $retVal_l
     fi
-   
+    echo "Done."
+    echo
+
+    echo "Downloading mpi4py..."
     pip install mpi4py
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the mpi4py module." >&2
         return $retVal_l
     fi
- 
+    echo "Done."
+    echo
+
     # Add a .pth file so that the util/Globus script is in there
     echo "$globUtil" > "$BF_PATH/externLib/$virtEnvName/lib/python2.7/site-packages/globUtil.pth"
 
