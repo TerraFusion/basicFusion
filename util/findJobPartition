@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 #============================================================================================
 #       findJobPartition
 #
@@ -44,7 +46,6 @@ findJobPartition(){
     local numJobs_l
     numOrbits_l=$(($OEND_l - $OSTART_l + 1))                      # Total number of orbits to generate
     jobBrim_l=$(( MAX_NPJ_l * MAX_CPN_l ))
-
     numJobs=0
 
     # First attempt to fill up all jobs to the brim
@@ -79,13 +80,12 @@ findJobPartition(){
     done
 
     NPJ[$i]=$((j+1))
-
     # Currently, all jobs are set to hold MAX_NPJ * MAX_CPN number of processes.
     # Check if there are more orbits to process. If so, distribute the remaining
     # processes evenly
     if [ $numOrbits_l -gt 0 ]; then
         while true; do
-            for i in $(seq 0 $numJobs); do
+            for i in $(seq 0 $(( numJobs - 1)) ); do
                 if [ $numOrbits_l -le 0 ]; then
                     break 2
                 fi
