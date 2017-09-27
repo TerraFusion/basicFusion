@@ -12,15 +12,15 @@
 
 orderFiles() {
 
-    MOPITTNUM=0
-    CERESNUM=0
-    MODISNUM=0
-    ASTERNUM=0
-    MISRNUM=0
+    local MOPITTNUM=0
+    local CERESNUM=0
+    local MODISNUM=0
+    local ASTERNUM=0
+    local MISRNUM=0
 
-    UNORDEREDFILE=$1
-    OUTFILE=$2
-    CURDIR=$(pwd)
+    local UNORDEREDFILE=$1
+    local OUTFILE=$2
+    local CURDIR=$(pwd)
 
     local MOPGREP
     local CERFM1GREP
@@ -79,22 +79,27 @@ orderFiles() {
     # CERES #
     #########
     # grep -v removes any files with "met" in them, they're unwanted
-    CERFM1GREP=$(cat "$UNORDEREDFILE" | grep -e "CER_SSF_Terra.*FM1.*" -e 'CER N/A' | grep -v "met" | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2- )
-    CERFM2GREP=$(cat "$UNORDEREDFILE" | grep -e "CER_SSF_Terra.*FM2.*" | grep -v "met" | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 |  cut -d " " -f 2-)
+    
+    # Explanation of the CERGREP line, where each number is one of the instructions done in the $(...):
+    #   1. Print all lines in the the UNORDEREDFILE with the string "CER_SSF_Terra"
+    #   2. Find the camera number, "FM1" or "FM2" and print it to the beginning of the line such that:
+    #      "[directory]/CER_SSF_Terra-FM2-MODIS_Edition4A_400403.2001112804"
+    #      becomes:
+    #      "Terra-FM2- [directory]/CER_SSF_Terra-FM2-MODIS_Edition4A_400403.2001112804"
+    #   3. Take the date given in the filename and print it at the beginning of each line, such that:
+    #       "Terra-FM2- [directory]/CER_SSF_Terra-FM2-MODIS_Edition4A_400403.2001112804"
+    #      Becomes::
+    #      "2001112804 Terra-FM2- [directory]/CER_SSF_Terra-FM2-MODIS_Edition4A_400403.2001112804"
+    #   4. Perform an alphabetic sort on all the lines, such that all dates are grouped together, and an FM1
+    #      camera for a particular date comes before the FM2 camera for that particular date.
+    #   5. Remove the extra "2001112804 Terra-FM2- " from each line. They are no longer needed for sorting purposes.
 
-    if [[ ! "$CERFM1GREP" == *"CER N/A"* ]]; then
-        while read -r line; do
-            echo "$line" >> "$OUTFILE"
-            # Find the corresponding FM2 file to add
-            FM1date=${line##*.}
-            FM2line=$(echo "$CERFM2GREP" | grep "$FM1date")
-            if [[ ${#FM2line} != 0 ]]; then
-                let "CERESNUM++"
-            fi
-
-            echo "$FM2line" >> "$OUTFILE"
-            let "CERESNUM++"
-        done <<< "$CERFM1GREP"
+    CERGREP="$( grep "CER_SSF_Terra" "$UNORDEREDFILE" | awk '{match($0,/Terra-FM[1|2]-/)} {print substr($0, RSTART, RLENGTH),$0}' | awk -F. '{print $NF,$0}' | sort | cut -d' ' -f3)"
+    CER_NA="$(grep 'CER N/A' "$UNORDEREDFILE")"
+    
+    # If there is any "CER N/A" line in the file, don't print any of the CERES lines.
+    if [ "$CER_NA" != "CER N/A" ]; then
+        echo "$CERGREP" >> "$OUTFILE"
     else
         echo "CER N/A" >> "$OUTFILE"
     fi
@@ -105,52 +110,30 @@ orderFiles() {
     # For MODIS, we will split the 1KM, HKM, QKM and MOD03 filenames
     # into separate text files to make it easy to handle
 
-    MOD1KMGREP=$(cat "$UNORDEREDFILE" | grep -e "MOD021KM.*hdf" -e 'MOD N/A' | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
-    MODHKMGREP=$(cat "$UNORDEREDFILE" | grep "MOD02HKM.*hdf"  | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
-    MODQKMGREP=$(cat "$UNORDEREDFILE" | grep "MOD02QKM.*hdf"  | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
-    MOD03GREP=$(cat "$UNORDEREDFILE" | grep "MOD03.*hdf" | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
 
+    # Explanation of the MODGREP line, where each number is one of the instructions done in the $(...):
+    #   1. Print all lines in the the UNORDEREDFILE with the string "/MODIS/". Note that the directory path
+    #      in this case should match "/MODIS/", not the file name. Strangely, CERES files have the string "MODIS"
+    #      in them as well, so matching the MODIS file itself is dangerous.
+    #   2. Do a REGEX search for "/MOD021KM", "/MOD02HKM", "/MOD02QKM", or "/MOD03" and print the matched string to
+    #      the beginning of the line such that:
+    #      [directpry]/MOD021KM.A2001332.0415.006.2014229230016.hdf
+    #      becomes
+    #      /MOD021KM [directory]/MOD021KM.A2001332.0415.006.2014229230016.hdf 
+    #   3. Take the date given in the filename and print it at the beginning of each line, such that:
+    #      /MOD021KM [directory]/MOD021KM.A2001332.0415.006.2014229230016.hdf
+    #      Becomes:
+    #      A2001332.0415 /MOD021KM [directory]/MOD021KM.A2001332.0415.006.2014229230016.hdf
+    #   4. Perform an alphabetic sort on all the lines, such that all dates are grouped together, with sort priority
+    #      for each file type given by: MOD021KM, MOD02HKM, MOD02QKM, MOD03
+    #   5. Remove the extra "A2001332.0415 /MOD021KM " from each line. They are no longer needed for sorting purposes.
 
-    if [[ ! "$MOD1KMGREP" == *"MOD N/A"* ]]; then
-        while read -r line; do
-            # first, echo this 1KM filename into the outfile
-            echo "$line" >> "$OUTFILE"
-            let "MODISNUM++"
-            # then extract the substring in this line containing the date info
-            # (using shell parameter expansion)
-            substr="${line##*/}"
+    MODGREP="$(grep "/MODIS/" "$UNORDEREDFILE" | awk '{match($0,/\/MOD0(21KM|2HKM|2QKM|3)./)} {print substr($0, RSTART, RLENGTH),$0}' | awk --posix '{match($0,/A[0-9]{7}.[0-9]{4}/)} {print substr($0, RSTART, RLENGTH),$0}' | sort | cut -d' ' -f3)"
 
-            substr="${substr:10:16}"
+    MOD_NA="$(grep "MOD N/A" "$UNORDEREDFILE")"
 
-            # write the corresponding HKM filename into our outfile.
-            # note that it may not exist.
-            temp="$(echo "$MODHKMGREP" | grep $substr)"
-
-            # I'm having trouble with the same file being included twice during the grepping of the substring.
-            # resolved by grabbing only the first line in $temp
-            temp=$(echo "$temp" | sed -n '1 p')
-            if [ ${#temp} -ge 2 ]; then # if temp is a non-zero length string
-                echo "$temp" >> "$OUTFILE"
-                let "MODISNUM++"
-            fi
-
-            # write in the corrseponding QKM file
-            temp="$(echo "$MODQKMGREP" | grep $substr)"
-            temp=$(echo "$temp" | sed -n '1 p')
-            if [ ${#temp} -ge 2 ]; then
-                    echo "$temp" >> "$OUTFILE"
-                    let "MODISNUM++"
-            fi
-
-            # write in the corresponding MOD03 file
-            temp="$(echo "$MOD03GREP" | grep $substr)"
-            temp="$(echo "$temp" | sed -n '1 p')"
-            if [ ${#temp} -ge 2 ]; then
-                echo "$temp" >> "$OUTFILE"
-                let "MODISNUM++"
-            fi
-
-        done <<< "$MOD1KMGREP"
+    if [ "$MOD_NA" != "MOD N/A" ]; then
+        echo "$MODGREP" >> "$OUTFILE"
     else
         echo "MOD N/A" >> "$OUTFILE"
     fi
@@ -174,26 +157,14 @@ orderFiles() {
     ########
     # MISR #
     ########
+    MISGREP="$(grep "/MISR_" out.txt.unordered | awk '{match($0,/(_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_)/)} {if ( RLENGTH > 0) print substr($0, RSTART, RLENGTH),$0; else print $0}' | awk '{match( $0, /_AGP_/)} {if( RLENGTH > 0) print "xxa",$0 ; else print $0}' | awk '{match( $0, /_GMP_/)} {if( RLENGTH > 0) print "xxb",$0 ; else print $0}' | awk '{match( $0, /_HRLL_/)} {if( RLENGTH > 0) print "xxc",$0 ; else print $0}' | sort | cut -d' ' -f2)"
+    MIS_NA="$(grep "MIS N/A" "$UNORDEREDFILE" )"
 
-    # put the MISR files into temp text files
-    MISGRPGREP=$(cat $UNORDEREDFILE | grep -e "MISR_AM1_GRP_ELLIPSOID.*hdf" -e 'MIS N/A' | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
-    MISAGPGREP=$(cat "$UNORDEREDFILE" | grep "MISR_AM1_AGP.*hdf" | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
-    MISGPGREP=$(cat "$UNORDEREDFILE" | grep "MISR_AM1_GP.*hdf"  | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
-    MISHRLLGREP=$(cat "$UNORDEREDFILE" | grep "MISR_HRLL_.*hdf"  | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
-    # iterate over this file, prepending the path of the file into our
-    # OUTFILE
-
-    while read -r line; do
-        echo "$line" >> "$OUTFILE"
-        let "MISRNUM++"
-        if [[ $line == *"_DF_"* ]]; then
-            pathnum=$(cut -d'_' -f 6 <<< "$line")
-            orbitnum=$(cut -d'_' -f 7 <<< "$line")
-            echo $(grep "$pathnum" <<< "$MISAGPGREP") >> "$OUTFILE"
-            echo $(grep "$orbitnum" <<< "$MISGPGREP") >> "$OUTFILE"
-            echo $(grep "$pathnum" <<< "$MISHRLLGREP") >> "$OUTFILE"
-        fi
-    done <<< "$MISGRPGREP"
+    if [ "$MIS_NA" != "MIS N/A" ]; then
+        echo "$MISGREP" >> "$OUTFILE"
+    else
+        echo "MIS N/A" >> "$OUTFILE"
+    fi
 
     return 0
 }
@@ -513,17 +484,6 @@ verifyFiles()
                           #########
 
         elif [ "$instrumentSection" == "CER" ]; then
-            # line now contains a valid file path. Check to see if prevDate has been set.
-            # If it has not, set it to the value of line and continue to the next line
-            if [ -z "$prevDate" ]; then
-                # get the date information from line
-                # set prevDate to the date contained in filename
-                prevfilename=$(echo ${line##*/})
-                prevDate=$(echo ${prevfilename##*.})
-                # continue while loop
-                continue
-            fi
-
             
             # we now have the previous date and the current line. Now we need to find the
             # current date from the variable "curfilename" and compare that with the previous date
@@ -536,7 +496,7 @@ verifyFiles()
             oppositeCamera=$(grep "$curDate" "$DEBUGFILE" | grep -v "$curCam")
             if [ ${#oppositeCamera} -le 2 ]; then
                 if [ "$curCam" == "FM1" ]; then
-                    oppositeCamera="FM2"
+                    oppositeCamera="FM2"        # Overload the oppositeCamera variable
                 else
                     oppositeCamera="FM1"
                 fi
@@ -546,6 +506,19 @@ verifyFiles()
                 printf "\tFile $curfilename was found but its corresponding $oppositeCamera was not found!\n" >&2
 
             fi
+
+            # line now contains a valid file path. Check to see if prevDate has been set.
+            # If it has not, set it to the value of line and continue to the next line
+            if [ -z "$prevDate" ]; then
+                # get the date information from line
+                # set prevDate to the date contained in filename
+                prevfilename=$(echo ${line##*/})
+                prevDate=$(echo ${prevfilename##*.})
+                # continue while loop
+                continue
+            fi
+
+            
             if [[ "$curCam" == "FM1" ]]; then
                 if [[ ${#prevGroupDate} != 0 ]]; then
                     if [[ $curDate < $prevGroupDate || $curDate == $prevGroupDate ]]; then
@@ -1110,7 +1083,7 @@ SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ORBITINFO="$SCRIPT_PATH/../data/Orbit_Path_Time.txt"
 
 # Set this to non-zero if you want the unordered database queries to be saved.
-SAVE_UNORDERED=0
+SAVE_UNORDERED=1
 
 UNORDERED=$(dirname $ORDERED)/$(basename $ORDERED).unordered
 
