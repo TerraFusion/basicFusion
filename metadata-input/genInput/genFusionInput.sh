@@ -1083,7 +1083,7 @@ SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ORBITINFO="$SCRIPT_PATH/../data/Orbit_Path_Time.txt"
 
 # Set this to non-zero if you want the unordered database queries to be saved.
-SAVE_UNORDERED=1
+SAVE_UNORDERED=0
 
 UNORDERED=$(dirname $ORDERED)/$(basename $ORDERED).unordered
 
