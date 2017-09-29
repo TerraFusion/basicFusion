@@ -1669,6 +1669,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
         return (FATAL_ERR);
 
     }
+
     status = H4readData( inputFileID, datasetName,
                          (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL);
     if ( status < 0 )
@@ -1703,6 +1704,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
 
         float* temp_float_pointer = NULL;
         unsigned short* temp_uint16_pointer = input_dataBuffer;
+        unsigned short* temp_uint16_pointer_mask = input_dataBuffer;
         size_t buffer_size = 1;
         unsigned short  rdqi = 0;
         unsigned short  rdqi_mask = 3;
@@ -1718,9 +1720,11 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
 
         for(int i = 0; i<buffer_size; i++)
         {
-            rdqi = (*temp_uint16_pointer)&rdqi_mask;
-            if(rdqi == 1)
+            rdqi = (*temp_uint16_pointer_mask)&rdqi_mask;
+            if(rdqi == 1){
                 num_la_data++;
+            }
+            temp_uint16_pointer_mask++;
         }
 
         if(num_la_data>0)
