@@ -1,7 +1,7 @@
 #!/bin/bash
 usage(){
 
-    printf "\nUSAGE: $0 [SQLite database filepath] [orbit start] [orbit end] [output path]\n" >&2
+    printf "\nUSAGE: $0 [SQLite database filepath] [orbit start] [orbit end] [output path] [OPTS]\n" >&2
     description="NAME: genInputRange_\"SchedulerX\".sh
 DESCRIPTION:
  
@@ -18,30 +18,81 @@ DESCRIPTION:
 \tThis script uses the Scheduler.x program to submit the task to the Blue Waters job scheduler.
 \tNCSA Scheduler can be found at: https://github.com/ncsa/Scheduler
 
-\tLog files for the job are stored in the basicFusion/jobFiles/BFinputGen directory."   
+\tLog files for the job are stored in the basicFusion/jobFiles/BFinputGen directory.
+
+ARGUMENTS:
+\t[SQLite database filepath]    -- The path to the SQLite database generated using metadata-input/build scripts.
+\t[orbit start]                 -- The starting orbit to process
+\t[orbit end]                   -- The path where the resulting input files will reside
+\t[OPTS]        The available options are:
+\t                              --npj [NODES_PER_JOB]
+\t                              --cpn [CORES_PER_NODE]
+\t                              --numJob [NUM_JOBS]
+
+\t              NOTE that these options only provide maximum values to bound what this script requests of the resource manager!
+\t              These values are not necessarily what is requested.                
+"   
     while read -r line; do
         printf "$line\n"
     done <<< "$description"
 }
 
-if [ $# -ne 4 ]; then
+if [ $# -le 4 -o $# -gt 10 ]; then
     usage
     exit 1
 fi
 
-DB_PATH=$1
-OSTART=$2
-OEND=$3
-OUT_PATH=$4                                             # Where the resultant output HDF files will go
-OUT_PATH=$(cd "$OUT_PATH" && pwd)
+int_re='^[0-9]+$'
 
-#____________JOB PARAMETERS____________#
+#____________DEFAULT JOB PARAMETERS____________#
 MAX_NPJ=4                                               # Maximum number of nodes per job
 MAX_CPN=16                                              # Maximum number of cores per node.
 MAX_NUMJOB=1                                            # Maximum number of jobs that can be submitted simultaneously
 WALLTIME="00:30:00"                                     # Requested wall clock time for the jobs
 QUEUE=""                                                # Which queue to put the jobs in. By default, no queue is specified.
 #--------------------------------------#
+
+DB_PATH="$1"; shift
+OSTART=$1; shift
+OEND=$1; shift
+OUT_PATH="$1"; shift                                             # Where the resultant output HDF files will go
+OUT_PATH="$(cd "$OUT_PATH" && pwd)"
+# Parse the OPTS
+# TODO Finish this opt parsing
+while [ $# -ne 0 ]; do
+    if [ "$1" == "--npj" ]; then
+        shift
+        if ! [[ $1 =~ $re ]] ; then
+            echo "Error: An integer must follow --npj!" >&2
+            exit 1
+        fi
+        MAX_NPJ=$1
+        if [ "$MAX_NPJ" -le 0 ]; then
+            echo "Error: --npj can't be less than 0!" >&2
+            exit 1
+        fi
+        shift
+    elif [ "$1" == "--cpn" ]; then
+        shift
+        if ! [[ $1 =~ $re ]] ; then
+            echo "Error: An integer must follow --cpn!" >&2
+            exit 1
+        fi
+        MAX_CPN="$1"
+        shift
+    elif [ "$1" == "--numJob" ]; then
+        shift
+        MAX_NUMJOB="$1"
+         if ! [[ $1 =~ $re ]] ; then
+            echo "Error: An integer must follow --numJob!" >&2
+            exit 1
+         fi
+        shift
+    else
+        echo "Error: Unrecognized argument: $1" >&2
+        exit 1
+    fi
+done
 
 # Make the DB path absolute
 DB_PATH="$(cd $(dirname $DB_PATH) && pwd)/$(basename $DB_PATH)"

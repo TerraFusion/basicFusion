@@ -157,7 +157,7 @@ orderFiles() {
     ########
     # MISR #
     ########
-    MISGREP="$(grep "/MISR_" out.txt.unordered | awk '{match($0,/(_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_)/)} {if ( RLENGTH > 0) print substr($0, RSTART, RLENGTH),$0; else print $0}' | awk '{match( $0, /_AGP_/)} {if( RLENGTH > 0) print "xxa",$0 ; else print $0}' | awk '{match( $0, /_GMP_/)} {if( RLENGTH > 0) print "xxb",$0 ; else print $0}' | awk '{match( $0, /_HRLL_/)} {if( RLENGTH > 0) print "xxc",$0 ; else print $0}' | sort | cut -d' ' -f2)"
+    MISGREP="$(grep "/MISR_" "$UNORDEREDFILE" | awk '{match($0,/(_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_)/)} {if ( RLENGTH > 0) print substr($0, RSTART, RLENGTH),$0; else print $0}' | awk '{match( $0, /_AGP_/)} {if( RLENGTH > 0) print "xxa",$0 ; else print $0}' | awk '{match( $0, /_GMP_/)} {if( RLENGTH > 0) print "xxb",$0 ; else print $0}' | awk '{match( $0, /_HRLL_/)} {if( RLENGTH > 0) print "xxc",$0 ; else print $0}' | sort | cut -d' ' -f2)"
     MIS_NA="$(grep "MIS N/A" "$UNORDEREDFILE" )"
 
     if [ "$MIS_NA" != "MIS N/A" ]; then
@@ -1049,31 +1049,27 @@ verifyFiles()
     return 0
 }
 
-#
-#
-# Description:
-#   This function takes an input file list after being passed through orderFiles, and then through verifyFiles. The main
-#   difference between this function and verifyFiles is that this function ensures that the input file conforms to the
-#   specifications of the BF granularity being one Terra orbit. This includes checks that ensure:
-#       1. The file actually belongs to the orbit
-#       2. That any files that should be spanning two separate orbits properly make it into both input file lists
-#       3. That there are no duplicate files
-#       4. If there are any time discontinuities, check to make sure that the file does not exist in the file system.
-#
-#   To reiterate, the verifyFiles ensures that no program crashes will happen due to a bad input file. verifyOneOrbit
-#   verifies that the file conforms to specifications.
-#
+#!/bin/bash
+usage(){
 
-#verifyOneOrbit(){
+    description="Usage: $0 [database file] [orbit number] [.txt output filepath]
 
-#}
+DESCRIPTION:
+\tThis script generates one single, canonical Basic Fusion input file list. It parses the database given to it through the basicFusion/metadata-input/queries.bash script and orders the files properly.
 
-#set -x 
-#PS4='$LINENO: '
+ARGUMENTS:
+\t[database file]               -- The SQLite database made from the scripts in metadata-input/build
+\t[orbit number]                -- The orbit to create the input file list for
+\t[.txt output filepath]        -- The path to place the resulting output file.
+"
+    while read -r line; do
+        printf "$line\n"
+    done <<< "$description"
+}
 
 if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 [database file] [orbit number] [.txt output filepath]"
-    exit 0
+    usage
+    exit 1
 fi
 
 DB=$1
