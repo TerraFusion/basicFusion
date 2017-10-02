@@ -25,10 +25,10 @@ ARGUMENTS:
 \t[orbit start]                 -- The starting orbit to process
 \t[orbit end]                   -- The path where the resulting input files will reside
 \t[OPTS]        The available options are:
-\t                              --npj [NODES_PER_JOB]
-\t                              --cpn [CORES_PER_NODE]
-\t                              --numJob [NUM_JOBS]
-
+\t                              --npj [NODES_PER_JOB]        Default of 4
+\t                              --cpn [CORES_PER_NODE]       Default of 16
+\t                              --numJob [NUM_JOBS]          Default of 1
+\t                              --walltime \"[WALLTIME]\"    Default of \"02:00:00\"
 \t              NOTE that these options only provide maximum values to bound what this script requests of the resource manager!
 \t              These values are not necessarily what is requested.                
 "   
@@ -48,7 +48,7 @@ int_re='^[0-9]+$'
 MAX_NPJ=4                                               # Maximum number of nodes per job
 MAX_CPN=16                                              # Maximum number of cores per node.
 MAX_NUMJOB=1                                            # Maximum number of jobs that can be submitted simultaneously
-WALLTIME="00:30:00"                                     # Requested wall clock time for the jobs
+WALLTIME="02:00:00"                                     # Requested wall clock time for the jobs
 QUEUE=""                                                # Which queue to put the jobs in. By default, no queue is specified.
 #--------------------------------------#
 
