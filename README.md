@@ -94,7 +94,7 @@ module load hdf4 hdf5 szip
 Run: `make`. If it compiles without any errors (warnings are acceptable), the compilation was successful.
 
 
-## Program Execution (Blue Waters Only)
+## Program Execution
 
 There are multiple ways one can execute the BF program. First, **note that it is strongly recommended that you do NOT simply run the program by invoking "./basicFusion..."**. Running the program this way executes it on a login-node, and the IO-intensive nature of this program means that it will eat up shared resources on the login node, causing other BW users to experience poor responsiveness in the login nodes. Not to mention, this is a breach of the BW terms of use.
 
