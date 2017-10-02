@@ -28,8 +28,9 @@ ARGUMENTS:
 \t                              --npj [NODES_PER_JOB]        Default of 4
 \t                              --cpn [CORES_PER_NODE]       Default of 16
 \t                              --numJob [NUM_JOBS]          Default of 1
-\t                              --walltime \"[WALLTIME]\"    Default of \"02:00:00\"
-\t              NOTE that these options only provide maximum values to bound what this script requests of the resource manager!
+\t                              --walltime \"[WALLTIME]\"      Default of \"02:00:00\"
+
+\t              NOTE that these options (except for walltime) only provide maximum values to bound what this script requests of the resource manager!
 \t              These values are not necessarily what is requested.                
 "   
     while read -r line; do
@@ -37,7 +38,7 @@ ARGUMENTS:
     done <<< "$description"
 }
 
-if [ $# -le 4 -o $# -gt 10 ]; then
+if [ $# -le 4 -o $# -gt 12 ]; then
     usage
     exit 1
 fi
@@ -88,11 +89,23 @@ while [ $# -ne 0 ]; do
             exit 1
          fi
         shift
+    elif [ "$1" == "--walltime" ]; then
+        shift
+        WALLTIME="$1"
+        shift
     else
         echo "Error: Unrecognized argument: $1" >&2
         exit 1
     fi
 done
+
+echo "Making jobs with the following maximum parameters:"
+printf "\tMax Nodes Per Job: ${MAX_NPJ}\n"
+printf "\tMax Cores Per Node: ${MAX_CPN}\n"
+printf "\tMax Number of Jobs: ${MAX_NUMJOB}\n"
+printf "\tWalltime: ${WALLTIME}\n"
+echo
+
 
 # Make the DB path absolute
 DB_PATH="$(cd $(dirname $DB_PATH) && pwd)/$(basename $DB_PATH)"
