@@ -157,7 +157,7 @@ orderFiles() {
     ########
     # MISR #
     ########
-    MISGREP="$(grep "/MISR_" out.txt.unordered | awk '{match($0,/(_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_)/)} {if ( RLENGTH > 0) print substr($0, RSTART, RLENGTH),$0; else print $0}' | awk '{match( $0, /_AGP_/)} {if( RLENGTH > 0) print "xxa",$0 ; else print $0}' | awk '{match( $0, /_GMP_/)} {if( RLENGTH > 0) print "xxb",$0 ; else print $0}' | awk '{match( $0, /_HRLL_/)} {if( RLENGTH > 0) print "xxc",$0 ; else print $0}' | sort | cut -d' ' -f2)"
+    MISGREP="$(grep "/MISR_" "$UNORDEREDFILE" | awk '{match($0,/(_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_)/)} {if ( RLENGTH > 0) print substr($0, RSTART, RLENGTH),$0; else print $0}' | awk '{match( $0, /_AGP_/)} {if( RLENGTH > 0) print "xxa",$0 ; else print $0}' | awk '{match( $0, /_GMP_/)} {if( RLENGTH > 0) print "xxb",$0 ; else print $0}' | awk '{match( $0, /_HRLL_/)} {if( RLENGTH > 0) print "xxc",$0 ; else print $0}' | sort | cut -d' ' -f2)"
     MIS_NA="$(grep "MIS N/A" "$UNORDEREDFILE" )"
 
     if [ "$MIS_NA" != "MIS N/A" ]; then
