@@ -933,6 +933,14 @@ int main( int argc, char* argv[] )
         printf("No MISR files found.\n");
 
     /* Attach the granuleList as an attribute to the root HDF5 object */
+    // Sometimes there are no any granules for this orbit. Now I just record as a string "None".
+    if(granuleList == NULL) {
+       granuleList= malloc(5);
+       char* temp_granuleList="None";
+       strncpy(granuleList,temp_granuleList,4);
+       granuleList[4]='\0';
+
+    }
     errStatus = H5LTset_attribute_string( outputFile, "/", "InputGranules", granuleList);
     if ( errStatus < 0 )
     {
