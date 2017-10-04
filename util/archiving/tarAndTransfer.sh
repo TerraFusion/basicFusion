@@ -91,7 +91,7 @@ TAR_JOB_NAME="TerraTar"         # Name of the PBS job
 GLOBUS_WALLTIME="24:00:00"      # The Globus transfer walltime
 GLOBUS_NAME="TerraGlobus"       # The Globus transfer job name
 
-    
+
 if [ "$1" == "--nodes" ]; then
     shift
     numNodes="$1"
@@ -137,7 +137,7 @@ echo "Activating destination globus endpoint..."
 globus endpoint activate $destID
 
 #
-#       Tar file job creation       
+#       Tar file job creation
 #
 # We are ready to create the jobs for tarring the files. Batches will be processed by the
 # year.
@@ -224,7 +224,7 @@ while true; do
 
         # Get the current year from the start time of the orbit
         curYear=$(echo "$line" | cut -d' ' -f3 | cut -d'-' -f1)
-        
+
         # We are still on the same year
         if [ $curYear == $prevYear ]; then
             jobNumOrbits[$job]=$((jobNumOrbits[$job] + 1))
@@ -236,12 +236,12 @@ while true; do
         else
             echo "Determining the orbits for year $curYear."
             let "job++"
-            jobNumOrbits[$job]=1 
+            jobNumOrbits[$job]=1
             jobYear[$job]=$curYear
             let "curOrbit++"
             prevYear=$curYear
         fi
-        
+
     # Else break from this entire loop
     else
         break
@@ -356,9 +356,11 @@ source \"$PY_ENV/bin/activate\"
 globus endpoint activate $srcID
 globus endpoint activate $destID
 # Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
-{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"${curStageArea}\" \"${destYearDir}\"} ; } &> \"$runDir/logs/transfer/stdout_err$i.txt\" 
-
-rm -rf \"$curStageArea\"
+{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"${curStageArea}\" \"${destYearDir}\"} ; } &> \"$runDir/logs/transfer/stdout_err$i.txt\"
+retVal=\$?
+if [ \$retVal -eq 0 ]; then
+    rm -rf \"$curStageArea\"
+fi
 "
 
     echo "$pbsFile" > transferJobs/job$i.pbs
@@ -370,11 +372,11 @@ rm -rf \"$curStageArea\"
     # looks like this:
     #
     #           TAR0              0
-    #          /   
+    #          /
     #       GLOB0    TAR1         1
     #             /
     #            /
-    #           /    
+    #           /
     #       GLOB1    TAR2         2
     #             /
     #            /
@@ -412,7 +414,7 @@ rm -rf \"$curStageArea\"
             tarJobID[$i]=`qsub -W depend=afterany:$prevTarID:$twoPrevGlobID tarJobs/job$i.pbs`
             retVal=$?
         fi
-        
+
     fi
 
     if [ $retVal -ne 0 ]; then
@@ -427,7 +429,7 @@ rm -rf \"$curStageArea\"
 
     # The Globus job should depend on its respective tar job (the one that was just submitted in the previous code
     # and also the Globus job submitted during the previous loop iteration.
-    
+
     if [ ${#prevGlobID} -eq 0 ]; then
         # There is no previous globus job to be dependent on
         globusJobID[$i]=`qsub -W depend=afterany:${tarJobID[$i]} transferJobs/job$i.pbs`
@@ -444,4 +446,3 @@ rm -rf \"$curStageArea\"
     fi
 
 done
-
