@@ -115,8 +115,8 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
                                   int32 inputFile, float unc);
 
 /* MISR funcions */
-hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** correctedNameptr,int32 inputDataType,
-                                 int32 inputFile, float scale_factor);
+hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* datasetName, char** correctedNameptr,int32 inputDataType,
+                                 int32 inputFile, float scale_factor,unsigned short * has_LAI_POS_DIM_ptr);
 hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
                                   int32 inputFileID);
 hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
@@ -148,7 +148,8 @@ herr_t copyDimensionSubset( char* dimSuffix, int32 h4fileID, char* h4datasetName
                             int32 s_size );
 
 herr_t attachDimension(hid_t h5fileID, char* dimname, hid_t h5dsetID, int dim_index);
-herr_t makeDimFromBuf( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID );
+//herr_t makePureDim( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID );
+herr_t makePureDim( hid_t locID, const char* dimName,  hid_t dataspace, hid_t h5Type, hid_t* retID );
 size_t obtainDimSize(hid_t dsetID);
 herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size);
 

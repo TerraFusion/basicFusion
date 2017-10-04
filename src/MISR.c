@@ -68,6 +68,9 @@ int MISR( char* fileList[],int unpack )
 
     char *solar_geom_name[2] = {"SolarAzimuth","SolarZenith"};
     char *geo_name[2] = {"GeoLatitude","GeoLongitude"};
+    char *an_rad_dims[9] ={"SOMBlockDim_BlueBand","AN_XDim_BlueBand","AN_YDim_BlueBand",
+                           "SOMBlockDim_GreenBand","AN_XDim_GreenBand","AN_YDim_GreenBand",
+                           "SOMBlockDim_NIRBand","AN_XDim_NIRBand","AN_YDim_NIRBand"};
 
     char *solar_geom_gname="Solar_Geometry";
     char *geo_gname="Geolocation";
@@ -91,6 +94,7 @@ int MISR( char* fileList[],int unpack )
     int i;
     int32 status32;
     intn statusn;
+    unsigned short has_LAI_DIM1 = 0;
     /******************
      * geo data files *
      ******************/
@@ -125,6 +129,11 @@ int MISR( char* fileList[],int unpack )
 
     hid_t h5DataFieldID = 0;
     hid_t h5SensorGeomFieldID = 0;
+    hid_t AnXdimDspaceID = 0;
+    hid_t AnYdimDspaceID = 0;
+    
+    
+    
 
     /* First, make an attempt to open all the files. If any fail to open, skip
      * this entire granule.
@@ -490,6 +499,14 @@ int MISR( char* fileList[],int unpack )
      *                  RADIANCE DATASETS                       *
      ************************************************************/
 
+     //AN Dimension sizes are always 180*512*2048. So we need to handle the dimensions differently.
+     // Create data spaces for the dimensions.
+     hsize_t an_xdim_dsize = 512;
+     hsize_t an_ydim_dsize = 2048;
+     AnXdimDspaceID  = H5Screate_simple(1,&an_xdim_dsize,NULL);
+     AnYdimDspaceID  = H5Screate_simple(1,&an_ydim_dsize,NULL);
+
+
     /* Loop all 9 cameras */
     for( i = 0; i<9; i++)
     {
@@ -534,8 +551,17 @@ int MISR( char* fileList[],int unpack )
                     FATAL_MSG("Failed to obtain scale factor for MISR.\n)");
                     goto cleanupFail;
                 }
-                h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j],  &correctedName,DFNT_UINT16,
-                                 h4FileID[i],scale_factor);
+                if(has_LAI_DIM1 == 0) {
+                    has_LAI_DIM1 = H5Lexists(outputFile,"/MISR_LA_POS_DIM",H5P_DEFAULT);
+                    if(has_LAI_DIM1 <0) {
+                        FATAL_MSG("Failed to check MISR Low Accuracy Position dimension .\n)");
+                        goto cleanupFail;
+                    }
+                    
+                }
+                // Pass LAI_DIM1
+                h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, camera_name[i],radiance_name[j],  &correctedName,DFNT_UINT16,
+                                 h4FileID[i],scale_factor,&has_LAI_DIM1);
                 if ( h5DataFieldID == FATAL_ERR )
                 {
                     FATAL_MSG("MISR readThenWrite Unpacking function failed.\n");
@@ -589,11 +615,46 @@ int MISR( char* fileList[],int unpack )
             }
 
             // Copy over the dimensions
-            errStatus = copyDimension( NULL, h4FileID[i], radiance_name[j], outputFile, h5DataFieldID);
-            if ( errStatus == FAIL )
-            {
-                FATAL_MSG("Failed to copy dimensions.\n");
-                goto cleanupFail;
+            // AN Band GR,BR and NIR are all 180*512*2048 
+            // i =2 is the AN band, we only need to change Blue,Green and NIR dimension names, that is j >0)
+            if(i==2 && j>0){ 
+
+                // We have to create our own dimensions. Here just use the hard-coded dimensions to avoid a massive dimension retrieval routine calls.
+                // No need to create the the first dimension since the block number is always 180
+                if(attachDimension(outputFile,an_rad_dims[(j-1)*3],h5DataFieldID,0)!=RET_SUCCESS) {
+                   FATAL_MSG("Error attaching MISR AN SOM dimenson.  \n");
+                   goto cleanupFail;
+                }
+                hid_t an_xdim_id = 0;
+                if(makePureDim(outputFile,an_rad_dims[(j-1)*3+1],AnXdimDspaceID,H5T_NATIVE_INT,&an_xdim_id)!=RET_SUCCESS) {
+                   FATAL_MSG("Error creating MISR AN X dimenson.  \n");
+                   goto cleanupFail;
+                }
+                H5Dclose(an_xdim_id);
+                if(attachDimension(outputFile,an_rad_dims[(j-1)*3+1],h5DataFieldID,1)!=RET_SUCCESS) {
+                   FATAL_MSG("Error attaching MISR AN X dimenson.  \n");
+                   goto cleanupFail;
+                }
+
+                hid_t an_ydim_id = 0;
+                if(makePureDim(outputFile,an_rad_dims[(j-1)*3+2],AnYdimDspaceID,H5T_NATIVE_INT,&an_ydim_id)!=RET_SUCCESS) {
+                   FATAL_MSG("Error creating MISR AN X dimenson.  \n");
+                   goto cleanupFail;
+                }
+                H5Dclose(an_ydim_id);
+                if(attachDimension(outputFile,an_rad_dims[(j-1)*3+2],h5DataFieldID,2)!=RET_SUCCESS) {
+                   FATAL_MSG("Error attaching MISR AN X dimenson.  \n");
+                   goto cleanupFail;
+                }
+
+            }
+            else {
+                errStatus = copyDimension( NULL, h4FileID[i], radiance_name[j], outputFile, h5DataFieldID);
+                if ( errStatus == FAIL )
+                {
+                    FATAL_MSG("Failed to copy dimensions.\n");
+                    goto cleanupFail;
+                }
             }
 
             H5Dclose(h5DataFieldID);
@@ -726,6 +787,8 @@ cleanupFO:
     if ( gmpSolarGeoGroupID )   H5Gclose(gmpSolarGeoGroupID);
     if ( solarAzimuthID )       H5Dclose(solarAzimuthID);
     if ( solarZenithID )        H5Dclose(solarZenithID);
+    if (AnXdimDspaceID)         H5Sclose(AnXdimDspaceID);
+    if (AnYdimDspaceID)         H5Sclose(AnYdimDspaceID);
     if ( correctedName )        free(correctedName);
     if ( fileTime )             free(fileTime);
     if ( granList )             free(granList);
@@ -978,7 +1041,7 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
     hid_t perBlockMetaDspace = 0;
     herr_t status = 0;
     hid_t perBlockMetaDset = 0;
-    int *dimBuf = NULL;
+    //int *dimBuf = NULL;
     hid_t dSpaceID = 0;
     const char* dimName = "SOMBlock_Time";
     const hsize_t BCTsize = 180;
@@ -1222,7 +1285,8 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
     }
     else
     {
-        dimBuf = calloc( BCTsize, sizeof(int) );
+        // No need to allocate buffer for pure dimension
+        //dimBuf = calloc( BCTsize, sizeof(int) );
         // Create the dataspace for the dimension
         // Dimension will always be of size 180
         
@@ -1234,7 +1298,7 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
             goto cleanupFail;
         }
 
-        status = makeDimFromBuf( dimGroupID, dimName, dimBuf, dSpaceID, H5T_NATIVE_INT, &dimID );
+        status = makePureDim( dimGroupID, dimName, dSpaceID, H5T_NATIVE_INT, &dimID );
         if ( status != RET_SUCCESS )
         {
             FATAL_MSG("Failed to create dimension.\n");
@@ -1261,9 +1325,10 @@ cleanupFail:
     if ( dimID )                H5Dclose(dimID); 
     if ( stringType )           H5Tclose(stringType);
     if ( perBlockMetaDspace )   H5Sclose(perBlockMetaDspace);
-    if ( dimBuf )               free(dimBuf);
+    //if ( dimBuf )               free(dimBuf);
     if ( dSpaceID )             H5Sclose(dSpaceID);
     if ( BCTbuf )               free(BCTbuf);
     if ( inSDID )               SDend(inSDID);
     return retVal; 
 }
+

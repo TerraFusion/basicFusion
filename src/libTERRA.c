@@ -1651,8 +1651,8 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
         any errors.
 */
 /* MY-2016-12-20 Routine to unpack MISR data */
-hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** retDatasetNamePtr,int32 inputDataType,
-                                 int32 inputFileID,float scale_factor )
+hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* datasetName, char** retDatasetNamePtr,int32 inputDataType,
+                                 int32 inputFileID,float scale_factor,unsigned short * has_LAI_DIM1_ptr )
 {
     int32 dataRank = 0;
     int32 dataDimSizes[DIM_MAX] = {0};
@@ -1705,14 +1705,12 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
         float* temp_float_pointer = NULL;
         unsigned short* temp_uint16_pointer = input_dataBuffer;
         unsigned short* temp_uint16_pointer_mask = input_dataBuffer;
+        unsigned short temp_cklq_input_val = 0;
         size_t buffer_size = 1;
         unsigned short  rdqi = 0;
         unsigned short  rdqi_mask = 3;
         size_t num_la_data = 0;
-        uint8_t has_la_data = 0;
 
-        unsigned int* la_data_pos = NULL;
-        unsigned int* temp_la_data_pos_pointer = NULL;
 
         for(int i = 0; i <dataRank; i++)
             buffer_size *=dataDimSizes[i];
@@ -1722,80 +1720,72 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
         {
             rdqi = (*temp_uint16_pointer_mask)&rdqi_mask;
             if(rdqi == 1){
-                num_la_data++;
+                temp_cklq_input_val = (*temp_uint16_pointer_mask)>>2;
+                if(temp_cklq_input_val != 16378 && temp_cklq_input_val != 16380) 
+                    num_la_data++;
             }
             temp_uint16_pointer_mask++;
         }
 
+#if 0
         if(num_la_data>0)
         {
             has_la_data = 1;
-            la_data_pos = malloc(sizeof la_data_pos*num_la_data);
+            la_data_pos = calloc(sizeof la_data_pos*num_la_data,dankRank);
             temp_la_data_pos_pointer = la_data_pos;
         }
-
-        /* We need to check if there are any the low accuracy data */
-
-
-        output_dataBuffer = malloc(sizeof output_dataBuffer *buffer_size);
-        temp_float_pointer = output_dataBuffer;
-
-        unsigned short temp_input_val;
-
-        if(has_la_data == 1)
+#endif
+        /* Need to obtain low frequency indexes */
+        if(num_la_data >0)
         {
-            for(int i = 0; i<buffer_size; i++)
-            {
 
-                rdqi = (*temp_uint16_pointer)&rdqi_mask;
-                if(rdqi == 2 || rdqi == 3)
-                    *temp_float_pointer = -999.0;
-                else
-                {
-                    if(rdqi == 1)
-                    {
-                        *temp_la_data_pos_pointer = i;
-                        temp_la_data_pos_pointer++;
+            unsigned short*temp_ck_uint16_pointer = input_dataBuffer;
+            if(dataRank != 3) {
+                FATAL_MSG("Error MISR radiance  %s dataset should be 3-D array.\n", datasetName );
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
+                return (FATAL_ERR);
+            } 
+
+            unsigned int la_data_pos[num_la_data][3] ;
+
+            /* obtain the low accuracy index */
+            unsigned int ck_count = 0;
+            for(int i =0; i <dataDimSizes[0];i++) {
+                for (int j =0;j<dataDimSizes[1];j++) {
+                    for (int k=0;k<dataDimSizes[2];k++) {
+                        rdqi = (*temp_ck_uint16_pointer)&rdqi_mask;
+                        if(rdqi == 1){
+                    
+                            temp_cklq_input_val = (*temp_ck_uint16_pointer)>>2;
+                            if(temp_cklq_input_val != 16378 && temp_cklq_input_val != 16380) {
+                                /* Remember the index */ 
+                                /* The toolkit generates block number. So the first one may be i+1.*/
+                                la_data_pos[ck_count][0] = i+1;
+                                la_data_pos[ck_count][1] = j;
+                                la_data_pos[ck_count][2] = k;
+                                ck_count++;
+                            }
+                        }
+                        temp_ck_uint16_pointer++;
                     }
-                    temp_input_val = (*temp_uint16_pointer)>>2;
-                    if(temp_input_val == 16378 || temp_input_val == 16380)
-                        *temp_float_pointer = -999.0;
-                    else
-                        *temp_float_pointer = scale_factor*((float)temp_input_val);
                 }
-                temp_uint16_pointer++;
-                temp_float_pointer++;
             }
-        }
-        else
-        {
-            for(int i = 0; i<buffer_size; i++)
-            {
-                rdqi = (*temp_uint16_pointer)&rdqi_mask;
-                if(rdqi == 2 || rdqi == 3)
-                    *temp_float_pointer = -999.0;
-                else
-                {
-                    temp_input_val = (*temp_uint16_pointer)>>2;
-                    if(temp_input_val == 16378 || temp_input_val == 16380)
-                        *temp_float_pointer = -999.0;
-                    else
-                        *temp_float_pointer = scale_factor*((float)temp_input_val);
-                }
-                temp_uint16_pointer++;
-                temp_float_pointer++;
-            }
-        }
 
-        /* Here we want to record the low accuracy data information for this dataset.*/
-        if(has_la_data ==1)
-        {
+            if(ck_count != num_la_data) {
+                FATAL_MSG("Error MISR radiance  %s dataset low accuracy index is wrong.\n", datasetName );
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
+                return (FATAL_ERR);
+            } 
+
 
             hid_t la_pos_dsetid =0 ;
-            int la_pos_dset_rank = 1;
-            hsize_t la_pos_dset_dims[1];
+            int la_pos_dset_rank = 2;
+            hsize_t la_pos_dset_dims[2];
             la_pos_dset_dims[0]= num_la_data;
-            char* la_pos_dset_name_suffix="_low_accuracy_pos";
+            la_pos_dset_dims[1]= 3;
+            char* la_pos_dset_name_suffix="_low_accuracy_index";
             size_t la_pos_dset_name_len = strlen(la_pos_dset_name_suffix)+strlen(newdatasetName)+1;
             char* la_pos_dset_name=malloc(la_pos_dset_name_len);
             la_pos_dset_name[la_pos_dset_name_len-1]='\0';
@@ -1803,27 +1793,112 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
             strcat(la_pos_dset_name,la_pos_dset_name_suffix);
 
             /* Create a dataset to remember the postion of low accuracy data */
-            la_pos_dsetid = insertDataset( &outputFile, &outputGroupID, 1, la_pos_dset_rank,
-                                           la_pos_dset_dims, H5T_NATIVE_INT, la_pos_dset_name, la_data_pos );
+            la_pos_dsetid = insertDataset_comp( &outputFile, &outputGroupID, 1, la_pos_dset_rank,
+                                           la_pos_dset_dims, H5T_NATIVE_UINT, la_pos_dset_name, la_data_pos );
 
             if ( la_pos_dsetid == FATAL_ERR )
             {
                  FATAL_MSG("Error writing %s dataset.\n", newdatasetName );
                 if(la_pos_dset_name)
                     free(la_pos_dset_name);
-                if(la_data_pos)
-                    free(la_data_pos);
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
                 H5Dclose(la_pos_dsetid);
                 return (FATAL_ERR);
             }
             if(la_pos_dset_name)
                 free(la_pos_dset_name);
-            if(la_data_pos)
-                free(la_data_pos);
+ 
+            // Need to create/attach dimensions
+            // First the fixed 3-element dimension
+            char* lai_dim1="/MISR_LA_POS_DIM";
+            if(*has_LAI_DIM1_ptr == 0) {
+                hid_t lai_dim1_id = 0;
+                hsize_t lai_dim1_size = la_pos_dset_dims[1];
+                hid_t lai_dspace = H5Screate_simple(1,&lai_dim1_size,NULL);
+                if(makePureDim(outputFile,lai_dim1,lai_dspace,H5T_NATIVE_INT,&lai_dim1_id)!=RET_SUCCESS) {
+                    FATAL_MSG("Error creating MISR Low accuracy position dimenson.  \n");
+                    H5Sclose(lai_dspace);
+                    H5Dclose(la_pos_dsetid);
+                    if(newdatasetName) free(newdatasetName);
+                    if( input_dataBuffer) free(input_dataBuffer);
+                    return (FATAL_ERR);
+                }
+                H5Sclose(lai_dspace);
+                H5Dclose(lai_dim1_id);
+                *has_LAI_DIM1_ptr = 1;
+            }
 
+            if(attachDimension(outputFile,lai_dim1,la_pos_dsetid,1)!=RET_SUCCESS) {
+                FATAL_MSG("Error creating MISR Low accuracy position dimenson.  \n");
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
+                H5Dclose(la_pos_dsetid);
+            }
+            // Need to create the dimension name for LA index dimension.
+            // Name will be /MISR_AN_RR_LA_INX_DIM
+            char* lai_dim0_temp="/MISR_AN_RR_LA_INX_DIM";
+            char * lai_dim0=malloc(strlen(lai_dim0_temp)+1);
+            strcpy(lai_dim0,"/MISR_");
+            strcat(lai_dim0,cameraName);
+            strcat(lai_dim0,"_");
+            char*RadName_short=malloc(3);
+            RadName_short[0] = newdatasetName[0];
+            RadName_short[1] = 'R';
+            RadName_short[2]='\0';
+            
+            strcat(lai_dim0,RadName_short);
+            free(RadName_short);
+            strcat(lai_dim0,"_LA_INX_DIM");
+            hsize_t lai_dim0_size = la_pos_dset_dims[0];
+            hid_t lai_dim0_id = 0;
+            hid_t lai_dspace0 = H5Screate_simple(1,&lai_dim0_size,NULL);
+            if(makePureDim(outputFile,lai_dim0,lai_dspace0,H5T_NATIVE_INT,&lai_dim0_id)!=RET_SUCCESS) {
+                FATAL_MSG("Error creating MISR Low accuracy index dimenson.  \n");
+                H5Sclose(lai_dspace0);
+                H5Dclose(la_pos_dsetid);
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
+                return (FATAL_ERR);
+            }
+            H5Sclose(lai_dspace0);
+            H5Dclose(lai_dim0_id);
+            if(attachDimension(outputFile,lai_dim0,la_pos_dsetid,0)!=RET_SUCCESS) {
+                FATAL_MSG("Error creating MISR Low accuracy dimenson 1.  \n");
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
+                H5Dclose(la_pos_dsetid);
+            }
+            free(lai_dim0);
             H5Dclose(la_pos_dsetid);
+            // { } may add an attribute to the group later.
         }
-        //else { } may add an attribute to the group later.
+
+        output_dataBuffer = malloc(sizeof output_dataBuffer *buffer_size);
+        temp_float_pointer = output_dataBuffer;
+
+        unsigned short temp_input_val;
+
+        /* Unpacking the data, both reduced accuracy and within specifications. RDQI=0 and RDQI=1. */
+        {
+            for(int i = 0; i<buffer_size; i++)
+            {
+                rdqi = (*temp_uint16_pointer)&rdqi_mask;
+                if(rdqi == 2 || rdqi == 3)
+                    *temp_float_pointer = -999.0;
+                else
+                {
+                    temp_input_val = (*temp_uint16_pointer)>>2;
+                    if(temp_input_val == 16378 || temp_input_val == 16380)
+                        *temp_float_pointer = -999.0;
+                    else
+                        *temp_float_pointer = scale_factor*((float)temp_input_val);
+                }
+                temp_uint16_pointer++;
+                temp_float_pointer++;
+            }
+        }
+
     }
 
 
@@ -4519,10 +4594,10 @@ herr_t attachDimension(hid_t fileID,char*dimname, hid_t dsetID,int dim_index)
 }
 
 /*
-        makeDimFromBuf
+        makePureDim
 
  DESCRIPTION:
-    makeDimFromBuf takes as input a data buffer containing the data that a new dimension will contain.
+    makePureDim takes as input a data buffer containing the data that a new dimension will contain.
     This function makes sure that the dimension complies with netCDF standards.
 
  ARGUMENTS:
@@ -4547,7 +4622,8 @@ herr_t attachDimension(hid_t fileID,char*dimname, hid_t dsetID,int dim_index)
     FATAL_ERR  
 
 */
-herr_t makeDimFromBuf( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID )
+//herr_t makePureDim( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID )
+herr_t makePureDim( hid_t locID, const char* dimName,  hid_t dataspace, hid_t h5Type, hid_t* retID )
 {
     hid_t dimID = 0;
     herr_t retVal = RET_SUCCESS;
@@ -4562,12 +4638,14 @@ herr_t makeDimFromBuf( hid_t locID, const char* dimName, void* dataBuffer, hid_t
         goto cleanupFail;
     }
 
+#if 0
     status = H5Dwrite( dimID, h5Type, H5S_ALL, H5S_ALL, H5P_DEFAULT, dataBuffer );
     if ( status < 0 )
     {
         FATAL_MSG("Failed to write to the dataset.\n");
         goto cleanupFail;
     }    
+#endif
     
     // Make this new dataset a dimension
     status = H5DSset_scale( dimID, dimName );
