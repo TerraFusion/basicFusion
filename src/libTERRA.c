@@ -5348,8 +5348,10 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, sh
         FATAL_MSG("Binary search produced an invalid result. Debug information:\n\ttargetIndex = %ld\n\tsize = %u\n", middle, (unsigned int) size);
         return -1;
     }
-
-    if ( firstGreater == 0 && middle > 0 )
+ 
+    // When middle points to the last element of the array,we should not decrease the middle value by 1. 
+    if ( firstGreater == 0 && middle > 0 && middle<(size-1))
+    //if ( firstGreater == 0 && middle > 0 )
     {
         middle--;
     }
