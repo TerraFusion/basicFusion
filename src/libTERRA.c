@@ -1747,7 +1747,9 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* dat
                 return (FATAL_ERR);
             } 
 
-            unsigned int la_data_pos[num_la_data][3] ;
+            //unsigned int la_data_pos[num_la_data][3] ;
+            unsigned int* la_data_pos =(unsigned int*)malloc(sizeof(unsigned int) *num_la_data*3) ;
+            unsigned int* temp_la_data_pos = la_data_pos;
 
             /* obtain the low accuracy index */
             unsigned int ck_count = 0;
@@ -1761,9 +1763,17 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* dat
                             if(temp_cklq_input_val != 16378 && temp_cklq_input_val != 16380) {
                                 /* Remember the index */ 
                                 /* The toolkit generates block number. So the first one may be i+1.*/
+#if 0
                                 la_data_pos[ck_count][0] = i+1;
                                 la_data_pos[ck_count][1] = j;
                                 la_data_pos[ck_count][2] = k;
+#endif
+                                *temp_la_data_pos = i+1;
+                                temp_la_data_pos++;
+                                *temp_la_data_pos = j;
+                                temp_la_data_pos++;
+                                *temp_la_data_pos = k;
+                                temp_la_data_pos++;
                                 ck_count++;
                             }
                         }
@@ -1778,7 +1788,6 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* dat
                 if( input_dataBuffer) free(input_dataBuffer);
                 return (FATAL_ERR);
             } 
-
 
             hid_t la_pos_dsetid =0 ;
             int la_pos_dset_rank = 2;
@@ -1808,6 +1817,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* dat
             }
             if(la_pos_dset_name)
                 free(la_pos_dset_name);
+            free(la_data_pos);
  
             // Need to create/attach dimensions
             // First the fixed 3-element dimension
