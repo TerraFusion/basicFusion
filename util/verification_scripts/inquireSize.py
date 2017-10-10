@@ -7,6 +7,8 @@ from __future__ import print_function
 import os, sys
 import argparse
 from mpi4py import MPI
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import re
 
@@ -16,7 +18,7 @@ def isBFfile( file_list ):
         This function takes as input a list of strings containing a file path and determines, based on a regex pattern, if the file is or is not a \"proper\" Basic Fusion file. What constitutes a proper BF file is documented on this project's GitHub.
 
     ARGUMENTS:
-        file_list (list)  -- A filename or a filepath list of strings
+        file_list (list)  -- A list of filenames or filepaths.
     
     EFFECTS:
         None
@@ -37,22 +39,22 @@ def isBFfile( file_list ):
 
     isProper = []
 
-    MOP_re='^MOP01-[0-9]{8}-L[0-9]V[0-9].[0-9]{2}.[0-9].he5'
-    CER_re='^CER_SSF_Terra-FM[0-9]-MODIS_Edition[0-9]A_[0-9]{6}.[0-9]{10}'
-    MOD_re='^MOD0((21KM)|(2HKM)|(2QKM)|(3)).A[0-9]{7}.[0-9]{4}.[0-9]{3}.[0-9]{13}.hdf'
-    AST_re='^AST_L1T_[0-9]{17}_[0-9]+_[0-9]+.hdf'
-    MIS_re1='^MISR_AM1_GRP_ELLIPSOID_GM_P[0-9]{3}_O[0-9]+_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_F[0-9]+_[0-9]+.hdf' 
-    MIS_re2='^MISR_AM1_AGP_P[0-9]{3}_F[0-9]+_[0-9]+.hdf'
-    MIS_re3='^MISR_AM1_GP_GMP_P[0-9]{3}_O[0-9]+_F[0-9]+_[0-9]+.hdf'
-    MIS_re4='^MISR_HRLL_P[0-9]{3}.hdf'
+    MOP_re='^MOP01-[0-9]{8}-L[0-9]V[0-9].[0-9]{2}.[0-9].he5$'
+    CER_re='^CER_SSF_Terra-FM[0-9]-MODIS_Edition[0-9]A_[0-9]{6}.[0-9]{10}$'
+    MOD_re='^MOD0((21KM)|(2HKM)|(2QKM)|(3)).A[0-9]{7}.[0-9]{4}.[0-9]{3}.[0-9]{13}.hdf$'
+    AST_re='^AST_L1T_[0-9]{17}_[0-9]+_[0-9]+.hdf$'
+    MIS_re1='^MISR_AM1_GRP_ELLIPSOID_GM_P[0-9]{3}_O[0-9]+_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_F[0-9]+_[0-9]+.hdf$' 
+    MIS_re2='^MISR_AM1_AGP_P[0-9]{3}_F[0-9]+_[0-9]+.hdf$'
+    MIS_re3='^MISR_AM1_GP_GMP_P[0-9]{3}_O[0-9]+_F[0-9]+_[0-9]+.hdf$'
+    MIS_re4='^MISR_HRLL_P[0-9]{3}.hdf$'
 
     # It's more efficient to match one large regular expression than many smaller ones. 
     # Combine all of the above regex into one.
-    hugeRE='(' + ')|('.join([ MOP_re, CER_re, MOD_re, AST_re, MIS_re1, MIS_re2, MIS_re3, MIS_re4]) + ')'
+    #hugeRE='(' + ')|('.join([ MOP_re, CER_re, MOD_re, AST_re, MIS_re1, MIS_re2, MIS_re3, MIS_re4]) + ')'
 
     for f in file_list:
         # Strip the path
-        fname = os.path.basename( f )
+        fname = os.path.basename( f ).strip()
         
         if re.match( MOP_re, fname ):
             isProper.append(0)
@@ -107,14 +109,16 @@ sizes and outputs 5 histogram plots (one for each instrument) where x-axis is fi
                instrSizes[ isProper[0] ].append( os.path.getsize( os.path.join(root, filename) ) / 1000000 )
 
     # We now have the sizes of all the proper files. We can make a histogram of this now...
-    figNames = [ 'mop.png', 'cer.png', 'mod.png', 'ast.png', 'mis_grp.png', 'mis_agp.png', 'mis_gmp.png', 'mis_hrll.png' ]
+    figNames = [ ['mop.png', 'MOPITT'], ['cer.png', 'CERES'], ['mod.png', 'MODIS'], ['ast.png', 'ASTER'], \
+                 ['mis_grp.png', 'MISR GRP'], ['mis_agp.png', 'MISR AGP'], ['mis_gmp.png', 'MISR GMP'], \
+                 ['mis_hrll.png', 'MISR HRLL'] ]
     for i in xrange(0, 8):
         plt.hist( instrSizes[i] )
-        plt.title("File size frequency")
+        plt.title("File size frequency (" + figNames[i][1] + ')')
         plt.xlabel("Size (MB)")
         plt.ylabel("Frequency")
-        plt.savefig( os.path.join( args.OUT_DIR, figNames[i]) )
-
+        plt.savefig( os.path.join( args.OUT_DIR, figNames[i][0]), bbox_inches='tight' )
+        plt.close()
                 
 
 if __name__ == '__main__':
