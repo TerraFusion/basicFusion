@@ -83,6 +83,27 @@ downloadPY()
     echo "Done."
     echo
 
+    echo "Downloading numpy..."
+    pip install numpy
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the numpy module." >&2
+        return $retVal_l
+    fi
+    echo "Done."
+    echo
+
+    echo "Downloading matplotlib..."
+    pip install matplotlib
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the matplotlib module." >&2
+        return $retVal_l
+    fi
+    echo "Done."
+    echo
+
+
     # Add a .pth file so that the util/Globus script is in there
     echo "$globUtil" > "$BF_PATH/externLib/$virtEnvName/lib/python2.7/site-packages/globUtil.pth"
 
