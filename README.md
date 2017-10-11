@@ -110,3 +110,34 @@ Currently, the `/path/to/input/txt/files` must be the directory where all the in
 **NOTE!!!**: Inside the processBF_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters/ROGER. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. Do not run this script without reviewing the **JOB PARAMETERS** to determine if the values there are appropriate for the current system and job that you want to run! **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
 
 Please refer to the command line description of ./processBF_SX.sh for a full listing of all the available parameters.
+
+## Python
+In order to aid in handling external Python dependencies, the configureEnv.sh script (explained in the Installation section) automatically creates a Python virtual environment at basicFusion/externLib/BFpyEnv. This virtual environment is installed with all necessary modules that any script in this project may need. The current installed packages are:
+
+- numpy
+- matplotlib
+- docopt
+- pytz
+- globus-sdk
+- mpi4py
+- BFfile
+
+When running any Python script in this project, it is highly recommend you source the virtual environment by executing:
+
+`source [path_to_BF_repo]/externLib/BFpyEnv/bin/activate`
+
+Doing so will meet the dependencies of any Python script in the project. Note that when the virtual environment is activated, you may be unable to use any system-level packages. To deactivate the virtual environment:
+
+`deactivate`
+
+### BFfile
+The BFfile module is a small script we wrote that configureEnv.sh installs to the virutal environment's site-packages. This module is used to determine whether a certain file is a "proper" BasicFusion file. i.e. a file that should be passed to the basicFusion program. You can import it in any Python script by including the line:
+
+`from BFfile import isBFfile`
+
+This function acts as the authority on which files are proper and which are not. You can view the function interface by following these lines:
+
+`(BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ python
+>>> from BFfile import isBFfile
+>>> help(isBFfile)
+`
