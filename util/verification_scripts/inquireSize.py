@@ -15,7 +15,7 @@ from BFfile import isBFfile
  
 def main():
     
-    saveFile=os.path.dirname( os.path.realpath(__file__) ) + "/inquireSave.bin"
+    saveFile=os.path.dirname( os.path.realpath(__file__) ) + "/inquireSave.txt"
     
     # Define the arguments this program can take
     parser = argparse.ArgumentParser(description="This script takes as input a directory containing Terra files to be used \
@@ -26,7 +26,8 @@ sizes and outputs 8 histogram plots where the x-axis is file size and the y-axis
     parser.add_argument("TERRA_DIR", help="The directory containing Terra files.", type=str)
     parser.add_argument("OUT_DIR", help="Directory to save the histogram plots. Defaults to current directory.", type=str, \
         default='./')
-    parser.add_argument("--useSaved", help="Use the saved values of the data size query. This file is found at ./inquireSave.bin.", \
+    parser.add_argument("--useSaved", help="Use the saved values of the data size query. This file is found at {}. \
+    The presence of this flag makes the TERRA_DIR argument obsolete (can pass in junk).".format(saveFile), \
         dest='useSaved', action='store_true')
     args = parser.parse_args()
 
