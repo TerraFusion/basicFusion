@@ -56,8 +56,11 @@ sizes and outputs 8 histogram plots where the x-axis is file size and the y-axis
     figNames = [ ['mop.png', 'MOPITT'], ['cer.png', 'CERES'], ['mod.png', 'MODIS'], ['ast.png', 'ASTER'], \
                  ['mis_grp.png', 'MISR GRP'], ['mis_agp.png', 'MISR AGP'], ['mis_gmp.png', 'MISR GMP'], \
                  ['mis_hrll.png', 'MISR HRLL'] ]
+    
+    bins=range(0,300,20)
     for i in xrange(0, 8):
-        plt.hist( instrSizes[i] )
+        plt.hist( instrSizes[i], bins=bins)
+        plt.xticks( bins )
         plt.title("File size frequency (" + figNames[i][1] + ')')
         plt.xlabel("Size (MB)")
         plt.ylabel("Frequency")
