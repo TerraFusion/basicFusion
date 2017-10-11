@@ -24,6 +24,7 @@ ARGUMENTS:
 \t[SQLite database filepath]    -- The path to the SQLite database generated using metadata-input/build scripts.
 \t[orbit start]                 -- The starting orbit to process
 \t[orbit end]                   -- The path where the resulting input files will reside
+\t[out path]                    -- Path where the files will be saved
 \t[OPTS]        The available options are:
 \t                              --npj [NODES_PER_JOB]        Default of 4
 \t                              --cpn [CORES_PER_NODE]       Default of 16
@@ -160,7 +161,7 @@ done
 
 
 # Time to create the files necessary to submit the jobs to the queue
-BF_PROCESS="$BF_PATH/jobFiles/BFinputGen"
+BF_PROCESS="$BF_PATH/jobFiles/genFusionInput"
 mkdir -p "$BF_PROCESS"
 
 # Find what the highest numbered "run" directory is and grab the number from it.
@@ -294,7 +295,16 @@ for job in $(seq 0 $((numJobs-1)) ); do
     echo "Writing program calls in: ${jobDir[$job]}"
 
     for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
-        echo "$ABS_PATH/genFusionInput.sh $DB_PATH $orbit $OUT_PATH/input$orbit.txt 2> $runDir/logs/genFusionInput/errors/$orbit.err 1> $runDir/logs/genFusionInput/logs/$orbit.log" > "${jobDir[$job]}/orbit$orbit.sh"
+        echo "$ABS_PATH/genFusionInput.sh $DB_PATH $orbit $OUT_PATH/input$orbit.txt 2> $runDir/logs/genFusionInput/errors/$orbit.err 1> $runDir/logs/genFusionInput/logs/$orbit.log
+
+# Remove log/error files if they're empty
+if ! [ -s \"$runDir/logs/genFusionInput/errors/${orbit}.err\" ]; then
+    rm -f \"$runDir/logs/genFusionInput/errors/${orbit}.err\"
+fi
+
+if ! [ -s \"$runDir/logs/genFusionInput/logs/${orbit}.log\" ]; then
+    rm -f \"$runDir/logs/genFusionInput/logs/${orbit}.log\"
+fi" > "${jobDir[$job]}/orbit$orbit.sh"
 
     chmod +x "${jobDir[$job]}/orbit$orbit.sh"
     done
