@@ -102,7 +102,7 @@ downloadPY()
     echo "Done."
     echo
 
-    echo "Copying isBFfile.py to site-packages..."
+    echo "Copying BFfile.py to site-packages..."
     cp "$BF_PATH_l"/util/verification_scripts/BFfile.py "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages
     echo "Done."
     echo
