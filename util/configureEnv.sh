@@ -7,7 +7,6 @@ downloadPY()
     local BF_PATH_l="$1"
     local retVal_l
     local virtEnvName="BFpyEnv"
-    local globUtil="K:$BF_PATH/util/globus/"
     mkdir -p "$BF_PATH_l"/externLib
     cd "$BF_PATH_l"/externLib
     
@@ -103,9 +102,10 @@ downloadPY()
     echo "Done."
     echo
 
-
-    # Add a .pth file so that the util/Globus script is in there
-    echo "$globUtil" > "$BF_PATH/externLib/$virtEnvName/lib/python2.7/site-packages/globUtil.pth"
+    echo "Copying isBFfile.py to site-packages..."
+    cp "$BF_PATH_l"/util/verification_scripts/BFfile.py "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages
+    echo "Done."
+    echo
 
     deactivate
 
