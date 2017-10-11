@@ -137,7 +137,8 @@ The BFfile module is a small script we wrote that configureEnv.sh installs to th
 
 This function acts as the authority on which files are proper and which are not. You can view the function interface by following these lines:
 
-`(BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ python
->>> from BFfile import isBFfile
->>> help(isBFfile)
-`
+```
+(BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ python  
+>>> from BFfile import isBFfile  
+>>> help(isBFfile)  
+```
