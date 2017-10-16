@@ -83,6 +83,25 @@ def run(dirpath, logfile, year, datetime):
 
 
 def Continuity_Check(dirpath, textfile, year, dateTime):
+
+	""" DESCRIPTION:
+			This function is used to check if their is any discontinuity/missing files. The way a file is logged 
+			in the logfile is, if there is gap of more than the interval of 5 minutes between 2 files. 
+
+		ARGUMENTS:
+			dirpath (str)			--absolute path to the  MODIS directory
+			textfile (str)			--text file to which all the missing files are written 
+			year (str)				--year for which you wish to check the missing files for.
+			dateTime (str)			--path to the dateTime file. It should be a text file that contains all the times in the day
+										at an interval of 5 minutes starting from 0000 to 2355.
+		
+		EFFECTS:
+			None
+		
+		RETURN:
+			This does not return anything but writes all the missing filenames to a textfile. 
+			
+	"""
 	exist = {}
 	orbitFiles = defaultdict(list)
 	leap = [2000, 2004, 2008, 2012, 2016, 2020, 2024]
