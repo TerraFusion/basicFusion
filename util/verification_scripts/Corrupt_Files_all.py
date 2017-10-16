@@ -8,26 +8,20 @@ Date : June 22, 2017
 
 import subprocess 
 import os
-import thread
-import multiprocessing
+#import thread
+#import multiprocessing
 import sys
+import numpy as np
 
-""" 
-		DESCRIPTION:
-			There are 5 main functions in the code. 
-			1. MODIS_Corrupt
-			2. MOPITT_Corrupt
-			3. MISR_Corrupt
-			4. CERES_Corrupt
-			5. ASTER_Corrupt
 
-			All of them essentially use the same tool to check for corrupt files. The main idea is to go into each directory and check 
-			each file using "hdp dumpsds -h" command. Also MOPITT_Corrupt uses "ncdump" instead of "hdp dumpsds" because MOPITT contains
-			.he5 files and not.hdf files.
-			
-	"""
+#python Corrupt_Files_all.py -r 
 
-#python Corrupt_Files_all.py -r /projects/TDataFus/gyzhao/TF/data/MODIS/MOD021KM /home/sbansal6/File_Verification_Scripts/MODIS_Corrupt/MODIS_Corrupt_Check_MOD021KM_2009_1.txt 2009 1
+dirpath = '/projects/TDataFus/gyzhao/TF/data/MODIS/MOD021KM'
+logfile = '/home/sbansal6/File_Verification_Scripts/MODIS_Corrupt/MODIS_Corrupt_Check_MOD021KM_2009_1.txt'
+
+year = '2009'
+month = '1'
+
 def main():
 
 	if not len(sys.argv) > 1:
@@ -40,33 +34,36 @@ def main():
 		arguments()
 
 	elif sys.argv[1] == '-r':
-		if len(sys.argv) <= 6:
+		if len(sys.argv) < 5:
 			arguments()
 		else:
 			instr = sys.argv[2]
 			dirpath = sys.argv[3]
 			logfile = sys.argv[4]
-			year = sys.argv[5]
 			
 			if instr == 'MOPITT' or instr == 'mopitt':
-				MOPITT_Corrupt(dirpath, logfile, year)
+				MOPITT_Corrupt(dirpath, logfile)
 	
 			
 			elif instr == 'MISR' or instr == 'misr':
+				year = sys.argv[5]
 				month = sys.argv[6]
 				MISR_Corrupt(dirpath, logfile, year, month)
 	
 			
 			elif instr == 'CERES' or instr == 'ceres':
+				year = sys.argv[5]
 				CERES_Corrupt(dirpath, logfile, year)
 
 			
 			elif instr == 'ASTER' or instr == 'aster':
+				year = sys.argv[5]
 				month = sys.argv[6]
 				ASTER_Corrupt(dirpath, logfile, year, month)
 
 			
 			elif instr == 'MODIS' or instr == 'modis':
+				year = sys.argv[5]
 				month = sys.argv[6]
 				MODIS_Corrupt(dirpath, logfile, year, month)
 			
@@ -87,7 +84,7 @@ def usage():
 def help():
 	print("\nDESCRIPTION:\n\nThere are 5 different functions in this program- \n")
 	print("1. MODIS_Corrupt(dirPath, logfile, YEAR, monthR)")
-	print("2. MOPITT_Corrupt(dirPath, logfile, YEAR)")
+	print("2. MOPITT_Corrupt(dirPath, logfile)")
 	print("3. MISR_Corrupt(dirPath, logfile, YEAR, month)")
 	print("4. CERES_Corrupt(dirPath, logfile, YEAR)")
 	print("5. ASTER_Corrupt(dirPath, logfile, YEAR, month)\n")
@@ -98,7 +95,7 @@ def help():
 
 
 def arguments():
-	print("\nARGUMENTS TO RUN PROGRAM:\n\n python MISR_all_years.py -r [instr] [absolute/path/to/dir] [absolute/filepath/to/logfile] [YEAR] [month or monthR](optional)\n")
+	print("\nARGUMENTS TO RUN PROGRAM:\n\n python Corrupt_all_years.py -r [instr] [absolute/path/to/dir] [absolute/filepath/to/logfile] [YEAR] [month or monthR](optional)\n")
 	print("For more information on each argument, type i.")
 	info = str(raw_input())
 	
@@ -191,8 +188,7 @@ def get_range(month):
 def MODIS_Corrupt(dirpath, logfile, YEAR, monthR):
 
 
-	""" 
-		DESCRIPTION:
+	""" DESCRIPTION:
 			This function is to find the all the corrupt files for MODIS. It uses hdp dumpsds -h command on each file in 
 			MODIS directory and checks if they are corrupt or not. 
 
@@ -202,29 +198,40 @@ def MODIS_Corrupt(dirpath, logfile, YEAR, monthR):
 			YEAR (str)			--this is the year for which you wish to perform the corrupt_file check for. 
 			monthR (str)		--this is a number in range [1 15]
 		
-		EFFECTS:
+		EFFECTS:for m in range(1, 13):
+			for d in range(1, 31):
+
+				if(m < 10 and d < 10):
+					dateStr.append(year + '.0' + str(m) + '.0' + str(d))
+
+				elif(m<10 and d >= 10):
+					dateStr.append(year + '.0' + str(m) + '.' + str(d))
+
+				elif(m>=10 and d < 10):
+					dateStr.append(year + '.' + str(m) + '.0' + str(d))
+				else:
+					dateStr.append(year + '.' + str(m) + '.' + str(d))
 			None
 		
 		RETURN:
-			Doesnot return anything but writes the names of the corrupt files in the logfile.
+			The range assigned to each number. 
 			
 	"""
 
 	fileCheck = open(logfile, "w").close()
 	fileCheck = open(logfile, "w")
-	
+
 	emptydir = []
 	zero_size = {}
 	Range = []
 	Range = get_range(int(monthR))
 	daylist = []
 
-	#this makes a range of days to check through depending on monthR[1, 15]
+
 	for i in range(Range[0], Range[1]):
 		daylist.append(i)
 		
 	dirPath = os.path.join(dirpath, YEAR)
-	
 	#entering the year to be checked (day number)
 	for fname in os.listdir(dirPath):
 		if(os.listdir(os.path.join(dirPath, fname)) == []):
@@ -234,53 +241,62 @@ def MODIS_Corrupt(dirpath, logfile, YEAR, monthR):
 		else:
 			#this makes sure that we do not enter an empty directory
 			if fname not in emptydir and int(fname) in daylist:
+				#print(fname)
 				inPath = os.path.join(dirPath, fname)
 
-				#filename is the hdf-file in each day
 				for filename in os.listdir(inPath):
+					#print(filename)
 					hdfinfo = os.stat(os.path.join(inPath, filename))
 
-					#makes a list of all the zero size hdf-files
-					if(hdfinfo.st_size == 0):
-						zero_size[filename] = True
+					if(hdfinfo.st_size < 100000000):
+						zero_size[fname] = hdfinfo.st_size
 
-					#checks for corrupt file
-					else:
+					elif(hdfinfo.st_size > 0):
 						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, filename)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 						retval = strin.communicate()
 						retval1 = strin.returncode
 						if int(retval1) != 0:
 							fileCheck.write(os.path.join(inPath, filename) + '\n')
+						else:
+							check = np.array(retval) 
+							for i in range(len(check)):
+								if 'HDP ERROR' in check[i]:
+									fileCheck.write(os.path.join(inPath, filename) + '\n')
 
-	if zero_size:
-		fileCheck.write("These files are empty: \n")
-		for i in zero_size:
-			fileCheck.write(i + '\n')
 
-def MOPITT_Corrupt(dirpath, logfile, YEAR):
+	#writes to the logfile the names of all the files that are < 100mb
+	fileCheck.write('THESE FILES ARE LESS THAN 100MB\n')
+	for i in zero_size:
+		fileCheck.write(zero_size[i] + '   ' + i + '\n')
+
+
+
+def MOPITT_Corrupt(dirpath, logfile):
+
+	#/projects/TDataFus/gyzhao/TF/data/MOP
 
 	zero_size = {}
 
-	year = str(YEAR)
+	#year = str(YEAR)
 
 	dateStr = []
 
 	fileCheck = open(logfile, "w").close()
 	fileCheck = open(logfile, "w")
-	
-	for m in range(1, 13):
-		for d in range(1, 31):
+	for year in range(2000, 2017):
+		for m in range(1, 13):
+			for d in range(1, 31):
 
-			if(m < 10 and d < 10):
-				dateStr.append(year + '.0' + str(m) + '.0' + str(d))
+				if(m < 10 and d < 10):
+					dateStr.append(str(year) + '.0' + str(m) + '.0' + str(d))
 
-			elif(m<10 and d >= 10):
-				dateStr.append(year + '.0' + str(m) + '.' + str(d))
+				elif(m<10 and d >= 10):
+					dateStr.append(str(year) + '.0' + str(m) + '.' + str(d))
 
-			elif(m>=10 and d < 10):
-				dateStr.append(year + '.' + str(m) + '.0' + str(d))
-			else:
-				dateStr.append(year + '.' + str(m) + '.' + str(d))
+				elif(m>=10 and d < 10):
+					dateStr.append(str(year) + '.' + str(m) + '.0' + str(d))
+				else:
+					dateStr.append(str(year) + '.' + str(m) + '.' + str(d))
 
 
 	for date in os.listdir(dirpath):
@@ -288,12 +304,13 @@ def MOPITT_Corrupt(dirpath, logfile, YEAR):
 		if date in dateStr:
 			dateStr.remove(date)
 			inPath = os.path.join(dirpath, date)
+			print inPath
 
 			#print(date)
 			for fname in os.listdir(inPath):
 				if fname.endswith('.he5'):
 
-					#print(fname)
+					print fname
 
 
 					hdfinfo = os.stat(os.path.join(inPath, fname))
@@ -308,6 +325,13 @@ def MOPITT_Corrupt(dirpath, logfile, YEAR):
 						#print(retval1)
 						if int(retval1) != 0:
 							fileCheck.write(os.path.join(inPath, fname) + '\n')
+
+						else:
+							check = np.array(retval)
+							for i in range(len(check)):
+								if 'HDP ERROR' in check[i]:
+									fileCheck.write(os.path.join(inPath, fname) + '\n')
+
 
 def MISR_Corrupt(dirpath, logfile, YEAR, month):
 
@@ -345,6 +369,9 @@ def MISR_Corrupt(dirpath, logfile, YEAR, month):
 			for fname in os.listdir(inPath):
 				if fname.endswith('.hdf'):
 
+					#print(fname)
+
+
 					hdfinfo = os.stat(os.path.join(inPath, fname))
 
 					if(hdfinfo.st_size == 0):
@@ -358,10 +385,15 @@ def MISR_Corrupt(dirpath, logfile, YEAR, month):
 						if int(retval1) != 0:
 							fileCheck.write(os.path.join(inPath, fname) + '\n')
 
+						else:
+							check = np.array(retval)
+							for i in range(len(check)):
+								if 'HDP ERROR' in check[i]:
+									fileCheck.write(os.path.join(inPath, fname) + '\n')
+
 
 def CERES_Corrupt(dirpath, logfile, YEAR):
 	year = str(YEAR)
-
 
 	fileCheck = open(logfile, "w").close()
 	fileCheck = open(logfile, "w")
@@ -369,23 +401,33 @@ def CERES_Corrupt(dirpath, logfile, YEAR):
 	yearpath = os.path.join(dirpath, year)
 
 	for cerfile in os.listdir(yearpath):
-
-		#there were some .met files in CERES which were not required to be checked and shouldn't have been there
 		if not cerfile.endswith('.met'):
+			#print(cerfile)
 			strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(yearpath, cerfile)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
 			retval = strin.communicate()
 			retval1 = strin.returncode
+			#print retval1
 			if int(retval1) != 0:
 				fileCheck.write(os.path.join(yearpath, cerfile) + '\n')
+
+			else:
+				check = np.array(retval)
+				for i in range(len(check)):
+					if 'HDP ERROR' in check[i]:
+						fileCheck.write(os.path.join(inPath, filename) + '\n')
+
 
 
 def ASTER_Corrupt(dirpath, logfile, YEAR, month):
 	year = str(YEAR)
 
 	dateStr = []
+	zero_size = {}
 
 	fileCheck = open(logfile, "w").close()
 	fileCheck = open(logfile, "w")
+
+	#zerofile = open('/home/sbansal6/File_Verification_Scripts/ASTER_Corrupt/ASTER_Zero.txt', 'w')
 	
 	for m in range(1, 13):
 		for d in range(1, 31):
@@ -410,15 +452,20 @@ def ASTER_Corrupt(dirpath, logfile, YEAR, month):
 			dateStr.remove(date)
 			inPath = os.path.join(dirpath, date)
 
+			#print(date)
 			for fname in os.listdir(inPath):
 				if fname.endswith('.hdf'):
 
+					#print(fname)
+
+
 					hdfinfo = os.stat(os.path.join(inPath, fname))
 
-					if(hdfinfo.st_size == 0):
-						zero_size[fname] = True
+					#makes a list of all the files less than 100mb
+					if(hdfinfo.st_size < 100000000):
+						zero_size[fname] = hdfinfo.st_size
 
-					else:
+					elif(hdfinfo.st_size > 0):
 						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, fname)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 						retval = strin.communicate()
 						retval1 = strin.returncode
@@ -426,6 +473,17 @@ def ASTER_Corrupt(dirpath, logfile, YEAR, month):
 						if int(retval1) != 0:
 							fileCheck.write(os.path.join(inPath, fname) + '\n')
 
+						else:
+						#this makes sure that if the retval is 0, even in that case the file is not corrupt by checking for HDP ERROR in the retval
+							check = np.array(retval)
+							for i in range(len(check)):
+								if 'HDP ERROR' in check[i]:
+									fileCheck.write(os.path.join(inPath, fname) + '\n')
 
+
+	#writes to the logfile the names of all the files that are < 100mb
+	fileCheck.write('THESE FILES ARE LESS THAN 100MB\n')
+	for i in zero_size:
+		fileCheck.write(zero_size[i] + '   ' + i + '\n')
 
 main()
