@@ -127,19 +127,26 @@ def worker():
     """
 
     # Wait for the master to send our job list
+    print("Rank {}: Receiving job...".format(mpi_rank))
     fileList = mpi_comm.recv( source=0 )
+    print("Rank {}: Job received.".format(mpi_rank))
+
     corruptList = []
     hdpCall = ["hdp", "dumpsds", "-h", "[file path]" ]
     ncCall  = ["ncdump", "-h", "[file path]"]
 
     # Perform the corruption checks on the file list
     for i in xrange( len(fileList) ):
+        # Report every 100 files
+        if (i % 100) == 0:
+            print("Rank {}: on i = {} of {}".format(mpi_rank, i, len(fileList) ))
+
         if fileList[i][1] > 0:
             hdpCall[3] = fileList[i][0]
             corrupt = isCorrupt( fileList[i][0], hdpCall )
         elif fileList[i][1] == 0:
             ncCall[2] = fileList[i][0]
-            corrupt = isCorrupt( fileList[i][0], ncCall )
+            corrupt = isCorrupt( fileList[i][0], ncCall, 1000000 )
         else:
             raise ValueError("Rank {}: fileList has a bad element! File marked as < 0!".format(mpi_rank))
 
@@ -199,23 +206,26 @@ def master( terraDir, outDir ):
                fileList.append( [ os.path.join(root, filename), isProper[0] ] )
 
     # We have all the files to process for this directory. Find how to split the jobs
+    print("Rank {}: Finding job partition...".format(mpi_rank))
     processBin = findJobPartition( mpi_size - 1, len(fileList) )
-
+    print("Rank {}: Done finding job partition.".format(mpi_rank))
     sIdx = 0
     eIdx = 0
     # Send the jobs to the worker processes
+    print("Rank {}: Sending jobs...".format(mpi_rank))
     for i in xrange( 1, mpi_size ):
         # Get the process end index
         eIdx = processBin[i-1]
         mpi_comm.send( fileList[sIdx:sIdx + eIdx], dest=i )
         sIdx=eIdx
+    print("Rank {}: Done sending jobs.".format(mpi_rank))
 
     if eIdx != len(fileList):
         print("Warning: sIdx + eIdx = {}, len(fileList) = {}".format( sIdx + eIdx, len(fileList) ) )
 
     # Wait for the returning data from each process
     for i in xrange( 0, mpi_size-1 ):
-        print("Waiting for list number {}".format(i))
+        print("Rank {}: Waiting for list number {}".format(mpi_rank, i))
         corruptSubList = mpi_comm.recv( source=ANY_SOURCE )
         corruptList = corruptList + corruptSubList
 
@@ -257,7 +267,7 @@ def main():
 
     # Master process needs to determine how to split the processes 
     if mpi_rank == 0:
-        master( args.TERRA_DIR )    
+        master( args.TERRA_DIR, args.OUT_DIR )    
     else:
         worker()
         
