@@ -221,7 +221,7 @@ def master( terraDir, outDir ):
 
     # Open the log files for writing
     for i in xrange(len(logs)):
-        logFileObj.append( open(logs[i], 'w') )
+        logFileObj.append( open(logs[i], 'a') )
 
     # Distribute all of these into output log files
     for line in corruptList:
