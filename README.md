@@ -142,3 +142,9 @@ This function acts as the authority on which files are proper and which are not.
 >>> from BFfile import isBFfile  
 >>> help(isBFfile)  
 ```
+
+## Conventions
+The following points detail the conventions that are used in the development process of this program. These conventions should be adhered to.
+
+- Tabs set to 4 spaces
+- Python scripts should make use of the argparse or docopt modules for command line program interfaces.
