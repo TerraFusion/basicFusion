@@ -1,6 +1,15 @@
 import sys, os
 import re
 
+MOP_re='^MOP01-[0-9]+-L[0-9]+V[0-9]+.[0-9]+.[0-9]+.he5$'
+CER_re='^CER_SSF_Terra-FM[0-9]-MODIS_Edition[0-9]+A_[0-9]+.[0-9]+$'
+MOD_re='^MOD0((21KM)|(2HKM)|(2QKM)|(3)).A[0-9]+.[0-9]+.[0-9]+.[0-9]+.hdf$'
+AST_re='^AST_L1T_[0-9]+_[0-9]+_[0-9]+.hdf$'
+MIS_re1='^MISR_AM1_GRP_ELLIPSOID_GM_P[0-9]{3}_O[0-9]+_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_F[0-9]+_[0-9]+.hdf$' 
+MIS_re2='^MISR_AM1_AGP_P[0-9]{3}_F[0-9]+_[0-9]+.hdf$'
+MIS_re3='^MISR_AM1_GP_GMP_P[0-9]{3}_O[0-9]+_F[0-9]+_[0-9]+.hdf$'
+MIS_re4='^MISR_HRLL_P[0-9]{3}.hdf$'
+
 def isBFfile( file_list ):
     """isBFfile
     DESCRIPTION:
@@ -26,14 +35,6 @@ def isBFfile( file_list ):
 
     isProper = []
 
-    MOP_re='^MOP01-[0-9]+-L[0-9]+V[0-9]+.[0-9]+.[0-9]+.he5$'
-    CER_re='^CER_SSF_Terra-FM[0-9]-MODIS_Edition[0-9]+A_[0-9]+.[0-9]+$'
-    MOD_re='^MOD0((21KM)|(2HKM)|(2QKM)|(3)).A[0-9]+.[0-9]+.[0-9]+.[0-9]+.hdf$'
-    AST_re='^AST_L1T_[0-9]+_[0-9]+_[0-9]+.hdf$'
-    MIS_re1='^MISR_AM1_GRP_ELLIPSOID_GM_P[0-9]{3}_O[0-9]+_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_F[0-9]+_[0-9]+.hdf$' 
-    MIS_re2='^MISR_AM1_AGP_P[0-9]{3}_F[0-9]+_[0-9]+.hdf$'
-    MIS_re3='^MISR_AM1_GP_GMP_P[0-9]{3}_O[0-9]+_F[0-9]+_[0-9]+.hdf$'
-    MIS_re4='^MISR_HRLL_P[0-9]{3}.hdf$'
 
     # It's more efficient to match one large regular expression than many smaller ones. 
     # Combine all of the above regex into one.
