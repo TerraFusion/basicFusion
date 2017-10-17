@@ -1,4 +1,10 @@
 #!/bin/bash
+# @author: Landon Clipp
+# @email: clipp2@illinois.edu
+#
+# My feelings won't be hurt if you want to rewrite this script in Python. In fact, it would be preferable.
+# The horrific nature of this monstrosity isn't lost on me.
+
 
 # Args:
 # 1 = unordered input file
@@ -128,7 +134,11 @@ orderFiles() {
     #      for each file type given by: MOD021KM, MOD02HKM, MOD02QKM, MOD03
     #   5. Remove the extra "A2001332.0415 /MOD021KM " from each line. They are no longer needed for sorting purposes.
 
-    MODGREP="$(grep "/MODIS/" "$UNORDEREDFILE" | awk '{match($0,/\/MOD0(21KM|2HKM|2QKM|3)./)} {print substr($0, RSTART, RLENGTH),$0}' | awk --posix '{match($0,/A[0-9]{7}.[0-9]{4}/)} {print substr($0, RSTART, RLENGTH),$0}' | sort | cut -d' ' -f3)"
+    MODGREP="$(grep "/MODIS/" "$UNORDEREDFILE" | \
+awk '{match($0,/\/MOD0(21KM|2HKM|2QKM|3)./)} {print substr($0, RSTART, RLENGTH),$0}' | \
+awk --posix '{match($0,/A[0-9]{7}.[0-9]{4}/)} {print substr($0, RSTART, RLENGTH),$0}' | \
+sort | \
+cut -d' ' -f3)"
 
     MOD_NA="$(grep "MOD N/A" "$UNORDEREDFILE")"
 
@@ -142,7 +152,11 @@ orderFiles() {
     # ASTER #
     #########
 
-    ASTGREP=$(cat "$UNORDEREDFILE" | grep -e "AST.*hdf" -e 'AST N/A' | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
+    ASTGREP=$(cat "$UNORDEREDFILE" | \
+grep -e "AST.*hdf" -e 'AST N/A' | \
+awk -F "/" '{ print $NF, $0}' | \
+sort -u -t' ' -k1,1 | \
+cut -d " " -f 2-)
     # iterate over this file, prepending the path of the file into our
     # OUTFILE
     if [[ ! "$ASTGREP" == *"AST N/A"* ]]; then
@@ -157,7 +171,14 @@ orderFiles() {
     ########
     # MISR #
     ########
-    MISGREP="$(grep "/MISR_" "$UNORDEREDFILE" | awk '{match($0,/(_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_)/)} {if ( RLENGTH > 0) print substr($0, RSTART, RLENGTH),$0; else print $0}' | awk '{match( $0, /_AGP_/)} {if( RLENGTH > 0) print "xxa",$0 ; else print $0}' | awk '{match( $0, /_GMP_/)} {if( RLENGTH > 0) print "xxb",$0 ; else print $0}' | awk '{match( $0, /_HRLL_/)} {if( RLENGTH > 0) print "xxc",$0 ; else print $0}' | sort | cut -d' ' -f2)"
+    MISGREP="$(grep "/MISR_" "$UNORDEREDFILE" | \
+awk '{match($0,/(_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_)/)} {if ( RLENGTH > 0) print substr($0, RSTART, RLENGTH),$0; else print $0}' | \
+awk '{match( $0, /_AGP_/)} {if( RLENGTH > 0) print "xxa",$0 ; else print $0}' | \
+awk '{match( $0, /_GMP_/)} {if( RLENGTH > 0) print "xxb",$0 ; else print $0}' | \
+awk '{match( $0, /_HRLL_/)} {if( RLENGTH > 0) print "xxc",$0 ; else print $0}' | \
+sort | \
+cut -d' ' -f2)"
+    
     MIS_NA="$(grep "MIS N/A" "$UNORDEREDFILE" )"
 
     if [ "$MIS_NA" != "MIS N/A" ]; then
@@ -165,6 +186,9 @@ orderFiles() {
     else
         echo "MIS N/A" >> "$OUTFILE"
     fi
+
+    # Add the missing MISR file labels in the outfile
+    python "$SCRIPT_PATH"/genFusionInput.py "$OUTFILE"
 
     return 0
 }
@@ -1077,6 +1101,7 @@ UNORDERED="$3".unorderedDB
 ORDERED="$3"
 SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ORBITINFO="$SCRIPT_PATH/../data/Orbit_Path_Time.txt"
+PROJ_PATH="$(cd "${SCRIPT_PATH}/../../" && pwd )"
 
 # Set this to non-zero if you want the unordered database queries to be saved.
 SAVE_UNORDERED=0
@@ -1097,6 +1122,8 @@ ASTLINES=$( $QUERIES instrumentStartingInOrbit "$DB" $2 AST)
 # The use of "instrumentInOrbit" instead of "instrumentStartingInOrbit" for MISR helps
 # prevent against edge cases
 MISLINES=$( $QUERIES instrumentInOrbit "$DB" $2 MIS)
+
+source "$PROJ_PATH"/externLib/BFpyEnv/bin/activate
 
 if [ ${#MOPLINES} -lt 2 ]; then
     echo "MOP N/A" >> "$UNORDERED"
