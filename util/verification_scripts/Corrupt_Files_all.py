@@ -127,7 +127,7 @@ def worker():
     """
 
     # Wait for the master to send our job list
-    fileList = comm.Recv( source=0 )
+    fileList = mpi_comm.recv( source=0 )
     corruptList = []
     hdpCall = ["hdp", "dumpsds", "-h", "[file path]" ]
     ncCall  = ["ncdump", "-h", "[file path]"]
@@ -148,7 +148,7 @@ def worker():
 
     print("Rank {}: Sending back data...".format(mpi_rank))
     # Done checking all of the files. Time to send corrupt list back to master.
-    comm.Send( corruptList, dest=0 )
+    mpi_comm.send( corruptList, dest=0 )
 
 #==============================================================================
 
@@ -207,7 +207,7 @@ def master( terraDir, outDir ):
     for i in xrange( 1, mpi_size ):
         # Get the process end index
         eIdx = processBin[i-1]
-        comm.Send( fileList[sIdx:sIdx + eIdx], dest=i )
+        mpi_comm.send( fileList[sIdx:sIdx + eIdx], dest=i )
         sIdx=eIdx
 
     if eIdx != len(fileList):
@@ -216,7 +216,7 @@ def master( terraDir, outDir ):
     # Wait for the returning data from each process
     for i in xrange( 0, mpi_size-1 ):
         print("Waiting for list number {}".format(i))
-        corruptSubList = comm.Recv( source=ANY_SOURCE )
+        corruptSubList = mpi_comm.recv( source=ANY_SOURCE )
         corruptList = corruptList + corruptSubList
 
     # Open the log files for writing
@@ -253,10 +253,10 @@ def main():
     args = parser.parse_args()
 
 
-    assert (mpi_rank > 1),"This script needs more than 1 MPI process to run!"
+    assert (mpi_size > 1),"This script needs more than 1 MPI process to run!"
 
     # Master process needs to determine how to split the processes 
-    if rank == 0:
+    if mpi_rank == 0:
         master( args.TERRA_DIR )    
     else:
         worker()
