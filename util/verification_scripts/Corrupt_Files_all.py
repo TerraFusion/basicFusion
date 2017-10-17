@@ -77,7 +77,7 @@ def isCorrupt( filePath, subProc_call, corrupt_if_less = -1):
     """
 
     if not isinstance(subProc_call, list):
-        raise ValueError("subProc_call argument must be a list!")
+        raise ValueError("Rank {}: subProc_call argument must be a list!".format(mpi_rank))
  
     # Perform ncdump on the file
     dump = subprocess.Popen(
@@ -141,11 +141,12 @@ def worker():
             ncCall[2] = fileList[i][0]
             corrupt = isCorrupt( fileList[i][0], ncCall )
         else:
-            raise ValueError("fileList has a bad element! File marked as < 0!")
+            raise ValueError("Rank {}: fileList has a bad element! File marked as < 0!".format(mpi_rank))
 
         if corrupt:
             corruptList.append( [ fileList[i][0], fileList[i][1] ] )
 
+    print("Rank {}: Sending back data...".format(mpi_rank))
     # Done checking all of the files. Time to send corrupt list back to master.
     comm.Send( corruptList, dest=0 )
 
@@ -205,13 +206,17 @@ def master( terraDir, outDir ):
     # Send the jobs to the worker processes
     for i in xrange( 1, mpi_size ):
         # Get the process end index
-        eIdx = eIdx + processBin[i-1]
+        eIdx = processBin[i-1]
         comm.Send( fileList[sIdx:sIdx + eIdx], dest=i )
         sIdx=eIdx
 
+    if eIdx != len(fileList):
+        print("Warning: sIdx + eIdx = {}, len(fileList) = {}".format( sIdx + eIdx, len(fileList) ) )
+
     # Wait for the returning data from each process
     for i in xrange( 0, mpi_size-1 ):
-        corruptSubList = comm.Recv( source=i+1 )
+        print("Waiting for list number {}".format(i))
+        corruptSubList = comm.Recv( source=ANY_SOURCE )
         corruptList = corruptList + corruptSubList
 
     # Open the log files for writing
