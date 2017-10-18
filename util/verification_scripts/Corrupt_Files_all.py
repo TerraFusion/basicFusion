@@ -13,6 +13,7 @@ import subprocess
 import os
 import sys
 import argparse
+import numpy as np
 from mpi4py import MPI
 from BFfile import isBFfile
 
@@ -220,14 +221,13 @@ def master( terraDir, outDir ):
         sIdx=eIdx
     print("Rank {}: Done sending jobs.".format(mpi_rank))
 
-    if eIdx != len(fileList):
-        print("Warning: sIdx + eIdx = {}, len(fileList) = {}".format( sIdx + eIdx, len(fileList) ) )
 
     # Wait for the returning data from each process
+    print("Rank {}: Waiting for data...".format(mpi_rank, i))
     for i in xrange( 0, mpi_size-1 ):
-        print("Rank {}: Waiting for list number {}".format(mpi_rank, i))
-        corruptSubList = mpi_comm.recv( source=ANY_SOURCE )
+        corruptSubList = mpi_comm.recv()
         corruptList = corruptList + corruptSubList
+        print("Rank {}: Received {} lists.".format(i+1))
 
     # Open the log files for writing
     for i in xrange(len(logs)):
