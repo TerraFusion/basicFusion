@@ -144,7 +144,7 @@ def worker():
 
         if fileList[i][1] > 0:
             hdpCall[3] = fileList[i][0]
-            corrupt = isCorrupt( fileList[i][0], hdpCall )
+            corrupt = isCorrupt( fileList[i][0], hdpCall, 1000000 )
         elif fileList[i][1] == 0:
             ncCall[2] = fileList[i][0]
             corrupt = isCorrupt( fileList[i][0], ncCall, 1000000 )
@@ -227,7 +227,7 @@ def master( terraDir, outDir ):
     for i in xrange( 0, mpi_size-1 ):
         corruptSubList = mpi_comm.recv()
         corruptList = corruptList + corruptSubList
-        print("Rank {}: Received {} lists.".format(i+1))
+        print("Rank {}: Received {} lists.".format(mpi_rank, i+1))
 
     # Open the log files for writing
     for i in xrange(len(logs)):
@@ -270,5 +270,6 @@ def main():
         master( args.TERRA_DIR, args.OUT_DIR )    
     else:
         worker()
-        
-main()
+    
+if __name__ == '__main__':    
+    main()
