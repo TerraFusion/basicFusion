@@ -172,7 +172,7 @@ hid_t insertDataset(  hid_t const *outputFileID, hid_t *datasetGroup_ID, int ret
             Returns the identifier to the newly created dataset upon success.
 */
 hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID,
-                          int rank, hsize_t* datasetDims, hid_t dataType, char* datasetName, void* data_out)
+                          int rank, hsize_t* datasetDims, hid_t dataType, const char* datasetName, void* data_out, unsigned short is_modis)
 {
     hid_t memspace;
     hid_t dataset;
@@ -187,12 +187,28 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
         FATAL_MSG("Cannot create the HDF5 dataset creation property list.\n");
         return(FATAL_ERR);
     }
-    // The chunk size is the same as the array size
+
+    if(is_modis ==1 && rank ==3) {
+
+        hsize_t chunkdims[3];
+        chunkdims[0]=1;
+        chunkdims[1]=datasetDims[1];
+        chunkdims[2]=datasetDims[2];     
+       if(H5Pset_chunk(plist_id,rank,chunkdims)<0)
+       {
+        FATAL_MSG("Cannot set MODIS rank 3 chunk for the HDF5 dataset creation property list.\n");
+        H5Pclose(plist_id);
+        return(FATAL_ERR);
+       }
+
+    }
+    else {// The chunk size is the same as the array size
     if(H5Pset_chunk(plist_id,rank,datasetDims)<0)
     {
         FATAL_MSG("Cannot set chunk for the HDF5 dataset creation property list.\n");
         H5Pclose(plist_id);
         return(FATAL_ERR);
+    }
     }
 
     short gzip_comp_level = 0;
@@ -1105,6 +1121,8 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
                              datatypes.
         5. inputFileID    -- The HDF4 input file identifier
 
+        6. comp_flag a    --  1: use the compression, other values: don't use the compression
+
     EFFECTS:
         Reads the input file dataset and then writes to the HDF5 output file. Returns
         a dataset identifier for the new dataset created in the output file. It is the
@@ -1117,7 +1135,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
 */
 
 hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType,
-                     hid_t outputDataType, int32 inputFileID )
+                     hid_t outputDataType, int32 inputFileID, unsigned short comp_flag )
 {
     int32 dataRank;
     int32 dataDimSizes[DIM_MAX];
@@ -1148,12 +1166,47 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
     for ( int i = 0; i < DIM_MAX; i++ )
         temp[i] = (hsize_t) dataDimSizes[i];
 
-    if ( outDatasetName )
+    if(comp_flag == 1) {
+      short use_chunk = 0;
+
+      /* If using chunk */
+      {
+        const char *s;
+        s = getenv("USE_CHUNK");
+
+        if(s && isdigit((int)*s))
+            if((unsigned int)strtol(s,NULL,0) == 1)
+                use_chunk = 1;
+      }
+
+      if(use_chunk == 1)
+      {// The chunk size will always be the whole dataset size for this case.
+       if(outDatasetName) 
+        datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
+                                        temp, outputDataType, outDatasetName, dataBuffer,0);
+       else
+        datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
+                                   temp, outputDataType, inDatasetName, dataBuffer,0 );
+ 
+     }
+     else // No compression
+     {
+       if ( outDatasetName )
         datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                    temp, outputDataType, outDatasetName, dataBuffer );
-    else
+       else
         datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                    temp, outputDataType, inDatasetName, dataBuffer );
+     }
+   }
+    else {
+      if ( outDatasetName )
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
+                                   temp, outputDataType, outDatasetName, dataBuffer );
+      else
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
+                                   temp, outputDataType, inDatasetName, dataBuffer );
+    }
 
     if ( datasetID == FATAL_ERR )
     {
@@ -1582,7 +1635,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
     if(use_chunk == 1)
     {
         datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
-                                        temp, outputDataType, datasetName, output_dataBuffer );
+                                        temp, outputDataType, datasetName, output_dataBuffer,0);
     }
     else
     {
@@ -1748,14 +1801,17 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* dat
             } 
 
             //unsigned int la_data_pos[num_la_data][3] ;
-            unsigned int* la_data_pos =(unsigned int*)malloc(sizeof(unsigned int) *num_la_data*3) ;
-            unsigned int* temp_la_data_pos = la_data_pos;
+            //unsigned int* la_data_pos =(unsigned int*)malloc(sizeof(unsigned int) *num_la_data*3) ;
+            unsigned short* la_data_pos =(unsigned short*)malloc(sizeof(unsigned short) *num_la_data*3) ;
+            //unsigned int* temp_la_data_pos = la_data_pos;
+            unsigned short* temp_la_data_pos = la_data_pos;
 
-            /* obtain the low accuracy index */
+            /* obtain the low accuracy tindex */
+            /* We know the index is within the unsigned short range. This can reduce some space. */
             unsigned int ck_count = 0;
-            for(int i =0; i <dataDimSizes[0];i++) {
-                for (int j =0;j<dataDimSizes[1];j++) {
-                    for (int k=0;k<dataDimSizes[2];k++) {
+            for(unsigned short i =0; i <dataDimSizes[0];i++) {
+                for (unsigned short j =0;j<dataDimSizes[1];j++) {
+                    for (unsigned short k=0;k<dataDimSizes[2];k++) {
                         rdqi = (*temp_ck_uint16_pointer)&rdqi_mask;
                         if(rdqi == 1){
                     
@@ -1803,7 +1859,8 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* dat
 
             /* Create a dataset to remember the postion of low accuracy data */
             la_pos_dsetid = insertDataset_comp( &outputFile, &outputGroupID, 1, la_pos_dset_rank,
-                                           la_pos_dset_dims, H5T_NATIVE_UINT, la_pos_dset_name, la_data_pos );
+                                           la_pos_dset_dims, H5T_NATIVE_USHORT, la_pos_dset_name, la_data_pos,0 );
+                                           //la_pos_dset_dims, H5T_NATIVE_UINT, la_pos_dset_name, la_data_pos );
 
             if ( la_pos_dsetid == FATAL_ERR )
             {
@@ -1942,7 +1999,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* dat
     if(use_chunk == 1)
     {
         datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
-                                        temp, outputDataType, newdatasetName, output_dataBuffer );
+                                        temp, outputDataType, newdatasetName, output_dataBuffer,0 );
     }
     else
     {
@@ -2228,7 +2285,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
     outputDataType = H5T_NATIVE_FLOAT;
 
-#if 0
+//#if 0
     short use_chunk = 0;
 
     /* If using chunk */
@@ -2244,18 +2301,20 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
     if(use_chunk == 1)
     {
         datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
-                                        temp, outputDataType, datasetName, output_dataBuffer );
+                                        temp, outputDataType, datasetName, output_dataBuffer,1 );
     }
     else
     {
         datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                    temp, outputDataType, datasetName, output_dataBuffer );
     }
-#endif
+//#endif
 
 
+#if 0
     datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                temp, outputDataType, datasetName, output_dataBuffer );
+#endif
 
     if ( datasetID == FATAL_ERR )
     {
@@ -2491,7 +2550,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
     if(use_chunk == 1)
     {
         datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
-                                        temp, outputDataType, datasetName, output_dataBuffer );
+                                        temp, outputDataType, datasetName, output_dataBuffer,1);
     }
     else
     {
@@ -2674,7 +2733,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
         temp[i] = (hsize_t) dataDimSizes[i];
 
     outputDataType = H5T_NATIVE_FLOAT;
-#if 0
+//#if 0
     short use_chunk = 0;
 
     /* If using chunk */
@@ -2690,18 +2749,20 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
     if(use_chunk == 1)
     {
         datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
-                                        temp, outputDataType, datasetName, output_dataBuffer );
+                                        temp, outputDataType, datasetName, output_dataBuffer,1 );
     }
     else
     {
         datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                    temp, outputDataType, datasetName, output_dataBuffer );
     }
-#endif
+//#endif
 
 
+#if 0
     datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                temp, outputDataType, datasetName, output_dataBuffer );
+#endif
 
     if ( datasetID == FATAL_ERR )
     {
@@ -4702,15 +4763,41 @@ size_t obtainDimSize(hid_t dsetID)
 
 }
 
-herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size)
+herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size,unsigned short comp_flag)
 {
     hsize_t temp[2];
     temp[0] = (hsize_t) (dim0_size);
     temp[1] = (hsize_t) (dim1_size);
     hid_t dummy_output_file_id, datasetID;
 
-    datasetID = insertDataset( &dummy_output_file_id, &h5_group, 1, 2,
+    if(comp_flag == 1) {
+      short use_chunk = 0;
+
+      /* If using chunk */
+      {
+        const char *s;
+        s = getenv("USE_CHUNK");
+
+        if(s && isdigit((int)*s))
+            if((unsigned int)strtol(s,NULL,0) == 1)
+                use_chunk = 1;
+      }
+
+      if(use_chunk == 1)
+      {// The chunk size will always be the whole dataset size for this case.
+        datasetID = insertDataset_comp( &dummy_output_file_id, &h5_group, 1, 2,
+                               temp, h5_type, dsetname, databuffer,0 );
+     
+      }
+      else {
+       datasetID = insertDataset( &dummy_output_file_id, &h5_group, 1, 2,
                                temp, h5_type, dsetname, databuffer );
+      }
+    }
+    else {
+       datasetID = insertDataset( &dummy_output_file_id, &h5_group, 1, 2,
+                               temp, h5_type, dsetname, databuffer );
+    }
 
     if ( datasetID == FATAL_ERR )
     {

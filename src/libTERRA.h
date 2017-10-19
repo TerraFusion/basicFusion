@@ -83,7 +83,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID,
 /* The GZIP compression version of insertDataset */
 hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID,
                           int returnDatasetID, int rank, hsize_t* datasetDims,
-                          hid_t dataType, char* datasetName, void* data_out);
+                          hid_t dataType, const char* datasetName, void* data_out,unsigned short is_modis);
 
 herr_t openFile(hid_t *file, char* inputFileName, unsigned flags );
 herr_t createOutputFile( hid_t *outputFile, char* outputFileName);
@@ -98,7 +98,7 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname);
 int32 H4readData( int32 fileID, const char* datasetName, void** data,
                   int32 *rank, int32* dimsizes, int32 dataType,int32 *start,int32 *stride,int32 *count);
 hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType,
-                     hid_t outputDataType, int32 inputFileID );
+                     hid_t outputDataType, int32 inputFileID, unsigned short comp_flag );
 hid_t readThenWriteSubset( int CER_LATLON, const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType,
                            hid_t outputDataType, int32 inputFileID,int32*start,int32*stride,int32*count );
 
@@ -151,7 +151,7 @@ herr_t attachDimension(hid_t h5fileID, char* dimname, hid_t h5dsetID, int dim_in
 //herr_t makePureDim( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID );
 herr_t makePureDim( hid_t locID, const char* dimName,  hid_t dataspace, hid_t h5Type, hid_t* retID );
 size_t obtainDimSize(hid_t dsetID);
-herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size);
+herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size,unsigned short comp_flag);
 
 herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
 herr_t TAItoUTCconvert ( double* buffer, unsigned int size );

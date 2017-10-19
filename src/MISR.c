@@ -77,6 +77,12 @@ int MISR( char* fileList[],int unpack )
     char *hgeo_gname="HRGeolocation";
     char *data_gname="Data Fields";
     char *sensor_geom_gname ="Sensor_Geometry";
+    char *misr_camera_miss ="MISR_AM1_GRP_MISS";
+    char *misr_geom_miss ="MISR_AM1_GP_MISS";
+    unsigned short misr_camera_miss_flag = 0;
+    unsigned short misr_camera_miss_ID[9] ={0};
+    unsigned short misr_geom_miss_flag = 0;
+    int misr_1st_valid_index = 0;
     herr_t status = 0;
     int retVal = RET_SUCCESS;
     herr_t errStatus = 0;
@@ -92,8 +98,8 @@ int MISR( char* fileList[],int unpack )
     size_t granSize = 0;
     ssize_t pathSize = 0;
     int i;
-    int32 status32;
-    intn statusn;
+    //int32 status32;
+    //intn statusn;
     unsigned short has_LAI_DIM1 = 0;
     /******************
      * geo data files *
@@ -132,10 +138,42 @@ int MISR( char* fileList[],int unpack )
     hid_t AnXdimDspaceID = 0;
     hid_t AnYdimDspaceID = 0;
     
-    
-    
+    // Check any legal files that can be skipped
+    for ( i = 1; i < 13; i++ )
+    {
 
-    /* First, make an attempt to open all the files. If any fail to open, skip
+        if ( fileList[i] )
+        {
+            if(strncmp(fileList[i],misr_camera_miss,strlen(misr_camera_miss))==0){
+                misr_camera_miss_flag=1;
+                misr_camera_miss_ID[i-1]=1;
+                continue;
+            }
+            else if(strncmp(fileList[i],misr_geom_miss,strlen(misr_geom_miss))==0){
+                misr_geom_miss_flag =1;
+                continue;
+            }
+            if(misr_1st_valid_index == 0)
+                misr_1st_valid_index = i;
+            tmpCharPtr = strrchr(fileList[i], '/');
+            if ( tmpCharPtr == NULL )
+            {
+                FATAL_MSG("Failed to find a specific character within the string.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList(&granList, tmpCharPtr+1, &granSize);
+            if ( errStatus == FATAL_ERR )
+            {
+                FATAL_MSG("Failed to append granule to granule list.\n");
+                goto cleanupFail;
+            }
+
+        }
+    }
+
+
+
+    /* Make an attempt to open all legal files. If any fail to open, skip
      * this entire granule.
      */
     short openFail = 0;
@@ -148,12 +186,14 @@ int MISR( char* fileList[],int unpack )
         openFail = 1;
     }
 
+    if(strncmp(fileList[11],misr_geom_miss,strlen(misr_geom_miss))!=0) { 
     gmpFileID = SDstart( fileList[11], DFACC_READ );
     if ( gmpFileID == -1 )
     {
         WARN_MSG("Failed to open MISR file.\n\t%s\n", fileList[11]);
         gmpFileID = 0;
         openFail = 1;
+    }
     }
 
     hgeoFileID = SDstart( fileList[12], DFACC_READ );
@@ -167,6 +207,8 @@ int MISR( char* fileList[],int unpack )
 
     for ( i = 0; i < 9; i++ )
     { 
+        if(misr_camera_miss_ID[i] == 1) 
+            continue;
         h4FileID[i] = SDstart(fileList[i+1],DFACC_READ);
         if ( h4FileID[i] < 0 )
         {
@@ -188,7 +230,9 @@ int MISR( char* fileList[],int unpack )
         }
     }
 
-    if ( openFail ) goto cleanupFO;
+    // During the validation, we still make this a fatal error since this is unexpected.
+    //if ( openFail ) goto cleanupFO;
+    if ( openFail ) goto cleanupFail;
 
     createGroup( &outputFile, &MISRrootGroupID, "MISR" );
     if ( MISRrootGroupID == FATAL_ERR )
@@ -197,33 +241,17 @@ int MISR( char* fileList[],int unpack )
         return FATAL_ERR;
     }
 
-    for ( i = 1; i < 13; i++ )
-    {
-        if ( fileList[i] )
-        {
-            tmpCharPtr = strrchr(fileList[i], '/');
-            if ( tmpCharPtr == NULL )
-            {
-                FATAL_MSG("Failed to find a specific character within the string.\n");
-                goto cleanupFail;
-            }
-            errStatus = updateGranList(&granList, tmpCharPtr+1, &granSize);
-            if ( errStatus == FATAL_ERR )
-            {
-                FATAL_MSG("Failed to append granule to granule list.\n");
-                goto cleanupFail;
-            }
-
-        }
-    }
-
     if(H5LTset_attribute_string(outputFile,"MISR","GranuleName",granList)<0)
     {
         FATAL_MSG("Cannot add granule list.\n");
         goto cleanupFail;
     }
 
-
+    if(misr_1st_valid_index > 9) {
+        FATAL_MSG("No any MISR radiance fields in this orbit. \n");
+        goto cleanupFail;
+    }
+    else {
     // Extract the time substring from the file path
     fileTime = getTime( fileList[1], 4 );
     if(H5LTset_attribute_string(outputFile,"MISR","GranuleTime",fileTime)<0)
@@ -233,6 +261,7 @@ int MISR( char* fileList[],int unpack )
     }
     free(fileTime);
     fileTime = NULL;
+    }
 
 
     /************************
@@ -249,7 +278,7 @@ int MISR( char* fileList[],int unpack )
     }
 
 
-    latitudeID  = readThenWrite( NULL,geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
+    latitudeID  = readThenWrite( NULL,geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID,1);
     if ( latitudeID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (latitude dataset).\n");
@@ -299,7 +328,7 @@ int MISR( char* fileList[],int unpack )
     free(correctedName);
     correctedName = NULL;
 
-    longitudeID = readThenWrite( NULL,geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
+    longitudeID = readThenWrite( NULL,geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID,1);
     if ( longitudeID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (longitude dataset).\n");
@@ -358,7 +387,7 @@ int MISR( char* fileList[],int unpack )
     }
 
 
-    hr_latitudeID  = readThenWrite( NULL,hr_geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
+    hr_latitudeID  = readThenWrite( NULL,hr_geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID,1);
     if ( hr_latitudeID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (latitude dataset).\n");
@@ -386,7 +415,7 @@ int MISR( char* fileList[],int unpack )
     free(correctedName);
     correctedName = NULL;
 
-    hr_longitudeID = readThenWrite( NULL,hr_geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
+    hr_longitudeID = readThenWrite( NULL,hr_geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID,1);
     if ( hr_longitudeID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (longitude dataset).\n");
@@ -413,6 +442,7 @@ int MISR( char* fileList[],int unpack )
     free(correctedName);
     correctedName = NULL;
 
+    if(misr_geom_miss_flag !=1) {
     createGroup( &MISRrootGroupID, &gmpSolarGeoGroupID, solar_geom_gname );
     if ( gmpSolarGeoGroupID == FATAL_ERR )
     {
@@ -421,8 +451,7 @@ int MISR( char* fileList[],int unpack )
         goto cleanupFail;
     }
 
-
-    solarAzimuthID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[0],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
+    solarAzimuthID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[0],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID,0);
     if ( solarAzimuthID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (solarAzimuth dataset).\n");
@@ -458,7 +487,7 @@ int MISR( char* fileList[],int unpack )
     free(correctedName);
     correctedName = NULL;
 
-    solarZenithID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
+    solarZenithID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID,0);
     if ( solarZenithID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (solarZenith dataset).\n");
@@ -486,6 +515,8 @@ int MISR( char* fileList[],int unpack )
     free(correctedName);
     correctedName = NULL;
 
+    }
+
     /* Concatenate the geolocation paths into one string */
     LRcoord = calloc( strlen(LRgeoLon) + strlen(LRgeoLat) + 2, 1);
     strcpy(LRcoord,LRgeoLon);
@@ -510,6 +541,10 @@ int MISR( char* fileList[],int unpack )
     /* Loop all 9 cameras */
     for( i = 0; i<9; i++)
     {
+
+        // Skip the missing cameras
+        if(misr_camera_miss_ID[i]==1) 
+            continue;
         /*
          *          *    * Initialize the V interface.
          *                   *       */
@@ -577,7 +612,7 @@ int MISR( char* fileList[],int unpack )
                 //correctedName = correct_name(radiance_name[j]);
 
                 h5DataFieldID =  readThenWrite( NULL, h5DataGroupID, radiance_name[j], DFNT_UINT16,
-                                                H5T_NATIVE_USHORT,h4FileID[i]);
+                                                H5T_NATIVE_USHORT,h4FileID[i],1);
                 if ( h5DataFieldID == FATAL_ERR )
                 {
                     h5DataFieldID = 0;
@@ -664,6 +699,7 @@ int MISR( char* fileList[],int unpack )
             correctedName = NULL;
         } // End for (first inner j loop)
 
+        if(misr_geom_miss_flag !=1) {
         createGroup(&h5CameraGroupID,&h5SensorGeomGroupID,sensor_geom_gname);
         if ( h5SensorGeomGroupID == FATAL_ERR )
         {
@@ -676,7 +712,7 @@ int MISR( char* fileList[],int unpack )
         for (int j = 0; j<4; j++)
         {
             h5SensorGeomFieldID = readThenWrite( NULL,h5SensorGeomGroupID,band_geom_name[i*4+j],DFNT_FLOAT64,
-                                                 H5T_NATIVE_DOUBLE,gmpFileID);
+                                                 H5T_NATIVE_DOUBLE,gmpFileID,0);
             if ( h5SensorGeomFieldID == FATAL_ERR )
             {
                 FATAL_MSG("MISR readThenWrite function failed.\n");
@@ -715,6 +751,10 @@ int MISR( char* fileList[],int unpack )
 
 
         } // End for (second inner j loop)
+        status = H5Gclose(h5SensorGeomGroupID);
+        h5SensorGeomGroupID = 0;
+ 
+        }//If GMP file exists
 
 
         /******************************************************/
@@ -741,8 +781,8 @@ int MISR( char* fileList[],int unpack )
         h4FileID[i] = 0;
         status = H5Gclose(h5DataGroupID);
         h5DataGroupID = 0;
-        status = H5Gclose(h5SensorGeomGroupID);
-        h5SensorGeomGroupID = 0;
+        //status = H5Gclose(h5SensorGeomGroupID);
+        //h5SensorGeomGroupID = 0;
         status = H5Gclose(h5CameraGroupID);
         h5CameraGroupID = 0;
     } // end loop all cameras

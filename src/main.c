@@ -804,6 +804,8 @@ int main( int argc, char* argv[] )
 
         for ( int i = 1; i < 10; i++ )
         {
+
+            if(strstr(inputLine,"MISR_AM1_GRP_MISS")==NULL) {
             
             granTempPtr = strrchr( inputLine, '/' );
             if ( granTempPtr == NULL )
@@ -817,6 +819,7 @@ int main( int argc, char* argv[] )
             {
                 FATAL_MSG("Failed to update the granule list.\n");
                 goto cleanupFail;
+            }
             }
             /* get the next MISR input file */
             if ( strstr( inputLine, MISRcheck1 ) == NULL )
@@ -871,7 +874,7 @@ int main( int argc, char* argv[] )
             goto cleanupFail;
         }
 
-
+        if(strstr(inputLine,"MISR_AM1_GP_MISS") ==NULL) {
         granTempPtr = strrchr( inputLine, '/' );
         if ( granTempPtr == NULL )
         {
@@ -883,6 +886,7 @@ int main( int argc, char* argv[] )
         {
             FATAL_MSG("Failed to update the granule list.\n");
             goto cleanupFail;
+        }
         }
 
         MISRargs[11] = malloc ( strlen( inputLine ) +1);

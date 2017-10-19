@@ -431,7 +431,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
     latitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
                                        "Latitude",
-                                       DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
+                                       DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID,1);
     if ( latitudeDatasetID == FATAL_ERR )
     {
         FATAL_MSG("Failed to transfer latitude data.\n");
@@ -484,7 +484,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     /*_______________longitude data under geolocation______________*/
     longitudeDatasetID = readThenWrite( NULL, MODIS1KMgeolocationGroupID,
                                         "Longitude",
-                                        DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID);
+                                        DFNT_FLOAT32, H5T_NATIVE_FLOAT, MOD03FileID,1);
     if ( longitudeDatasetID == FATAL_ERR )
     {
         FATAL_MSG("Failed to transfer longitude data.\n");
@@ -621,7 +621,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     else
     {
         _1KMDatasetID = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB", DFNT_UINT16,
-                                       H5T_NATIVE_USHORT, _1KMFileID);
+                                       H5T_NATIVE_USHORT, _1KMFileID,1);
         if ( _1KMDatasetID == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_1KM_RefSB data.\n");
@@ -632,7 +632,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
 
         _1KMUncertID = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_1KM_RefSB_Uncert_Indexes",
-                                      DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
+                                      DFNT_UINT8, H5T_STD_U8LE, _1KMFileID,1 );
         if ( _1KMUncertID == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_1KM_RefSB_Uncert_Indexes data.\n");
@@ -758,7 +758,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     else
     {
         _1KMEmissive = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive",
-                                      DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
+                                      DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID,1);
         if ( _1KMEmissive == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_1KM_Emissive data.\n");
@@ -768,7 +768,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
         _1KMEmissiveUncert = readThenWrite( NULL, MODIS1KMdataFieldsGroupID,
                                             "EV_1KM_Emissive_Uncert_Indexes",
-                                            DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);
+                                            DFNT_UINT8, H5T_STD_U8LE, _1KMFileID,1);
         if ( _1KMEmissiveUncert == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_1KM_Emissive_Uncert_Indexes data.\n");
@@ -898,7 +898,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     {
 
         _250Aggr1km = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB",
-                                     DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID);
+                                     DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID,1);
         if ( _250Aggr1km == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_250_Aggr1km_RefSB data.\n");
@@ -910,7 +910,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
         _250Aggr1kmUncert = readThenWrite( NULL, MODIS1KMdataFieldsGroupID,
                                            "EV_250_Aggr1km_RefSB_Uncert_Indexes",
-                                           DFNT_UINT8, H5T_STD_U8LE, _1KMFileID);
+                                           DFNT_UINT8, H5T_STD_U8LE, _1KMFileID,1);
         if ( _250Aggr1kmUncert == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_250_Aggr1km_RefSB_Uncert_Indexes data.\n");
@@ -1033,7 +1033,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
     else
     {
         _500Aggr1km = readThenWrite( NULL, MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB",
-                                     DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID );
+                                     DFNT_UINT16, H5T_NATIVE_USHORT, _1KMFileID,1 );
         if ( _500Aggr1km == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_500_Aggr1km_RefSB data.\n");
@@ -1043,7 +1043,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
         _500Aggr1kmUncert = readThenWrite( NULL, MODIS1KMdataFieldsGroupID,
                                            "EV_500_Aggr1km_RefSB_Uncert_Indexes",
-                                           DFNT_UINT8, H5T_STD_U8LE, _1KMFileID );
+                                           DFNT_UINT8, H5T_STD_U8LE, _1KMFileID,1 );
         if ( _500Aggr1kmUncert == FATAL_ERR )
         {
             FATAL_MSG("Failed to transfer EV_500_Aggr1km_RefSB_Uncert_Indexes data.\n");
@@ -1409,7 +1409,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         {
             _250Aggr500 = readThenWrite( NULL, MODIS500mdataFieldsGroupID,
                                          "EV_250_Aggr500_RefSB",
-                                         DFNT_UINT16,H5T_NATIVE_USHORT,  _500mFileID );
+                                         DFNT_UINT16,H5T_NATIVE_USHORT,  _500mFileID,1 );
 
             if ( _250Aggr500 == FATAL_ERR )
             {
@@ -1421,7 +1421,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
             _250Aggr500Uncert = readThenWrite( NULL, MODIS500mdataFieldsGroupID,
                                                "EV_250_Aggr500_RefSB_Uncert_Indexes",
-                                               DFNT_UINT8,H5T_STD_U8LE, _500mFileID );
+                                               DFNT_UINT8,H5T_STD_U8LE, _500mFileID,1 );
             if ( _250Aggr500Uncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_Aggr500_RefSB_Uncert_Indexes data.\n");
@@ -1521,7 +1521,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         else
         {
             _500RefSB = readThenWrite( NULL, MODIS500mdataFieldsGroupID, "EV_500_RefSB", DFNT_UINT16,
-                                       H5T_NATIVE_USHORT, _500mFileID );
+                                       H5T_NATIVE_USHORT, _500mFileID,1 );
             /*____________EV_500_RefSB_Uncert_Indexes_____________*/
             if ( _500RefSB == FATAL_ERR )
             {
@@ -1530,7 +1530,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
                 goto cleanupFail;
             }
             _500RefSBUncert = readThenWrite( NULL, MODIS500mdataFieldsGroupID, "EV_500_RefSB_Uncert_Indexes",
-                                             DFNT_UINT8, H5T_STD_U8LE, _500mFileID );
+                                             DFNT_UINT8, H5T_STD_U8LE, _500mFileID,1 );
             if ( _500RefSBUncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_500_RefSB_Uncert_Indexes data.\n");
@@ -1644,7 +1644,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         else
         {
             _250RefSB = readThenWrite( NULL, MODIS250mdataFieldsGroupID, "EV_250_RefSB", DFNT_UINT16,
-                                       H5T_NATIVE_USHORT, _250mFileID );
+                                       H5T_NATIVE_USHORT, _250mFileID,1 );
             if ( _250RefSB == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_RefSB data.\n");
@@ -1654,7 +1654,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             /*____________EV_250_RefSB_Uncert_Indexes_____________*/
 
             _250RefSBUncert = readThenWrite( NULL, MODIS250mdataFieldsGroupID, "EV_250_RefSB_Uncert_Indexes",
-                                             DFNT_UINT8, H5T_STD_U8LE, _250mFileID);
+                                             DFNT_UINT8, H5T_STD_U8LE, _250mFileID,1);
             if ( _250RefSBUncert == FATAL_ERR )
             {
                 FATAL_MSG("Failed to transfer EV_250_RefSB_Uncert_Indexes data.\n");
