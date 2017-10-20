@@ -15,47 +15,13 @@ import sys
 import argparse
 import numpy as np
 from mpi4py import MPI
-from BFfile import isBFfile
+import basicFusion as BF
 
 # MPI VARIABLES
 mpi_comm = MPI.COMM_WORLD
 mpi_rank = MPI.COMM_WORLD.Get_rank()
 mpi_size = MPI.COMM_WORLD.Get_size()
         
-
-def findJobPartition( numProcess, numTasks):
-    """         findJobPartition()
-    
-    DESCRIPTION:
-        This function determines which MPI jobs will be responsible for how many orbits. It loops through the
-        list "orbits" and increments each element in the "processBin" list, up to len(orbits) number of orbits.
-    
-    ARGUMENTS:
-        numProcess (int)        -- The number of MPI processes (i.e. the number of bins to fill with orbits)
-        numTasks                -- Number of individual tasks to perform
-
-    EFFECTS:
-        None
-
-    RETURN:
-        Returns a list of size numProcess. Each element in the list tells how many orbits each MPI process will
-        handle.
-    """
-
-    processBin = [ 0 ] * numProcess     # Each element tells which process how many orbits it should handle
-    
-    pIndex = 0
-
-    # Loop through all the orbits to fill up the processBin
-    for i in xrange(0, numTasks ):
-        if ( pIndex == numProcess ):
-            pIndex = 0
-
-        processBin[pIndex] = processBin[pIndex] + 1
-        pIndex = pIndex + 1
-
-    return processBin
-
 #=========================================================================
 
 def isCorrupt( filePath, subProc_call, corrupt_if_less = -1):
@@ -188,7 +154,7 @@ def master( terraDir, outDir ):
     for root, directories, filenames in os.walk( terraDir ):
         for filename in filenames:
             # Determine if the file is proper
-            isProper = isBFfile( [ filename ] )
+            isProper = BF.isBFfile( [ filename ] )
             
             # For your own reference, this is from the isBFfile docstring:
             # 
@@ -208,7 +174,7 @@ def master( terraDir, outDir ):
 
     # We have all the files to process for this directory. Find how to split the jobs
     print("Rank {}: Finding job partition...".format(mpi_rank))
-    processBin = findJobPartition( mpi_size - 1, len(fileList) )
+    processBin = BF.findProcPartition( mpi_size - 1, len(fileList) )
     print("Rank {}: Done finding job partition.".format(mpi_rank))
     sIdx = 0
     eIdx = 0

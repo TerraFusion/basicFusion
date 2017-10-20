@@ -10,6 +10,39 @@ MIS_re_AGP='^MISR_AM1_AGP_P[0-9]{3}_F[0-9]+_[0-9]+.hdf$'
 MIS_re_GP='^MISR_AM1_GP_GMP_P[0-9]{3}_O[0-9]+_F[0-9]+_[0-9]+.hdf$'
 MIS_re_HRLL='^MISR_HRLL_P[0-9]{3}.hdf$'
 
+def findProcPartition( numProcess, numTasks):
+    """         findProcPartition()
+    
+    DESCRIPTION:
+        This function determines which MPI processes will be responsible for how many orbits. It loops through the
+        list "orbits" and increments each element in the "processBin" list, up to len(orbits) number of orbits.
+    
+    ARGUMENTS:
+        numProcess (int)        -- The number of MPI processes (i.e. the number of bins to fill with orbits)
+        numTasks                -- Number of individual tasks to perform
+
+    EFFECTS:
+        None
+
+    RETURN:
+        Returns a list of size numProcess. Each element in the list tells how many orbits each MPI process will
+        handle.
+    """
+
+    processBin = [ 0 ] * numProcess     # Each element tells which process how many orbits it should handle
+    
+    pIndex = 0
+
+    # Loop through all the orbits to fill up the processBin
+    for i in xrange(0, numTasks ):
+        if ( pIndex == numProcess ):
+            pIndex = 0
+
+        processBin[pIndex] = processBin[pIndex] + 1
+        pIndex = pIndex + 1
+
+    return processBin
+
 def isBFfile( file_list ):
     """isBFfile
     DESCRIPTION:

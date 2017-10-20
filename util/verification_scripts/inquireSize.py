@@ -11,7 +11,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import re
 import pickle
-from BFfile import isBFfile
+from basicFusion import isBFfile
  
 def main():
     
