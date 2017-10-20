@@ -1,4 +1,10 @@
 #!/bin/bash
+# @author: Landon Clipp
+# @email: clipp2@illinois.edu
+#
+# My feelings won't be hurt if you want to rewrite this script in Python. In fact, it would be preferable.
+# The horrific nature of this monstrosity isn't lost on me.
+
 
 # Args:
 # 1 = unordered input file
@@ -128,7 +134,11 @@ orderFiles() {
     #      for each file type given by: MOD021KM, MOD02HKM, MOD02QKM, MOD03
     #   5. Remove the extra "A2001332.0415 /MOD021KM " from each line. They are no longer needed for sorting purposes.
 
-    MODGREP="$(grep "/MODIS/" "$UNORDEREDFILE" | awk '{match($0,/\/MOD0(21KM|2HKM|2QKM|3)./)} {print substr($0, RSTART, RLENGTH),$0}' | awk --posix '{match($0,/A[0-9]{7}.[0-9]{4}/)} {print substr($0, RSTART, RLENGTH),$0}' | sort | cut -d' ' -f3)"
+    MODGREP="$(grep "/MODIS/" "$UNORDEREDFILE" | \
+awk '{match($0,/\/MOD0(21KM|2HKM|2QKM|3)./)} {print substr($0, RSTART, RLENGTH),$0}' | \
+awk --posix '{match($0,/A[0-9]{7}.[0-9]{4}/)} {print substr($0, RSTART, RLENGTH),$0}' | \
+sort | \
+cut -d' ' -f3)"
 
     MOD_NA="$(grep "MOD N/A" "$UNORDEREDFILE")"
 
@@ -142,7 +152,11 @@ orderFiles() {
     # ASTER #
     #########
 
-    ASTGREP=$(cat "$UNORDEREDFILE" | grep -e "AST.*hdf" -e 'AST N/A' | awk -F "/" '{ print $NF, $0}' | sort -u -t' ' -k1,1 | cut -d " " -f 2-)
+    ASTGREP=$(cat "$UNORDEREDFILE" | \
+grep -e "AST.*hdf" -e 'AST N/A' | \
+awk -F "/" '{ print $NF, $0}' | \
+sort -u -t' ' -k1,1 | \
+cut -d " " -f 2-)
     # iterate over this file, prepending the path of the file into our
     # OUTFILE
     if [[ ! "$ASTGREP" == *"AST N/A"* ]]; then
@@ -157,7 +171,14 @@ orderFiles() {
     ########
     # MISR #
     ########
-    MISGREP="$(grep "/MISR_" "$UNORDEREDFILE" | awk '{match($0,/(_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_)/)} {if ( RLENGTH > 0) print substr($0, RSTART, RLENGTH),$0; else print $0}' | awk '{match( $0, /_AGP_/)} {if( RLENGTH > 0) print "xxa",$0 ; else print $0}' | awk '{match( $0, /_GMP_/)} {if( RLENGTH > 0) print "xxb",$0 ; else print $0}' | awk '{match( $0, /_HRLL_/)} {if( RLENGTH > 0) print "xxc",$0 ; else print $0}' | sort | cut -d' ' -f2)"
+    MISGREP="$(grep "/MISR_" "$UNORDEREDFILE" | \
+awk '{match($0,/(_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_)/)} {if ( RLENGTH > 0) print substr($0, RSTART, RLENGTH),$0; else print $0}' | \
+awk '{match( $0, /_AGP_/)} {if( RLENGTH > 0) print "xxa",$0 ; else print $0}' | \
+awk '{match( $0, /_GMP_/)} {if( RLENGTH > 0) print "xxb",$0 ; else print $0}' | \
+awk '{match( $0, /_HRLL_/)} {if( RLENGTH > 0) print "xxc",$0 ; else print $0}' | \
+sort | \
+cut -d' ' -f2)"
+    
     MIS_NA="$(grep "MIS N/A" "$UNORDEREDFILE" )"
 
     if [ "$MIS_NA" != "MIS N/A" ]; then
@@ -165,6 +186,9 @@ orderFiles() {
     else
         echo "MIS N/A" >> "$OUTFILE"
     fi
+
+    # Add the missing MISR file labels in the outfile
+    python "$SCRIPT_PATH"/genFusionInput.py "$OUTFILE"
 
     return 0
 }
@@ -339,7 +363,10 @@ verifyFiles()
     local MISRVersionMismatch=0
     local orbitNum=0
     local numRegExp='^[0-9]+$'
-
+    local grpMiss="MISR_AM1_GRP_MISS"
+    local gpMiss="MISR_AM1_GP_MISS"
+    local hrllMiss="# MISR_AM1_HRLL_MISS"
+    local agpMiss="# MISR_AM1_AGP_MISS"
 
     ##################################################
     #           GATHER DATE INFO OF ORBIT            #
@@ -407,11 +434,13 @@ verifyFiles()
         # it will interpret it as a file path.
 
         # continue if we have a non-valid line (comment or otherwise)
-        if [[ ${#line} == 0 || ${line:0:1} == "#" || "$line" == "MOP N/A" || "$line" == "CER N/A" || "$line" == "MIS N/A" || "$line" == "MOD N/A" || "$line" == "AST N/A" ]]; then
+        if [[ ${#line} == 0 || ${line:0:1} == "#" || "$line" == "MOP N/A" || "$line" == "CER N/A" || "$line" == "MIS N/A" || \
+           "$line" == "MOD N/A" || "$line" == "AST N/A" || "$line" == "$grpMiss" || "$line" == "$gpMiss" ]]; then
             continue
         fi
 
-        if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." && ${line:0:1} != "#" && ${line:0:1} != "\n" && ${line:0:1} != "\0" && ${#line} != 0 ]]; then
+        if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." && ${line:0:1} != "#" && ${line:0:1} != "\n" && \
+            ${line:0:1} != "\0" && ${#line} != 0 && "$line" != "$grpMiss" && "$line" != "$gpMiss" ]]; then
             printf "Fatal Error:\n" >&2
             printf "\tAt line number: $linenum\n"
             printf "\t\"$line\" is an invalid line.\n" >&2
@@ -786,164 +815,153 @@ verifyFiles()
                 continue    
                 
             elif [[ "$prevCam" == "AA" ]]; then
-                if [[ "$curCam" != "AF" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$curCam" != "AF" && "$line" != "$grpMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see AF after AA.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                    return 1
-                fi
-
-                # VERIFY THAT MISR BELONGS TO ORBIT
-                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
-                retVal=$?
-                if [ $retVal -ne 0 ]; then
-                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                else
+                    belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                    retVal=$?
+                    if [ $retVal -ne 0 ]; then
+                        printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                    fi
                 fi
             elif [[ "$prevCam" == "AF" ]]; then
-                if [[ "$curCam" != "AN" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$curCam" != "AN" && "$line" != "$grpMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see AN after AF.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                    return 1
-                fi
-                # VERIFY THAT MISR BELONGS TO ORBIT
-                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
-                retVal=$?
-                if [ $retVal -ne 0 ]; then
-                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                else    
+                    belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                    retVal=$?
+                    if [ $retVal -ne 0 ]; then
+                        printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                    fi
                 fi
             elif [[ "$prevCam" == "AN" ]]; then
-                if [[ "$curCam" != "BA" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$curCam" != "BA" && "$line" != "$grpMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see BA after AN.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                    return 1
-                fi
-
-                # VERIFY THAT MISR BELONGS TO ORBIT
-                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
-                retVal=$?
-                if [ $retVal -ne 0 ]; then
-                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                else
+                    belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                    retVal=$?
+                    if [ $retVal -ne 0 ]; then
+                        printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                    fi
                 fi
             elif [[ "$prevCam" == "BA" ]]; then
-                if [[ "$curCam" != "BF" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$curCam" != "BF" && "$line" != "$grpMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see BF after BA.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
                     return 1
-                fi
-                # VERIFY THAT MISR BELONGS TO ORBIT
-                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
-                retVal=$?
-                if [ $retVal -ne 0 ]; then
-                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                else
+                    belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                    retVal=$?
+                    if [ $retVal -ne 0 ]; then
+                        printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                    fi
                 fi
             elif [[ "$prevCam" == "BF" ]]; then
-                if [[ "$curCam" != "CA" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$curCam" != "CA" && "$line" != "$grpMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see CA after BF.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                    return 1
-                fi
-                # VERIFY THAT MISR BELONGS TO ORBIT
-                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
-                retVal=$?
-                if [ $retVal -ne 0 ]; then
-                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                else
+                    belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                    retVal=$?
+                    if [ $retVal -ne 0 ]; then
+                        printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                    fi
                 fi
             elif [[ "$prevCam" == "CA" ]]; then
-                if [[ "$curCam" != "CF" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$curCam" != "CF" && "$line" != "$grpMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see CF after CA.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                    return 1
-                fi
-                # VERIFY THAT MISR BELONGS TO ORBIT
-                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
-                retVal=$?
-                if [ $retVal -ne 0 ]; then
-                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                else
+                    belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                    retVal=$?
+                    if [ $retVal -ne 0 ]; then
+                        printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                    fi
                 fi
             elif [[ "$prevCam" == "CF" ]]; then
-                if [[ "$curCam" != "DA" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$curCam" != "DA" && "$line" != "$grpMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see DA after CF.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                    return 1
-                fi
-                # VERIFY THAT MISR BELONGS TO ORBIT
-                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
-                retVal=$?
-                if [ $retVal -ne 0 ]; then
-                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                else
+                    # VERIFY THAT MISR BELONGS TO ORBIT
+                    belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                    retVal=$?
+                    if [ $retVal -ne 0 ]; then
+                        printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                    fi
                 fi
             elif [[ "$prevCam" == "DA" ]]; then
-                if [[ "$curCam" != "DF" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$curCam" != "DF" && "$line" != "$grpMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\" (Camera: $curCam)\n" >&2
                     printf "\tExpected to see DF after DA.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                    return 1
-                fi
-                # VERIFY THAT MISR BELONGS TO ORBIT
-                belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
-                retVal=$?
-                if [ $retVal -ne 0 ]; then
-                    printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                else
+                    belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
+                    retVal=$?
+                    if [ $retVal -ne 0 ]; then
+                        printf "\tThe file\n\t$line\n\tdoes not belong to orbit $orbitNum.\n" >&2
+                    fi
                 fi
             elif [[ "$prevCam" == "DF" ]]; then
-                if [[ "$(echo "$curfilename" | cut -f7,3 -d'_')" != "AGP" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$(echo "$curfilename" | cut -f7,3 -d'_')" != "AGP" && "$line" != "$agpMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\" (Camera: $prevCam)\n\tcame before\n\t\"$curfilename\"\n" >&2
                     printf "\tExpected to see an AGP file after a DF camera.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                    return 1
                 fi
             elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "AGP" ]]; then
-                if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" != "GP" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" != "GP" && "$line" != "$gpMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
                     printf "\tExpected to see GP after AGP file.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                    return 1
                 fi
             elif [[ "$(echo "$prevfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
-                if [[ "$(echo "$curfilename" | cut -f2,2 -d'_')" != "HRLL" ]]; then
-                    printf "Fatal Error: " >&2
+                if [[ "$(echo "$curfilename" | cut -f2,2 -d'_')" != "HRLL" && "$line" != "$hrllMiss" ]]; then
+                    printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
                     printf "\t\"$prevfilename\"\n\tcame before\n\t\"$curfilename\".\n" >&2
                     printf "\tExpected to see HRLL file after GP file.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                    return 1
                 fi
             elif [[ "$(echo "$prevfilename" | cut -f2,2 -d'_')" == "HRLL" ]]; then
                 printf "Fatal Error: " >&2
@@ -1077,6 +1095,7 @@ UNORDERED="$3".unorderedDB
 ORDERED="$3"
 SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ORBITINFO="$SCRIPT_PATH/../data/Orbit_Path_Time.txt"
+PROJ_PATH="$(cd "${SCRIPT_PATH}/../../" && pwd )"
 
 # Set this to non-zero if you want the unordered database queries to be saved.
 SAVE_UNORDERED=0
@@ -1097,6 +1116,8 @@ ASTLINES=$( $QUERIES instrumentStartingInOrbit "$DB" $2 AST)
 # The use of "instrumentInOrbit" instead of "instrumentStartingInOrbit" for MISR helps
 # prevent against edge cases
 MISLINES=$( $QUERIES instrumentInOrbit "$DB" $2 MIS)
+
+source "$PROJ_PATH"/externLib/BFpyEnv/bin/activate
 
 if [ ${#MOPLINES} -lt 2 ]; then
     echo "MOP N/A" >> "$UNORDERED"
