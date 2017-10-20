@@ -130,17 +130,18 @@ Doing so will meet the dependencies of any Python script in the project. Note th
 
 `deactivate`
 
-### BFfile
-The BFfile module is a small script we wrote that configureEnv.sh installs to the virutal environment's site-packages. This module is used to determine whether a certain file is a "proper" BasicFusion file. i.e. a file that should be passed to the basicFusion program. You can import it in any Python script by including the line:
+### basicFusion.py
+The basicFusion.py module is a small script we wrote that configureEnv.sh installs to the virutal environment's site-packages. This module provides a set of useful functions to use in your Python scripts. After sourcing the environment, you can import the module in any script using:
 
-`from BFfile import isBFfile`
+`import basicFusion`
 
 This function acts as the authority on which files are proper and which are not. You can view the function interface by following these lines:
 
 ```
+(BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ source activateBF
 (BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ python  
->>> from BFfile import isBFfile  
->>> help(isBFfile)  
+>>> import basicFusion
+>>> help(basicFusion)  
 ```
 
 ## Known Issues
