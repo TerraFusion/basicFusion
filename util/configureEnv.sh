@@ -107,6 +107,15 @@ downloadPY()
     echo "Done."
     echo
 
+    echo "Writing virtual environment activation helper script to ${HOME}/bin..."
+    local script="#!/bin/bash
+source \"$BF_PATH_l\"/externLib/BFpyEnv/bin/activate
+"
+    echo "$script" > ${HOME}/bin/activateBF
+    chmod +x ${HOME}/bin/activateBF
+    echo "Done."
+    echo "NOTE: Activate the virtual environment at any time by typing: source activateBF"
+
     deactivate
 
     

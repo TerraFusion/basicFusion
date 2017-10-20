@@ -11,9 +11,7 @@ MIS_re_GP='^MISR_AM1_GP_GMP_P[0-9]{3}_O[0-9]+_F[0-9]+_[0-9]+.hdf$'
 MIS_re_HRLL='^MISR_HRLL_P[0-9]{3}.hdf$'
 
 def findProcPartition( numProcess, numTasks):
-    """         findProcPartition()
-    
-    DESCRIPTION:
+    """DESCRIPTION:
         This function determines which MPI processes will be responsible for how many orbits. It loops through the
         list "orbits" and increments each element in the "processBin" list, up to len(orbits) number of orbits.
     
@@ -44,8 +42,7 @@ def findProcPartition( numProcess, numTasks):
     return processBin
 
 def isBFfile( file_list ):
-    """isBFfile
-    DESCRIPTION:
+    """DESCRIPTION:
         This function takes as input a list of strings containing a file path and determines, based on a regex pattern, if the file is or is not a \"proper\" Basic Fusion file. What constitutes a proper BF file is documented on this project's GitHub.
     ARGUMENTS:
         file_list (list)  -- A list of filenames or filepaths.
