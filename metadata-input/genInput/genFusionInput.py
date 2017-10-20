@@ -15,8 +15,8 @@ def MISR_miss( inFile ):
     
     grp_miss = "MISR_AM1_GRP_MISS"
     gp_miss  = "MISR_AM1_GP_MISS"
-    agp_miss = "# MISR_AM1_AGP MISS"
-    hrll_miss = "# MISR_AM1_HRLL MISS"
+    agp_miss = "# MISR_AM1_AGP_MISS"
+    hrll_miss = "# MISR_AM1_HRLL_MISS"
 
     with open( inFile, 'r' ) as f:
         f_list = f.readlines()
