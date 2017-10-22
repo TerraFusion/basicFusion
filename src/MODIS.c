@@ -682,6 +682,41 @@ int MODIS( char* argv[],int modis_count, int unpack)
             goto cleanupFail;
         }
 
+        // For some researchers, reflectance should be used. However, we didn't unscale reflectance.
+        // So we will copy over the radiance and reflectance scale and offset so that these
+        // researchers can calculate reflectances by themselves. Maybe we can add reflectance in the future.
+        // KY 2017-10-22
+
+        status = copyAttrFromName( _1KMFileID, "EV_1KM_RefSB", "radiance_scales", _1KMDatasetID );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _1KMFileID, "EV_1KM_RefSB", "radiance_offsets", _1KMDatasetID );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _1KMFileID, "EV_1KM_RefSB", "reflectance_scales", _1KMDatasetID );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _1KMFileID, "EV_1KM_RefSB", "reflectance_offsets", _1KMDatasetID );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+
+
         // Copy the dimensions over
         errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
         if ( errStatus == FAIL )
@@ -951,6 +986,50 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to set string attribute.\n");
             goto cleanupFail;
         }
+
+        // This band_names was left over, KY 2017-10-22
+        status = copyAttrFromName( _1KMFileID, "EV_250_Aggr1km_RefSB", "band_names", _250Aggr1km );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        // For some researchers, reflectance should be used. However, we didn't unscale reflectance.
+        // So we will copy over the radiance and reflectance scale and offset so that these
+        // researchers can calculate reflectances by themselves. Maybe we can add reflectance in the future.
+        // KY 2017-10-22
+
+        status = copyAttrFromName( _1KMFileID, "EV_250_Aggr1km_RefSB", "radiance_scales", _250Aggr1km );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _1KMFileID, "EV_250_Aggr1km_RefSB", "radiance_offsets", _250Aggr1km );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _1KMFileID, "EV_250_Aggr1km_RefSB", "reflectance_scales", _250Aggr1km );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _1KMFileID, "EV_250_Aggr1km_RefSB", "reflectance_offsets", _250Aggr1km );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        // STOP
+        //
         status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","units","percent");
         if ( status < 0 )
         {
