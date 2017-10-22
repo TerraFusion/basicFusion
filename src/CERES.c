@@ -292,6 +292,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
          * according to the correct_name function.
          */
 
+        // Don't know the difference of this if, else block KY 2017-10-22
         if(index == 1)
         {
             status = copyDimensionSubset( dimSuffix, fileID, inTimePosName[i], outputFile, generalDsetID_d, *c_count );
@@ -318,8 +319,9 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         }
         free(NewcorrectName); NewcorrectName = NULL;
 
-        free(dimSuffix);
-        dimSuffix = NULL;
+        // dimSuffix should not be freed. It will be used later. KY 2017-10-22
+        //free(dimSuffix);
+        //dimSuffix = NULL;
 
         // Quick way to change the attribute unit of latitude and longitude
         // LEAVE this block of code, we may need this later.
