@@ -197,20 +197,20 @@ def master( terraDir, outDir ):
 
     # Open the log files for writing
     for i in xrange(len(logs)):
-        logFileObj.append( open(logs[i], 'a') )
+        logFileObj.append( open( outDir + "/" + logs[i], 'a') )
 
     # Distribute all of these into output log files
     for line in corruptList:
         if line[1] == 0:
-            logFileObj[0].write( line[0] )
+            logFileObj[0].write( line[0] + "\n" )
         elif line[1] == 1:
-            logFileObj[1].write( line[0] )
+            logFileObj[1].write( line[0] + "\n" )
         elif line[1] == 2: 
-            logFileObj[2].write( line[0] )
+            logFileObj[2].write( line[0] + "\n" )
         elif line[1] == 3:
-            logFileObj[3].write( line[0] )
+            logFileObj[3].write( line[0] + "\n" )
         elif line[1] >= 4 or line[1] <= 7:
-            logFileObj[4].write( line[0] )
+            logFileObj[4].write( line[0] + "\n" )
         else:
             raise ValueError("Passed line has a bad identifier!")
 
