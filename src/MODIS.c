@@ -1028,8 +1028,6 @@ int MODIS( char* argv[],int modis_count, int unpack)
             goto cleanupFail;
         }
 
-        // STOP
-        //
         status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB_Uncert_Indexes","units","percent");
         if ( status < 0 )
         {
@@ -1161,6 +1159,49 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to set string attribute.\n");
             goto cleanupFail;
         }
+
+        // This band_names was left over, KY 2017-10-22
+        status = copyAttrFromName( _1KMFileID, "EV_500_Aggr1km_RefSB", "band_names", _500Aggr1km );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        // For some researchers, reflectance should be used. However, we didn't unscale reflectance.
+        // So we will copy over the radiance and reflectance scale and offset so that these
+        // researchers can calculate reflectances by themselves. Maybe we can add reflectance in the future.
+        // KY 2017-10-22
+
+        status = copyAttrFromName( _1KMFileID, "EV_500_Aggr1km_RefSB", "radiance_scales", _500Aggr1km );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _1KMFileID, "EV_500_Aggr1km_RefSB", "radiance_offsets", _500Aggr1km );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _1KMFileID, "EV_500_Aggr1km_RefSB", "reflectance_scales", _500Aggr1km );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _1KMFileID, "EV_500_Aggr1km_RefSB", "reflectance_offsets", _500Aggr1km );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+
         status = H5LTset_attribute_string(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB_Uncert_Indexes","units","percent");
         if ( status < 0 )
         {
@@ -1534,7 +1575,48 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_250_Aggr500_RefSB valid_min attribute.\n");
             goto cleanupFail;
         }
-        status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB_Uncert_Indexes","units","percent");
+         // This band_names was left over, KY 2017-10-22
+        status = copyAttrFromName( _500mFileID, "EV_250_Aggr500_RefSB", "band_names", _250Aggr500 );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        // For some researchers, reflectance should be used. However, we didn't unscale reflectance.
+        // So we will copy over the radiance and reflectance scale and offset so that these
+        // researchers can calculate reflectances by themselves. Maybe we can add reflectance in the future.
+        // KY 2017-10-22
+
+        status = copyAttrFromName( _500mFileID, "EV_250_Aggr500_RefSB", "radiance_scales", _250Aggr500 );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _500mFileID, "EV_250_Aggr500_RefSB", "radiance_offsets", _250Aggr500 );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _500mFileID, "EV_250_Aggr500_RefSB", "reflectance_scales", _250Aggr500 );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _500mFileID, "EV_250_Aggr500_RefSB", "reflectance_offsets", _250Aggr500 );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+       status = H5LTset_attribute_string(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB_Uncert_Indexes","units","percent");
         if ( status < 0 )
         {
             FATAL_MSG("Failed to add EV_250_Aggr500_RefSB_Uncert_Indexes units attribute.\n");
@@ -1645,6 +1727,39 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to copy attribute.\n");
             goto cleanupFail;
         }
+        // For some researchers, reflectance should be used. However, we didn't unscale reflectance.
+        // So we will copy over the radiance and reflectance scale and offset so that these
+        // researchers can calculate reflectances by themselves. Maybe we can add reflectance in the future.
+        // KY 2017-10-22
+
+        status = copyAttrFromName( _500mFileID, "EV_500_RefSB", "radiance_scales", _500RefSB );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _500mFileID, "EV_500_RefSB", "radiance_offsets", _500RefSB );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _500mFileID, "EV_500_RefSB", "reflectance_scales", _500RefSB );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _500mFileID, "EV_500_RefSB", "reflectance_offsets", _500RefSB );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
 
 //________________________________________________________________________________________________________//
  
@@ -1772,6 +1887,41 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to copy attribute.\n");
             goto cleanupFail;
         }
+
+        // For some researchers, reflectance should be used. However, we didn't unscale reflectance.
+        // So we will copy over the radiance and reflectance scale and offset so that these
+        // researchers can calculate reflectances by themselves. Maybe we can add reflectance in the future.
+        // KY 2017-10-22
+
+        status = copyAttrFromName( _250mFileID, "EV_250_RefSB", "radiance_scales", _250RefSB );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _250mFileID, "EV_250_RefSB", "radiance_offsets", _250RefSB );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _250mFileID, "EV_250_RefSB", "reflectance_scales", _250RefSB );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+        status = copyAttrFromName( _250mFileID, "EV_250_RefSB", "reflectance_offsets", _250RefSB );
+        if ( status == FATAL_ERR )
+        {
+            FATAL_MSG("Failed to copy attribute.\n");
+            goto cleanupFail;
+        }
+
+
 //____________________________________________________________________________________//
         status = H5LTset_attribute_string(MODIS250mdataFieldsGroupID,"EV_250_RefSB_Uncert_Indexes","units","percent");
         if ( status < 0 )

@@ -55,6 +55,7 @@ int MISR( char* fileList[],int unpack )
     char *camera_name[9]= {"AA","AF","AN","BA","BF","CA","CF","DA","DF"};
     char *band_name[4]= {"RedBand","BlueBand","GreenBand","NIRBand"};
     char *radiance_name[4]= {"Red Radiance/RDQI","Blue Radiance/RDQI","Green Radiance/RDQI","NIR Radiance/RDQI"};
+    char *BRF_CF_name[4] ={"BlueConversionFactor","GreenConversionFactor","RedConversionFactor","NIRConversionFactor"};
     char *band_geom_name[36] =     {"AaAzimuth","AaGlitter","AaScatter","AaZenith",
                                     "AfAzimuth","AfGlitter","AfScatter","AfZenith",
                                     "AnAzimuth","AnGlitter","AnScatter","AnZenith",
@@ -72,6 +73,7 @@ int MISR( char* fileList[],int unpack )
                            "SOMBlockDim_GreenBand","AN_XDim_GreenBand","AN_YDim_GreenBand",
                            "SOMBlockDim_NIRBand","AN_XDim_NIRBand","AN_YDim_NIRBand"};
 
+    char *BRF_gname="BRF_Conversion_Factors";
     char *solar_geom_gname="Solar_Geometry";
     char *geo_gname="Geolocation";
     char *hgeo_gname="HRGeolocation";
@@ -131,9 +133,11 @@ int MISR( char* fileList[],int unpack )
 
     hid_t h5CameraGroupID = 0;
     hid_t h5DataGroupID = 0;
+    hid_t h5BRFGroupID = 0;
     hid_t h5SensorGeomGroupID = 0;
 
     hid_t h5DataFieldID = 0;
+    hid_t h5BRFFieldID = 0;
     hid_t h5SensorGeomFieldID = 0;
     hid_t AnXdimDspaceID = 0;
     hid_t AnYdimDspaceID = 0;
@@ -699,6 +703,45 @@ int MISR( char* fileList[],int unpack )
             correctedName = NULL;
         } // End for (first inner j loop)
 
+        createGroup(&h5CameraGroupID,&h5BRFGroupID,BRF_gname);
+        if ( h5BRFGroupID == FATAL_ERR )
+        {
+            h5BRFGroupID = 0;
+            FATAL_MSG("Failed to create an HDF5 group.\n");
+            goto cleanupFail;
+        }
+
+        /* Inserting the "BlueConversionFactor... etc. */
+        for (int j = 0; j<4; j++)
+        {
+            h5BRFFieldID = readThenWrite( NULL,h5BRFGroupID,BRF_CF_name[j],DFNT_FLOAT32,
+                                                 H5T_NATIVE_FLOAT,h4FileID[i],0);
+            if ( h5BRFFieldID == FATAL_ERR )
+            {
+                FATAL_MSG("MISR readThenWrite function failed.\n");
+                h5BRFFieldID = 0;
+                goto cleanupFail;
+            }
+
+            // Copy over the dimensions
+            errStatus = copyDimension( NULL, h4FileID[i], BRF_CF_name[j], outputFile, h5BRFFieldID);
+            if ( errStatus == FAIL )
+            {
+                FATAL_MSG("Failed to copy dimensions.\n");
+                goto cleanupFail;
+            }
+
+            tempFloat = -555.0;
+            //correctedName = correct_name(band_geom_name[i*4+j]);
+            errStatus = H5LTset_attribute_float( h5BRFGroupID, BRF_CF_name[j],"_Fillvalue",&tempFloat,1);
+            if ( errStatus < 0 )
+            {
+                FATAL_MSG("Failed to write an HDF5 attribute.\n");
+                goto cleanupFail;
+            }
+            status = H5Dclose(h5BRFFieldID);
+            h5BRFFieldID = 0;
+        }
         if(misr_geom_miss_flag !=1) {
         createGroup(&h5CameraGroupID,&h5SensorGeomGroupID,sensor_geom_gname);
         if ( h5SensorGeomGroupID == FATAL_ERR )
@@ -781,6 +824,8 @@ int MISR( char* fileList[],int unpack )
         h4FileID[i] = 0;
         status = H5Gclose(h5DataGroupID);
         h5DataGroupID = 0;
+        status = H5Gclose(h5BRFGroupID);
+        h5BRFGroupID = 0;
         //status = H5Gclose(h5SensorGeomGroupID);
         //h5SensorGeomGroupID = 0;
         status = H5Gclose(h5CameraGroupID);
@@ -815,6 +860,7 @@ cleanupFO:
     }
     if ( h5CameraGroupID )      H5Gclose(h5CameraGroupID);
     if ( h5DataGroupID )        H5Gclose(h5DataGroupID);
+    if ( h5BRFGroupID)          H5Gclose(h5BRFGroupID);
     if ( h5DataFieldID )        H5Dclose(h5DataFieldID);
     if ( h5SensorGeomGroupID )  H5Gclose(h5SensorGeomGroupID);
     if ( h5SensorGeomFieldID )  H5Dclose(h5SensorGeomFieldID);

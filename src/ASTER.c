@@ -535,13 +535,17 @@ int ASTER( char* argv[],int aster_count,int unpack)
             goto cleanupFail;
         }
 
-        while ( !isdigit(*pointer1) )
+        //while ( !isdigit(*pointer1) )
+        while ( !isdigit(*pointer1) && *pointer1!='-')
             pointer1++;
 
         pointer2 = pointer1;
 
         // while pointer2 is digit or is a period
-        while ( isdigit(*pointer2) || !(*pointer2 - 46) )
+        // KY: the following code is too hard-coded and confusing.
+        //while ( isdigit(*pointer2) || !(*pointer2 - 46) )
+        // The angle maybe a negative value
+        while ( isdigit(*pointer2) || !(*pointer2 - 46) || *pointer2 =='-')
             pointer2++;
 
         pointer2--;
@@ -704,11 +708,11 @@ int ASTER( char* argv[],int aster_count,int unpack)
     }
 
     // find the first solar direction value
-    while( !isdigit(*pointer1) ) pointer1++;
+    while( !isdigit(*pointer1) && *pointer1 != '-') pointer1++;
 
     pointer2 = pointer1;
 
-    while ( isdigit(*pointer2) || *pointer2 == 46 ) pointer2++;
+    while ( isdigit(*pointer2) || *pointer2 == 46 || *pointer2 =='-') pointer2++;
 
     pointer2--;
 
@@ -728,10 +732,10 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
 
     // find the second solar direction value
-    while( !isdigit(*pointer1) ) pointer1++;
+    while( !isdigit(*pointer1) && *pointer1 != '-') pointer1++;
 
     pointer2 = pointer1;
-    while ( isdigit(*pointer2) || *pointer2 == 46 ) pointer2++;
+    while ( isdigit(*pointer2) || *pointer2 == 46  || *pointer2 == '-') pointer2++;
 
     pointer2--;
 

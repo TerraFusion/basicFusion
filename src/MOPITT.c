@@ -10,6 +10,7 @@
 #define LAT_LON_UNIT "degree"
 #define TIME_UNIT "seconds since 1993-01-01"
 
+
 /*  MOPITT
  
  DESCRIPTION:
@@ -73,6 +74,31 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
     char* coordinatePath = NULL;
     char* lonPath = NULL;
     char* latPath = NULL;
+
+    
+    // Other field ids.
+    hid_t calibDataset = 0;
+    hid_t dailyGainDataset = 0;
+    hid_t dailyMNDataset = 0;
+    hid_t dailyMPDataset = 0;
+    hid_t engDataset = 0;
+    hid_t level0StdDataset = 0;
+    hid_t PacketPosDataset = 0;
+    hid_t SaZenithDataset = 0;
+    hid_t SaAzimuthDataset = 0;
+    hid_t SoZenithDataset = 0;
+    hid_t SoAzimuthDataset = 0;
+    hid_t SecCalibDataset = 0;
+    hid_t SQualityDataset = 0;
+
+    // Other field additional dimension ids.
+    hid_t ncalibID  = 0;
+    hid_t npchanID  = 0;
+    hid_t npositionID = 0;
+    hid_t nengpointsID = 0;
+    hid_t ncalibID = 0;
+    
+
 
     // open the input file
     if ( openFile( &file, inputFile, H5F_ACC_RDONLY ) )
@@ -223,6 +249,8 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
     intArray = calloc ( dimSize, sizeof(int) );
 
     /* group_info.nlinks can give us the granule's index */
+    // The logic here is not strightforward and it is dangerous. It is better to use a flag to distinguish different groups.
+    // KY 2017-10-24
     if ( group_info.nlinks == 0 )
     {
         ntrackID = MOPITTaddDimension( outputFile, "ntrack_1", dimSize, intArray, H5T_NATIVE_INT );
@@ -973,7 +1001,52 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
         FATAL_MSG("Unable to write to attribute.\n");
         goto cleanupFail;
     }
+    
+    // Adding other fields,see if we can make this a little bit easier. All 
+    // the code for other fields except the ID declaration will be in this {} section. KY 2017-10-24
+    {
 
+        // For fields other than radiance,latitude,longitude and time.
+        // We don't know which other field is not useful. So we convert them all. 
+        // If a field has the ntrack dimension, it is also subsetted. The sizes of
+        // these fields are small, so it is not an issue. KY 2017-10-24
+        char *CalibData="/HDFEOS/SWATHS/MOP01/Data Fields/CalibrationData";
+        char *DailyGainMean[2] = {"/HDFEOS/SWATHS/MOP01/Data Fields/DailyGainDev",
+                                  "/HDFEOS/SWATHS/MOP01/Data Fields/DailyMeanNoise"
+                                 };
+        char *DMPosNoise="/HDFEOS/SWATHS/MOP01/Data Fields/DailyMeanPositionNoise";
+        char *EngData="/HDFEOS/SWATHS/MOP01/Data Fields/EngineeringData";
+        char *L0StdDev="/HDFEOS/SWATHS/MOP01/Data Fields/Level0StdDev";
+        char *PacPos="/HDFEOS/SWATHS/MOP01/Data Fields/PacketPositions";
+        char *SecCalData="/HDFEOS/SWATHS/MOP01/Data Fields/SectorCalibrationData";
+        char *SwathQual="/HDFEOS/SWATHS/MOP01/Data Fields/SwathQuality";
+        char *mop_geom[4] = {"/HDFEOS/SWATHS/MOP01/Data Fields/SatelliteAzimuth",
+                             "/HDFEOS/SWATHS/MOP01/Data Fields/SatelliteZenith",
+                             "/HDFEOS/SWATHS/MOP01/Data Fields/SolarAzimuth",
+                             "/HDFEOS/SWATHS/MOP01/Data Fields/SolarZenith"
+                             };
+ 
+// TODO
+#if 0
+        
+        radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "MOPITTRadiances", H5T_NATIVE_FLOAT, 1, bound );
+    if ( radianceDataset == FATAL_ERR )
+    {
+        FATAL_MSG("Unable to insert MOPITT radiance dataset.\n");
+        radianceDataset = 0;
+        goto cleanupFail;
+    }
+
+#endif
+
+
+
+
+
+
+
+
+    }
     if ( 0 )
     {
 cleanupFail:

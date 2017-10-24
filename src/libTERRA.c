@@ -2780,7 +2780,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
     return datasetID;
 }
 
-herr_t convert_SD_Attrs(int32 sd_id,hid_t h5parobj_id,char*h5obj_name,char*sds_name)
+herr_t convert_SD_Attrs(int32 sd_id,hid_t h5parobj_id,char*h5obj_name,char*sds_name,char *ignore_attr_name)
 {
 
     int   i = 0;
@@ -2814,13 +2814,28 @@ herr_t convert_SD_Attrs(int32 sd_id,hid_t h5parobj_id,char*h5obj_name,char*sds_n
         return -1;
     }
 
-    for( i = 0; i <n_attrs; i++)
-    {
+    if(ignore_attr_name == NULL) {
+     for( i = 0; i <n_attrs; i++)
+     {
         h4_status = SDattrinfo (sds_id, i, attr_name, &data_type, &n_values);
         attr_values = malloc(n_values*DFKNTsize(data_type));
         h4_status = SDreadattr (sds_id, i, attr_values);
         copy_h5_attrs(data_type,n_values,attr_name,attr_values,h5parobj_id,h5obj_name);
         free (attr_values);
+     }
+    }
+    else {
+     for( i = 0; i <n_attrs; i++)
+     {
+        h4_status = SDattrinfo (sds_id, i, attr_name, &data_type, &n_values);
+        if(strcmp(ignore_attr_name,attr_name)==0) 
+            continue;
+        attr_values = malloc(n_values*DFKNTsize(data_type));
+        h4_status = SDreadattr (sds_id, i, attr_values);
+        copy_h5_attrs(data_type,n_values,attr_name,attr_values,h5parobj_id,h5obj_name);
+        free (attr_values);
+     }
+
     }
 
     if(sds_name != NULL)
@@ -3048,7 +3063,12 @@ herr_t copyAttrFromName( int32 inFileID, const char* inObjName, const char* attr
 
     // Create a simple dataspace for the attribute
     // We only want one string of length count, so temp_hsize will just be 1
-    const hsize_t temp_hsize = 1;
+    // KY: We also find some attributes that use other types,so we cannot hard-code
+    // those attriabute as size 1.
+    hsize_t temp_hsize = 1;
+    // Bad,  the whole routine needs to be rewrittedn, just make it work for now. KY
+    if(h5TypeOld != H5T_STRING) 
+        temp_hsize = count;
     attrDataspace = H5Screate_simple( 1, &temp_hsize,  NULL );
     if ( attrDataspace < 0 )
     {

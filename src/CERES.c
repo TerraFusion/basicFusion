@@ -311,12 +311,20 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         generalDsetID_d = 0;
 
         NewcorrectName = correct_name(outTimePosName[i]);
-        status = convert_SD_Attrs(fileID,geolocationID_g,NewcorrectName,inTimePosName[i]);
+        
+        // Ignore the valid_range attribute at CERES.
+        if ( strstr("Latitude", outTimePosName[i] ) || strstr("Longitude", outTimePosName[i]) )
+            status = convert_SD_Attrs(fileID,geolocationID_g,NewcorrectName,inTimePosName[i],"valid_range");
+        else 
+            status = convert_SD_Attrs(fileID,geolocationID_g,NewcorrectName,inTimePosName[i],NULL);
+           
         if ( status != 0 )
         {
             FATAL_MSG("Failed to convert the SD attributes from HDF4 to HDF5.\n");
             goto cleanupFail;
         }
+
+
         free(NewcorrectName); NewcorrectName = NULL;
 
         // dimSuffix should not be freed. It will be used later. KY 2017-10-22
@@ -333,6 +341,15 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
                 FATAL_MSG("Failed to set attributes.\n");
                 goto cleanupFail;
             }
+            // Adding valid_range
+            float temp_lat_valid_range[2] = {-90.0,90.0};
+            if(H5LTset_attribute_float(geolocationID_g,"Latitude","valid_range",temp_lat_valid_range,2)<0)
+            {
+
+                FATAL_MSG("Unable to insert CERES latitude valid_range attribute.\n");
+                goto cleanupFail;
+            }
+
         }
         else if( i==2)
         {
@@ -341,6 +358,15 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
             {
                 FATAL_MSG("Failed to set attributes.\n");
                 goto cleanupFail;
+            }
+            // Adding valid_range
+            // MY 2017-10-24: Add the CF valid_range attribure here. According to CF, longitude should always be from -180 to 180.
+            // The Longitude value in CERES is mapped from {0,360} to {-180,180}
+            float temp_lon_valid_range[2] = {-180.0,180.0};
+            if(H5LTset_attribute_float(geolocationID_g,"Longitude","valid_range",temp_lon_valid_range,2)<0)
+            {
+               FATAL_MSG("Unable to insert CERES longitude valid_range attribute.\n");
+               goto cleanupFail;
             }
         }
     }
@@ -375,7 +401,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         H5Dclose(generalDsetID_d);
         generalDsetID_d = 0;
         char* NewcorrectName = correct_name(outViewingAngles[i]);
-        convert_SD_Attrs(fileID,viewingAngleID_g,NewcorrectName,inViewingAngles[i]);
+        convert_SD_Attrs(fileID,viewingAngleID_g,NewcorrectName,inViewingAngles[i],NULL);
         free(NewcorrectName);
     }
 
@@ -418,7 +444,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         H5Dclose(generalDsetID_d);
         generalDsetID_d = 0;
         char* NewcorrectName = correct_name(outFilteredRadiance[i]);
-        convert_SD_Attrs(fileID,radianceID_g,NewcorrectName,inFilteredRadiance[i]);
+        convert_SD_Attrs(fileID,radianceID_g,NewcorrectName,inFilteredRadiance[i],NULL);
 
         free(NewcorrectName);
     }
@@ -454,7 +480,7 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
         H5Dclose(generalDsetID_d);
         generalDsetID_d = 0;
         char* NewcorrectName = correct_name(outUnfilteredRadiance[i]);
-        convert_SD_Attrs(fileID,radianceID_g,NewcorrectName,inUnfilteredRadiance[i]);
+        convert_SD_Attrs(fileID,radianceID_g,NewcorrectName,inUnfilteredRadiance[i],NULL);
         free(NewcorrectName);
     }
 
