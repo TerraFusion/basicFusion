@@ -362,11 +362,13 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     short fail = 0;
 
     /* Make sure that bound[1] is >= bound[0] */
+   if(bound !=NULL) {
     if ( bound[1] < bound[0] )
     {
         FATAL_MSG("The bounds provided for MOPITT subsetting are invalid!\n\tThe right bound is less than the left bound.\n");
         goto cleanupFail;
     }
+   }
 
     // Get the corrected dataset name.
     outDatasetName = correct_name(outDatasetName);

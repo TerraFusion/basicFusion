@@ -77,26 +77,25 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
 
     
     // Other field ids.
-    hid_t calibDataset = 0;
-    hid_t dailyGainDataset = 0;
-    hid_t dailyMNDataset = 0;
+    //hid_t calibDataset = 0;
+    hid_t CalAndsecCalDataset[2]={0};
+    //hid_t dailyGainDataset = 0;
+    //hid_t dailyMNDataset = 0;
+    hid_t dailyGMDataset[2] = {0};
     hid_t dailyMPDataset = 0;
     hid_t engDataset = 0;
     hid_t level0StdDataset = 0;
-    hid_t PacketPosDataset = 0;
-    hid_t SaZenithDataset = 0;
-    hid_t SaAzimuthDataset = 0;
-    hid_t SoZenithDataset = 0;
-    hid_t SoAzimuthDataset = 0;
-    hid_t SecCalibDataset = 0;
-    hid_t SQualityDataset = 0;
+    hid_t PacketQualityDataset[2] = {0};
+    hid_t GeoMetryDataset[4] = {0};
+    //hid_t SecCalibDataset = 0;
 
     // Other field additional dimension ids.
     hid_t ncalibID  = 0;
     hid_t npchanID  = 0;
     hid_t npositionID = 0;
     hid_t nengpointsID = 0;
-    hid_t ncalibID = 0;
+    hid_t nengID = 0;
+    hid_t nsectorID = 0;
     
 
 
@@ -265,15 +264,17 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
         /* Reallocate the empty array to a size of 29. This array is just used to create pure dim scales
            in the HDF5 file. Setting to size 29 because that is the largest size needed for our dimensions
            from here on out.
+           KY: 2017-10-25 change the size from 29 to 34 since nengpoints has a dimension size 34. 
         */
-        intArray = realloc( intArray, 29 * sizeof(int) );
+        //intArray = realloc( intArray, 29 * sizeof(int) );
+        intArray = realloc( intArray, 34 * sizeof(int) );
         if ( intArray == NULL )
         {
             FATAL_MSG("Failed to reallocate array.\n");
             goto cleanupFail;
         }
 
-        memset(intArray, 0, 29);
+        memset(intArray, 0, 34);
 
         dimSize = 29;
         nstareID = MOPITTaddDimension( outputFile, "nstare", dimSize, intArray, H5T_NATIVE_INT );
@@ -893,8 +894,11 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
     attrID = 0;
     H5Tclose(stringType);
     stringType = 0;
-    H5Gclose(radianceGroup);
-    radianceGroup = 0;
+
+    H5Dclose(radianceDataset);
+    radianceDataset = 0;
+    //H5Gclose(radianceGroup);
+    //radianceGroup = 0;
 
     /* ### END OF RADIANCE FIELD ATTRIBUTE CREATION ### */
 
@@ -1002,6 +1006,8 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
         goto cleanupFail;
     }
     
+    H5Dclose(timeDataset);
+    timeDataset = 0;
     // Adding other fields,see if we can make this a little bit easier. All 
     // the code for other fields except the ID declaration will be in this {} section. KY 2017-10-24
     {
@@ -1010,41 +1016,477 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
         // We don't know which other field is not useful. So we convert them all. 
         // If a field has the ntrack dimension, it is also subsetted. The sizes of
         // these fields are small, so it is not an issue. KY 2017-10-24
-        char *CalibData="/HDFEOS/SWATHS/MOP01/Data Fields/CalibrationData";
+        //char *CalibData="/HDFEOS/SWATHS/MOP01/Data Fields/CalibrationData";
+        char *CalAndSecCal[2] = {"/HDFEOS/SWATHS/MOP01/Data Fields/CalibrationData",
+                                 "/HDFEOS/SWATHS/MOP01/Data Fields/SectorCalibrationData"
+                                };
+        char *bf_CalAndSecCal[2] = {"CalibrationData",
+	                            "SectorCalibrationData"
+                                   };
+
         char *DailyGainMean[2] = {"/HDFEOS/SWATHS/MOP01/Data Fields/DailyGainDev",
                                   "/HDFEOS/SWATHS/MOP01/Data Fields/DailyMeanNoise"
                                  };
+        char *bf_DailyGainMean[2] ={"DailyGainDev","DailyMeanNoise"};
         char *DMPosNoise="/HDFEOS/SWATHS/MOP01/Data Fields/DailyMeanPositionNoise";
         char *EngData="/HDFEOS/SWATHS/MOP01/Data Fields/EngineeringData";
         char *L0StdDev="/HDFEOS/SWATHS/MOP01/Data Fields/Level0StdDev";
-        char *PacPos="/HDFEOS/SWATHS/MOP01/Data Fields/PacketPositions";
-        char *SecCalData="/HDFEOS/SWATHS/MOP01/Data Fields/SectorCalibrationData";
-        char *SwathQual="/HDFEOS/SWATHS/MOP01/Data Fields/SwathQuality";
+        char *PacQual[2]={"/HDFEOS/SWATHS/MOP01/Data Fields/PacketPositions",
+                          "/HDFEOS/SWATHS/MOP01/Data Fields/SwathQuality"};
+        char *bf_PacQual[2] ={"PacketPositions","SwathQuality"};
+        //char *SecCalData="/HDFEOS/SWATHS/MOP01/Data Fields/SectorCalibrationData";
+        //char *SwathQual="/HDFEOS/SWATHS/MOP01/Data Fields/SwathQuality";
         char *mop_geom[4] = {"/HDFEOS/SWATHS/MOP01/Data Fields/SatelliteAzimuth",
                              "/HDFEOS/SWATHS/MOP01/Data Fields/SatelliteZenith",
                              "/HDFEOS/SWATHS/MOP01/Data Fields/SolarAzimuth",
                              "/HDFEOS/SWATHS/MOP01/Data Fields/SolarZenith"
                              };
+        char *bf_mop_geom[4] ={"SatelliteAzimuth","SatelliteZenith","SolarAzimuth","SolarZenith"};
  
 // TODO
-#if 0
-        
-        radianceDataset = MOPITTinsertDataset( &file, &radianceGroup, RADIANCE, "MOPITTRadiances", H5T_NATIVE_FLOAT, 1, bound );
-    if ( radianceDataset == FATAL_ERR )
-    {
-        FATAL_MSG("Unable to insert MOPITT radiance dataset.\n");
-        radianceDataset = 0;
-        goto cleanupFail;
-    }
+//#if 0
+        // level0StdDev       
+        level0StdDataset = MOPITTinsertDataset( &file, &radianceGroup, L0StdDev, "Level0StdDev", H5T_NATIVE_FLOAT, 1, bound );
+        if ( level0StdDataset == FATAL_ERR )
+        {
+            FATAL_MSG("Unable to insert MOPITT Level0StdDev dataset.\n");
+            level0StdDataset = 0;
+            goto cleanupFail;
+        }
 
-#endif
+        // All the dimensions for level10StdDev habe been created. Just need to attach them. 
+        status = H5DSattach_scale( level0StdDataset, ntrackID, 0 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+        status = H5DSattach_scale( level0StdDataset, nstareID, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+        status = H5DSattach_scale( level0StdDataset, npixelsID, 2 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+        status = H5DSattach_scale( level0StdDataset, nchanID, 3 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+        status = H5DSattach_scale( level0StdDataset, nstateID, 4 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+
+        if ( H5Dclose(level0StdDataset) < 0)
+            WARN_MSG("Failed to close dataset.\n");
+        level0StdDataset = 0;
+
+
+        // Geometry datasets
+        for (int i  = 0; i <4;i++) {
+
+            GeoMetryDataset[i] = MOPITTinsertDataset( &file, &radianceGroup, mop_geom[i], bf_mop_geom[i], H5T_NATIVE_FLOAT, 1, bound );
+            if ( GeoMetryDataset[i] == FATAL_ERR )
+            {
+                FATAL_MSG("Unable to insert MOPITT Level0StdDev dataset.\n");
+                GeoMetryDataset[i] = 0;
+                goto cleanupFail;
+            }
+    
+            // All the dimensions for level10StdDev habe been created. Just need to attach them. 
+            status = H5DSattach_scale( GeoMetryDataset[i], ntrackID, 0 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+            status = H5DSattach_scale( GeoMetryDataset[i], nstareID, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+            status = H5DSattach_scale( GeoMetryDataset[i], npixelsID, 2 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+     
+            if ( H5Dclose(GeoMetryDataset[i]) < 0)
+                WARN_MSG("Failed to close dataset.\n");
+            GeoMetryDataset[i] = 0;
+
+        }
+//#endif
+        // SwathQuality and PacketPositions       
+        for (int i  = 0; i <2;i++) {
+
+            PacketQualityDataset[i] = MOPITTinsertDataset( &file, &radianceGroup, PacQual[i], bf_PacQual[i], H5T_NATIVE_INT, 1, bound );
+            if ( PacketQualityDataset[i] == FATAL_ERR )
+            {
+                FATAL_MSG("Unable to insert MOPITT PacketPositions or SwathQuality dataset.\n");
+                PacketQualityDataset[i] = 0;
+                goto cleanupFail;
+            }
+    
+            // All the dimensions for level10StdDev habe been created. Just need to attach them. 
+            status = H5DSattach_scale( PacketQualityDataset[i], ntrackID, 0 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+            if( i == 0) {
+                status = H5DSattach_scale( PacketQualityDataset[i], nstareID, 1 );
+                if ( status < 0 )
+                {
+                    FATAL_MSG("Failed to attach dimension scale.\n");
+                    goto cleanupFail;
+                }
+            }
+     
+            if ( H5Dclose(PacketQualityDataset[i]) < 0)
+                WARN_MSG("Failed to close dataset.\n");
+            PacketQualityDataset[i] = 0;
+
+        }
 
 
 
+        // DailyGain/DailyMeanNoise
+        for (int i  = 0; i <2;i++) {
+
+            dailyGMDataset[i] = MOPITTinsertDataset( &file, &radianceGroup, DailyGainMean[i], bf_DailyGainMean[i], H5T_NATIVE_FLOAT, 1, NULL );
+            if ( dailyGMDataset[i] == FATAL_ERR )
+            {
+                FATAL_MSG("Unable to insert MOPITT Level0StdDev dataset.\n");
+                dailyGMDataset[i] = 0;
+                goto cleanupFail;
+            }
+    
+            // All the dimensions for level10StdDev habe been created. Just need to attach them. 
+            status = H5DSattach_scale( dailyGMDataset[i], npixelsID, 0 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+            status = H5DSattach_scale( dailyGMDataset[i], nchanID, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+            status = H5DSattach_scale( dailyGMDataset[i], nstateID, 2 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+     
+            if ( H5Dclose(dailyGMDataset[i]) < 0)
+                WARN_MSG("Failed to close dataset.\n");
+            dailyGMDataset[i] = 0;
+
+        }
+
+        // Calibration and SecCalibration
+        for (int i  = 0; i <2;i++) {
+
+            CalAndsecCalDataset[i] = MOPITTinsertDataset( &file, &radianceGroup, CalAndSecCal[i], bf_CalAndSecCal[i], H5T_NATIVE_FLOAT, 1, bound );
+            if ( CalAndsecCalDataset[i] == FATAL_ERR )
+            {
+                FATAL_MSG("Unable to insert MOPITT Level0StdDev dataset.\n");
+                CalAndsecCalDataset[i] = 0;
+                goto cleanupFail;
+            }
+
+            // All the dimensions for level10StdDev habe been created. Just need to attach them. 
+            status = H5DSattach_scale( CalAndsecCalDataset[i], ntrackID, 0 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+
+            // All the dimensions for level10StdDev habe been created. Just need to attach them. 
+            status = H5DSattach_scale( CalAndsecCalDataset[i], npixelsID, 1 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+            status = H5DSattach_scale( CalAndsecCalDataset[i], nchanID, 2 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+
+            if( i == 0) {//Calibration has dimension nstate
+                status = H5DSattach_scale( CalAndsecCalDataset[i], nstateID, 3 );
+                if ( status < 0 )
+                {
+                    FATAL_MSG("Failed to attach dimension scale.\n");
+                    goto cleanupFail;
+                }
+            }
+            else {// create a new dimension nsector for SectorCalibrationData
+
+                if ( group_info.nlinks == 0 ) {
+                    dimSize = 4;
+                    nsectorID = MOPITTaddDimension( outputFile, "nsector", dimSize, intArray, H5T_NATIVE_INT );
+                    if ( nsectorID == FAIL )
+                    {
+                        nsectorID = 0;
+                        FATAL_MSG("Failed to add MOPITT dimension.\n");
+                        goto cleanupFail;
+                    }
+                    if ( change_dim_attr_NAME_value(nsectorID) == FAIL )
+                    {
+                        FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+                        goto cleanupFail;
+                    }
+                }
+                else {
+                    nsectorID = H5Dopen2( outputFile, "nsector", H5P_DEFAULT);
+                    if ( nsectorID < 0 )
+                    {
+                        FATAL_MSG("Failed to open nsector dimension.\n");
+                        nsectorID = 0;
+                        goto cleanupFail;
+                    }
+                }
+                status = H5DSattach_scale( CalAndsecCalDataset[i], nsectorID, 3 );
+                if ( status < 0 )
+                {
+                    FATAL_MSG("Failed to attach dimension scale.\n");
+                    goto cleanupFail;
+                }
+            }
+
+            if ( group_info.nlinks == 0 && i == 0) {
+                dimSize = 8;
+                ncalibID = MOPITTaddDimension( outputFile, "ncalib", dimSize, intArray, H5T_NATIVE_INT );
+                if ( ncalibID == FAIL )
+                {
+                    ncalibID = 0;
+                    FATAL_MSG("Failed to add MOPITT dimension.\n");
+                    goto cleanupFail;
+                }
+                if ( change_dim_attr_NAME_value(ncalibID) == FAIL )
+                {
+                    FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+                    goto cleanupFail;
+                }
+            }
+            else if(group_info.nlinks ==1 && i ==0) {
+                ncalibID = H5Dopen2( outputFile, "ncalib", H5P_DEFAULT);
+                if ( ncalibID < 0 )
+                {
+                    FATAL_MSG("Failed to open ncalib dimension.\n");
+                    ncalibID = 0;
+                    goto cleanupFail;
+                }
+            }
+            status = H5DSattach_scale( CalAndsecCalDataset[i], ncalibID, 4 );
+            if ( status < 0 )
+            {
+                FATAL_MSG("Failed to attach dimension scale.\n");
+                goto cleanupFail;
+            }
+
+            if ( H5Dclose(CalAndsecCalDataset[i]) < 0)
+                WARN_MSG("Failed to close dataset.\n");
+            CalAndsecCalDataset[i] = 0;
+        }
+
+        // Engineering Data
+        engDataset = MOPITTinsertDataset( &file, &radianceGroup, EngData, "EngineeringData", H5T_NATIVE_FLOAT, 1, bound );
+        if ( engDataset == FATAL_ERR )
+        {
+            FATAL_MSG("Unable to insert MOPITT Engineering dataset.\n");
+            engDataset = 0;
+            goto cleanupFail;
+        }
+
+        status = H5DSattach_scale( engDataset, ntrackID, 0 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+
+        if ( group_info.nlinks == 0 ) {
+            dimSize = 34;
+            nengpointsID = MOPITTaddDimension( outputFile, "nengpoints", dimSize, intArray, H5T_NATIVE_INT );
+            if ( nengpointsID == FAIL )
+            {
+                nengpointsID = 0;
+                FATAL_MSG("Failed to add MOPITT dimension.\n");
+                goto cleanupFail;
+            }
+            if ( change_dim_attr_NAME_value(nengpointsID) == FAIL )
+            {
+                FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+                goto cleanupFail;
+            }
+            dimSize = 2;
+            nengID = MOPITTaddDimension( outputFile, "neng", dimSize, intArray, H5T_NATIVE_INT );
+            if ( nengID == FAIL )
+            {
+                nengID = 0;
+                FATAL_MSG("Failed to add MOPITT dimension.\n");
+                goto cleanupFail;
+            }
+            if ( change_dim_attr_NAME_value(nengID) == FAIL )
+            {
+                FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+                goto cleanupFail;
+            }
 
 
+        }
+        else {
+            nengpointsID = H5Dopen2( outputFile, "nengpoints", H5P_DEFAULT);
+            if ( nengpointsID < 0 )
+            {
+                FATAL_MSG("Failed to open nengpoints dimension.\n");
+                nengpointsID = 0;
+                goto cleanupFail;
+            }
+            nengID = H5Dopen2( outputFile, "neng", H5P_DEFAULT);
+            if ( nengID < 0 )
+            {
+                FATAL_MSG("Failed to open neng dimension.\n");
+                nengID = 0;
+                goto cleanupFail;
+            }
+
+        }
+        status = H5DSattach_scale( engDataset, nengpointsID, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+        status = H5DSattach_scale( engDataset, nengID, 2 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+
+        if ( H5Dclose(engDataset) < 0)
+            WARN_MSG("Failed to close dataset.\n");
+        engDataset = 0;
+
+//#if 0
+        // DailyMean Position Data
+        dailyMPDataset = MOPITTinsertDataset( &file, &radianceGroup, DMPosNoise, "DailyMeanPositionNoise", H5T_NATIVE_FLOAT, 1, NULL );
+        if ( dailyMPDataset == FATAL_ERR )
+        {
+            FATAL_MSG("Unable to insert MOPITT DailyMeanPositionNoise dataset.\n");
+            dailyMPDataset = 0;
+            goto cleanupFail;
+        }
+
+        status = H5DSattach_scale( dailyMPDataset, npixelsID, 0 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+ 
+        status = H5DSattach_scale( dailyMPDataset, nstateID, 2 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+ 
+        if ( group_info.nlinks == 0 ) {
+            dimSize = 2;
+            npchanID = MOPITTaddDimension( outputFile, "npchan", dimSize, intArray, H5T_NATIVE_INT );
+            if ( npchanID == FAIL )
+            {
+                npchanID = 0;
+                FATAL_MSG("Failed to add MOPITT dimension.\n");
+                goto cleanupFail;
+            }
+            if ( change_dim_attr_NAME_value(npchanID) == FAIL )
+            {
+                FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+                goto cleanupFail;
+            }
+            dimSize = 5;
+            npositionID = MOPITTaddDimension( outputFile, "nposition", dimSize, intArray, H5T_NATIVE_INT );
+            if ( npositionID == FAIL )
+            {
+                npositionID = 0;
+                FATAL_MSG("Failed to add MOPITT dimension.\n");
+                goto cleanupFail;
+            }
+            if ( change_dim_attr_NAME_value(npositionID) == FAIL )
+            {
+                FATAL_MSG("Failed to change the NAME attribute for a dimension.\n");
+                goto cleanupFail;
+            }
 
 
+        }
+        else {
+            npchanID = H5Dopen2( outputFile, "npchan", H5P_DEFAULT);
+            if ( npchanID < 0 )
+            {
+                FATAL_MSG("Failed to open npchan dimension.\n");
+                npchanID = 0;
+                goto cleanupFail;
+            }
+            npositionID = H5Dopen2( outputFile, "nposition", H5P_DEFAULT);
+            if ( npositionID < 0 )
+            {
+                FATAL_MSG("Failed to open nposition dimension.\n");
+                npositionID = 0;
+                goto cleanupFail;
+            }
+
+        }
+        status = H5DSattach_scale( dailyMPDataset, npchanID, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+        status = H5DSattach_scale( dailyMPDataset, nstateID, 2 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+        status = H5DSattach_scale( dailyMPDataset, npositionID, 3 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+
+
+        if ( H5Dclose(dailyMPDataset) < 0)
+            WARN_MSG("Failed to close dataset.\n");
+        dailyMPDataset = 0;
+
+//#endif
 
     }
     if ( 0 )
@@ -1067,6 +1509,23 @@ cleanup:
     if ( longitudeDataset ) H5Dclose(longitudeDataset);
     if ( radianceDataset )  H5Dclose(radianceDataset);
     if ( timeDataset )      H5Dclose(timeDataset);
+
+    if ( level0StdDataset ) H5Dclose(level0StdDataset);
+    for (int i = 0; i <4;i++) 
+        if(GeoMetryDataset[i])
+            H5Dclose(GeoMetryDataset[i]);
+    for (int i = 0; i <2;i++) 
+        if(PacketQualityDataset[i])
+            H5Dclose(PacketQualityDataset[i]);
+    for (int i = 0; i <2;i++) 
+        if(dailyGMDataset[i])
+            H5Dclose(dailyGMDataset[i]);
+    for (int i = 0; i <2;i++) 
+        if(CalAndsecCalDataset[i])
+            H5Dclose(CalAndsecCalDataset[i]);
+    if ( engDataset )      H5Dclose(engDataset);
+    if ( dailyMPDataset )  H5Dclose(dailyMPDataset);
+    
     if ( file )             H5Fclose(file);
     if ( MOPITTroot )       H5Gclose(MOPITTroot);
     if ( geolocationGroup ) H5Gclose(geolocationGroup);
@@ -1084,6 +1543,14 @@ cleanup:
     if ( npixelsID )        H5Dclose( npixelsID );
     if ( nchanID )          H5Dclose(nchanID);
     if ( nstateID )         H5Dclose(nstateID);
+
+    if ( nsectorID)         H5Dclose(nsectorID);
+    if ( ncalibID)          H5Dclose(ncalibID);
+    if ( nengpointsID)      H5Dclose(nengpointsID);
+    if ( nengID)            H5Dclose(nengID);
+    if ( npchanID)          H5Dclose(npchanID);
+    if ( npositionID)       H5Dclose(npositionID);
+    
     if ( granuleID )        H5Gclose(granuleID);
     if ( coordinatePath )   free(coordinatePath);
     if ( latPath )          free(latPath);
