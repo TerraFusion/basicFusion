@@ -362,6 +362,7 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     short fail = 0;
 
     /* Make sure that bound[1] is >= bound[0] */
+    /* only apply when bound is not NULL, KY 2017-10-24 */
    if(bound !=NULL) {
     if ( bound[1] < bound[0] )
     {
