@@ -72,6 +72,17 @@ downloadPY()
     echo "Done."
     echo
 
+    echo "Downloading globus-cli..."
+    pip install globus-cli
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the Globus CLI module." >&2
+        return $retVal_l
+    fi
+    echo "Done."
+    echo
+
+
     echo "Downloading mpi4py..."
     pip install mpi4py
     retval_l=$?

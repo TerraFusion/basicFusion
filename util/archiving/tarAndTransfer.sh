@@ -4,7 +4,7 @@
 # @email: clipp2@illinois.edu
 usage(){
 
-    description="Usage: $0 [SQLite database] [Out dir] [SrcID] [DestID] [DestDir] [Ostart] [Oend] [--nodes NODES]
+    description="Usage: $0 [SQLite database] [Out dir] [SrcID] [DestID] [DestDir] [Ostart] [Oend] [--nodes NODES] [--cpn CORES]
 
 DESCRIPTION:
 \tThis script handles tarring all of the input Basic Fusion files and then transferring them to NCSA Nearline.
@@ -30,7 +30,8 @@ ARGUMENTS:
 
 \tOPTIONAL
 
-\t--nodes NODES         -- Specify the number of nodes to use for the tarring jobs. Defaults to 5.
+\t--npj NODES           -- Specify the number of nodes to use for the tarring jobs. Defaults to 5.
+\t--cpn CORES           -- Specify the number of cores per job to use for the tarring jobs. Defaults to 20.
 "
     while read -r line; do
         printf "$line\n"
@@ -85,28 +86,41 @@ PY_ENV="$BF_PATH/externLib/BFpyEnv"
 
 TAR_JOB_NPJ=5                   # Tar job nodes per job. This specifies the default value.
                                 # Will be overwritten if --nodes is provided.
-TAR_JOB_PPN=20                  # Tar job processors per node
+TAR_JOB_CPN=20                  # Tar job processors per node
 TAR_JOB_WALLTIME="12:00:00"     # Walltime of tar jobs
 TAR_JOB_NAME="TerraTar"         # Name of the PBS job
-GLOBUS_WALLTIME="24:00:00"      # The Globus transfer walltime
+GLOBUS_WALLTIME="48:00:00"      # The Globus transfer walltime
 GLOBUS_NAME="TerraGlobus"       # The Globus transfer job name
 
 
-if [ "$1" == "--nodes" ]; then
-    shift
-    numNodes="$1"
+while [ $# -ne 0 ]; do
+    if [ "$1" == "--npj" ]; then
+        shift
+        numNodes="$1"
 
-    if ! [[ "$numNodes" =~ $intReg ]]; then
-        echo "Error: A positive integer should follow the --nodes parameter!" >&2
+        if ! [[ "$numNodes" =~ $intReg ]]; then
+            echo "Error: A positive integer should follow the --npj parameter!" >&2
+            exit 1
+        fi
+
+        TAR_JOB_NPJ="$numNodes"
+        shift
+    elif [ "$1" == "--cpn" ]; then
+        shift
+        cpn="$1"
+        if ! [[ "$cpn" =~ $intReg ]]; then
+            echo "Error: A positive integer should follow the --cpn parameter!" >&2
+            exit 1
+        fi
+
+        TAR_JOB_CPN="$cpn"
+        shift
+    else
+        echo "Error: Illegal parameter: $1" >&2
         exit 1
     fi
 
-    TAR_JOB_NPJ="$numNodes"
-
-elif [ "$1" != "" ]; then
-    echo "Error: Illegal parameter: $1" >&2
-    exit 1
-fi
+done
 
 # Check that the queries.bash and Orbit_Path_Time.txt files exists
 if [ ! -e "$QUERIES" ]; then
@@ -318,7 +332,7 @@ for i in $(seq 0 $job ); do
     globus mkdir $destID:"$destYearDir"
 
     # Find the number of MPI processes
-    MPI_numProc=$(( ${TAR_JOB_NPJ} * ${TAR_JOB_PPN} ))
+    MPI_numProc=$(( ${TAR_JOB_NPJ} * ${TAR_JOB_CPN} ))
 
     # Each job gets its own directory within tempDir that is just the year of the job
     curStageArea="$tempDir/${jobYear[$i]}"
@@ -327,7 +341,7 @@ for i in $(seq 0 $job ); do
     pbsFile="\
 #!/bin/bash
 #PBS -j oe
-#PBS -l nodes=${TAR_JOB_NPJ}:ppn=${TAR_JOB_PPN}
+#PBS -l nodes=${TAR_JOB_NPJ}:ppn=${TAR_JOB_CPN}
 #PBS -l walltime=$TAR_JOB_WALLTIME
 #PBS -N ${TAR_JOB_NAME}_${jobYear[$i]}
 cd $runDir
@@ -340,7 +354,7 @@ mkdir \"$curStageArea\"
 module load mpich
 # Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
 { time mpirun -np $MPI_numProc python \"$BF_PATH/util/archiving/tarInput.py\" --O_START ${jobStart[$i]} --O_END ${jobEnd[$i]} $SQL_DB \"$curStageArea\" ; } &> \"$runDir/logs/tar/stdout_err$i.txt\"
-
+exit \$?
 "
     echo "$pbsFile" > tarJobs/job$i.pbs
 
@@ -356,10 +370,12 @@ source \"$PY_ENV/bin/activate\"
 globus endpoint activate $srcID
 globus endpoint activate $destID
 # Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
-{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"${curStageArea}\" \"${destYearDir}\"} ; } &> \"$runDir/logs/transfer/stdout_err$i.txt\"
+{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"${curStageArea}\" \"${destYearDir}\"}; &> \"$runDir/logs/transfer/stdout_err$i.txt\"
 retVal=\$?
 if [ \$retVal -eq 0 ]; then
     rm -rf \"$curStageArea\"
+else
+    exit 1
 fi
 "
 
