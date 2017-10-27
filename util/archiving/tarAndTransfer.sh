@@ -38,7 +38,7 @@ ARGUMENTS:
     done <<< "$description"
 }
 
-if [ $# -ne 7 -a $# -ne 9 ]; then
+if [ $# -ne 7 -a $# -ne 9 -a $# -ne 11 ]; then
     usage
     exit 1
 fi
@@ -92,6 +92,10 @@ TAR_JOB_NAME="TerraTar"         # Name of the PBS job
 GLOBUS_WALLTIME="48:00:00"      # The Globus transfer walltime
 GLOBUS_NAME="TerraGlobus"       # The Globus transfer job name
 
+if [ "$oStart" -lt 995 ]; then
+    echo "Error: Starting orbit can't be less than 995!" >&2
+    exit 1
+fi
 
 while [ $# -ne 0 ]; do
     if [ "$1" == "--npj" ]; then
@@ -213,7 +217,7 @@ prevYear=0
 
 while true; do
 
-    linenum=$(( curOrbit - 999 ))               # The line number we want to read is simply curOrbit - 999. There is a
+    linenum=$(( curOrbit - 994 ))               # The line number we want to read is simply curOrbit - 999. There is a
                                                 # one-to-one mapping of orbit to line number.
 
     line="$(sed "${linenum}q;d" "$ORBIT_TIMES")"
