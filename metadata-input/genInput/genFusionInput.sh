@@ -183,12 +183,12 @@ cut -d' ' -f2)"
 
     if [ "$MIS_NA" != "MIS N/A" ]; then
         echo "$MISGREP" >> "$OUTFILE"
+        # Add the missing MISR file labels in the outfile
+        python "$SCRIPT_PATH"/genFusionInput.py "$OUTFILE"
     else
         echo "MIS N/A" >> "$OUTFILE"
     fi
 
-    # Add the missing MISR file labels in the outfile
-    python "$SCRIPT_PATH"/genFusionInput.py "$OUTFILE"
 
     return 0
 }
