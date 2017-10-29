@@ -13,12 +13,12 @@ from mpi4py import MPI
 def eprint( *args, **kwargs):
     print( *args, file=sys.stderr, **kwargs )
 
-def queryFiles( orbitNum, SQLqueries, SQL_DB, tmpLoc, instr ):
+def queryFiles( orbitNum, SQLqueries, SQL_DB, queryLoc, instr ):
     """         queryFiles
     DESCRIPTION:
         This function handles the task of querying the SQLite database for orbit orbitNum and for instrument instr.
         It only queries for a singular instrument/orbit pair and appends the result to a text file. This text file is
-        located at the path: [tmpLoc]/[orbitNum].txt.
+        located at the path: [queryLoc]/[orbitNum].txt.
 
     ARGUMENTS:
         orbitNum (int)          -- The orbit to query for
@@ -26,13 +26,13 @@ def queryFiles( orbitNum, SQLqueries, SQL_DB, tmpLoc, instr ):
                                    wrapped inside of bash functions.
         SQL_DB (string)         -- The path to the SQLite database on which the queries within SQLqueries will be
                                    performed.
-        tmpLoc (string)         -- This is a directory path to where the database query results will be stored.
+        queryLoc (string)         -- This is a directory path to where the database query results will be stored.
         instr (string)          -- This is a 3 character string denoting which instrument to query for. The valid
                                    values are:
                                    "MOP", "CER", "AST", "MIS", "MOD".
 
     EFFECTS:
-        Appends to the [tmpLoc]/[orbitNum].txt file.
+        Appends to the [queryLoc]/[orbitNum].txt file.
 
     RETURN:
         None
@@ -44,7 +44,7 @@ def queryFiles( orbitNum, SQLqueries, SQL_DB, tmpLoc, instr ):
         # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
         processCall = [ "bash", SQLqueries, "instrumentOverlappingOrbit", SQL_DB, str(orbitNum), "MOP" ]
 
-        with open("{}/{}.txt".format( tmpLoc, orbitNum), "a") as out:
+        with open("{}/{}.txt".format( queryLoc, orbitNum), "a") as out:
             procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
             
     elif instr == "CER":
@@ -52,7 +52,7 @@ def queryFiles( orbitNum, SQLqueries, SQL_DB, tmpLoc, instr ):
             # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
             processCall = [ "bash", SQLqueries, "instrumentOverlappingOrbit", SQL_DB, str(orbitNum), "CER" ]
 
-            with open("{}/{}.txt".format(tmpLoc, orbitNum), "a") as out:
+            with open("{}/{}.txt".format(queryLoc, orbitNum), "a") as out:
                 procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
             
     elif instr == "AST":
@@ -60,14 +60,14 @@ def queryFiles( orbitNum, SQLqueries, SQL_DB, tmpLoc, instr ):
             # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
             processCall = [ "bash", SQLqueries, "instrumentStartingInOrbit", SQL_DB, str(orbitNum), "AST" ]
 
-            with open("{}/{}.txt".format(tmpLoc, orbitNum), "a") as out:
+            with open("{}/{}.txt".format(queryLoc, orbitNum), "a") as out:
                 procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
             
     elif instr == "MIS":
             # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
             processCall = [ "bash", SQLqueries, "instrumentStartingInOrbit", SQL_DB, str(orbitNum), "MIS" ]
 
-            with open("{}/{}.txt".format(tmpLoc, orbitNum), "a") as out:
+            with open("{}/{}.txt".format(queryLoc, orbitNum), "a") as out:
                 procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
             
     elif instr == "MOD":
@@ -75,7 +75,7 @@ def queryFiles( orbitNum, SQLqueries, SQL_DB, tmpLoc, instr ):
             # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
             processCall = [ "bash", SQLqueries, "instrumentInOrbit", SQL_DB, str(orbitNum), "MOD" ]
 
-            with open("{}/{}.txt".format(tmpLoc, orbitNum), "a") as out:
+            with open("{}/{}.txt".format(queryLoc, orbitNum), "a") as out:
                 procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
             
     else:
@@ -126,7 +126,7 @@ def createTar( orbitNum, orbitFileList, outputDir ):
     tar = tarfile.open("{}/{}archive.tar".format(outputDir, orbitNum), "w" )
         
     extraMISR=0
-    MISR_PATH_FILES="MISR_PATH_FILES_{}".format(orbitNum)
+    MISR_PATH_FILES="MISR_PATH_FILES_{}.txt".format(orbitNum)
 
     with open( orbitFileList, "r" ) as f:
         for line in f:
@@ -138,20 +138,19 @@ def createTar( orbitNum, orbitFileList, outputDir ):
                     MIS_f.write(MISRFile)
         # TODO: Finish this functionality
             else:
-                try:
-                    tar.add( line.strip(), recursive=False )
-                except OSError as e:
-                    eprint("Failed to add {} to the tar for orbit {}.".format( line, orbitNum  ))
+                tar.add( line.strip(), recursive=False )
 
     # Add the extra MISR files
     if extraMISR == 1:
-        tar.add( "/dev/shm/{}".format(MISR_PATH_FILES), recursive=False )
-    
-    # Delete the MISR_PATH_FILES file
-    os.remove("/dev/shm/{}".format(MISR_PATH_FILES ))
+        tar.add( "/dev/shm/{}".format(MISR_PATH_FILES), recursive=False ) 
 
     tar.close()
- 
+
+    # I'm not sure if you have to close the tar before you remove a file it will tar...
+    if extraMISR == 1: 
+        # Delete the MISR_PATH_FILES file
+        os.remove("/dev/shm/{}".format(MISR_PATH_FILES ))
+
 def findJobPartition( numProcess, orbits ):
     """         findJobPartition()
     
@@ -213,7 +212,8 @@ def main():
     parser = argparse.ArgumentParser()
 
     # --orbit-file is not implemented yet
-    parser.add_argument("--orbit-file", "-o", dest='orbitFile', help="Path to the text file containing the orbits to process.")
+    parser.add_argument("--orbit-file", "-o", dest='orbitFile', help="Path to the text file containing the orbits to process. \
+                        NOT IMPLEMENTED.")
     parser.add_argument("SQLite", help="The SQLite database containing input HDF Terra files.")
     parser.add_argument("OUT_DIR", help="Where the output tar files will reside.")
     parser.add_argument("--O_START", dest='oStart', \
@@ -227,6 +227,12 @@ def main():
                         type=str, default="/dev/shm/" )
 
     args = parser.parse_args()
+
+    # Make paths absolute
+    SQLite = os.path.abspath(args.SQLite)
+    queryLoc = os.path.abspath(args.queryLoc)
+    OUT_DIR = os.path.abspath(args.OUT_DIR)
+
 
     # TODO: Uncomment the below code when the --orbit-file argument is finally implemented
     # Check that the arguments passed to script are valid
@@ -262,9 +268,7 @@ def main():
         return 1
 
     # Get the queries.bash path
-    SQLqueries = BF_PATH + "metadata-input/queries.bash"
-    # Where to store the temporary SQL queries. The default is "/dev/shm", a RAM filesystem mount.
-    tmpLoc = args.queryLoc
+    SQLqueries = BF_PATH + "/metadata-input/queries.bash"
 
     # MPI VARIABLES
     comm = MPI.COMM_WORLD
@@ -314,21 +318,21 @@ def main():
     for i in xrange( startIndex, endIndex + 1 ): 
         # Delete any temporary files if they exists
         try:
-            os.remove( "{}/{}.txt".format(tmpLoc, orbits[i] ) )
+            os.remove( "{}/{}.txt".format(queryLoc, orbits[i] ) )
         except:
             pass
 
         # Query for each instrument
         for instr in ("MOP", "CER", "AST", "MIS", "MOD"):
-            queryFiles( orbits[i], SQLqueries, args.SQLite, tmpLoc, instr )
+            queryFiles( orbits[i], SQLqueries, SQLite, queryLoc, instr )
 
         # We are ready to create the tar file for orbit orbits[i]
-        createTar( orbits[i], "{}/{}.txt".format(tmpLoc, orbits[i]), args.OUT_DIR )
+        createTar( orbits[i], "{}/{}.txt".format(queryLoc, orbits[i]), args.OUT_DIR )
 
         # Delete the temporary file created by queryFiles
         
         try:
-            os.remove( "{}/{}.txt".format(tmpLoc, orbits[i] ) )
+            os.remove( "{}/{}.txt".format(queryLoc, orbits[i] ) )
         except:
             pass
 

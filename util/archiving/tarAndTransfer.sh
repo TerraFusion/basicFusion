@@ -58,6 +58,7 @@ if [ ! -e "$SQL_DB" ]; then
     exit 1
 fi
 shift
+SQL_DB="$(cd $(dirname "$SQL_DB") && pwd)"/$(basename "$SQL_DB")
 
 tempDir="$1"
 if [ ! -d "$tempDir" ]; then
@@ -65,6 +66,8 @@ if [ ! -d "$tempDir" ]; then
     exit 1
 fi
 shift
+# Make tempDir absolute
+tempDir="$(cd "$tempDir" && pwd)"
 
 srcID="$1"
 shift
@@ -91,9 +94,10 @@ TAR_JOB_WALLTIME="12:00:00"     # Walltime of tar jobs
 TAR_JOB_NAME="TerraTar"         # Name of the PBS job
 GLOBUS_WALLTIME="48:00:00"      # The Globus transfer walltime
 GLOBUS_NAME="TerraGlobus"       # The Globus transfer job name
+MIN_ORBIT=$(head -n1 "$ORBIT_TIMES" | cut -d' ' -f1)
 
-if [ "$oStart" -lt 995 ]; then
-    echo "Error: Starting orbit can't be less than 995!" >&2
+if [ "$oStart" -lt $MIN_ORBIT ]; then
+    echo "Error: Starting orbit can't be less than $MIN_ORBIT!" >&2
     exit 1
 fi
 
@@ -220,7 +224,7 @@ while true; do
     linenum=$(( curOrbit - 994 ))               # The line number we want to read is simply curOrbit - 999. There is a
                                                 # one-to-one mapping of orbit to line number.
 
-    line="$(sed "${linenum}q;d" "$ORBIT_TIMES")"
+    line="$(grep "^$curOrbit " "$ORBIT_TIMES")"
 
     #line="$(grep -w "^$curOrbit" "$ORBIT_TIMES")"
     # Keep stepping through the file until we've found the first line that matches $curOrbit
@@ -374,7 +378,7 @@ source \"$PY_ENV/bin/activate\"
 globus endpoint activate $srcID
 globus endpoint activate $destID
 # Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
-{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"${curStageArea}\" \"${destYearDir}\"}; &> \"$runDir/logs/transfer/stdout_err$i.txt\"
+{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"${curStageArea}\" \"${destYearDir}\" ; } &> \"$runDir/logs/transfer/stdout_err$i.txt\"
 retVal=\$?
 if [ \$retVal -eq 0 ]; then
     rm -rf \"$curStageArea\"
