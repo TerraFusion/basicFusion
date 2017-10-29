@@ -5,7 +5,7 @@
 This script is ultimately intended to replace the atrocious genFusionInput.sh script. In the process of development, it will only replace certain functionality until all functionality has a Python implementation.
 """
 
-import BFfile
+import basicFusion as BF
 import os, sys
 import argparse
 import re
@@ -24,7 +24,7 @@ def MISR_miss( inFile ):
         fname = os.path.basename(f_list[i]).strip()
 
         # Find the first occurance of ASTER file
-        while ( not re.match( BFfile.AST_re, fname ) \
+        while ( not re.match( BF.AST_re, fname ) \
         and 'AST N/A' not in f_list[i] \
         or '#' == f_list[i].lstrip()[0] \
         or f_list[i].isspace() ) \
@@ -33,7 +33,7 @@ def MISR_miss( inFile ):
             fname = os.path.basename(f_list[i]).strip()
 
         # We found the first occurance of ASTER. Now need to find the last occurance of ASTER
-        while (re.match( BFfile.AST_re, fname ) \
+        while (re.match( BF.AST_re, fname ) \
         or 'AST N/A' in f_list[i] \
         or '#' == f_list[i].lstrip()[0] \
         or f_list[i].isspace() ) \
