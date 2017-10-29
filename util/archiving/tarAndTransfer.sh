@@ -58,6 +58,7 @@ if [ ! -e "$SQL_DB" ]; then
     exit 1
 fi
 shift
+SQL_DB="$(cd $(dirname "$SQL_DB") && pwd)"/$(basename "$SQL_DB")
 
 tempDir="$1"
 if [ ! -d "$tempDir" ]; then
