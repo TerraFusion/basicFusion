@@ -39,7 +39,7 @@ ARGUMENTS:
     done <<< "$description"
 }
 
-if [ $# -le 4 -o $# -gt 12 ]; then
+if [ $# -lt 4 -o $# -gt 12 ]; then
     usage
     exit 1
 fi
