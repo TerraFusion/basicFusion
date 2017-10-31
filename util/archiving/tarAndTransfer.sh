@@ -216,8 +216,6 @@ jobNumOrbits[0]=0
 curOrbit=$oStart
 prevYear=0
 
-# WARNING: This loop takes a long time!!! Possibile TODO is to make this loop faster somehow.
-# Step through each line in the $ORBIT_TIMES file
 
 while true; do
     
