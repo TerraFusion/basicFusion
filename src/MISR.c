@@ -607,7 +607,6 @@ int MISR( char* fileList[],int unpack )
                     h5DataFieldID = 0;
                     goto cleanupFail;
                 }
-                tempFloat = -999.0;
 
 
             }
@@ -631,6 +630,7 @@ int MISR( char* fileList[],int unpack )
             if ( correctedName == NULL )
                 correctedName = correct_name(radiance_name[j]);
 
+          if(unpack == 1) {
             status = H5LTset_attribute_string( h5DataGroupID, correctedName, "coordinates", LRcoord );
             if ( status < 0 )
             {
@@ -638,7 +638,7 @@ int MISR( char* fileList[],int unpack )
                 goto cleanupFail;
             }
             // Set the units attribute
-            status = H5LTset_attribute_string( h5DataGroupID, correctedName, "Units", "Watts/m^2/micrometer/steradian");
+            status = H5LTset_attribute_string( h5DataGroupID, correctedName, "units", "Watts/m^2/micrometer/steradian");
             if ( status < 0 )
             {
                 FATAL_MSG("Failed to set string attribute. i = %d j = %d\n", i, j);
@@ -649,9 +649,30 @@ int MISR( char* fileList[],int unpack )
 
             if ( errStatus < 0 )
             {
-                FATAL_MSG("Failed to write an HDF5 attribute.\n");
+                FATAL_MSG("Failed to write the radiance_FillValue attribute.\n");
                 goto cleanupFail;
             }
+
+            tempFloat = 0.0;
+
+            errStatus = H5LTset_attribute_float( h5DataGroupID, correctedName,"valid_min",&tempFloat,1);
+
+            if ( errStatus < 0 )
+            {
+                FATAL_MSG("Failed to write the radiance valid_min attribute.\n");
+                goto cleanupFail;
+            }
+
+            tempFloat = 800.0;
+
+            errStatus = H5LTset_attribute_float( h5DataGroupID, correctedName,"valid_max",&tempFloat,1);
+
+            if ( errStatus < 0 )
+            {
+                FATAL_MSG("Failed to write the radiance valid_max attribute.\n");
+                goto cleanupFail;
+            }
+        }
 
             // Copy over the dimensions
             // AN Band GR,BR and NIR are all 180*512*2048 
@@ -1255,13 +1276,13 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
     }
 
     // Set the attributes for the BlockCenterTime dataset
-    status = H5LTset_attribute_string( BCTgroupID, blockCent, "Units", "UTC" );
+    status = H5LTset_attribute_string( BCTgroupID, blockCent, "units", "UTC" );
     if ( status < 0 )
     {
         FATAL_MSG("Failed to set attribute.\n");
         goto cleanupFail;
     }
-    status = H5LTset_attribute_string( BCTgroupID, blockCent, "FillValue", fillVal );
+    status = H5LTset_attribute_string( BCTgroupID, blockCent, "_FillValue", fillVal );
     if ( status < 0 )
     {
         FATAL_MSG("Failed to set attribute.\n");

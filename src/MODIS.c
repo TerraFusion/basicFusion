@@ -235,6 +235,30 @@ int MODIS( char* argv[],int modis_count, int unpack)
             MODISrootGroupID = 0;
             goto cleanupFail;
         }
+        char *comment_name ="comment";
+        char *comment_value = "The reserved dn values for uncalibrated data ranging between 65501 and "
+                        "65535, as listed in Table 5.6.1 of MODIS Level 1B Product User.s Guide(MOD_PR02 V6.1.12(TERRA)), "
+                        "are proportionally mapped to the floating point numbers between -964.0 and -999.0, when being"
+                        " converted to radiance.";
+
+        char *time_comment_name="comment_for_GranuleTime";
+        char *time_comment_value = "Under each MODIS granule group, the integer portion "
+                                   "of the GranuleTime attribute value represents the Julian Date of acquisition "
+                                   "in YYYYDDD form. The fractional portion represents the UTC hours and minutes of "
+                                   "the Julian Date. For example, 2007184.1610 indicates the data acquisition time is at "
+                                   "the 16th hour and the 10th minute (UTC) on July 3rd, 2007.";
+                          
+
+        if(H5LTset_attribute_string(outputFile,"MODIS",comment_name,comment_value) <0){
+            FATAL_MSG("Failed to add the MODIS comment attribute.\n");
+            goto cleanupFail;
+        }
+
+        if(H5LTset_attribute_string(outputFile,"MODIS",time_comment_name,time_comment_value) <0){
+            FATAL_MSG("Failed to add the MODIS time comment attribute.\n");
+            goto cleanupFail;
+        }
+        
     }
     else
     {
@@ -674,6 +698,14 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_1KM_RefSB valid_min attribute.\n");
             goto cleanupFail;
         }
+
+        fltTemp = 900.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_RefSB","valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_1KM_RefSB valid_max attribute.\n");
+            goto cleanupFail;
+        }
  
         status = copyAttrFromName( _1KMFileID, "EV_1KM_RefSB", "band_names", _1KMDatasetID );
         if ( status == FATAL_ERR )
@@ -835,7 +867,15 @@ int MODIS( char* argv[],int modis_count, int unpack)
         FATAL_MSG("Failed to add EV_1KM_Emissive valid_min attribute.\n");
         goto cleanupFail;
     }
-    errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive", "coordinates",
+
+    fltTemp = 100.0;
+    status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_1KM_Emissive","valid_max",&fltTemp, 1 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to add EV_1KM_Emissive valid_max attribute.\n");
+        goto cleanupFail;
+    }
+   errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_1KM_Emissive", "coordinates",
                                               _1KMcoordEmissivePath);
     if ( errStatus < 0 )
     {
@@ -979,7 +1019,15 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB valid_min attribute.\n");
             goto cleanupFail;
         }
-        errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB", "coordinates",
+
+        fltTemp = 900.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_250_Aggr1km_RefSB","valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr1km_RefSB valid_max attribute.\n");
+            goto cleanupFail;
+        }
+       errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_250_Aggr1km_RefSB", "coordinates",
                                               _1KMcoord_250M_Path);
         if ( errStatus < 0 )
         {
@@ -1152,6 +1200,14 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB valid_min attribute.\n");
             goto cleanupFail;
         }
+        fltTemp = 900.0;
+        status = H5LTset_attribute_float(MODIS1KMdataFieldsGroupID,"EV_500_Aggr1km_RefSB","valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_Aggr1km_RefSB valid_max attribute.\n");
+            goto cleanupFail;
+        }
+
         errStatus = H5LTset_attribute_string( MODIS1KMdataFieldsGroupID, "EV_500_Aggr1km_RefSB", "coordinates",
                                               _1KMcoord_500M_Path);
         if ( errStatus < 0 )
@@ -1575,6 +1631,15 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_250_Aggr500_RefSB valid_min attribute.\n");
             goto cleanupFail;
         }
+
+        fltTemp = 900.0;
+        status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_250_Aggr500_RefSB","valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_250_Aggr500_RefSB valid_max attribute.\n");
+            goto cleanupFail;
+        }
+ 
          // This band_names was left over, KY 2017-10-22
         status = copyAttrFromName( _500mFileID, "EV_250_Aggr500_RefSB", "band_names", _250Aggr500 );
         if ( status == FATAL_ERR )
@@ -1721,6 +1786,16 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed to add EV_500_RefSB valid_min attribute.\n");
             goto cleanupFail;
         } 
+        fltTemp = 900.0;
+        status = H5LTset_attribute_float(MODIS500mdataFieldsGroupID,"EV_500_RefSB","valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add EV_500_RefSB valid_max attribute.\n");
+            goto cleanupFail;
+        } 
+
+
+
         status = copyAttrFromName( _500mFileID, "EV_500_RefSB", "band_names", _500RefSB );
         if ( status == FATAL_ERR )
         {
@@ -1878,6 +1953,14 @@ int MODIS( char* argv[],int modis_count, int unpack)
         if ( status < 0  )
         {
             FATAL_MSG("Failed to add EV_250_RefSB valid_min attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 900.0;
+        status = H5LTset_attribute_float(MODIS250mdataFieldsGroupID,"EV_250_RefSB","valid_max",&fltTemp, 1 );
+        if ( status < 0  )
+        {
+            FATAL_MSG("Failed to add EV_250_RefSB valid_max attribute.\n");
             goto cleanupFail;
         }
 

@@ -639,6 +639,33 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
     free( latPath ); latPath = NULL;
     free( lonPath ); lonPath = NULL;
     
+    /* Adding MOPITTRadiances valid_min, valid_max and _FillValue */
+
+    float fltTemp = -9999.0;
+    status = H5LTset_attribute_float(radianceGroup,"MOPITTRadiances","_FillValue",&fltTemp, 1 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to add MOPITTRadiance  _FillValue attribute.\n");
+        goto cleanupFail;
+    }
+
+    fltTemp = 0.0;
+    status = H5LTset_attribute_float(radianceGroup,"MOPITTRadiances","valid_min",&fltTemp, 1 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to add MOPITTRadiance valid_min attribute.\n");
+        goto cleanupFail;
+    }
+
+    fltTemp = 20.0;
+    status = H5LTset_attribute_float(radianceGroup,"MOPITTRadiances","valid_max",&fltTemp, 1 );
+    if ( status < 0 )
+    {
+        FATAL_MSG("Failed to add MOPITTRadiance valid_max attribute.\n");
+        goto cleanupFail;
+    }
+ 
+ 
     /****************
      * TIME DATASET *
      ****************/

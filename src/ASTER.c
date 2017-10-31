@@ -1193,40 +1193,117 @@ int ASTER( char* argv[],int aster_count,int unpack)
                             imageData7ID, imageData8ID, imageData9ID, imageData10ID, imageData11ID, imageData12ID, imageData12ID,
                             imageData14ID };
 
+    float fltTemp = 0.0;
     for ( i = 0; i < 4; i++ )
     {
         if ( !dsetArray[i] ) continue;
 
-        status = H5LTset_attribute_string( VNIRgroupID, radianceNames[i], "Units", "Watts/m^2/micrometer/steradian");
+        status = H5LTset_attribute_string( VNIRgroupID, radianceNames[i], "units", "Watts/m^2/micrometer/steradian");
         if ( status < 0 )
         {
             FATAL_MSG("Failed to set string attribute. i = %d\n", i);
             goto cleanupFail;
         }
+
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(VNIRgroupID, radianceNames[i],"_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add VNIR radiance _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(VNIRgroupID, radianceNames[i],"valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add VNIR radiance valid_min attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 569.0;
+        status = H5LTset_attribute_float(VNIRgroupID, radianceNames[i],"valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add VNIR radiance valid_max attribute.\n");
+            goto cleanupFail;
+        }
+
+
+
     }
 
     for ( i = 0; i < 6; i++ )
     {
         if ( !dsetArray[i+4] ) continue;
 
-        status = H5LTset_attribute_string( SWIRgroupID, radianceNames[i+4], "Units", "Watts/m^2/micrometer/steradian");
+        status = H5LTset_attribute_string( SWIRgroupID, radianceNames[i+4], "units", "Watts/m^2/micrometer/steradian");
         if ( status < 0 )
         {
             FATAL_MSG("Failed to set string attribute. i = %d\n", i);
             goto cleanupFail;
         }
-    }
+
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(SWIRgroupID, radianceNames[i+4],"_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add SWIR radiance _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(SWIRgroupID, radianceNames[i+4],"valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add SWIR radiance valid_min attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 569.0;
+        status = H5LTset_attribute_float(VNIRgroupID, radianceNames[i+4],"valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add SWIR radiance valid_max attribute.\n");
+            goto cleanupFail;
+        }
+
+   }
 
     for ( i = 0; i < 5; i++ )
     {
         if ( !dsetArray[i+10] ) continue;
 
-        status = H5LTset_attribute_string( TIRgroupID, radianceNames[i+10], "Units", "Watts/m^2/micrometer/steradian");
+        status = H5LTset_attribute_string( TIRgroupID, radianceNames[i+10], "units", "Watts/m^2/micrometer/steradian");
         if ( status < 0 )
         {
             FATAL_MSG("Failed to set string attribute. i = %d\n", i);
             goto cleanupFail;
         }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(TIRgroupID, radianceNames[i+10],"_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add TIR radiance _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(TIRgroupID, radianceNames[i+10],"valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add TIR radiance valid_min attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 569.0;
+        status = H5LTset_attribute_float(TIRgroupID, radianceNames[i+10],"valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add TIR radiance valid_max attribute.\n");
+            goto cleanupFail;
+        }
+
     }
 
     // Copy the dimensions
