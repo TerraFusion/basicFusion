@@ -356,13 +356,35 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 
     herr_t status_n, status;
 
-    double * data_out;
+    double * data_out = NULL;
 
     int rank;
     short fail = 0;
 
+printf("outDatasetName is %s\n",outDatasetName);
+printf("bound[0] is %u\n",bound[0]);
+printf("bound[1] is %u\n",bound[1]);
     /* Make sure that bound[1] is >= bound[0] */
     /* only apply when bound is not NULL, KY 2017-10-24 */
+#if 0
+   if(bound !=NULL) {
+    if ( bound[1] < bound[0] )
+    {
+        FATAL_MSG("The bounds provided for MOPITT subsetting are invalid!\n\tThe right bound is less than the left bound.\n");
+        goto cleanupFail;
+    }
+   }
+#endif
+
+    // Get the corrected dataset name. This block must be run first since the outDatasetName can only be freed after correct-name
+    // KY 2017-10-31
+    outDatasetName = correct_name(outDatasetName);
+    if ( outDatasetName == NULL )
+    {
+        FATAL_MSG("Failed to get corrected name.\n");
+        goto cleanupFail;
+    }
+
    if(bound !=NULL) {
     if ( bound[1] < bound[0] )
     {
@@ -371,13 +393,6 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     }
    }
 
-    // Get the corrected dataset name.
-    outDatasetName = correct_name(outDatasetName);
-    if ( outDatasetName == NULL )
-    {
-        FATAL_MSG("Failed to get corrected name.\n");
-        goto cleanupFail;
-    }
 
     /*
      * open dataset and do error checking
@@ -5591,9 +5606,24 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     }
 
     /* If the start and end indices are equal, this file is probably out of bounds of the orbit. */
-    if ( startIdx == endIdx )
+    // When the difference of startIdx and endIdx is 1, it may be still out of bound.
+    // orbit 3295, the whole orbit time is between the index 3174 and 3175. In fact, 
+    // there may be a few missing data orbits(3295 to 3297).We need to consider this. KY 2017-10-31
+    if ( startIdx == endIdx ){
+        if((timeData[startIdx]<startTAI93)||(timeData[startIdx]>endTAI93))// Out of bound
+            retStatus = 1;
+
+    }
+    else if ((endIdx-startIdx)==1){
+        if((timeData[startIdx]<startTAI93)||(timeData[endIdx]>endTAI93))// Out of bound
+            retStatus = 1;
+    }
+    else if ((endIdx-startIdx)==-1)
+     // We can make the binary search better to avoid this case.  
+     // However, I think the end results are the same. Just keep it. KY 2017-10-31
     {
-        retStatus = 1;
+        if((timeData[endIdx]<startTAI93)||(timeData[startIdx]>endTAI93))// Out of bound
+            retStatus = 1;
     }
 
     *start_indx_ptr = startIdx;

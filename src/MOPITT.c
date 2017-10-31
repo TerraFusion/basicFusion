@@ -115,6 +115,7 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
     if ( status == 1 )
     {
         /* This granule is out of bounds */
+        retVal = RET_SUCCESS_NO_PROCESS;
         goto cleanup;
     }
     else if ( status == 2 )

@@ -19,6 +19,11 @@ do { \
     } while(0)
 
 #define RET_SUCCESS 0
+/* This is for the inputgranule attribute. 
+ * when the data are not processed,
+ * we should not put this granule into the attribute.
+ * May apply to MOPITT. KY 2017-10-31 */
+#define RET_SUCCESS_NO_PROCESS 2
 #define FATAL_ERR -1
 #define FAIL_OPEN 1
 

@@ -270,6 +270,15 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
+            status = MOPITT( inputLine, current_orbit_info );
+            if(status == FATAL_ERR )
+            {
+                FATAL_MSG("MOPITT failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
+                goto cleanupFail;
+            }
+
+
+           if(status != RET_SUCCESS_NO_PROCESS) {
             /* strrchr finds last occurance of character in a string */
             granTempPtr = strrchr( inputLine, '/' );
             if ( granTempPtr == NULL )
@@ -283,12 +292,15 @@ int main( int argc, char* argv[] )
                 FATAL_MSG("Failed to update the granule list.\n");
                 goto cleanupFail;
             }
+          }
 
+#if 0
             if ( MOPITT( inputLine, current_orbit_info ) == FATAL_ERR )
             {
                 FATAL_MSG("MOPITT failed data transfer on file:\n\t%s\nExiting program.\n", inputLine);
                 goto cleanupFail;
             }
+#endif
 
 
             status = getNextLine( inputLine, inputFile);
