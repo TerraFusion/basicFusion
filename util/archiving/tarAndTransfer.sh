@@ -90,7 +90,7 @@ PY_ENV="$BF_PATH/externLib/BFpyEnv"
 TAR_JOB_NPJ=5                   # Tar job nodes per job. This specifies the default value.
                                 # Will be overwritten if --nodes is provided.
 TAR_JOB_CPN=20                  # Tar job processors per node
-TAR_JOB_WALLTIME="24:00:00"     # Walltime of tar jobs
+TAR_JOB_WALLTIME="30:00:00"     # Walltime of tar jobs
 TAR_JOB_NAME="TerraTar"         # Name of the PBS job
 GLOBUS_WALLTIME="48:00:00"      # The Globus transfer walltime
 GLOBUS_NAME="TerraGlobus"       # The Globus transfer job name
@@ -360,9 +360,6 @@ for i in $(seq 0 $job ); do
     # Find the number of MPI processes
     MPI_numProc=$(( ${TAR_JOB_NPJ} * ${TAR_JOB_CPN} ))
 
-    # Each job gets its own directory within tempDir that is just the year of the job
-    curStageArea="$tempDir/${jobYear[$i]}"
-
     # Make the tar job PBS script
     pbsFile="\
 #!/bin/bash
@@ -376,10 +373,11 @@ source \"$PY_ENV/bin/activate\"
 # The following line removes any files that are no longer needed
 rm -rf \"$curStageArea\"
 mkdir \"$curStageArea\"
-
+mkdir -p \"$tempDir\"/hash
+mkdir -p \"$tempDir\"/hash/\"${jobYear[$i]}\"
 module load mpich
 # Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
-{ time mpirun -np $MPI_numProc python \"$BF_PATH/util/archiving/tarInput.py\" --O_START ${jobStart[$i]} --O_END ${jobEnd[$i]} $SQL_DB \"$curStageArea\" ; } &> \"$runDir/logs/tar/stdout_err${jobYear[$i]}.txt\"
+{ time mpirun -np $MPI_numProc python \"$BF_PATH/util/archiving/tarInput.py\" --O_START ${jobStart[$i]} --O_END ${jobEnd[$i]} $SQL_DB \"$curStageArea\" \"$tempDir\"/hash/\"${jobYear[$i]}\" ; } &> \"$runDir/logs/tar/stdout_err${jobYear[$i]}.txt\"
 exit \$?
 "
     echo "$pbsFile" > tarJobs/job${jobYear[$i]}.pbs

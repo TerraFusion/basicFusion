@@ -4,10 +4,11 @@
 """
 
 from __future__ import print_function
-import os, sys
+import os, sys, errno
 import argparse
 import tarfile
 import subprocess
+import hashlib
 from mpi4py import MPI
 
 def eprint( *args, **kwargs):
@@ -83,7 +84,7 @@ def queryFiles( orbitNum, SQLqueries, SQL_DB, queryLoc, instr ):
     
     exit_codes = [ p.wait() for p in procList ]
    
-def createTar( orbitNum, orbitFileList, outputDir ):
+def createTar( orbitNum, orbitFileList, outputDir, hashDir ):
     """         createTar
     DESCRIPTION:
         This function takes as input a specific Terra orbit number, a list of input Terra HDF files for that orbit,
@@ -122,8 +123,9 @@ def createTar( orbitNum, orbitFileList, outputDir ):
         None
     """
 
+    tarName="{}archive.tar".format(orbitNum)
     # Create a tar file
-    tar = tarfile.open("{}/{}archive.tar".format(outputDir, orbitNum), "w" )
+    tar = tarfile.open("{}/{}".format(outputDir, tarName), "w" )
         
     extraMISR=0
     MISR_PATH_FILES="MISR_PATH_FILES_{}.txt".format(orbitNum)
@@ -150,6 +152,17 @@ def createTar( orbitNum, orbitFileList, outputDir ):
     if extraMISR == 1: 
         # Delete the MISR_PATH_FILES file
         os.remove("/dev/shm/{}".format(MISR_PATH_FILES ))
+
+    # Create the md5 hash
+    hasher = hashlib.md5()
+    with open("{}/{}".format(outputDir, tarName), 'rb') as tarFile:
+        buf = tarFile.read()
+        hasher.update(buf)
+
+
+
+    with open( os.path.join(hashDir, "{}hash.md5".format(orbitNum)), 'w' ) as md5F:
+        md5F.write(hasher.hexdigest())
 
 def findJobPartition( numProcess, orbits ):
     """         findJobPartition()
@@ -216,6 +229,7 @@ def main():
                         NOT IMPLEMENTED.")
     parser.add_argument("SQLite", help="The SQLite database containing input HDF Terra files.")
     parser.add_argument("OUT_DIR", help="Where the output tar files will reside.")
+    parser.add_argument("HASH_DIR", help="Where the MD5 hashes will be stored.")
     parser.add_argument("--O_START", dest='oStart', \
                         help="The starting orbit to process. Only include this if the -o flag is not given.", \
                         type=int )
@@ -225,7 +239,6 @@ def main():
     parser.add_argument("--query-loc", dest='queryLoc', help="Where the SQLite query results will be temporarily stored.\
                         This will default to /dev/shm if no value is provided.",\
                         type=str, default="/dev/shm/" )
-
     args = parser.parse_args()
 
     # Make paths absolute
@@ -327,7 +340,7 @@ def main():
             queryFiles( orbits[i], SQLqueries, SQLite, queryLoc, instr )
 
         # We are ready to create the tar file for orbit orbits[i]
-        createTar( orbits[i], "{}/{}.txt".format(queryLoc, orbits[i]), args.OUT_DIR )
+        createTar( orbits[i], "{}/{}.txt".format(queryLoc, orbits[i]), args.OUT_DIR , args.HASH_DIR)
 
         # Delete the temporary file created by queryFiles
         
