@@ -361,9 +361,6 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
     int rank;
     short fail = 0;
 
-printf("outDatasetName is %s\n",outDatasetName);
-printf("bound[0] is %u\n",bound[0]);
-printf("bound[1] is %u\n",bound[1]);
     /* Make sure that bound[1] is >= bound[0] */
     /* only apply when bound is not NULL, KY 2017-10-24 */
 #if 0

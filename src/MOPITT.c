@@ -139,6 +139,27 @@ int MOPITT( char* inputFile, OInfo_t cur_orbit_info )
             MOPITTroot = 0;
             goto cleanupFail;
         }
+        char *comment_name ="comment";
+        char *comment_value = "According to the original MOPITT granule attribute, " 
+                              "-8888.0 is used to represent the invalid data. "
+                              "-9999.0 is used as the FillValue.";
+    
+        char *time_comment_name="comment_for_GranuleTime";
+        char *time_comment_value = "The value of GranuleTime attribute is the "
+                                   "calendar date of data acquisition with the "
+                                   "YYYYMMDD format. Y: year. M: month. D: day."
+                                   " For example, 20070703 represents July 3rd, 2007.";
+    
+        if(H5LTset_attribute_string(outputFile,"MOPITT",comment_name,comment_value) <0){
+                FATAL_MSG("Failed to add the MOPITT comment attribute.\n");
+                goto cleanupFail;
+        }
+    
+        if(H5LTset_attribute_string(outputFile,"MOPITT",time_comment_name,time_comment_value) <0){
+                FATAL_MSG("Failed to add the MOPITT time comment attribute.\n");
+                goto cleanupFail;
+        }
+ 
     }
     else if ( exists < 0 )
     {

@@ -121,10 +121,21 @@ int CERES( char* argv[],int index,int ceres_fm_count,int32*c_start,int32*c_strid
             rootCERES_g = 0;
             goto cleanupFail;
         }
+        char *time_comment_name="comment_for_GranuleTime";
+        char *time_comment_value = "Under each CERES granule group, "
+                        "the value of the GranuleTime attribute is time "
+                        "of data acquisition in UTC with the YYYYMMDDhh format."
+                        " Y: year. M: month. D: day. h: hour. For example, "
+                        "2007070316 represents July 3rd, 2007 at the 16th hour UTC.";
+        if(H5LTset_attribute_string(outputFile,"CERES",time_comment_name,time_comment_value) <0){
+            FATAL_MSG("Failed to add the CERES time comment attribute.\n");
+            goto cleanupFail;
+        }
+ 
     }
     else
     {
-        rootCERES_g = H5Gopen2( outputFile, "CERES", H5P_DEFAULT );
+        rootCERES_g =  H5Gopen2( outputFile, "CERES", H5P_DEFAULT );
         if ( rootCERES_g < 0 )
         {
             FATAL_MSG("Unable to open CERES root group.\n");

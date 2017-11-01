@@ -13,6 +13,7 @@
 
 
 int getNextLine ( char* string, FILE* const inputFile );
+int Add_CF_Provenance_Attrs();
 hid_t outputFile;
 
 int main( int argc, char* argv[] )
@@ -62,8 +63,6 @@ int main( int argc, char* argv[] )
 
     char granule[] ="granule";
     char modis_granule_suffix[3] = {'\0'};
-    char aster_granule_suffix[3] = {'\0'};
-    char ceres_granule_suffix[3] = {'\0'};
     char* CER_curTime = NULL;
     char* CER_prevTime = NULL;
 
@@ -238,7 +237,6 @@ int main( int argc, char* argv[] )
         outputFile = 0;
         goto cleanupFail;
     }
-
 
     /**********
      * MOPITT *
@@ -948,6 +946,14 @@ int main( int argc, char* argv[] )
     else
         printf("No MISR files found.\n");
 
+    // Add some CF Provenance attributes
+    errStatus = Add_CF_Provenance_Attrs();
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to add CF provenance attributes in root group.\n");
+        goto cleanupFail;
+    }
+    
     /* Attach the granuleList as an attribute to the root HDF5 object */
     // Sometimes there are no any granules for this orbit. Now I just record as a string "None".
     if(granuleList == NULL) {
@@ -1045,6 +1051,113 @@ int getNextLine ( char* string, FILE* const inputFile )
     return RET_SUCCESS;
 }
 
+int Add_CF_Provenance_Attrs() {
+
+    int errStatus = RET_SUCCESS;
+    char *tf_acknowledge = "This data set was created with funding from NASA ACCESS Grant #NNX16AM07A.";
+    char *tf_version = "First version of this product";
+    char *tf_contri_name ="Muqun Yang, Landon Clipp, Yizhao Gao, Guangyu Zhao, Larry Di Girolamo"; 
+    char *tf_contri_email ="myang6@hdfgroup.org, gzhao1@illinois.edu";
+    char *tf_inst ="The HDF Group, University of Illinois";
+    char *tf_kw = "Earth Science, TERRA, MISR, MODIS, ASTER,CERES,MOPITT, Radiance";
+    char *tf_lic = "No constraints on data access or use";
+    char *tf_plat= "TERRA";
+    char *tf_Pro_Level = "Level 1";
+    char *tf_Pro_Version = "V001";
+    char *tf_project  = "NASA ACCESS to Terra Fusion Product";
+    char *tf_sensors ="MODIS,MISR,ASTER,CERES,MOPITT";
+    char *tf_summary ="A Terra level-1 radiance basic fusion product that combines calibrated radiance measurements from MISR, MODIS, ASTER, CERES and MOPITT";
+    char *tf_title = "TERRA L1B Radiance Basic Fusion Product"; 
+    errStatus = H5LTset_attribute_string( outputFile, "/", "acknowledgement", tf_acknowledge);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the acknowledgement attribute in root group.\n");
+        return FATAL_ERR;
+    }
+
+    errStatus = H5LTset_attribute_string( outputFile, "/", "version", tf_version);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the version attribute in root group.\n");
+        return FATAL_ERR;
+    }
+    errStatus = H5LTset_attribute_string( outputFile, "/", "contributor_name", tf_contri_name);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the contributor_name attribute in root group.\n");
+        return FATAL_ERR;
+    }
+    errStatus = H5LTset_attribute_string( outputFile, "/", "contributor_email", tf_contri_email);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the contributor_email attribute in root group.\n");
+        return FATAL_ERR;
+    }
+    errStatus = H5LTset_attribute_string( outputFile, "/", "institution", tf_inst);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the institution attribute in root group.\n");
+        return FATAL_ERR;
+    }
+    errStatus = H5LTset_attribute_string( outputFile, "/", "keywords", tf_kw);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the keywords attribute in root group.\n");
+        return FATAL_ERR;
+    }
+    errStatus = H5LTset_attribute_string( outputFile, "/", "license", tf_lic);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the license attribute in root group.\n");
+        return FATAL_ERR;
+    }
+
+    errStatus = H5LTset_attribute_string( outputFile, "/", "platform", tf_plat);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the platform attribute in root group.\n");
+        return FATAL_ERR;
+    }
+    errStatus = H5LTset_attribute_string( outputFile, "/", "processing_level", tf_Pro_Level);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the processing_level attribute in root group.\n");
+        return FATAL_ERR;
+    }
+    errStatus = H5LTset_attribute_string( outputFile, "/", "product_version", tf_Pro_Version);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the product_version attribute in root group.\n");
+        return FATAL_ERR;
+    }
+
+    errStatus = H5LTset_attribute_string( outputFile, "/", "project", tf_project);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the project attribute in root group.\n");
+        return FATAL_ERR;
+    }
+    errStatus = H5LTset_attribute_string( outputFile, "/", "sensors", tf_sensors);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the sensors attribute in root group.\n");
+        return FATAL_ERR;
+    }
+    errStatus = H5LTset_attribute_string( outputFile, "/", "summary", tf_summary);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the summary attribute in root group.\n");
+        return FATAL_ERR;
+    }
+    errStatus = H5LTset_attribute_string( outputFile, "/", "title", tf_title);
+    if ( errStatus < 0 )
+    {
+        FATAL_MSG("Failed to set the title attribute in root group.\n");
+        return FATAL_ERR;
+    }
+
+    return RET_SUCCESS;
+}
 
 #if 0
 int validateInFiles( char* inFileList, OInfo_t orbitInfo )

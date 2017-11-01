@@ -244,7 +244,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
     /* ASTER root group */
 
-    /* MY 2016-12-20: Create the root group for the first granule */
+    /* MY 2016-12-20: Create the root group when converting the first granule */
     if(aster_count == 1)
     {
         createGroup( &outputFile, &ASTERrootGroupID, "ASTER" );
@@ -255,6 +255,30 @@ int ASTER( char* argv[],int aster_count,int unpack)
             goto cleanupFail;
         }
 
+
+        char *comment_name ="comment";
+        char *comment_value = "The radiance values for pixels not containing valid data, "
+                              "as indicated in Section 2.4 of ASTER Level 1T Product User's Guide(Version 1.0),"
+                              " are set to -999.0, which is also used as a filled value. For saturated pixels,"
+                              " their radiance values are set to -998.0.";
+
+        char *time_comment_name="comment_for_GranuleTime";
+        char *time_comment_value = "Under each ASTER granule group, the GranuleTime attribute represents "
+                                    "the time of data acquisition in UTC with the DDMMYYYYhhmmss format. "
+                                    "D: day. M: month. Y: year. h: hour. m: minute s:second. "
+                                    "For example, 01112010002054 represents November 1st, 2010, "
+                                    "at the 0 hour, the 20th minute, the 54th second UTC.";
+
+        if(H5LTset_attribute_string(outputFile,"ASTER",comment_name,comment_value) <0){
+            FATAL_MSG("Failed to add the ASTER comment attribute.\n");
+            goto cleanupFail;
+        }
+
+        if(H5LTset_attribute_string(outputFile,"ASTER",time_comment_name,time_comment_value) <0){
+            FATAL_MSG("Failed to add the ASTER time comment attribute.\n");
+            goto cleanupFail;
+        }
+ 
     }
 
     else
@@ -1261,7 +1285,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
         }
 
         fltTemp = 569.0;
-        status = H5LTset_attribute_float(VNIRgroupID, radianceNames[i+4],"valid_max",&fltTemp, 1 );
+        status = H5LTset_attribute_float(SWIRgroupID, radianceNames[i+4],"valid_max",&fltTemp, 1 );
         if ( status < 0 )
         {
             FATAL_MSG("Failed to add SWIR radiance valid_max attribute.\n");

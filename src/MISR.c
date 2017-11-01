@@ -245,6 +245,42 @@ int MISR( char* fileList[],int unpack )
         return FATAL_ERR;
     }
 
+    { // Comments for MISR descriptions.
+        char *comment_name ="comment_for_fillvalue";
+        char *comment_value = "The radiance value for a pixel is set to -999.0, if the value of its RDQI is 2 or 3"
+                              " or if its original dn value is either 16378 or 16380. ";
+
+        char *la_comment_name ="comment_for_low_accuracy_index";
+        char *la_comment_value = "When RDQI for a pixel is 1, its radiance value will be flagged as the 'low accuracy'. The "
+                              "positions of these low accuracy radiance measurements are indexed and reported in a two dimensional "
+                              "array for each radiance band.  The first dimension of the array represents the number of reduced "
+                              "accuracy pixels, while the second dimension gives their indexed coordinates in the order of block,"
+                              " block-relative line and block-relative sample. For example, if the second dimension for a low accuracy pixel"
+                              " in the array contains the values of (57,9,316), the location of the pixel is block 57, line 9 and sample 316." ;
+
+
+        char *time_comment_name="comment_for_GranuleTime";
+        char *time_comment_value = "The attribute GranuleTime is represented by orbit numbers. For example, the value of 040110 "
+                                   "indicates the data was acquired for orbit 40110.";
+                          
+
+        if(H5LTset_attribute_string(outputFile,"MISR",comment_name,comment_value) <0){
+            FATAL_MSG("Failed to add the MISR comment attribute.\n");
+            goto cleanupFail;
+        }
+
+        if(H5LTset_attribute_string(outputFile,"MISR",la_comment_name,la_comment_value) <0){
+            FATAL_MSG("Failed to add the MISR comment attribute.\n");
+            goto cleanupFail;
+        }
+
+
+        if(H5LTset_attribute_string(outputFile,"MISR",time_comment_name,time_comment_value) <0){
+            FATAL_MSG("Failed to add the MISR time comment attribute.\n");
+            goto cleanupFail;
+        }
+ 
+    }
     if(H5LTset_attribute_string(outputFile,"MISR","GranuleName",granList)<0)
     {
         FATAL_MSG("Cannot add granule list.\n");

@@ -237,7 +237,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
         }
         char *comment_name ="comment";
         char *comment_value = "The reserved dn values for uncalibrated data ranging between 65501 and "
-                        "65535, as listed in Table 5.6.1 of MODIS Level 1B Product User.s Guide(MOD_PR02 V6.1.12(TERRA)), "
+                        "65535, as listed in Table 5.6.1 of MODIS Level 1B Product User's Guide(MOD_PR02 V6.1.12(TERRA)), "
                         "are proportionally mapped to the floating point numbers between -964.0 and -999.0, when being"
                         " converted to radiance.";
 
