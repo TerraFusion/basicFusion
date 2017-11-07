@@ -90,7 +90,7 @@ PY_ENV="$BF_PATH/externLib/BFpyEnv"
 TAR_JOB_NPJ=5                   # Tar job nodes per job. This specifies the default value.
                                 # Will be overwritten if --nodes is provided.
 TAR_JOB_CPN=20                  # Tar job processors per node
-TAR_JOB_WALLTIME="30:00:00"     # Walltime of tar jobs
+TAR_JOB_WALLTIME="48:00:00"     # Walltime of tar jobs
 TAR_JOB_NAME="TerraTar"         # Name of the PBS job
 GLOBUS_WALLTIME="48:00:00"      # The Globus transfer walltime
 GLOBUS_NAME="TerraGlobus"       # The Globus transfer job name
