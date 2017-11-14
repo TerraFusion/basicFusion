@@ -6057,3 +6057,330 @@ herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
     return RET_SUCCESS;
 }
 
+// Quick check for MODIS change dimension(code copied from copyDimension.)
+herr_t copyDimension_MODIS_Special( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID )
+{
+    hsize_t tempInt = 0;
+    char* correct_dsetname = NULL;
+    char* dimName = NULL;
+    herr_t errStatus = 0;
+    int32 ntype = 0;
+    int32 h4dsetID = 0;
+    intn statusn = 0;
+    int rank = 0;
+    int status = 0;
+    hid_t h5dimID = 0;
+    void *dimBuffer = NULL;
+    short fail = 0;
+    hid_t memspace = 0;
+    htri_t dsetExists = 0;
+    short wasHardCodeCopy = 0;
+    char* catString = NULL;
+    char* temp = NULL;
+    char tempStack[STR_LEN] = {'\0'};
+
+    /* Get dataset index */
+    int32 sds_index = SDnametoindex(h4fileID, h4datasetName );
+    if ( sds_index == FAIL )
+    {
+        FATAL_MSG("Failed to get SD index.\n");
+        goto cleanupFail;
+    }
+    /* select the dataset */
+    h4dsetID = SDselect(h4fileID, sds_index);
+    if ( h4dsetID == FAIL )
+    {
+        h4dsetID = 0;
+        FATAL_MSG("Failed to select the HDF4 dataset.\n");
+        goto cleanupFail;
+    }
+
+    /* get the rank of the dataset so we know how many dimensions to copy */
+    statusn = SDgetinfo(h4dsetID, NULL, &rank, NULL, NULL, NULL );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to get SD info.\n");
+        goto cleanupFail;
+    }
+
+
+    int32 dim_index;
+
+    // COPY OVER DIMENSION SCALES TO HDF5 OBJECT
+    dimName = calloc(500, 1);
+    int32 size = 0;
+    int32 num_attrs = 0;
+    hid_t h5type = 0;
+    int32 h4dimID = 0;
+
+    for ( dim_index = 0; dim_index < rank; dim_index++ )
+    {
+        // Get the dimension ID
+        h4dimID = SDgetdimid ( h4dsetID, dim_index );
+        if ( h4dimID == FAIL )
+        {
+            FATAL_MSG("Failed to get dimension ID.\n");
+            h4dimID = 0;
+            goto cleanupFail;
+        }
+
+
+        /* get various useful info about this dimension */
+        statusn = SDdiminfo( h4dimID, dimName, &size, &ntype, &num_attrs );
+        //int32 dimRank = 0;
+        //int32 dimSizes = 0;
+        //statusn = SDgetinfo( h4dimID, dimName, &dimRank, &dimSizes, &ntype, &num_attrs);
+        if ( statusn == FAIL )
+        {
+            FATAL_MSG("Failed to get dimension info.\n");
+            goto cleanupFail;
+        }
+
+
+        /* If dimSuffix is provided, we need to append this string to the dimName variable.*/
+       
+        correct_dsetname = correct_name(dimName);
+
+        if ( dimSuffix ) 
+        {
+            // store allocated memory in temp pointer
+            strcpy(tempStack, dimName);
+            temp = calloc ( sizeof(tempStack) + sizeof(dimSuffix) + 1, 1 );
+            // copy dimName to the temp pointer memory
+            strcpy(temp, tempStack);
+            // concatenate dimName with dimSuffix
+            strcat(temp,dimSuffix);
+            // Fix the name to comply with netCDF standards
+            catString = correct_name(temp);
+            // free the temp memory (catString is separately allocated memory, malloc'ed in the correct_name function
+            free(temp); temp = NULL;
+        }
+        else
+        {
+           if(size == 2040 || size == 4080 || size == 8160) {
+             char*special_suffix = "_2";
+            // store allocated memory in temp pointer
+            strcpy(tempStack, dimName);
+            temp = calloc ( sizeof(tempStack) + sizeof(special_suffix) + 1, 1 );
+            // copy dimName to the temp pointer memory
+            strcpy(temp, tempStack);
+            // concatenate dimName with dimSuffix
+            strcat(temp,special_suffix);
+            // Fix the name to comply with netCDF standards
+            catString = correct_name(temp);
+            // free the temp memory (catString is separately allocated memory, malloc'ed in the correct_name function
+            free(temp); temp = NULL;
+ 
+           }
+           else 
+             catString = correct_name(dimName);
+        }
+        /* Since dimension scales are shared, it is possible this dimension already exists in HDF5 file (previous
+           call to this function created it). Check to see if it does. If so, use the dimension that eixsts.
+        */
+        
+        free(correct_dsetname); correct_dsetname = NULL;
+
+        dsetExists = H5Lexists(h5dimGroupID, catString, H5P_DEFAULT);
+        // if dsetExists is <= 0, then dimension does not yet exist.
+        if ( dsetExists <= 0 )
+        {
+            /* If the dimension is one of the following, we will do an explicit dimension scale copy (hard code
+             * the scale values)
+             */
+            if ( strstr( catString, "Band_250M" ) != NULL )
+            {
+                tempInt = 2;
+                float floatBuffer[2] = {1.0f, 2.0f};
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
+                if ( h5dimID == FATAL_ERR )
+                {
+                    h5dimID = 0;
+                    FATAL_MSG("Failed to insert dataset.\n");
+                    goto cleanupFail;
+                }
+                /* The dimensions in this if else chain are pure dimensions in HDF4, but we want to convert them to a real
+                 * dimension in the HDF5 file. Set this flag to 1 to indicate that the final result IS a real dimension.
+                 * Flag will be used to prevent setting the NAME attribute downstream
+                 */
+                wasHardCodeCopy = 1;
+            }
+            else if ( strstr( catString, "Band_500M" ) != NULL )
+            {
+                tempInt = 5;
+                float floatBuffer[5] = {3.0f, 4.0f, 5.0f, 6.0f, 7.0f};
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
+                if ( h5dimID == FATAL_ERR )
+                {
+                    h5dimID = 0;
+                    FATAL_MSG("Failed to insert dataset.\n");
+                    goto cleanupFail;
+                }
+                wasHardCodeCopy = 1;
+            }
+            else if ( strstr( catString, "Band_1KM_RefSB" ) != NULL )
+            {
+                float floatBuffer[15] = { 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 13.5f, 14.0f, 14.5f, 15.0f, 16.0f, 17.0f, 18.0f, 19.0f, 26.0f };
+                tempInt = 15;
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
+                if ( h5dimID == FATAL_ERR )
+                {
+                    h5dimID = 0;
+                    FATAL_MSG("Failed to insert dataset.\n");
+                    goto cleanupFail;
+                }
+                wasHardCodeCopy = 1;
+            }
+            else if ( strstr( catString, "Band_1KM_Emissive" ) != NULL )
+            {
+                float floatBuffer[16] = { 20.0f, 21.0f, 22.0f, 23.0f, 24.0f, 25.0f, 27.0f, 28.0f, 29.0f, 30.0f, 31.0f, 32.0f, 33.0f, 34.0f, 35.0f, 36.0f };
+                tempInt = 16;
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
+                if ( h5dimID == FATAL_ERR )
+                {
+                    h5dimID = 0;
+                    FATAL_MSG("Failed to insert dataset.\n");
+                    goto cleanupFail;
+                }
+                wasHardCodeCopy = 1;
+            }
+
+            /* Else, the dimension is none of those listed. Do a normal copy by reading scale values from
+               the input file (a non-hard coded copy)
+             */
+            else
+            {
+                wasHardCodeCopy = 0;
+                /* SDdiminfo will return 0 for ntype if the dimension has no scale information. This is the case when
+                   it is a pure dimension.  We need two separate cases for when it is and is not a pure dim
+                */
+
+                if ( ntype != 0 )
+                {
+                    /* get the correct HDF5 datatype from ntype */
+                    status = h4type_to_h5type( ntype, &h5type );
+                    if ( status != 0 )
+                    {
+                        FATAL_MSG("Failed to convert HDF4 to HDF5 datatype.\n");
+                        goto cleanupFail;
+                    }
+
+                    /* read the dimension scale into a buffer */
+                    dimBuffer = malloc(size);
+                    //int32 start[1] = {0};
+                    //int32 stride[1] = {1};
+                    //statusn = SDreaddata( h4dimID, start, stride, &dimSizes, dimBuffer );
+                    statusn = SDgetdimscale(h4dimID, dimBuffer);
+                    if ( statusn != 0 )
+                    {
+                        FATAL_MSG("Failed to get dimension scale.\n");
+                        goto cleanupFail;
+                    }
+
+                    /* make a new dataset for our dimension scale */
+
+                    tempInt = size;
+                    h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, h5type, catString, dimBuffer);
+                    if ( h5dimID == FATAL_ERR )
+                    {
+                        h5dimID = 0;
+                        FATAL_MSG("Failed to insert dataset.\n");
+                        goto cleanupFail;
+                    }
+
+                    free(dimBuffer);
+                    dimBuffer = NULL;
+                }
+
+                else
+                {
+                    hsize_t tempSize2 = 0;
+
+                    tempSize2 = (hsize_t) size;
+                    memspace = H5Screate_simple( 1, &tempSize2, NULL );
+
+                    h5dimID = H5Dcreate( h5dimGroupID, catString, H5T_NATIVE_INT, memspace,
+                                         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+                    if ( h5dimID < 0 )
+                    {
+                        FATAL_MSG("Failed to create dataset.\n");
+                        h5dimID = 0;
+                        goto cleanupFail;
+                    }
+
+                    H5Sclose(memspace);
+                    memspace = 0;
+
+                } // end else
+            } // end else
+
+            errStatus = H5DSset_scale(h5dimID, catString);
+            if ( errStatus != 0 )
+            {
+                FATAL_MSG("Failed to set dataset as a dimension scale.\n");
+                goto cleanupFail;
+            }
+
+
+            /* Correct the NAME attribute of the pure dimension to conform with netCDF
+               standards.
+            */
+            if ( ntype == 0 && !wasHardCodeCopy )
+            {
+                statusn = change_dim_attr_NAME_value(h5dimID);
+                if ( statusn == FAIL )
+                {
+                    FATAL_MSG("Failed to change the NAME attribute of a dimension.\n");
+                    goto cleanupFail;
+                }
+            }
+        } // end if ( dsetExists <= 0 )
+
+        else
+        {
+            h5dimID = H5Dopen2(h5dimGroupID, catString, H5P_DEFAULT);
+            if ( h5dimID < 0 )
+            {
+                h5dimID = 0;
+                FATAL_MSG("Failed to open dataset.\n");
+                goto cleanupFail;
+            }
+        }
+
+
+        errStatus = H5DSattach_scale(h5dsetID, h5dimID, dim_index);
+        if ( errStatus != 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+
+        free(correct_dsetname);
+        correct_dsetname = NULL;
+        H5Dclose(h5dimID);
+        h5dimID = 0;
+        free(catString); catString = NULL;
+    }   // end for loop
+
+    fail = 0;
+    if ( 0 )
+    {
+cleanupFail:
+        fail = 1;
+    }
+
+    if ( dimName ) free ( dimName );
+    if ( h5dimID ) H5Dclose(h5dimID);
+    if ( dimBuffer ) free(dimBuffer);
+    if ( correct_dsetname ) free(correct_dsetname);
+    if ( memspace ) H5Sclose(memspace);
+    if ( catString ) free(catString);
+    if ( temp ) free(temp);
+
+    if ( fail ) return FAIL;
+
+    return SUCCEED;
+
+}
+
+

@@ -11,8 +11,9 @@
 
 /* MY 2016-12-20, handling the MODIS files with and without MOD02HKM and MOD02QKM. */
 
-int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID,hid_t outputFile);
+int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID,hid_t outputFile,int modis_special_dims);
 
+int check_MODIS_special_dimension(int32 SD_FileID);
 /*      MODIS()
 
  DESCRIPTION:
@@ -217,7 +218,19 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
     if ( openFailed ) goto cleanupFO;
 
-
+    // Some MODIS has dimension size 2040 rather than 2030, we need to use a different dimension name.
+    short has_MODIS_special_dimension = check_MODIS_special_dimension(_1KMFileID);
+    if(check_MODIS_special_dimension(_1KMFileID) <0) {
+            FATAL_MSG("Failed to create MODIS root group.\n");
+            goto cleanupFail;
+    }
+#if 0
+if(has_MODIS_special_dimension == 1)
+printf("The MODIS %s has 2040 \n",argv[1]);
+else if(has_MODIS_special_dimension == 0) 
+printf("The MODIS %s has 2030 \n",argv[1]);
+#endif
+    
     /********************************************************************************
      *                                GROUP CREATION                                *
      ********************************************************************************/
@@ -493,7 +506,10 @@ int MODIS( char* argv[],int modis_count, int unpack)
     }
 
     // copy dimensions over
-    errStatus = copyDimension( NULL, MOD03FileID, "Latitude", outputFile, latitudeDatasetID);
+    if(has_MODIS_special_dimension ==1) 
+        errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "Latitude", outputFile, latitudeDatasetID);
+    else 
+        errStatus = copyDimension( NULL, MOD03FileID, "Latitude", outputFile, latitudeDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -544,7 +560,11 @@ int MODIS( char* argv[],int modis_count, int unpack)
     }
 
     // Copy dimensions over
-    errStatus = copyDimension( NULL, MOD03FileID, "Longitude", outputFile, longitudeDatasetID);
+    
+    if(has_MODIS_special_dimension ==1) 
+       errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "Longitude", outputFile, longitudeDatasetID);
+    else 
+       errStatus = copyDimension( NULL, MOD03FileID, "Longitude", outputFile, longitudeDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -750,7 +770,10 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
 
         // Copy the dimensions over
-        errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
+        if(has_MODIS_special_dimension ==1) 
+            errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
+        else
+            errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
@@ -782,6 +805,9 @@ int MODIS( char* argv[],int modis_count, int unpack)
             goto cleanupFail;
         }
         
+      if(has_MODIS_special_dimension ==1) 
+        errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_1KM_RefSB_Uncert_Indexes", outputFile, _1KMUncertID);
+      else
         errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB_Uncert_Indexes", outputFile, _1KMUncertID);
         if ( errStatus == FAIL )
         {
@@ -914,13 +940,20 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
 
     // Copy the dimensions over
-    errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_Emissive", outputFile, _1KMEmissive );
+    if(has_MODIS_special_dimension ==1) 
+      errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_1KM_Emissive", outputFile, _1KMEmissive );
+    else 
+      errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_Emissive", outputFile, _1KMEmissive );
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
         goto cleanupFail;
     }
-    errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_Emissive_Uncert_Indexes", outputFile, _1KMEmissiveUncert);
+  
+    if(has_MODIS_special_dimension ==1) 
+      errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_1KM_Emissive_Uncert_Indexes", outputFile, _1KMEmissiveUncert);
+    else 
+       errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_Emissive_Uncert_Indexes", outputFile, _1KMEmissiveUncert);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -1100,12 +1133,19 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
 
         // Copy the dimensions over
+    if(has_MODIS_special_dimension ==1) 
+        errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_250_Aggr1km_RefSB", outputFile, _250Aggr1km );
+    else
         errStatus = copyDimension( NULL, _1KMFileID, "EV_250_Aggr1km_RefSB", outputFile, _250Aggr1km );
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
+        // Copy the dimensions over
+    if(has_MODIS_special_dimension ==1) 
+        errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", outputFile, _250Aggr1kmUncert);
+    else
         errStatus = copyDimension( NULL, _1KMFileID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", outputFile, _250Aggr1kmUncert);
         if ( errStatus == FAIL )
         {
@@ -1280,12 +1320,18 @@ int MODIS( char* argv[],int modis_count, int unpack)
         }
 
         // Copy the dimensions over
+    if(has_MODIS_special_dimension ==1) 
+        errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_500_Aggr1km_RefSB", outputFile, _500Aggr1km );
+    else
         errStatus = copyDimension( NULL, _1KMFileID, "EV_500_Aggr1km_RefSB", outputFile, _500Aggr1km );
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
+    if(has_MODIS_special_dimension ==1) 
+        errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_500_Aggr1km_RefSB_Uncert_Indexes", outputFile, _500Aggr1kmUncert);
+    else
         errStatus = copyDimension( NULL, _1KMFileID, "EV_500_Aggr1km_RefSB_Uncert_Indexes", outputFile, _500Aggr1kmUncert);
         if ( errStatus == FAIL )
         {
@@ -1312,7 +1358,10 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    errStatus = copyDimension( NULL, MOD03FileID, "SensorZenith", outputFile, SensorZenithDatasetID);
+    if(has_MODIS_special_dimension == 1)
+      errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "SensorZenith", outputFile, SensorZenithDatasetID);
+    else 
+      errStatus = copyDimension( NULL, MOD03FileID, "SensorZenith", outputFile, SensorZenithDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -1338,7 +1387,11 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    errStatus = copyDimension( NULL, MOD03FileID, "SensorAzimuth", outputFile, SensorAzimuthDatasetID);
+   
+    if(has_MODIS_special_dimension ==1) 
+      errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "SensorAzimuth", outputFile, SensorAzimuthDatasetID);
+    else 
+      errStatus = copyDimension( NULL, MOD03FileID, "SensorAzimuth", outputFile, SensorAzimuthDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -1363,7 +1416,10 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    errStatus = copyDimension( NULL, MOD03FileID, "SolarZenith", outputFile, SolarZenithDatasetID);
+    if(has_MODIS_special_dimension == 1)
+      errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "SolarZenith", outputFile, SolarZenithDatasetID);
+    else 
+      errStatus = copyDimension( NULL, MOD03FileID, "SolarZenith", outputFile, SolarZenithDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -1389,7 +1445,11 @@ int MODIS( char* argv[],int modis_count, int unpack)
         goto cleanupFail;
     }
 
-    errStatus = copyDimension( NULL, MOD03FileID, "SolarAzimuth", outputFile, SolarAzimuthDatasetID);
+    
+    if(has_MODIS_special_dimension ==1) 
+       errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "SolarAzimuth", outputFile, SolarAzimuthDatasetID);
+    else 
+       errStatus = copyDimension( NULL, MOD03FileID, "SolarAzimuth", outputFile, SolarAzimuthDatasetID);
     if ( errStatus == FAIL )
     {
         FATAL_MSG("Failed to copy dimension.\n");
@@ -1697,12 +1757,19 @@ int MODIS( char* argv[],int modis_count, int unpack)
 
 
         // Copy the dimensions over
+
+      if(has_MODIS_special_dimension ==1) 
+        errStatus = copyDimension_MODIS_Special( NULL, _500mFileID, "EV_250_Aggr500_RefSB", outputFile, _250Aggr500);
+      else
         errStatus = copyDimension( NULL, _500mFileID, "EV_250_Aggr500_RefSB", outputFile, _250Aggr500);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
+      if(has_MODIS_special_dimension ==1) 
+        errStatus = copyDimension_MODIS_Special( NULL, _500mFileID, "EV_250_Aggr500_RefSB_Uncert_Indexes", outputFile, _250Aggr500Uncert);
+      else
         errStatus = copyDimension( NULL, _500mFileID, "EV_250_Aggr500_RefSB_Uncert_Indexes", outputFile, _250Aggr500Uncert);
         if ( errStatus == FAIL )
         {
@@ -1854,12 +1921,18 @@ int MODIS( char* argv[],int modis_count, int unpack)
 //________________________________________________________________________________________________________//
 
         // Copy the dimensions over
+        if(has_MODIS_special_dimension == 1)
+        errStatus = copyDimension_MODIS_Special( NULL, _500mFileID, "EV_500_RefSB", outputFile, _500RefSB);
+       else 
         errStatus = copyDimension( NULL, _500mFileID, "EV_500_RefSB", outputFile, _500RefSB);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
+       if(has_MODIS_special_dimension == 1)
+        errStatus = copyDimension_MODIS_Special( NULL, _500mFileID, "EV_500_RefSB_Uncert_Indexes", outputFile, _500RefSBUncert);
+       else
         errStatus = copyDimension( NULL, _500mFileID, "EV_500_RefSB_Uncert_Indexes", outputFile, _500RefSBUncert);
         if ( errStatus == FAIL )
         {
@@ -2021,12 +2094,20 @@ int MODIS( char* argv[],int modis_count, int unpack)
         }
 
         // Copy the dimensions over
+
+      if(has_MODIS_special_dimension ==1) 
+        errStatus = copyDimension_MODIS_Special( NULL, _250mFileID, "EV_250_RefSB", outputFile, _250RefSB);
+      else
         errStatus = copyDimension( NULL, _250mFileID, "EV_250_RefSB", outputFile, _250RefSB);
         if ( errStatus == FAIL )
         {
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
+       
+      if(has_MODIS_special_dimension ==1) 
+        errStatus = copyDimension_MODIS_Special( NULL, _250mFileID, "EV_250_RefSB_Uncert_Indexes", outputFile, _250RefSBUncert);
+      else
         errStatus = copyDimension( NULL, _250mFileID, "EV_250_RefSB_Uncert_Indexes", outputFile, _250RefSBUncert);
         if ( errStatus == FAIL )
         {
@@ -2068,7 +2149,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             goto cleanupFail;
         }
 
-        if(-1 == readThenWrite_MODIS_HR_LatLon(MODIS500mgeolocationGroupID, MODIS250mgeolocationGroupID,"Latitude","Longitude",DFNT_FLOAT32,H5T_NATIVE_FLOAT,MOD03FileID,outputFile))
+        if(-1 == readThenWrite_MODIS_HR_LatLon(MODIS500mgeolocationGroupID, MODIS250mgeolocationGroupID,"Latitude","Longitude",DFNT_FLOAT32,H5T_NATIVE_FLOAT,MOD03FileID,outputFile,has_MODIS_special_dimension))
         {
             FATAL_MSG("Failed to generate MODIS 250m and 500m geolocation fields.\n");
             goto cleanupFail;
@@ -2390,7 +2471,7 @@ cleanupFO:
     return retVal;
 }
 
-int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID,hid_t outputFileID)
+int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID,hid_t outputFileID,int modis_special_dims)
 {
 
     hid_t dummy_output_file_id = 0;
@@ -2427,6 +2508,10 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     char* ll_500m_dimnames[2]= {"_20_nscans_MODIS_SWATH_Type_L1B","_2_Max_EV_frames_MODIS_SWATH_Type_L1B"};
     char* ll_250m_dimnames[2]= {"_40_nscans_MODIS_SWATH_Type_L1B","_4_Max_EV_frames_MODIS_SWATH_Type_L1B"};
 
+    if(modis_special_dims == 1) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_2";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_2";
+    }
 
     status = H4readData( MOD03FileID, latname,
                          (void**)&latBuffer, &latRank, latDimSizes, h4_type,NULL,NULL,NULL );
@@ -2579,7 +2664,6 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
     }
 
     H5Dclose(datasetID);
-
 
     lon_output_500m_buffer = (float*)malloc(sizeof(float)*nRow_500m*nCol_500m);
     if(lon_output_500m_buffer == NULL)
@@ -2762,7 +2846,70 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
 
     H5Dclose(datasetID);
 
+    //Insert Latitude/Longitude units
+    if(H5LTset_attribute_string(MODIS500mgeoGroupID,"Longitude","units","degrees_east")<0) 
+    {
+        FATAL_MSG("Failed to set longitude units attribute.\n");
+        return -1;
+    }
+    if(H5LTset_attribute_string(MODIS500mgeoGroupID,"Latitude","units","degrees_north")<0) 
+    {
+        FATAL_MSG("Failed to set latitude units attribute.\n");
+        return -1;
+    }
+
+    if(H5LTset_attribute_string(MODIS250mgeoGroupID,"Longitude","units","degrees_east")<0) 
+    {
+        FATAL_MSG("Failed to set longitude units attribute.\n");
+        return -1;
+    }
+
+    if(H5LTset_attribute_string(MODIS250mgeoGroupID,"Latitude","units","degrees_north")<0) 
+    {
+        FATAL_MSG("Failed to set latitude units attribute.\n");
+        return -1;
+    }
+
     return 0;
+
+}
+
+int check_MODIS_special_dimension(int32 MOD1KMID) {
+
+    int32 emissive_index = SDnametoindex(MOD1KMID,"EV_1KM_Emissive");
+    if(emissive_index <0) {
+        FATAL_MSG("Error cannot find the SDS %s\n","EV_1KM_Emissive");
+        return -1;
+    }
+
+    int32 sds_id = SDselect(MOD1KMID,emissive_index);
+    if(sds_id <0) {
+        FATAL_MSG("Error cannot select the SDS %s\n","EV_1KM_Emissive");
+        return -1;
+    }
+
+    int32 dimsizes[MAX_VAR_DIMS];
+    int32 rank = 0;
+    if(SDgetinfo(sds_id,NULL,&rank,dimsizes,NULL,NULL) <0) {
+        SDendaccess(sds_id);
+        FATAL_MSG("Error cannot select the SDS %s\n","EV_1KM_Emissive");
+        return -1;
+    }
+
+    SDendaccess(sds_id);
+    if(rank <3) {
+        FATAL_MSG("SDS %s should have rank >=3. \n","EV_1KM_Emissive");
+        return -1;
+    }
+
+    if(dimsizes[1] == 2030) 
+        return 0;
+    else if(dimsizes[1] == 2040)
+        return 1;
+    else {
+        FATAL_MSG("The second dimension of SDS %s should be either 2030 or 2040. \n","EV_1KM_Emissive");
+        return -1;
+    }
 
 }
 
