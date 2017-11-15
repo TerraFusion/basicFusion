@@ -6158,8 +6158,38 @@ herr_t copyDimension_MODIS_Special( char* dimSuffix, int32 h4fileID, char* h4dat
         }
         else
         {
-           if(size == 2040 || size == 4080 || size == 8160) {
-             char*special_suffix = "_2";
+           char* special_suffix;
+           unsigned short have_special_suffix = 0;
+           if(size == 2040 || size == 4080 || size == 8160){
+             special_suffix = "_2";
+             have_special_suffix = 1;
+           }
+           else if(size == 2050 || size == 4100 || size == 8200){
+             special_suffix = "_3";
+             have_special_suffix = 1;
+           }
+           else if(size == 2060 || size == 4120 || size == 8240){
+             special_suffix = "_4";
+             have_special_suffix = 1;
+           }
+           else if(size == 2070 || size == 4140 || size == 8280){
+             special_suffix = "_5";
+             have_special_suffix = 1;
+           }
+           else if(size == 2080 || size == 4160 || size == 8320){
+             special_suffix = "_6";
+             have_special_suffix = 1;
+           }
+           else if(size == 2090 || size == 4180 || size == 8360){
+             special_suffix = "_7";
+             have_special_suffix = 1;
+           }
+           else if(size == 2100 || size == 4200 || size == 8400){
+             special_suffix = "_8";
+             have_special_suffix = 1;
+           }
+         
+           if(have_special_suffix == 1) {
             // store allocated memory in temp pointer
             strcpy(tempStack, dimName);
             temp = calloc ( sizeof(tempStack) + sizeof(special_suffix) + 1, 1 );
@@ -6173,22 +6203,6 @@ herr_t copyDimension_MODIS_Special( char* dimSuffix, int32 h4fileID, char* h4dat
             free(temp); temp = NULL;
  
            }
-           else if(size == 2050 || size == 4100 || size == 8200) {
-             char*special_suffix = "_3";
-            // store allocated memory in temp pointer
-            strcpy(tempStack, dimName);
-            temp = calloc ( sizeof(tempStack) + sizeof(special_suffix) + 1, 1 );
-            // copy dimName to the temp pointer memory
-            strcpy(temp, tempStack);
-            // concatenate dimName with dimSuffix
-            strcat(temp,special_suffix);
-            // Fix the name to comply with netCDF standards
-            catString = correct_name(temp);
-            // free the temp memory (catString is separately allocated memory, malloc'ed in the correct_name function
-            free(temp); temp = NULL;
- 
-           }
-
            else 
              catString = correct_name(dimName);
         }

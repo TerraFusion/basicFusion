@@ -2519,6 +2519,26 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
         ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_3";
         ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_3";
     }
+    else if(modis_special_dims == 3) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_4";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_4";
+    }
+    else if(modis_special_dims == 4) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_5";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_5";
+    }
+    else if(modis_special_dims == 5) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_6";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_6";
+    }
+    else if(modis_special_dims == 6) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_7";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_7";
+    }
+    else if(modis_special_dims == 7) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_8";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_8";
+    }
 
     status = H4readData( MOD03FileID, latname,
                          (void**)&latBuffer, &latRank, latDimSizes, h4_type,NULL,NULL,NULL );
@@ -2915,6 +2935,16 @@ int check_MODIS_special_dimension(int32 MOD1KMID) {
         return 1;
     else if(dimsizes[1] ==2050)
         return 2;
+    else if(dimsizes[1] ==2060)
+        return 3;
+    else if(dimsizes[1] ==2070)
+        return 4;
+    else if(dimsizes[1] ==2080)
+        return 5;
+    else if(dimsizes[1] ==2090)
+        return 6;
+    else if(dimsizes[1] ==2100)
+        return 7;
     else {
         FATAL_MSG("The second dimension of SDS %s should be either 2030 or 2040. \n","EV_1KM_Emissive");
         FATAL_MSG("The dimension size  is %d  \n",dimsizes[1]);
