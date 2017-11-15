@@ -221,7 +221,10 @@ int MODIS( char* argv[],int modis_count, int unpack)
     // Some MODIS has dimension size 2040 rather than 2030, we need to use a different dimension name.
     short has_MODIS_special_dimension = check_MODIS_special_dimension(_1KMFileID);
     if(check_MODIS_special_dimension(_1KMFileID) <0) {
-            FATAL_MSG("Failed to create MODIS root group.\n");
+            
+            FATAL_MSG("Failed the check MODIS special dimension check.\n");
+            FATAL_MSG("The granule name is %s\n",argv[1]);
+
             goto cleanupFail;
     }
 #if 0
@@ -506,7 +509,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
     }
 
     // copy dimensions over
-    if(has_MODIS_special_dimension ==1) 
+    if(has_MODIS_special_dimension >0) 
         errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "Latitude", outputFile, latitudeDatasetID);
     else 
         errStatus = copyDimension( NULL, MOD03FileID, "Latitude", outputFile, latitudeDatasetID);
@@ -561,7 +564,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
 
     // Copy dimensions over
     
-    if(has_MODIS_special_dimension ==1) 
+    if(has_MODIS_special_dimension >0) 
        errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "Longitude", outputFile, longitudeDatasetID);
     else 
        errStatus = copyDimension( NULL, MOD03FileID, "Longitude", outputFile, longitudeDatasetID);
@@ -770,7 +773,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
 
 
         // Copy the dimensions over
-        if(has_MODIS_special_dimension ==1) 
+        if(has_MODIS_special_dimension >0) 
             errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
         else
             errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB", outputFile, _1KMDatasetID );
@@ -805,7 +808,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
             goto cleanupFail;
         }
         
-      if(has_MODIS_special_dimension ==1) 
+      if(has_MODIS_special_dimension >0) 
         errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_1KM_RefSB_Uncert_Indexes", outputFile, _1KMUncertID);
       else
         errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_RefSB_Uncert_Indexes", outputFile, _1KMUncertID);
@@ -940,7 +943,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
 
 
     // Copy the dimensions over
-    if(has_MODIS_special_dimension ==1) 
+    if(has_MODIS_special_dimension >0) 
       errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_1KM_Emissive", outputFile, _1KMEmissive );
     else 
       errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_Emissive", outputFile, _1KMEmissive );
@@ -950,7 +953,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
         goto cleanupFail;
     }
   
-    if(has_MODIS_special_dimension ==1) 
+    if(has_MODIS_special_dimension >0) 
       errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_1KM_Emissive_Uncert_Indexes", outputFile, _1KMEmissiveUncert);
     else 
        errStatus = copyDimension( NULL, _1KMFileID, "EV_1KM_Emissive_Uncert_Indexes", outputFile, _1KMEmissiveUncert);
@@ -1133,7 +1136,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
 
 
         // Copy the dimensions over
-    if(has_MODIS_special_dimension ==1) 
+    if(has_MODIS_special_dimension >0) 
         errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_250_Aggr1km_RefSB", outputFile, _250Aggr1km );
     else
         errStatus = copyDimension( NULL, _1KMFileID, "EV_250_Aggr1km_RefSB", outputFile, _250Aggr1km );
@@ -1143,7 +1146,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
             goto cleanupFail;
         }
         // Copy the dimensions over
-    if(has_MODIS_special_dimension ==1) 
+    if(has_MODIS_special_dimension >0) 
         errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", outputFile, _250Aggr1kmUncert);
     else
         errStatus = copyDimension( NULL, _1KMFileID, "EV_250_Aggr1km_RefSB_Uncert_Indexes", outputFile, _250Aggr1kmUncert);
@@ -1320,7 +1323,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
         }
 
         // Copy the dimensions over
-    if(has_MODIS_special_dimension ==1) 
+    if(has_MODIS_special_dimension >0) 
         errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_500_Aggr1km_RefSB", outputFile, _500Aggr1km );
     else
         errStatus = copyDimension( NULL, _1KMFileID, "EV_500_Aggr1km_RefSB", outputFile, _500Aggr1km );
@@ -1329,7 +1332,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
-    if(has_MODIS_special_dimension ==1) 
+    if(has_MODIS_special_dimension >0) 
         errStatus = copyDimension_MODIS_Special( NULL, _1KMFileID, "EV_500_Aggr1km_RefSB_Uncert_Indexes", outputFile, _500Aggr1kmUncert);
     else
         errStatus = copyDimension( NULL, _1KMFileID, "EV_500_Aggr1km_RefSB_Uncert_Indexes", outputFile, _500Aggr1kmUncert);
@@ -1358,7 +1361,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
         goto cleanupFail;
     }
 
-    if(has_MODIS_special_dimension == 1)
+    if(has_MODIS_special_dimension>0 )
       errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "SensorZenith", outputFile, SensorZenithDatasetID);
     else 
       errStatus = copyDimension( NULL, MOD03FileID, "SensorZenith", outputFile, SensorZenithDatasetID);
@@ -1388,7 +1391,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
     }
 
    
-    if(has_MODIS_special_dimension ==1) 
+    if(has_MODIS_special_dimension >0) 
       errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "SensorAzimuth", outputFile, SensorAzimuthDatasetID);
     else 
       errStatus = copyDimension( NULL, MOD03FileID, "SensorAzimuth", outputFile, SensorAzimuthDatasetID);
@@ -1416,7 +1419,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
         goto cleanupFail;
     }
 
-    if(has_MODIS_special_dimension == 1)
+    if(has_MODIS_special_dimension >0)
       errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "SolarZenith", outputFile, SolarZenithDatasetID);
     else 
       errStatus = copyDimension( NULL, MOD03FileID, "SolarZenith", outputFile, SolarZenithDatasetID);
@@ -1446,7 +1449,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
     }
 
     
-    if(has_MODIS_special_dimension ==1) 
+    if(has_MODIS_special_dimension >0) 
        errStatus = copyDimension_MODIS_Special( NULL, MOD03FileID, "SolarAzimuth", outputFile, SolarAzimuthDatasetID);
     else 
        errStatus = copyDimension( NULL, MOD03FileID, "SolarAzimuth", outputFile, SolarAzimuthDatasetID);
@@ -1758,7 +1761,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
 
         // Copy the dimensions over
 
-      if(has_MODIS_special_dimension ==1) 
+      if(has_MODIS_special_dimension >0) 
         errStatus = copyDimension_MODIS_Special( NULL, _500mFileID, "EV_250_Aggr500_RefSB", outputFile, _250Aggr500);
       else
         errStatus = copyDimension( NULL, _500mFileID, "EV_250_Aggr500_RefSB", outputFile, _250Aggr500);
@@ -1767,7 +1770,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
-      if(has_MODIS_special_dimension ==1) 
+      if(has_MODIS_special_dimension >0) 
         errStatus = copyDimension_MODIS_Special( NULL, _500mFileID, "EV_250_Aggr500_RefSB_Uncert_Indexes", outputFile, _250Aggr500Uncert);
       else
         errStatus = copyDimension( NULL, _500mFileID, "EV_250_Aggr500_RefSB_Uncert_Indexes", outputFile, _250Aggr500Uncert);
@@ -1921,7 +1924,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
 //________________________________________________________________________________________________________//
 
         // Copy the dimensions over
-        if(has_MODIS_special_dimension == 1)
+        if(has_MODIS_special_dimension >0)
         errStatus = copyDimension_MODIS_Special( NULL, _500mFileID, "EV_500_RefSB", outputFile, _500RefSB);
        else 
         errStatus = copyDimension( NULL, _500mFileID, "EV_500_RefSB", outputFile, _500RefSB);
@@ -1930,7 +1933,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
             FATAL_MSG("Failed to copy dimension.\n");
             goto cleanupFail;
         }
-       if(has_MODIS_special_dimension == 1)
+       if(has_MODIS_special_dimension > 0)
         errStatus = copyDimension_MODIS_Special( NULL, _500mFileID, "EV_500_RefSB_Uncert_Indexes", outputFile, _500RefSBUncert);
        else
         errStatus = copyDimension( NULL, _500mFileID, "EV_500_RefSB_Uncert_Indexes", outputFile, _500RefSBUncert);
@@ -2095,7 +2098,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
 
         // Copy the dimensions over
 
-      if(has_MODIS_special_dimension ==1) 
+      if(has_MODIS_special_dimension >0) 
         errStatus = copyDimension_MODIS_Special( NULL, _250mFileID, "EV_250_RefSB", outputFile, _250RefSB);
       else
         errStatus = copyDimension( NULL, _250mFileID, "EV_250_RefSB", outputFile, _250RefSB);
@@ -2105,7 +2108,7 @@ printf("The MODIS %s has 2030 \n",argv[1]);
             goto cleanupFail;
         }
        
-      if(has_MODIS_special_dimension ==1) 
+      if(has_MODIS_special_dimension >0) 
         errStatus = copyDimension_MODIS_Special( NULL, _250mFileID, "EV_250_RefSB_Uncert_Indexes", outputFile, _250RefSBUncert);
       else
         errStatus = copyDimension( NULL, _250mFileID, "EV_250_RefSB_Uncert_Indexes", outputFile, _250RefSBUncert);
@@ -2512,6 +2515,10 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
         ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_2";
         ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_2";
     }
+    else if(modis_special_dims == 2) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_3";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_3";
+    }
 
     status = H4readData( MOD03FileID, latname,
                          (void**)&latBuffer, &latRank, latDimSizes, h4_type,NULL,NULL,NULL );
@@ -2906,8 +2913,11 @@ int check_MODIS_special_dimension(int32 MOD1KMID) {
         return 0;
     else if(dimsizes[1] == 2040)
         return 1;
+    else if(dimsizes[1] ==2050)
+        return 2;
     else {
         FATAL_MSG("The second dimension of SDS %s should be either 2030 or 2040. \n","EV_1KM_Emissive");
+        FATAL_MSG("The dimension size  is %d  \n",dimsizes[1]);
         return -1;
     }
 

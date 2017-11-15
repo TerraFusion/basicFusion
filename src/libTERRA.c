@@ -909,6 +909,7 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
 
     int total_elems = 1;
 
+//printf("datasetName is %s\n:",datasetName);
     /* get the index of the dataset from the dataset's name */
     sds_index = SDnametoindex( fileID, datasetName );
     if( sds_index < 0 )
@@ -1737,7 +1738,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* dat
         return (FATAL_ERR);
 
     }
-
+//printf("cameraName is %s\n",cameraName);
     status = H4readData( inputFileID, datasetName,
                          (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL);
     if ( status < 0 )
@@ -6172,6 +6173,22 @@ herr_t copyDimension_MODIS_Special( char* dimSuffix, int32 h4fileID, char* h4dat
             free(temp); temp = NULL;
  
            }
+           else if(size == 2050 || size == 4100 || size == 8200) {
+             char*special_suffix = "_3";
+            // store allocated memory in temp pointer
+            strcpy(tempStack, dimName);
+            temp = calloc ( sizeof(tempStack) + sizeof(special_suffix) + 1, 1 );
+            // copy dimName to the temp pointer memory
+            strcpy(temp, tempStack);
+            // concatenate dimName with dimSuffix
+            strcat(temp,special_suffix);
+            // Fix the name to comply with netCDF standards
+            catString = correct_name(temp);
+            // free the temp memory (catString is separately allocated memory, malloc'ed in the correct_name function
+            free(temp); temp = NULL;
+ 
+           }
+
            else 
              catString = correct_name(dimName);
         }
