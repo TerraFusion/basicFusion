@@ -225,7 +225,7 @@ int MODIS( char* argv[],int modis_count, int unpack)
             FATAL_MSG("Failed the check MODIS special dimension check.\n");
             FATAL_MSG("The granule name is %s\n",argv[1]);
 
-            goto cleanupFail;
+            goto cleanupFO;
     }
 #if 0
 if(has_MODIS_special_dimension == 1)
