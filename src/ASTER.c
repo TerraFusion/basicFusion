@@ -244,7 +244,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
     /* ASTER root group */
 
-    /* MY 2016-12-20: Create the root group for the first granule */
+    /* MY 2016-12-20: Create the root group when converting the first granule */
     if(aster_count == 1)
     {
         createGroup( &outputFile, &ASTERrootGroupID, "ASTER" );
@@ -255,6 +255,30 @@ int ASTER( char* argv[],int aster_count,int unpack)
             goto cleanupFail;
         }
 
+
+        char *comment_name ="comment";
+        char *comment_value = "The radiance values for pixels not containing valid data, "
+                              "as indicated in Section 2.4 of ASTER Level 1T Product User's Guide(Version 1.0),"
+                              " are set to -999.0, which is also used as a filled value. For saturated pixels,"
+                              " their radiance values are set to -998.0.";
+
+        char *time_comment_name="comment_for_GranuleTime";
+        char *time_comment_value = "Under each ASTER granule group, the GranuleTime attribute represents "
+                                    "the time of data acquisition in UTC with the DDMMYYYYhhmmss format. "
+                                    "D: day. M: month. Y: year. h: hour. m: minute s:second. "
+                                    "For example, 01112010002054 represents November 1st, 2010, "
+                                    "at the 0 hour, the 20th minute, the 54th second UTC.";
+
+        if(H5LTset_attribute_string(outputFile,"ASTER",comment_name,comment_value) <0){
+            FATAL_MSG("Failed to add the ASTER comment attribute.\n");
+            goto cleanupFail;
+        }
+
+        if(H5LTset_attribute_string(outputFile,"ASTER",time_comment_name,time_comment_value) <0){
+            FATAL_MSG("Failed to add the ASTER time comment attribute.\n");
+            goto cleanupFail;
+        }
+ 
     }
 
     else
@@ -535,13 +559,17 @@ int ASTER( char* argv[],int aster_count,int unpack)
             goto cleanupFail;
         }
 
-        while ( !isdigit(*pointer1) )
+        //while ( !isdigit(*pointer1) )
+        while ( !isdigit(*pointer1) && *pointer1!='-')
             pointer1++;
 
         pointer2 = pointer1;
 
         // while pointer2 is digit or is a period
-        while ( isdigit(*pointer2) || !(*pointer2 - 46) )
+        // KY: the following code is too hard-coded and confusing.
+        //while ( isdigit(*pointer2) || !(*pointer2 - 46) )
+        // The angle maybe a negative value
+        while ( isdigit(*pointer2) || !(*pointer2 - 46) || *pointer2 =='-')
             pointer2++;
 
         pointer2--;
@@ -704,11 +732,11 @@ int ASTER( char* argv[],int aster_count,int unpack)
     }
 
     // find the first solar direction value
-    while( !isdigit(*pointer1) ) pointer1++;
+    while( !isdigit(*pointer1) && *pointer1 != '-') pointer1++;
 
     pointer2 = pointer1;
 
-    while ( isdigit(*pointer2) || *pointer2 == 46 ) pointer2++;
+    while ( isdigit(*pointer2) || *pointer2 == 46 || *pointer2 =='-') pointer2++;
 
     pointer2--;
 
@@ -728,10 +756,10 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
 
     // find the second solar direction value
-    while( !isdigit(*pointer1) ) pointer1++;
+    while( !isdigit(*pointer1) && *pointer1 != '-') pointer1++;
 
     pointer2 = pointer1;
-    while ( isdigit(*pointer2) || *pointer2 == 46 ) pointer2++;
+    while ( isdigit(*pointer2) || *pointer2 == 46  || *pointer2 == '-') pointer2++;
 
     pointer2--;
 
@@ -1026,7 +1054,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
         if ( swir_grp_ref > 0 )
         {
             imageData4ID = readThenWrite(NULL, SWIRgroupID, "ImageData4",
-                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID,1 );
             if ( imageData4ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData4 dataset.\n");
@@ -1035,7 +1063,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData5ID = readThenWrite(NULL, SWIRgroupID, "ImageData5",
-                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID,1 );
             if ( imageData5ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData5 dataset.\n");
@@ -1044,7 +1072,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData6ID = readThenWrite(NULL, SWIRgroupID, "ImageData6",
-                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID,1 );
             if ( imageData6ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData6 dataset.\n");
@@ -1053,7 +1081,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData7ID = readThenWrite(NULL, SWIRgroupID, "ImageData7",
-                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID,1 );
             if ( imageData7ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData7 dataset.\n");
@@ -1062,7 +1090,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData8ID = readThenWrite(NULL, SWIRgroupID, "ImageData8",
-                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID,1 );
             if ( imageData8ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData8 dataset.\n");
@@ -1071,7 +1099,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData9ID = readThenWrite(NULL, SWIRgroupID, "ImageData9",
-                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID,1 );
             if ( imageData9ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData9 dataset.\n");
@@ -1084,7 +1112,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
         if(vnir_grp_ref >0)
         {
             imageData1ID = readThenWrite(NULL, VNIRgroupID, "ImageData1",
-                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID,1 );
             if ( imageData1ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData1 dataset.\n");
@@ -1094,7 +1122,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData2ID = readThenWrite(NULL, VNIRgroupID, "ImageData2",
-                                         DFNT_UINT8, H5T_STD_U8LE, inFileID );
+                                         DFNT_UINT8, H5T_STD_U8LE, inFileID,1 );
             if ( imageData2ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData2 dataset.\n");
@@ -1103,7 +1131,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData3NID = readThenWrite(NULL, VNIRgroupID, "ImageData3N",
-                                          DFNT_UINT8, H5T_STD_U8LE, inFileID );
+                                          DFNT_UINT8, H5T_STD_U8LE, inFileID,1 );
             if ( imageData3NID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData3N dataset.\n");
@@ -1120,7 +1148,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             {
 
                 imageData3BID = readThenWrite(NULL, VNIRgroupID, "ImageData3B",
-                                              DFNT_UINT8, H5T_STD_U8LE, inFileID);
+                                              DFNT_UINT8, H5T_STD_U8LE, inFileID,1);
                 if ( imageData3BID == EXIT_FAILURE )
                 {
                     FATAL_MSG("Failed to transfer ASTER ImageData3B dataset.\n");
@@ -1136,7 +1164,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
         if ( tir_grp_ref > 0 )
         {
             imageData10ID = readThenWrite(NULL, TIRgroupID, "ImageData10",
-                                          DFNT_UINT16, H5T_STD_U16LE, inFileID );
+                                          DFNT_UINT16, H5T_STD_U16LE, inFileID,1 );
             if ( imageData10ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData10 dataset.\n");
@@ -1145,7 +1173,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData11ID = readThenWrite(NULL, TIRgroupID, "ImageData11",
-                                          DFNT_UINT16, H5T_STD_U16LE, inFileID );
+                                          DFNT_UINT16, H5T_STD_U16LE, inFileID,1 );
             if ( imageData11ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData11 dataset.\n");
@@ -1154,7 +1182,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData12ID = readThenWrite(NULL, TIRgroupID, "ImageData12",
-                                          DFNT_UINT16, H5T_STD_U16LE, inFileID );
+                                          DFNT_UINT16, H5T_STD_U16LE, inFileID,1 );
             if ( imageData12ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData12 dataset.\n");
@@ -1163,7 +1191,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData13ID = readThenWrite(NULL, TIRgroupID, "ImageData13",
-                                          DFNT_UINT16, H5T_STD_U16LE, inFileID );
+                                          DFNT_UINT16, H5T_STD_U16LE, inFileID,1 );
             if ( imageData13ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData13 dataset.\n");
@@ -1172,7 +1200,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
             }
 
             imageData14ID = readThenWrite(NULL, TIRgroupID, "ImageData14",
-                                          DFNT_UINT16, H5T_STD_U16LE, inFileID );
+                                          DFNT_UINT16, H5T_STD_U16LE, inFileID,1 );
             if ( imageData14ID == EXIT_FAILURE )
             {
                 FATAL_MSG("Failed to transfer ASTER ImageData14 dataset.\n");
@@ -1189,40 +1217,117 @@ int ASTER( char* argv[],int aster_count,int unpack)
                             imageData7ID, imageData8ID, imageData9ID, imageData10ID, imageData11ID, imageData12ID, imageData12ID,
                             imageData14ID };
 
+    float fltTemp = 0.0;
     for ( i = 0; i < 4; i++ )
     {
         if ( !dsetArray[i] ) continue;
 
-        status = H5LTset_attribute_string( VNIRgroupID, radianceNames[i], "Units", "Watts/m^2/micrometer/steradian");
+        status = H5LTset_attribute_string( VNIRgroupID, radianceNames[i], "units", "Watts/m^2/micrometer/steradian");
         if ( status < 0 )
         {
             FATAL_MSG("Failed to set string attribute. i = %d\n", i);
             goto cleanupFail;
         }
+
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(VNIRgroupID, radianceNames[i],"_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add VNIR radiance _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(VNIRgroupID, radianceNames[i],"valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add VNIR radiance valid_min attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 569.0;
+        status = H5LTset_attribute_float(VNIRgroupID, radianceNames[i],"valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add VNIR radiance valid_max attribute.\n");
+            goto cleanupFail;
+        }
+
+
+
     }
 
     for ( i = 0; i < 6; i++ )
     {
         if ( !dsetArray[i+4] ) continue;
 
-        status = H5LTset_attribute_string( SWIRgroupID, radianceNames[i+4], "Units", "Watts/m^2/micrometer/steradian");
+        status = H5LTset_attribute_string( SWIRgroupID, radianceNames[i+4], "units", "Watts/m^2/micrometer/steradian");
         if ( status < 0 )
         {
             FATAL_MSG("Failed to set string attribute. i = %d\n", i);
             goto cleanupFail;
         }
-    }
+
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(SWIRgroupID, radianceNames[i+4],"_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add SWIR radiance _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(SWIRgroupID, radianceNames[i+4],"valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add SWIR radiance valid_min attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 569.0;
+        status = H5LTset_attribute_float(SWIRgroupID, radianceNames[i+4],"valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add SWIR radiance valid_max attribute.\n");
+            goto cleanupFail;
+        }
+
+   }
 
     for ( i = 0; i < 5; i++ )
     {
         if ( !dsetArray[i+10] ) continue;
 
-        status = H5LTset_attribute_string( TIRgroupID, radianceNames[i+10], "Units", "Watts/m^2/micrometer/steradian");
+        status = H5LTset_attribute_string( TIRgroupID, radianceNames[i+10], "units", "Watts/m^2/micrometer/steradian");
         if ( status < 0 )
         {
             FATAL_MSG("Failed to set string attribute. i = %d\n", i);
             goto cleanupFail;
         }
+        fltTemp = -999.0;
+        status = H5LTset_attribute_float(TIRgroupID, radianceNames[i+10],"_FillValue",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add TIR radiance _FillValue attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 0.0;
+        status = H5LTset_attribute_float(TIRgroupID, radianceNames[i+10],"valid_min",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add TIR radiance valid_min attribute.\n");
+            goto cleanupFail;
+        }
+
+        fltTemp = 569.0;
+        status = H5LTset_attribute_float(TIRgroupID, radianceNames[i+10],"valid_max",&fltTemp, 1 );
+        if ( status < 0 )
+        {
+            FATAL_MSG("Failed to add TIR radiance valid_max attribute.\n");
+            goto cleanupFail;
+        }
+
     }
 
     // Copy the dimensions
@@ -1334,7 +1439,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
     /* geolocation */
     latDataID = readThenWrite(NULL, geoGroupID, "Latitude",
-                              DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID );
+                              DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID,0 );
     if ( latDataID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to transfer ASTER Latitude dataset.\n");
@@ -1357,7 +1462,7 @@ int ASTER( char* argv[],int aster_count,int unpack)
     }
 
     lonDataID = readThenWrite(NULL, geoGroupID, "Longitude",
-                              DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID );
+                              DFNT_FLOAT64, H5T_NATIVE_DOUBLE, inFileID,0 );
     if ( lonDataID == EXIT_FAILURE )
     {
         FATAL_MSG("Failed to transfer ASTER Longitude dataset.\n");
@@ -2036,7 +2141,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
         asterLatLonSpherical(latBuffer,lonBuffer,lat_swir_buffer,lon_swir_buffer,nSWIR_ImageLine,nSWIR_ImagePixel);
 
         // SWIR Latitude
-        if (Generate2D_Dataset(SWIRgeoGroupID,latname,h5_type,lat_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0)
+        if (Generate2D_Dataset(SWIRgeoGroupID,latname,h5_type,lat_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel,1)<0)
         {
             FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
             goto cleanupFail;
@@ -2049,7 +2154,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
         }
 
         //SWIR Longitude
-        if (Generate2D_Dataset(SWIRgeoGroupID,lonname,h5_type,lon_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel)<0)
+        if (Generate2D_Dataset(SWIRgeoGroupID,lonname,h5_type,lon_swir_buffer,SWIR_ImageLine_DimID,SWIR_ImagePixel_DimID,nSWIR_ImageLine,nSWIR_ImagePixel,1)<0)
         {
             FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
             goto cleanupFail;
@@ -2090,7 +2195,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
         asterLatLonSpherical(latBuffer,lonBuffer,lat_tir_buffer,lon_tir_buffer,nTIR_ImageLine,nTIR_ImagePixel);
 
         // TIR Latitude
-        if (Generate2D_Dataset(TIRgeoGroupID,latname,h5_type,lat_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0)
+        if (Generate2D_Dataset(TIRgeoGroupID,latname,h5_type,lat_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel,1)<0)
         {
             FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
             goto cleanupFail;
@@ -2103,7 +2208,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
         }
 
         //TIR Longitude
-        if (Generate2D_Dataset(TIRgeoGroupID,lonname,h5_type,lon_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel)<0)
+        if (Generate2D_Dataset(TIRgeoGroupID,lonname,h5_type,lon_tir_buffer,TIR_ImageLine_DimID,TIR_ImagePixel_DimID,nTIR_ImageLine,nTIR_ImagePixel,1)<0)
         {
             FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
             goto cleanupFail;
@@ -2145,7 +2250,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
         asterLatLonSpherical(latBuffer,lonBuffer,lat_vnir_buffer,lon_vnir_buffer,nVNIR_ImageLine,nVNIR_ImagePixel);
 
         // VNIR Latitude
-        if (Generate2D_Dataset(VNIRgeoGroupID,latname,h5_type,lat_vnir_buffer,VNIR_ImageLine_DimID,VNIR_ImagePixel_DimID,nVNIR_ImageLine,nVNIR_ImagePixel)<0)
+        if (Generate2D_Dataset(VNIRgeoGroupID,latname,h5_type,lat_vnir_buffer,VNIR_ImageLine_DimID,VNIR_ImagePixel_DimID,nVNIR_ImageLine,nVNIR_ImagePixel,1)<0)
         {
             FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
             goto cleanupFail;
@@ -2158,7 +2263,7 @@ int readThenWrite_ASTER_HR_LatLon(hid_t SWIRgeoGroupID,hid_t TIRgeoGroupID,hid_t
         }
 
         //VNIR Longitude
-        if (Generate2D_Dataset(VNIRgeoGroupID,lonname,h5_type,lon_vnir_buffer,VNIR_ImageLine_DimID,VNIR_ImagePixel_DimID,nVNIR_ImageLine,nVNIR_ImagePixel)<0)
+        if (Generate2D_Dataset(VNIRgeoGroupID,lonname,h5_type,lon_vnir_buffer,VNIR_ImageLine_DimID,VNIR_ImagePixel_DimID,nVNIR_ImageLine,nVNIR_ImagePixel,1)<0)
         {
             FATAL_MSG("Cannot generate 2-D ASTER lat/lon.\n");
             goto cleanupFail;

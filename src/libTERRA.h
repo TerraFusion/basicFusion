@@ -19,6 +19,11 @@ do { \
     } while(0)
 
 #define RET_SUCCESS 0
+/* This is for the inputgranule attribute. 
+ * when the data are not processed,
+ * we should not put this granule into the attribute.
+ * May apply to MOPITT. KY 2017-10-31 */
+#define RET_SUCCESS_NO_PROCESS 2
 #define FATAL_ERR -1
 #define FAIL_OPEN 1
 
@@ -83,7 +88,7 @@ hid_t insertDataset( hid_t const *outputFileID, hid_t *datasetGroup_ID,
 /* The GZIP compression version of insertDataset */
 hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID,
                           int returnDatasetID, int rank, hsize_t* datasetDims,
-                          hid_t dataType, char* datasetName, void* data_out);
+                          hid_t dataType, const char* datasetName, void* data_out,unsigned short is_modis);
 
 herr_t openFile(hid_t *file, char* inputFileName, unsigned flags );
 herr_t createOutputFile( hid_t *outputFile, char* outputFileName);
@@ -98,7 +103,7 @@ int32 H4ObtainLoneVgroupRef(int32 file_id, char *groupname);
 int32 H4readData( int32 fileID, const char* datasetName, void** data,
                   int32 *rank, int32* dimsizes, int32 dataType,int32 *start,int32 *stride,int32 *count);
 hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType,
-                     hid_t outputDataType, int32 inputFileID );
+                     hid_t outputDataType, int32 inputFileID, unsigned short comp_flag );
 hid_t readThenWriteSubset( int CER_LATLON, const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType,
                            hid_t outputDataType, int32 inputFileID,int32*start,int32*stride,int32*count );
 
@@ -115,8 +120,8 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
                                   int32 inputFile, float unc);
 
 /* MISR funcions */
-hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** correctedNameptr,int32 inputDataType,
-                                 int32 inputFile, float scale_factor);
+hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* datasetName, char** correctedNameptr,int32 inputDataType,
+                                 int32 inputFile, float scale_factor,unsigned short * has_LAI_POS_DIM_ptr);
 hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
                                   int32 inputFileID);
 hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName, int32 inputDataType,
@@ -125,7 +130,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
         int32 inputFileID);
 
 
-herr_t convert_SD_Attrs(int32 sd_id,hid_t h5grp_id,char*h5dset_name,char*sds_name);
+herr_t convert_SD_Attrs(int32 sd_id,hid_t h5grp_id,char*h5dset_name,char*sds_name,char*ignore_attr_name);
 herr_t copy_h5_attrs(int32 h4_type,int32 n_values,char* attr_name,char* attr_value,hid_t grp, char* dset_name);
 herr_t H4readSDSAttr( int32 h4FileID, char* datasetName, char* attrName, void* buffer );
 herr_t copyAttrFromName( int32 inFileID, const char* inObjName, const char* attrName, hid_t outObjID );
@@ -143,14 +148,16 @@ int  h4type_to_h5type( const int32 h4type, hid_t* h5memtype);
 int change_dim_attr_NAME_value(hid_t h5dset_id);
 
 herr_t copyDimension( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID );
+herr_t copyDimension_MODIS_Special( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID );
 
 herr_t copyDimensionSubset( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID,
                             int32 s_size );
 
 herr_t attachDimension(hid_t h5fileID, char* dimname, hid_t h5dsetID, int dim_index);
-herr_t makeDimFromBuf( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID );
+//herr_t makePureDim( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID );
+herr_t makePureDim( hid_t locID, const char* dimName,  hid_t dataspace, hid_t h5Type, hid_t* retID );
 size_t obtainDimSize(hid_t dsetID);
-herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size);
+herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size,unsigned short comp_flag);
 
 herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
 herr_t TAItoUTCconvert ( double* buffer, unsigned int size );
