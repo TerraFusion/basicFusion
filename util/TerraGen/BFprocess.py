@@ -33,6 +33,7 @@ import logging
 import sys, os, errno
 from basicFusion import makeRunDir, orbitYear
 from workflowClass import processQuanta
+import pickle
 
 #=================================
 logName='BF_jobFiles'
@@ -81,7 +82,6 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
     GLOBUS_LOG    = os.path.join( logDir, jobName + "_globus.log" )
     GLOBUS_PBS    = os.path.join( PBSpath, jobName + "_pbs.pbs" )
 
-    logger.debug("Using virtual environment detected here: {}".format(VIRT_ENV))
     logger.debug("Globus log saved at {}.".format(GLOBUS_LOG))
     logger.debug("Globus PBS script saved at {}.".format(GLOBUS_PBS))
     logger.debug("jobName: {}".format(jobName))
@@ -98,7 +98,11 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
         for i in transferList:
             f.write(i + '\n')
 
-    
+   
+    #
+    # DUMP THE PICKLE OF THE LOG TREE
+    #
+     
     PBSfile = '''#!/bin/bash 
 #PBS -l nodes={}:ppn={}
 #PBS -l walltime={}
@@ -155,9 +159,13 @@ fi
     
 def main():
     # Define the argument parser
-    parser = argparse.ArgumentParser(description="This script is the final-ish workflow for the BasicFusion project. \
-        It retrieves the tar files from Nearline and processes all orbits from ORBIT_START to ORBIT_END. It is \
-        recommended that users wrap this script with a shell script since the arguments to this program are lengthy.")
+    parser = argparse.ArgumentParser(description='''This script is the final-ish workflow for the BasicFusion project. It retrieves the tar files from Nearline and processes all orbits from ORBIT_START to ORBIT_END. It is recommended that users wrap this script with a shell script since the arguments to this program are lengthy. \
+         \
+        REQUIREMENTS: \
+            1. This program assumes it can submit 4 active Globus transfer requests. The default from Globus is 3. \
+               If you have not asked Globus to increase this limit, either change the default values in this script \
+               or ask for an increase from Globus.\
+        ''')
     parser.add_argument("ORBIT_START", help="The starting orbit to process.", type=int)
     parser.add_argument("ORBIT_END", help="The ending orbit to process.", type=int)
     parser.add_argument("REMOTE_ID", help="The Globus endpoint identifier of Nearline, or where the tar files reside \
@@ -199,6 +207,15 @@ def main():
     else:
         ll = logging.WARNING
 
+    # ======================
+    # = VARIABLES / MACROS =
+    # ======================
+    VIRT_ENV      = os.environ['VIRTUAL_ENV']
+    
+
+    
+
+
     # Create all of the necessary PBS scripts and the logging tree for every job.
     # We use try/except because the log directory may already exist. If it does,
     # we want to discard the exception created by os.makedirs.
@@ -212,25 +229,36 @@ def main():
     # Make the run directory
     runDir     = makeRunDir( logDir )
     # Make the rest of the log directory
-    PBSdir = os.path.join( runDir, 'PBSscripts' ) 
-    summaryDir =  os.path.join( runDir, 'summary' )
-    globus_pullDir = os.path.join( runDir, 'globus_pull' ) 
-    
-    os.makedirs( summaryDir )
-    os.makedirs( globus_pullDir)
-    os.makedirs( os.path.join( runDir, 'process' ) )
-    os.makedirs( os.path.join( runDir, 'globus_push' ) )
-    os.makedirs( os.path.join( runDir, 'misc' ) ) 
+    PBSdir          = os.path.join( runDir, 'PBSscripts' )
+    PBSdirs         = { 'globus_push' : os.path.join( PBSdir, 'globus_push' ), \
+                        'globus_pull' : os.path.join( PBSdir, 'globus_pull' ), \
+                        'process'     : os.path.join( PBSdir, 'process' ) \
+                      }
+    logDir          = os.path.join( runDir, 'logs' )
+    logDirs         = { 'summary'     : os.path.join( logDir, 'summary' ), \
+                        'globus_pull' : os.path.join( logDir, 'globus_pull' ), \
+                        'misc'        : os.path.join( logDir, 'misc' ), \
+                        'process'     : os.path.join( logDir, 'process'), \
+                        'globus_push' : os.path.join( logDir, 'globus_push') \
+                      }
+
     os.makedirs( PBSdir )
+    os.makedirs( logDir )
+    for i in PBSdirs:
+        os.makedirs( PBSdirs[i] )
+    for i in logDirs:
+        os.makedirs( logDirs[i] )
 
+    #
+    # ENABLE LOGGING
+    #
 
-    # Enable logging
     FORMAT='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
     dateformat='%d-%m-%Y:%H:%M:%S'
     logFormatter = logging.Formatter(FORMAT, dateformat)
     rootLogger = logging.getLogger()
 
-    fileHandler = logging.FileHandler( os.path.join(runDir, 'misc', 'BFprocess.log') )
+    fileHandler = logging.FileHandler( os.path.join( logDirs['misc'], 'BFprocess.log') )
     fileHandler.setFormatter(logFormatter)
     rootLogger.addHandler(fileHandler)
 
@@ -240,6 +268,20 @@ def main():
     rootLogger.setLevel(ll)
  
     logger = logging.getLogger('BFprocess')
+
+    logger.debug("Using virtual environment detected here: {}".format(VIRT_ENV))
+    #
+    # SAVE THE LOG DIRECTORY PICKLE
+    #
+    picklePath = os.path.join( logDirs['misc'], 'logPickle.txt' )
+    logger.info("Saving the log directory as pickle at: {}".format(picklePath))
+
+    with open( picklePath, 'wb' ) as f:
+        pickle.dump( logDirs, f )
+
+    #
+    # FIND JOB PARTITION
+    #
 
     # Time to determine how to split up the jobs. Each job quanta will be responsible for
     # at most args.granule number of orbits.
@@ -285,8 +327,8 @@ def main():
     # Make the PBS scripts for all the jobs
     for i in quantas:
         transferList = []
-        jobName = "NL-BW_{}_{}".format(i.orbitStart, i.orbitEnd)
-        summaryLog = os.path.join( summaryDir, jobName + "_summary.log" )
+        globPullName = "NL-BW_{}_{}".format(i.orbitStart, i.orbitEnd)
+        summaryLog = os.path.join( logDirs['summary'], globPullName + "_summary.log" )
 
         # We need to make the transfer list required by makePBS_globus
         for orbit in xrange( i.orbitStart, i.orbitEnd + 1 ):
@@ -317,12 +359,21 @@ def main():
             hostFile   = os.path.join( args.HOST_STAGE, str( year ), "{}archive.tar".format(orbit) )
 
             transferList.append( remoteFile + " " + hostFile )
-       
-        logger.info("Making Globus PBS script for job {}.".format(jobName)) 
-        makePBS_globus( transferList,  PBSdir, args.REMOTE_ID, args.HOST_ID, jobName, globus_pullDir, summaryLog, \
+     
+        #
+        # MAKE THE GLOBUS PULL PBS SCRIPTS
+        #
+
+        logger.info("Making Globus pull PBS script for job {}.".format(globPullName)) 
+        makePBS_globus( transferList,  PBSdirs['globus_pull'], args.REMOTE_ID, args.HOST_ID, globPullName, logDirs['globus_pull'], summaryLog, \
             [ i.orbitStart, i.orbitEnd] )
 
     
+        #
+        # MAKE THE UNTARRING PBS SCRIPTS
+        #
 
+        # After 
+        
 if __name__ == '__main__':
     main()

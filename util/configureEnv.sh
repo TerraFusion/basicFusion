@@ -312,6 +312,9 @@ if [[ $hn == "h2ologin"* ]]; then
     ON_BW=1
     echo "DETECTED BLUE WATERS."
     echo
+
+    module load bwpy
+    module load bwpy-mpi
 # ON ROGER
 elif [[ $hn == "cg-gpu01" ]]; then
     module load mpich
