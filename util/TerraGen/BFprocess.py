@@ -40,7 +40,7 @@ logName='BF_jobFiles'
 logger = 0
 #=================================
 
-def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, summaryLog, oLimits):
+def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, summaryLog, oLimits, picklePath):
     '''
     DESCRIPTION:
         This function makes the PBS scripts and other files necessary to pull the proper orbits from Nearline
@@ -61,7 +61,7 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
         logDir (str)        -- Directory where Globus CLI output will be redirected to.
         summaryLog (str)    -- This log file contains summary information for everything that goes wrong in this process.
         oLimits (list, int) -- A list containing the lower and upper bounds of these orbits.
-
+        picklePath (str)    -- Path to the Python dictionary pickle that contains the paths of the log directories.
     EFFECTS:
         Creates a PBS file at PBSpath. Creates a text file at the directory of PBSpath that contains all
         the entries in transferList.
@@ -79,12 +79,13 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
     PPN           = 1            # processors (cores) per node
     VIRT_ENV      = os.environ['VIRTUAL_ENV']
     POLL_INTERVAL = 60
-    GLOBUS_LOG    = os.path.join( logDir, jobName + "_globus.log" )
+    GLOBUS_LOG    = os.path.join( logDir, jobName + ".log" )
     GLOBUS_PBS    = os.path.join( PBSpath, jobName + "_pbs.pbs" )
 
     logger.debug("Globus log saved at {}.".format(GLOBUS_LOG))
     logger.debug("Globus PBS script saved at {}.".format(GLOBUS_PBS))
     logger.debug("jobName: {}".format(jobName))
+    logger.debug("Using virtual environment: {}".format(VIRT_ENV))
 
     # Argument check
     if not isinstance( oLimits, list ) or len( oLimits) != 2:
@@ -99,10 +100,6 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
             f.write(i + '\n')
 
    
-    #
-    # DUMP THE PICKLE OF THE LOG TREE
-    #
-     
     PBSfile = '''#!/bin/bash 
 #PBS -l nodes={}:ppn={}
 #PBS -l walltime={}
@@ -120,42 +117,32 @@ pollInt={}
 summaryLog={}
 oLower={}
 oMax={}
+globPull={}
+picklePath={}
+hashDir={}
+nodes={}
+ppn={}
 
-# Call the Globus Python CLI to grab the files specified in the batch file.
-# Explanation of the following line:
-# 1. Call a globus transfer, passing in the batchFile to stdin.
-# 2. Redirect the globus stderr to stdout
-# 3. Pipe to the tee command
-# 4. Tee will send stdout to file and to the globusRet variable
+python ${{globPull}} -l DEBUG $picklePath $batchFile $remoteID $hostID $hashDir $summaryLog $jobName $logFile
 
-globusRet=\"$(globus transfer ${{remoteID}}:/ ${{hostID}}:/ --batch --label $jobName < $batchFile 2>&1 | tee -a $logFile)\"
 retVal=$?
-
 if [ $retVal -ne 0 ]; then
     echo \"Failed to transfer Globus task ${{jobName}}.\" > $logFile
     echo \"FAIL: ${{oLower}}_${{oMax}}: Failed to pull data from nearline. See: $logFile\" > $summaryLog
     exit 1
 fi
 
-# Grab the submission ID
-submitID=\"$(echo $globusRet | grep \"Task ID\" | cut -d' ' -f3)\"
 
-# Make globus wait for the job
-globusWait=\"$(globus task wait --polling-interval $pollInt $submitID 2>&1 | tee -a $logFile)\"
-retVal=$?
-
-if [ $retVal -ne 0 ]; then
-    echo \"Failed to wait for Globus task ${{jobName}}. ID: $submitID\" > $logFile
-    echo \"FAIL: ${{oLower}}_${{oMax}}: Failed to wait for Globus task. See: $logFile\" > $summaryLog
-    exit 1
-fi
-
-'''.format( NUM_NODES, PPN, WALLTIME, jobName, os.path.join( VIRT_ENV, "/bin/activate"), GLOBUS_LOG, remoteID, hostID, \
-    jobName, batchFile, POLL_INTERVAL, summaryLog, oLimits[0], oLimits[1] )
+'''.format( NUM_NODES, PPN, WALLTIME, jobName, os.path.join( VIRT_ENV, "bin", "activate"), GLOBUS_LOG, remoteID, hostID, \
+    jobName, batchFile, POLL_INTERVAL, summaryLog, oLimits[0], oLimits[1], \
+    '/u/sciteam/clipp/basicFusion/util/TerraGen/globus_pull.py', picklePath, '/no/hash', NUM_NODES, PPN )
 
     with open ( GLOBUS_PBS, 'w' ) as f:
         f.write( PBSfile )
 
+    return GLOBUS_PBS
+
+#==========================================================================
     
 def main():
     # Define the argument parser
@@ -310,13 +297,13 @@ def main():
     i = 0
     for i in xrange(numFullJobs):
         eOrbit = sOrbit + args.granule - 1 
-        quantas.append( processQuanta( sOrbit, eOrbit) )
+        quantas.append( processQuanta( orbitStart=sOrbit, orbitEnd=eOrbit) )
         logger.info("{}: starting orbit: {} ending orbit: {}".format(i, sOrbit, eOrbit))
         sOrbit = eOrbit + 1
 
     # The remainder of numOrbits / args.granule needs to be accounted for
     if lastJobOrbits != 0 :
-        quantas.append( processQuanta( sOrbit, sOrbit + lastJobOrbits - 1 ) )
+        quantas.append( processQuanta( orbitStart=sOrbit, orbitEnd=sOrbit + lastJobOrbits - 1 ) )
         logger.info("{}: starting orbit: {} ending orbit: {}".format(i+1, sOrbit, sOrbit + lastJobOrbits - 1))
 
     # ======================================
@@ -334,25 +321,7 @@ def main():
         for orbit in xrange( i.orbitStart, i.orbitEnd + 1 ):
             
             # Find what year this orbit belongs to
-            year = 0
-            # First do a bound check
-            if orbit < orbitYear['orbitLimits']['start'] or \
-               orbit > orbitYear['orbitLimits']['end']:
-                
-                eMessage = "Orbit {} outside the accepted bounds given in basicFusion.py module!".format(orbit)
-                raise ValueError( eMessage )
-
-            # Iterate over every year in the orbitYear dict and check the bounds to see if it orbit belongs to that year
-            for year in orbitYear:
-                if not isinstance(year, int):
-                    continue
-
-                if orbit >= orbitYear[year]['start'] and orbit <= orbitYear[year]['end']:
-                    break
-
-                elif year == orbitYear['yearLimits']['end']:
-                    # If we ever reach this point, that means we were unable to associate a year with this orbit
-                    raise ValueError("Unable to associate a year with orbit {}!".format(orbit))
+            year = orbitYear( orbit )
 
             # We should now have the year for this orbit
             remoteFile = os.path.join( args.REMOTE_TAR_DIR, str( year ), "{}archive.tar".format(orbit) )
@@ -365,15 +334,11 @@ def main():
         #
 
         logger.info("Making Globus pull PBS script for job {}.".format(globPullName)) 
-        makePBS_globus( transferList,  PBSdirs['globus_pull'], args.REMOTE_ID, args.HOST_ID, globPullName, logDirs['globus_pull'], summaryLog, \
-            [ i.orbitStart, i.orbitEnd] )
+        i.PBSfile['pull'] = makePBS_globus( transferList,  PBSdirs['globus_pull'], args.REMOTE_ID, args.HOST_ID, \
+                            globPullName, logDirs['globus_pull'], summaryLog, [ i.orbitStart, i.orbitEnd], picklePath )
 
-    
-        #
-        # MAKE THE UNTARRING PBS SCRIPTS
-        #
-
-        # After 
+   
+         
         
 if __name__ == '__main__':
     main()

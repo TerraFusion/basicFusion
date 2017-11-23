@@ -14,7 +14,7 @@ MIS_re_HRLL='^MISR_HRLL_P[0-9]{3}.hdf$'
 # = Define what orbits belong to what year =
 # ==========================================
 
-orbitYear = { 2000 : { 'start' : 1000, 'end' : 5528 }, \
+_orbitYear = { 2000 : { 'start' : 1000, 'end' : 5528 }, \
               2001 : { 'start' : 5529, 'end' : 10844 }, \
               2002 : { 'start' : 10845, 'end' : 16159 }, \
               2003 : { 'start' : 16160, 'end' : 21474 }, \
@@ -33,7 +33,25 @@ orbitYear = { 2000 : { 'start' : 1000, 'end' : 5528 }, \
               'orbitLimits' : { 'start' : 1000, 'end' : 85302 }, \
               'yearLimits'  : { 'start' : 2000, 'end' : 2015 } \
             }
-               
+def orbitYear( orbit ):
+    '''
+    DESCRIPTION:
+        Returns the year that orbit belongs to.
+    ARGUMENTS:
+        orbit (int) -- Terra orbit
+    EFFECTS:
+        None
+    RETURN:
+        Year that orbit belongs to.
+        -1 on failure.
+    '''
+
+    for i in xrange( _orbitYear['yearLimits']['start'], _orbitYear['yearLimits']['end']):
+        if orbit >= _orbitYear[i]['start'] and orbit <= _orbitYear[i]['end']:
+            return i
+
+    raise ValueError("Orbit {} outside the range of accepted values!".format(orbit))
+
 def makeRunDir( dir ):
     '''
     DESCRIPTION:

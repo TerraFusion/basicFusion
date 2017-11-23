@@ -21,7 +21,7 @@ downloadPY()
     # Create the virtual environment
     rm -rf "$virtEnvName"
     echo "Generating the virtual environment..."
-    virtualenv --no-site-packages ./"$virtEnvName"
+    virtualenv --system-site-packages ./"$virtEnvName"
     retVal_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to establish the virtual environment." >&2
