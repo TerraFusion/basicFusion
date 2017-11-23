@@ -66,7 +66,7 @@ def queryFiles( orbitNum, SQLqueries, SQL_DB, queryLoc, instr ):
             
     elif instr == "MIS":
             # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
-            processCall = [ "bash", SQLqueries, "instrumentStartingInOrbit", SQL_DB, str(orbitNum), "MIS" ]
+            processCall = [ "bash", SQLqueries, "instrumentInOrbit", SQL_DB, str(orbitNum), "MIS" ]
 
             with open("{}/{}.txt".format(queryLoc, orbitNum), "a") as out:
                 procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
@@ -74,7 +74,7 @@ def queryFiles( orbitNum, SQLqueries, SQL_DB, queryLoc, instr ):
     elif instr == "MOD":
 
             # SQLcall is the bash call to the queries.bash script. queries.bash is a bash wrapper for SQLite calls
-            processCall = [ "bash", SQLqueries, "instrumentInOrbit", SQL_DB, str(orbitNum), "MOD" ]
+            processCall = [ "bash", SQLqueries, "instrumentStartingInOrbit", SQL_DB, str(orbitNum), "MOD" ]
 
             with open("{}/{}.txt".format(queryLoc, orbitNum), "a") as out:
                 procList.append( subprocess.Popen( processCall, stdout=out, stderr=out ) )
