@@ -8,6 +8,8 @@ from mpi4py import MPI
 import hashlib
 from basicFusion import orbitYear
 import tarfile
+from shutil import copy
+from workflowClass import inputData
 
 FORMAT='%(asctime)s %(levelname)-8s %(name)s [%(filename)s:%(lineno)d] %(message)s'
 dateformat='%d-%m-%Y:%H:%M:%S'
@@ -30,6 +32,8 @@ MPI_SLAVE_HASH_FAIL     = 4
 MPI_SLAVE_HASH_SUCCEED  = 5
 MPI_SLAVE_TERMINATE     = 6
 MPI_UNTAR_FAIL          = 7
+MPI_DO_COPY             = 8
+MPI_DO_GENERATE         = 9
 
 #=========================================================================
 def worker( hashDir ):
@@ -52,6 +56,11 @@ def worker( hashDir ):
         data = mpi_comm.recv( source = MPI_MASTER, status=stat )
 
         logger.info("Received job {}.".format(stat.Get_tag() ) )
+
+        # ---------------
+        # - MPI_DO_HASH -
+        # ---------------
+
         if stat.Get_tag() == MPI_DO_HASH :
             # Find the appropriate hash file. First extract the orbit from the file name
             filePath = data.split(' ')[1]
@@ -84,9 +93,13 @@ def worker( hashDir ):
             else:
                 mpi_comm.send( { 'line' : data, 'status' : MPI_SLAVE_HASH_SUCCEED }, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
         
+        # ----------------
+        # - MPI_DO_UNTAR -
+        # ----------------
+
         elif stat.Get_tag() == MPI_DO_UNTAR:
-            tarPath = data[0]
-            untarDir = data[1]
+            tarPath = data.tarFile
+            untarDir = data.untarDir
             logger.info("Untarring {}".format( os.path.split( tarPath )[1] ) )
 
             try:
@@ -104,10 +117,74 @@ def worker( hashDir ):
                 logger.error("Failed to untar: {}".format(tarPath))
                 logger.error(str(e))
                 mpi_comm.send( data, MPI_MASTER, tag = MPI_UNTAR_FAIL )
-                
+
+        # -------------------
+        # - MPI_DO_GENERATE -
+        # -------------------
+        elif stat.Get_tag() == MPI_DO_GENERATE:
+            # data is a tuple.
+            # First element: inputData class object
+            # Second element: basicFusion executable path
+            inData = data[0]
+            BFexe  = data[1]
+            outputFile = os.path.join( inData.BFoutputDir, inData.BFfileName )
+
+            # TODO
+            # Need to query genFusionInput.sh to make input file. Then,
+            # call basic fusion program
+
+            args = [ BFexe, outputFile, inData.
+            with open( inData.logFile, 'w' ) as logFile:
+                subProc = subprocess.Popen( args, stdout=logFile, stderr=logFile ) 
+                subProc.wait()
+            
+
+        # ---------------
+        # - MPI_DO_COPY -
+        # ---------------
+
+        elif stat.Get_tag() == MPI_DO_COPY:
+            for i in data:
+                copy( i[0], i[1] )
+
         elif stat.Get_tag() == MPI_SLAVE_TERMINATE:
             logger.debug("Terminating.")
             return
+
+#==========================================================================
+def slaveCopyFile( copyList, orbit=0 ):
+    '''
+    DESCRIPTION:
+        Handles sending out a file copying job to a free slave rank.
+    ARGUMENTS:
+        copyList (list) -- Each element is a tuple. First element in tuple is
+                           the file to be copied. Second element in tuple is the
+                           directory to copy the file to.
+        orbit (int)     -- Optional argument. Specify this if you want a useful
+                           logging message to be sent.
+    EFFECTS:
+        Copies all files in copyList
+    RETURN:
+        None
+    '''
+
+    # Check for slaves that want a job
+    stat = MPI.Status()                 # Class that keeps track of MPI information    
+    mpi_comm.probe( status = stat, tag = MPI_SLAVE_IDLE )
+
+    # Ensure the copyList contains real files and directories
+    for i in copyList:
+        if not os.path.isfile( i[0] ):
+            raise ValueError("Passed file: {} does not exist.".format(i[0]))
+        if not os.path.isdir( i[1] ):
+            raise ValueError("Passed directory: {} does not exist.".format(i[1]))
+
+    logger.debug("Sending slave {} copy job: {}.".format( stat.source, orbit ) )
+
+    mpi_comm.recv( source=stat.source, tag = MPI_SLAVE_IDLE )
+    mpi_comm.send( copyList, dest = stat.source, tag = MPI_DO_COPY )
+
+
 
 #==========================================================================
 def globusDownload( transferList, remoteID, hostID, numTransfer ):
@@ -422,7 +499,7 @@ def untarData( untarList ):
             logger.error("Rank {} failed to untar {}.".format( stat.Get_source(), data[0] ) )
             
         elif stat.Get_tag() == MPI_SLAVE_IDLE: 
-            logger.info("Sending untar job {} to rank {}".format( os.path.split( i[0] )[1], stat.Get_source()))        
+            logger.info("Sending untar job {} to rank {}".format( os.path.split( i.tarFile )[1], stat.Get_source()))        
             mpi_comm.recv( source=stat.Get_source(), tag = MPI_SLAVE_IDLE )
             mpi_comm.send( i, dest = stat.Get_source(), tag = MPI_DO_UNTAR )
         else: 
@@ -435,7 +512,7 @@ def untarData( untarList ):
     # Wait for all MPI children to complete
     for i in xrange(1, mpi_size):
         stat = MPI.Status()
-        data = mpi_comm.recv( source = i, status=stat)
+        data = mpi_comm.probe( source = i, status=stat)
         if stat.Get_tag() == MPI_UNTAR_FAIL:
             logger.error("Rank {} failed to untar {}.".format( stat.Get_source(), data[0] ) )
             
@@ -451,6 +528,92 @@ def untarData( untarList ):
 
     return failUntar
 
+#=========================================================================
+def slaveWait():
+    
+    # Wait for all MPI children to complete
+    for i in xrange(1, mpi_size):
+        stat = MPI.Status()
+        data = mpi_comm.probe( source = i, status=stat)
+        if stat.Get_tag() != MPI_SLAVE_IDLE :
+            # We don't know how to handle this.
+            raise StandardError("Discovered tag: {} while trying to wait for slave.".format( stat.Get_tag() ))
+
+
+#==========================================================================
+
+
+def findFile( name, path ):
+    '''
+    DESCRIPTION:
+        Recursively searches path for a file.
+    ARGUMENTS:
+        name (str)  -- Name of the file
+        path (str)  -- The directory to search for name
+    EFFECTS:
+        None
+    RETURN:
+        Absolute path of file if found.
+        None if not found
+    '''
+    name = name.strip()
+    path = path.strip()
+    for root, dirs, files in os.walk( path ):
+        if name in files:
+            return os.path.abspath( os.path.join(root, name) )
+
+#===========================================================================
+
+def findOrbitStart( orbit, orbit_info ):
+    '''
+    DESCRIPTION:
+        This function finds the starting time of the orbit according to the Orbit_Info.txt file. Please
+        see the GitHub documentation on how to generate this file.
+    ARGUMENTS:
+        orbit (int) -- Orbit to find starting time of
+        orbit_info (str)    -- Path to the orbit_info.txt file
+    EFFECTS:
+        None
+    RETURN:
+        String containing the starting time.
+    '''
+
+    with open( orbit_info, 'r') as file:
+        for line in file:
+            if re.search( "^{}".format(orbit), line ):
+                match=line
+                break
+
+    if match == None:
+        return None
+    
+    match = match.split(' ')[2].strip()
+    match = match.replace('-','')
+    match = match.replace('T','')
+    match = match.replace(':','')
+    match = match.replace('Z','')
+
+    return match
+  
+#===========================================================================
+ 
+def generateBF( log_tree, transferPickle, genFusionInput, orbit_info ):
+    '''
+    DESCRIPTION:
+        This function generates the Basic Fusion files.
+    '''
+
+    FILENAME='TERRA_BF_L1B_O{0}_{1}_F000_V000.h5'
+
+    # Extract the transferPickle
+    with open( transferPickle, 'rb' ) as f:
+        transferList = pickle.load(f)
+
+    for granule in transferList:
+        orbit_time = findOrbitStart( granule.orbit, orbit_info )
+        granule.BFfileName = FILENAME.format( granule.orbit, orbit_time ) 
+       
+        
 #===========================================================================
 
 def main():
@@ -475,10 +638,16 @@ def main():
         named #hash.md5 where # is the orbit number.", type=str)
     parser.add_argument("SUMMARY_LOG", help="The summary log file where high-level log information will be saved.", \
         type=str )
-
+    parser.add_argument("JOB_NAME", help="A name for this  job. Used to make unique log files, intermediary files, and any
+        other unique identifiers needed.", type=str)
     parser.add_argument("LOG_FILE", help="The text file to send all log output to.", type=str )
     parser.add_argument("MISR_PATH_FILES", help="Directory where all the MISR HRLL and AGP files are stored. Directory \
         structure does not matter, script will perform recursive search for the files.", type=str )
+    parser.add_argument("GEN_FUS_INPUT", help="A path to the script used to generate Basic Fusion input file lists. \
+        Usually found in basicFusion/metadata-input/genInput/genFusionInput.sh", type=str )
+    parser.add_argument("ORBIT_INFO", help="Path to the Orbit_Info.txt file that contains start and end times for every \
+        Terra orbit.", type=str)
+    parser.add_argument("BF_EXE", help="Path to the Basic Fusion executable", type=str )
     parser.add_argument("-g", "--num-transfer", help="The number of Globus transfer requests to split the TRANSFER_LIST into. \
         Defaults to 1.", type=int, default=1)
     parser.add_argument("-l", "--log", help="Set the log level. Allowable values are INFO, DEBUG. Absence of this parameter \
@@ -528,10 +697,10 @@ def main():
             #
             # SUBMIT GLOBUS TRANSFERS
             #
-            submitTransfer( args.TRANSFER_LIST, args.REMOTE_ID, args. HOST_ID, args.HASH_DIR, args.num_transfer)
+            #submitTransfer( args.TRANSFER_LIST, args.REMOTE_ID, args. HOST_ID, args.HASH_DIR, args.num_transfer)
             
             # The tar data is now (hopefully) all on the system. Untar the data.
-            untarList = []
+            inputDataList = []
             with open( args.TRANSFER_LIST, 'r' ) as tList:
                 for i in tList:
                     file = i.split(' ')[-1].strip()
@@ -543,17 +712,85 @@ def main():
                     untarLoc = os.path.join( args.SCRATCH_SPACE, "untarData", str(year), str(orbit) )
                     if not os.path.isdir( untarLoc ):
                         os.makedirs( untarLoc )
+                    inputDataList.append( inputData( file, untarLoc, orbit, year=year ) )
+            
+            if False:        
+                failUntar = untarData( inputDataList )
 
-                    untarList.append( (file, untarLoc) )
+                if len(failUntar) != 0:
+                    sumLog.write("Failed to untar the following files:")
+                for i in failUntar:
+                    inputDataList.remove(i)
+                    sumLog.write(i.tarFile)
+
+            logger.info("Copying over MISR path files.")
+
+            # ========================
+            # = READ MISR_PATH_FILES =
+            # ========================
+
+            # For every untarred orbit in our inputDataList, we need to read the MISR_PATH_FILES.txt
+            # file and copy over those two files that it lists. inputDataList is a list of inputData
+            # class objects. Each of these objects contains:
+            # 1. Directory where all untarred data for a single orbit is stored
+            # 2. Orbit of its directory
+            # 3. The tar file where these untarred files were extracted from (at this point in the program,
+            #    this tar file should be deleted. Files have been extracted.)
+
+            for i in inputDataList:
+                i.pathFileList = os.path.join( i.untarDir, "MISR_PATH_FILES_{}.txt".format(i.orbit) )
+                pathCopyList = []
+                with open( i.pathFileList, 'r' ) as pfList:
+                    for file in pfList:
+                        # Find the absolute path of this pathfile
+                        pathAbs = findFile( file, args.MISR_PATH_FILES )
+                        if pathAbs == None:
+                            errMsg="Failed to find file {} in path {}.".format(file, args.MISR_PATH_FILES)
+                            logger.error(errMsg)
+                            raise ValueError(errMsg)
+
+                        pathCopyList.append( (pathAbs, i.untarDir) )
+                    # Send this job to the worker ranks
+                    slaveCopyFile( pathCopyList, i.orbit )
+
+            # Wait for all slaves to complete
+            slaveWait()
+
+            # Delete all the MISR_PATH_FILES. Also, create and save directories where the output basic fusion files will go
+            BFoutputDir = os.path.join( args.SCRATCH_SPACE, "BFoutput" )
+            try:
+                os.makeddirs( BFoutputDir )
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise
+
+            for i in inputDataList:
+                os.remove( i.pathFileList )
+                fileOutDir = os.path.join( BFoutputDir, str(i.year) )
+
+                try:
+                    os.makeddirs( fileOutDir )
+                except OSError as e:
+                    if e.errno != errno.EEXIST:
+                        raise
+                
+                
+
+            # Pickle the inputDataList. This is done because I may make generateBF() a separate script, and would
+            # need to pass around a pickle.
+            inputDataPickle = os.path.join( args.LOG_TREE['misc'], "{}dataListPickle.txt".format(args.JOB_NAME))
+            with open( inputDataPickle, 'wb' ) as f:
+                pickle.dump( inputDataList, f )
+    
+            # Files have been downloaded, extracted and prepared. Initiate the processing phase.
+            # As of Nov 23, 2017, I am going to write this processing function inside this script.
+            # The reason for doing that is so we do not have to submit an extra job to PBS. Doing so
+            # will waste a lot of time waiting in the queue. The downside is that we will burn a lot
+            # of node hours waiting for the download phase. I'm opting to waste node hours in favor
+            # of less queue wait time.
+
+            generateBF( args.LOG_TREE, inputDataPickle, args.GEN_FUS_INPUT, args.ORBIT_INFO )
                     
-            failUntar = untarData( untarList )
-
-            if len(failUntar) != 0:
-                sumLog.write("Failed to untar the following files:")
-            for i in failUntar:
-                untarList.remove(i)
-                sumLog.write(i[0])
- 
         else:
             worker( args.HASH_DIR )
 

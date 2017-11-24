@@ -1,5 +1,17 @@
 from mpi4py import MPI
 
+class inputData:
+    def __init__ (self, tarFile='', untarDir='', orbit=0, pathFileList='', year=0, BFoutputDir='', BFfileName = '', logFile = '' \
+                    inputFileList = '' ):
+        self.tarFile    = tarFile
+        self.untarDir   = untarDir
+        self.orbit      = orbit
+        self.pathFileList   = pathFileList
+        self.year       = year
+        self.BFoutputDir = BFoutputDir
+        self.BFfileName  = BFfileName
+        self.logFile     = logFile 
+        self.inputFileList = inputFileList
 
 class processQuanta:
     '''
