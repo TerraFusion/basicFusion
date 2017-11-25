@@ -93,6 +93,14 @@ module load hdf4 hdf5 szip
 ```
 Run: `make`. If it compiles without any errors (warnings are acceptable), the compilation was successful.
 
+REQUIREMENTS:
+On Blue Waters, the following modules must be loaded for compilation:
+* cray-hdf5
+* hdf4
+* PrgEnv-intel
+
+KNWON ISSUES:
+* module zlib -- Makes the BF executable unable to be called from a Python subprocess.
 
 ## Program Execution
 
