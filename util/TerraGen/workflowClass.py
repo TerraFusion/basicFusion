@@ -1,7 +1,7 @@
 from mpi4py import MPI
 
 class inputData:
-    def __init__ (self, tarFile='', untarDir='', orbit=0, pathFileList='', year=0, BFoutputDir='', BFfileName = '', logFile = '' \
+    def __init__ (self, tarFile='', untarDir='', orbit=0, pathFileList='', year=0, BFoutputDir='', BFfileName = '', logFile = '', \
                     inputFileList = '' ):
         self.tarFile    = tarFile
         self.untarDir   = untarDir
@@ -12,6 +12,9 @@ class inputData:
         self.BFfileName  = BFfileName
         self.logFile     = logFile 
         self.inputFileList = inputFileList
+        self.BF_exe     = ''
+        self.orbit_times_bin = ''
+        self.outputFile = ''
 
 class processQuanta:
     '''

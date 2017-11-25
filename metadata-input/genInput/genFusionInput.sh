@@ -1070,7 +1070,7 @@ verifyFiles()
 #!/bin/bash
 usage(){
 
-    description="Usage: $0 [database file] [orbit number] [.txt output filepath]
+    description="Usage: $0 [arg1] [orbit number] [.txt output filepath] [--SQL | --dir]
 
 DESCRIPTION:
 \tThis script generates one single, canonical Basic Fusion input file list. It parses the database given to it through the basicFusion/metadata-input/queries.bash script and orders the files properly.
@@ -1105,7 +1105,7 @@ ORBITINFO="$SCRIPT_PATH/../data/Orbit_Path_Time.txt"
 PROJ_PATH="$(cd "${SCRIPT_PATH}/../../" && pwd )"
 
 # Set this to non-zero if you want the unordered database queries to be saved.
-SAVE_UNORDERED=1
+SAVE_UNORDERED=0
 
 UNORDERED=$(dirname $ORDERED)/$(basename $ORDERED).unordered
 
@@ -1185,13 +1185,9 @@ numGRP=$(echo "$MISLINES" | grep "GRP" | wc -l)
 if [ $numGRP -eq 0 ]; then
     echo "MIS N/A" >> "$UNORDERED"
 
-elif [ $numGRP -eq 9 ]; then
-    echo "$MISLINES" >> "$UNORDERED"
 else
-    echo "ERROR: Found $numGRP MISR files! Only 9 should be present!" >&2
-    exit 1
+    echo "$MISLINES" >> "$UNORDERED"
 fi
-
 # Order and format the files appropriately (Fusion program requires specific input format)
 orderFiles $UNORDERED $ORDERED
 if [ "$?" -ne 0 ]; then
