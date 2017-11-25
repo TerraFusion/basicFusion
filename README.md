@@ -40,6 +40,28 @@ In addition to the HDF libraries, the Basic Fusion program is also dependent on 
     
 1. Check the output of configureEnv.sh. If it completed without any errors, the dependencies were successfully created.
 
+### Compilation
+
+A series of different Makefiles have been provided to compile the program under basicFusion/Makefiles. The two main flavors are static and dynamic Makefiles. Currently, the dynamic Makefiles (as of Jul 12, 2017) are not operational.
+
+```
+cp Makefile.bwStatic ../Makefile
+```
+Load the necessary modules:
+```
+module load hdf4 hdf5 szip
+```
+Run: `make`. If it compiles without any errors (warnings are acceptable), the compilation was successful.
+
+REQUIREMENTS:
+On Blue Waters, the following modules must be loaded for compilation:
+* cray-hdf5
+* hdf4
+* PrgEnv-intel
+
+KNWON ISSUES:
+* Compiling with Blue Waters cc wrapper utility is known to cause unstable binary files. It is strongly recommended to build all dependencies from source and compile against them using gcc.
+
 ## Database generation
 
 A suite of scripts have been written under `basicFusion/metadataInput/build` to generate the SQLite database of all the input HDF granules. Run the findThenGenerate.sh script to:  
@@ -79,28 +101,6 @@ Use `qstat | grep [your username]` to see the status of your jobs.
 Based on the orbit start and end times, as well as the parameters set inside of the script (max job size etc.), it determines how many resources to request of the Blue Waters TORQUE resource manager. It will then generate all of the necessary files for parallel computation in the `basicFusion/jobFiles/BFinputGen` directory and submit its jobs to the queue. The resultant output files will reside in your `/path/to/output` directory.
 
 **NOTE!!!**: Inside the genInputRange_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters/ROGER. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. Do not run this script without reviewing the **JOB PARAMETERS** to determine if the values there are appropriate for the current system and job that you want to run! **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
-
-## Compilation
-### Blue Waters
-A series of different Makefiles have been provided to compile the program under basicFusion/Makefiles. The two main flavors are static and dynamic Makefiles. Currently, the dynamic Makefiles (as of Jul 12, 2017) are not operational.
-
-```
-cp Makefile.bwStatic ../Makefile
-```
-Load the necessary modules:
-```
-module load hdf4 hdf5 szip
-```
-Run: `make`. If it compiles without any errors (warnings are acceptable), the compilation was successful.
-
-REQUIREMENTS:
-On Blue Waters, the following modules must be loaded for compilation:
-* cray-hdf5
-* hdf4
-* PrgEnv-intel
-
-KNWON ISSUES:
-* module zlib -- Makes the BF executable unable to be called from a Python subprocess.
 
 ## Program Execution
 
