@@ -1,46 +1,60 @@
-# Terra Fusion Project
+# Basic Fusion
 **University of Illinois - Urbana/Champaign**  
-**Authors:**
-  1. Landon Clipp <clipp2@illinois.edu>
-  2. MuQun Yang
-  
-The Terra Fusion project was created to fuse the MOPITT, CERES, MISR, ASTER and MODIS data into one, unified HDF5 "Basic Fusion" file set. One Basic Fusion **(BF)** granule contains data from each instrument over a certain time period. The BF granularity is defined as one Terra orbit. 
 
-This file outlines the structure of the combined TERRA Fusion code, how to compile it on a local machine, and how to add
-additional code to the program. This file may not be up to date during development.
+The Terra weather satellite is the flagship of NASA's Earth Observing System. Aboard Terra are five instruments, MOPITT, CERES, MISR, ASTER, and MODIS. Atmospheric researchers have been largely unable to use more than one or two instruments at a time due to the complexities involved in fusing the data from different file formats, different grids, and different data gathering methods. The Basic Fusion project aims at providing a solution to this issue by fusing the Level 1B data from the five instruments into one, unified "Basic Fusion" **(BF)** file set. One BF granule contains data from each instrument over a single Terra orbit.
 
 ## Installation
-Although this program can be installed and run on local machines, it was developed under the assumption that it would be run on either the Blue Waters or the ROGER super computers. The following instructions detail how to install the program on either of the super computers.
 
-#### Required Libraries
-The Basic Fusion program requires the following non-standard C libraries to function:
+#### Dependencies
+The Basic Fusion program requires the following Hierarchical Data Format (HDF) C libraries to function:
 
-1. <hdf.h>  -- HDF4 library
-1. <mfhdf.h> -- A netCDF library that is included with installation of the HDF4 library
-1. <hdf5.h> -- The HDF5 library
-1. <hdf5_hl.h> -- The HDF5 lite API
+1. [HDF4 4.2.13](https://support.hdfgroup.org/release4/obtain.html)
+1. [HDF5 1.8.16](https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.16/)
 
-As can be inferred, users of this program must have both HDF4 and HDF5 libraries installed on their machine. Instructions on installing can be found at the HDF website: https://www.hdfgroup.org/. When installing the libraries on your machine, it is highly recommended that you configure the installation to include both static and dynamic libraries.
+No other version of HDF libraries may be used. It is highly preferable for users of the BasicFusion code to compile against user-level HDF libraries rather than system HDF. **For Blue Waters, it is in fact required.** 
 
-In addition to the HDF libraries, the Basic Fusion program is also dependent on the szip and jpeg libraries. These dependencies arise within the HDF libraries themselves. Please note that both Blue Waters and ROGER provide pre-compiled, pre-installed versions of all of these libraries through the use of the "module" construct. You can see a list of available modules by invoking "module avail" in the terminal and grepping the output to see the desired HDF, szip, or jpeg modules you need.
+The HDF libraries also depend on jpeg, zlib, and szip (optional). Users may use system installs of these libraries when compiling the HDF source.
 
+#### GitHub Download & Python Installation
 
 1. cd into the desired directory and type
     ```
     git clone https://YOUR_GITHUB_USERNAME@github.com/TerraFusion/basicFusion
     ```
 1. cd into the `basicFusion/util` directory
-1. Configure the external dependencies by running the configureEnv.sh script. This script handles downloading and setting up the Python dependencies used by the database generation scripts, as well as NCSA's Scheduler program used for parallel execution of the Basic Fusion code.  
-
-    Run `./configureEnv.sh` to see what arguments it needs to run. Use the -a flag to download everything:
-        ```
-        ./configureEnv.sh -a
-        ```
-    This will download the dependencies to the basicFusion/externLib directory. Note that if at any point this script fails, please check its code to ensure that it is loading a proper MPICH module (the name of the module can change from site to site).
+1. Configure the external Python dependencies by running the configureEnv.sh script.  
+    ```
+    ./configureEnv.sh -a
+    ```
+    This will download the Python dependencies and install [NCSA Scheduler](https://github.com/ncsa/Scheduler) to the basicFusion/externLib directory. This script requires proper visibility to a system MPI library to install mpi4py. If mpi4py installation fails, please ensure you have a proper MPI environment module loaded.
     
-1. Check the output of configureEnv.sh. If it completed without any errors, the dependencies were successfully created.
+This script installs a helper script in ~/bin/ that aids in quickly activating the Python virtual environment. Activating the virtual environment is thus as simple as:
 
-### Compilation
+```
+source activateBF
+```
+
+If users have more than one basicFusion repository on the file system and have called ./configureEnv.sh from multiple places, it is then strongly recommended to explicitly activate the virtual environment as such:
+
+```
+source /path/to/basicFusion/externLib/BFpyEnv/bin/activate
+```
+
+### basicFusion.py
+The basicFusion.py module is a small script we wrote that configureEnv.sh installs to the virutal environment's site-packages. This module provides a set of useful functions to use in your Python scripts. After sourcing the environment, you can import the module in any script using:
+
+`import basicFusion`
+
+This function acts as the authority on which files are proper and which are not. You can view the function interface by following these lines:
+
+```
+(BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ source activateBF
+(BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ python  
+>>> import basicFusion
+>>> help(basicFusion)  
+```
+
+#### Compilation
 
 A series of different Makefiles have been provided to compile the program under basicFusion/Makefiles. The two main flavors are static and dynamic Makefiles. Currently, the dynamic Makefiles (as of Jul 12, 2017) are not operational.
 
@@ -49,30 +63,21 @@ cp Makefile.bwStatic ../Makefile
 ```
 Load the necessary modules:
 ```
-module load hdf4 hdf5 szip
+module load hdf4 cray-hdf5 PrgEnv-intel zlib szip
 ```
 Run: `make`. If it compiles without any errors (warnings are acceptable), the compilation was successful.
 
-REQUIREMENTS:
-On Blue Waters, the following modules must be loaded for compilation:
-* cray-hdf5
-* hdf4
-* PrgEnv-intel
-
-KNWON ISSUES:
-* Compiling with Blue Waters cc wrapper utility is known to cause unstable binary files. It is strongly recommended to build all dependencies from source and compile against them using gcc.
+Please see KNOWN ISSUES for issues specific to compiling the BF program.
 
 ## Database generation
 
-A suite of scripts have been written under `basicFusion/metadataInput/build` to generate the SQLite database of all the input HDF granules. Run the findThenGenerate.sh script to:  
-1. Discover all of the input HDF files available and  
-2. Build the SQLite database from this list.
+The BF program itself requires as an argument a text file that lists all of the input HDF files for a particular granule. The production of these input text files is aided by a suite of scripts that have been written in `basicFusion/metadata-input/`. Users can generate an SQLite database of all the input HDF files using the scripts in `basicFusion/metadataInput/build`. This database is necessary to gather the correct input files for each orbit. It can be generated by using the script in the build directory:
 
 ```
-./findThenGenerate /path/to/inputfiles
+./findThenGenerate /path/to/inputfiles/
 ```
 
-The `/path/to/inputfiles` directory MUST contain the following subdirectories inside: ASTER, MISR, MOPITT, MODIS, CERES. This script will parse each of these subdirectories for all of the available files. This script can take some time to generate depending on the total size of the input data. The SQLite database will be saved as basicFusion/metadata-input/accesslist.sqlite
+The `/path/to/inputfiles/` directory MUST contain the following subdirectories inside: ASTER, MISR, MOPITT, MODIS, CERES. This script will recursively search each of these subdirectories for all of the available files. This script can take ~10 minutes to complete. The SQLite database will be saved at basicFusion/metadata-input/accesslist.sqlite
 
 **NOTE!!!**: This shell script uses a Python script called **fusionBuildDB** to parse the listing of all available files and then generate the SQLite database. This script is run using the Python Virtual Environment created during the **Installation** section. IT IS REQUIRED that you follow the Installation section first to ensure that the virtual environment is installed.
 
@@ -113,44 +118,13 @@ A script has been written under `basicFusion/TerraGen/util/processBF_SX.sh` that
 ```
 Use `qstat | grep [your username]` to see the status of your jobs.
 
-Currently, the `/path/to/input/txt/files` must be the directory where all the input granule list text files are (these text files cannot be in any subdirectories). The `/path/to/output` will be where all of the output HDF5 granules are placed. The script will determine---exactly how the genInputRange_SX.sh does---how many jobs, nodes per job, and processors per node to use based on the number of orbits you desire to process. The maximum values for number of jobs, nodes, and processors can be changed inside the script in the **JOB PARAMETERS** section.
+Currently, the `/path/to/input/txt/files` must be a flat directory (these text files cannot be in any subdirectories). The `/path/to/output` will be a flat directory where all of the output HDF5 granules are placed. The script will determine---exactly how the genInputRange_SX.sh does---how many jobs, nodes per job, and processors per node to use based on the number of orbits you desire to process. The maximum values for number of jobs, nodes, and processors can be changed inside the script in the **JOB PARAMETERS** section.
 
 **NOTE!!!**: Inside the processBF_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters/ROGER. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. Do not run this script without reviewing the **JOB PARAMETERS** to determine if the values there are appropriate for the current system and job that you want to run! **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
 
 Please refer to the command line description of ./processBF_SX.sh for a full listing of all the available parameters.
 
-## Python
-In order to aid in handling external Python dependencies, the configureEnv.sh script (explained in the Installation section) automatically creates a Python virtual environment at basicFusion/externLib/BFpyEnv. This virtual environment is installed with all necessary modules that any script in this project may need. The current installed packages are:
-
-- numpy
-- matplotlib
-- docopt
-- pytz
-- globus-sdk
-- mpi4py
-- BFfile
-
-When running any Python script in this project, it is highly recommend you source the virtual environment by executing:
-
-`source [path_to_BF_repo]/externLib/BFpyEnv/bin/activate`
-
-Doing so will meet the dependencies of any Python script in the project. Note that when the virtual environment is activated, you may be unable to use any system-level packages. To deactivate the virtual environment:
-
-`deactivate`
-
-### basicFusion.py
-The basicFusion.py module is a small script we wrote that configureEnv.sh installs to the virutal environment's site-packages. This module provides a set of useful functions to use in your Python scripts. After sourcing the environment, you can import the module in any script using:
-
-`import basicFusion`
-
-This function acts as the authority on which files are proper and which are not. You can view the function interface by following these lines:
-
-```
-(BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ source activateBF
-(BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ python  
->>> import basicFusion
->>> help(basicFusion)  
-```
 
 ## Known Issues
 - The `git` module is known to cause issues on ROGER when submitting to the queue.
+- Compiling with the Blue Waters cc wrapper utility is known to cause unstable binary files that will unexpectedly fail when called as a subprocess from an MPI program. It is required on Blue Waters to build HDF libraries and the the BF code itself using gcc.
