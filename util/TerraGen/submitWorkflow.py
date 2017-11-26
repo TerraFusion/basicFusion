@@ -32,15 +32,32 @@ import argparse
 import logging
 import sys, os, errno
 from basicFusion import makeRunDir, orbitYear
-from workflowClass import processQuanta
 import pickle
+import errno
+import subprocess
+from workflowClass import granule
 
 #=================================
 logName='BF_jobFiles'
 logger = 0
 #=================================
 
-def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, summaryLog, oLimits, picklePath):
+class processQuanta:
+    '''
+    This is a class that contains all relevant information for submitting one "quanta"
+    of work in the Basic Fusion workflow. One quanta of work involves three separate jobs:
+    1. Pulling tar data from Nearline (pull)
+    2. Generating the new Basic Fusion files (process)
+    3. Pushing the new Basic Fusion files back to Nearline. (push)
+    '''
+    def __init__( self, pullPBS='', processPBS='', pushPBS='', orbitStart=0, orbitEnd=0):
+        self.orbitStart = orbitStart
+        self.orbitEnd = orbitEnd
+        self.PBSfile = { 'pull' : pullPBS, 'process' : processPBS, 'push' : pushPBS }
+        self.jobID   = { 'pull' : '',      'process' : '',         'push' : ''      }
+
+def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, summaryLog, oLimits, logPickle, scratchSpace, MISR_path_files, hashDir, projPath, globus_parallelism, \
+                    nodes, ppn, output_granule_list ):
     '''
     DESCRIPTION:
         This function makes the PBS scripts and other files necessary to pull the proper orbits from Nearline
@@ -61,7 +78,10 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
         logDir (str)        -- Directory where Globus CLI output will be redirected to.
         summaryLog (str)    -- This log file contains summary information for everything that goes wrong in this process.
         oLimits (list, int) -- A list containing the lower and upper bounds of these orbits.
-        picklePath (str)    -- Path to the Python dictionary pickle that contains the paths of the log directories.
+        logPickle (str)     -- Path to the Python dictionary pickle that contains the paths of the log directories.
+        scratchSpace (str)  -- Directory mounted on a high-performance, high-capacity filesystem for scratch work.
+        MISR_path_files (str)   -- Where the MISR HRLL and AGP files are stored.
+        hashDir (str)       -- Directory of the hashes of the input tar files.
     EFFECTS:
         Creates a PBS file at PBSpath. Creates a text file at the directory of PBSpath that contains all
         the entries in transferList.
@@ -75,17 +95,22 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
     # = default parameters =
     # ======================
     WALLTIME      = "48:00:00"
-    NUM_NODES     = 1
-    PPN           = 1            # processors (cores) per node
+    NUM_NODES     = nodes
+    PPN           = ppn            # processors (cores) per node
     VIRT_ENV      = os.environ['VIRTUAL_ENV']
     POLL_INTERVAL = 60
     GLOBUS_LOG    = os.path.join( logDir, jobName + ".log" )
     GLOBUS_PBS    = os.path.join( PBSpath, jobName + "_pbs.pbs" )
+    mpi_exec      = 'aprun'
+    globus_pull_script  = os.path.join( projPath, 'util', 'TerraGen', 'globus_pull.py' )
 
     logger.debug("Globus log saved at {}.".format(GLOBUS_LOG))
     logger.debug("Globus PBS script saved at {}.".format(GLOBUS_PBS))
     logger.debug("jobName: {}".format(jobName))
     logger.debug("Using virtual environment: {}".format(VIRT_ENV))
+    
+    if not os.path.isfile( globus_pull_script ):
+        raise FileNotFound("globus_pull.py not found at: {}".format( globus_pull_script) )
 
     # Argument check
     if not isinstance( oLimits, list ) or len( oLimits) != 2:
@@ -105,6 +130,13 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
 #PBS -l walltime={}
 #PBS -N {}
 
+# Need to source this file before calling module command
+source /opt/modules/default/init/bash
+
+# Load proper python modules
+module load bwpy
+module load bwpy-mpi
+
 # Source the Basic Fusion python virtual environment
 source {}
 
@@ -113,35 +145,53 @@ remoteID={}
 hostID={}
 jobName={}
 batchFile={}
-pollInt={}
 summaryLog={}
 oLower={}
 oMax={}
-globPull={}
-picklePath={}
+globus_pull_script={}
+logPickle={}
 hashDir={}
 nodes={}
 ppn={}
+scratchSpace={}
+MISR_path_files={}
+globus_parallelism={}
+output_granule_list={}
 
-python ${{globPull}} -l DEBUG $picklePath $batchFile $remoteID $hostID $hashDir $summaryLog $jobName $logFile
+{{ {} -n {} -N $ppn -d 1 python ${{globus_pull_script}} -l DEBUG $logPickle $batchFile $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $logFile $MISR_path_files --num-transfer $globus_parallelism $output_granule_list ; }} &> $logFile
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
-    echo \"Failed to transfer Globus task ${{jobName}}.\" > $logFile
     echo \"FAIL: ${{oLower}}_${{oMax}}: Failed to pull data from nearline. See: $logFile\" > $summaryLog
     exit 1
 fi
 
 
 '''.format( NUM_NODES, PPN, WALLTIME, jobName, os.path.join( VIRT_ENV, "bin", "activate"), GLOBUS_LOG, remoteID, hostID, \
-    jobName, batchFile, POLL_INTERVAL, summaryLog, oLimits[0], oLimits[1], \
-    '/u/sciteam/clipp/basicFusion/util/TerraGen/globus_pull.py', picklePath, '/no/hash', NUM_NODES, PPN )
+    jobName, batchFile, summaryLog, oLimits[0], oLimits[1], \
+    globus_pull_script, logPickle, hashDir, NUM_NODES, PPN, scratchSpace, MISR_path_files, globus_parallelism, output_granule_list, \
+    mpi_exec, PPN * NUM_NODES )
 
     with open ( GLOBUS_PBS, 'w' ) as f:
         f.write( PBSfile )
 
     return GLOBUS_PBS
 
+#===========================================================================
+
+def makePBS_push( output_granule_list, PBSpath, remoteID, hosID, globPushName, projPath ):
+    # ======================
+    # = default parameters =
+    # ======================
+    WALLTIME      = "48:00:00"
+    NUM_NODES     = 1
+    PPN           = 1            # processors (cores) per node
+    VIRT_ENV      = os.environ['VIRTUAL_ENV']
+    GLOBUS_LOG    = os.path.join( logDir, jobName + ".log" )
+    GLOBUS_PBS    = os.path.join( PBSpath, jobName + "_pbs.pbs" )
+    globus_pull_script  = os.path.join( projPath, 'util', 'TerraGen', 'globus_pull.py' )
+
+    
 #==========================================================================
     
 def main():
@@ -162,17 +212,24 @@ def main():
         Each tar file is named #archive.tar, where # is the orbit number.", type=str )
     parser.add_argument("REMOTE_BF_DIR", help="Where the Basic Fusion files will be stored on Nearline. Leaf directory \
         need not exist, script will create it.", type=str)
-    parser.add_argument("HOST_ID", help="The globus endpoint identifier of this current machine.", type=str )
-    
-    parser.add_argument("HOST_STAGE", help="Directory where intermediary files are located. This includes tar files, \
-        input file lists, and Basic Fusion files. Will create one directory inside this path \
-        for all stage files.", type=str)
+    parser.add_argument("HOST_ID", help="The globus endpoint identifier of this current machine.", type=str ) 
+    parser.add_argument("SCRATCH_SPACE", help="Directory where all intermediary tar and Basic Fusion files will reside. \
+        Should be directory to a high-performance, high-capacity file system.", type=str )
+    parser.add_argument("MISR_PATH", help="Where the MISR HRLL and AGP files reside. No specific subdirectory structure \
+        is necessary.", type=str)
+    parser.add_argument("HASH_DIR", help="Where the hashes for all of the tar files reside. Subdirectory structure \
+        should be: one directory for each year from 2000 onward, named after the year. Each directory has hash files \
+        for each orbit of that year, named #hash.md5 where # is the orbit number.", type=str ) 
     parser.add_argument("LOG_OUTPUT", help="Directory where the log directory tree will be created. This includes \
         PBS scripts, log files, and various other administrative files needed for the workflow. Creates directory \
         called {}. Defaults to {}".format(logName, os.getcwd()), nargs='?', type=str, default=os.getcwd())
+    parser.add_argument("NODES", help="Number of XE nodes to request from scheduler.", type=int )
+    parser.add_argument("PPN", help="Processors per node.", type=int)
     parser.add_argument("-g", "--job-granularity", help="Determines the maximum number of orbits each job will be responsible for. \
         Define this value if you need to increase/decrease the amount of disk space the intermediary files take up. Defaults to 5000.", \
         dest="granule", type=int, default=5000)
+    parser.add_argument("-p", "--globus-parallel", help="Globus parallelism. Defines how many Globus transfer requests are submitted \
+        for any given transfer job. Defaults to 1.", dest='GLOBUS_PRL', type=int, default=1)
 
     ll = parser.add_mutually_exclusive_group(required=False)
     ll.add_argument("-l", "--log", help="Set the log level. Allowable values are INFO, DEBUG. Absence of this parameter \
@@ -185,6 +242,8 @@ def main():
         raise ValueError("Starting orbit can't be greater than ending orbit!")
     if args.granule < 0:
         raise ValueError("Job granularity can't be less than 0!")
+    if args.GLOBUS_PRL < 1:
+        raise ValueError("GLOBUS_PRL argument can't be less than 1!")
 
     # Define the logger
     if args.log == 'DEBUG':
@@ -198,15 +257,15 @@ def main():
     # = VARIABLES / MACROS =
     # ======================
     VIRT_ENV      = os.environ['VIRTUAL_ENV']
-    
-
-    
-
+    scriptPath    = os.path.realpath(__file__)
+    projPath      = ''.join( scriptPath.rpartition('basicFusion/')[0:2] )
+    orbit_times_txt = os.path.join( projPath, 'metadata-input', 'data', 'Orbit_Path_Time.txt' )
 
     # Create all of the necessary PBS scripts and the logging tree for every job.
     # We use try/except because the log directory may already exist. If it does,
     # we want to discard the exception created by os.makedirs.
-    logDir = os.path.join( args.LOG_OUTPUT, logName) 
+    logDir = os.path.join( args.LOG_OUTPUT, logName )
+ 
     try:
         os.makedirs( logDir )
     except OSError as e:
@@ -266,6 +325,19 @@ def main():
     with open( picklePath, 'wb' ) as f:
         pickle.dump( logDirs, f )
 
+    # Check that all directory arguments actually exist in the filesystem
+    if not os.path.isdir( args.HASH_DIR ):
+        raise RuntimeError( "{} is not a valid directory!".format( args.HASH_DIR ) )
+    if not os.path.isdir( args.LOG_OUTPUT ):
+        raise RuntimeError( "{} is not a valid directory!".format( args.LOG_OUTPUT ) )
+    if not os.path.isdir( args.SCRATCH_SPACE ):
+        raise RuntimeError( "{} is not a valid directory!".format( args.SCRATCH_SPACE ) )
+        
+    # Argument sanitizing
+    args.HASH_DIR = os.path.abspath( args.HASH_DIR )
+    args.LOG_OUTPUT = os.path.abspath( args.LOG_OUTPUT )
+    args.SCRATCH_SPACE = os.path.abspath( args.SCRATCH_SPACE )
+    
     #
     # FIND JOB PARTITION
     #
@@ -314,8 +386,9 @@ def main():
     # Make the PBS scripts for all the jobs
     for i in quantas:
         transferList = []
-        globPullName = "NL-BW_{}_{}".format(i.orbitStart, i.orbitEnd)
+        globPullName = "pull_process_{}_{}".format(i.orbitStart, i.orbitEnd)
         summaryLog = os.path.join( logDirs['summary'], globPullName + "_summary.log" )
+        globPushName = "push_{}_{}".format(i.orbitStart, i.orbitEnd)
 
         # We need to make the transfer list required by makePBS_globus
         for orbit in xrange( i.orbitStart, i.orbitEnd + 1 ):
@@ -325,20 +398,62 @@ def main():
 
             # We should now have the year for this orbit
             remoteFile = os.path.join( args.REMOTE_TAR_DIR, str( year ), "{}archive.tar".format(orbit) )
-            hostFile   = os.path.join( args.HOST_STAGE, str( year ), "{}archive.tar".format(orbit) )
+            hostFile   = os.path.join( args.SCRATCH_SPACE, str( year ), "tar", "{}archive.tar".format(orbit) )
 
             transferList.append( remoteFile + " " + hostFile )
      
-        #
-        # MAKE THE GLOBUS PULL PBS SCRIPTS
-        #
+        # ------------------------------------
+        # - MAKE THE GLOBUS PULL PBS SCRIPTS -
+        # ------------------------------------
 
-        logger.info("Making Globus pull PBS script for job {}.".format(globPullName)) 
+        output_granule_list = os.path.join( logDirs['misc'], "{}_output_granule_list.p" )
+        logger.info("Making Globus pull PBS script for job {}.".format(globPullName))
         i.PBSfile['pull'] = makePBS_globus( transferList,  PBSdirs['globus_pull'], args.REMOTE_ID, args.HOST_ID, \
-                            globPullName, logDirs['globus_pull'], summaryLog, [ i.orbitStart, i.orbitEnd], picklePath )
+                            globPullName, logDirs['globus_pull'], summaryLog, [ i.orbitStart, i.orbitEnd], picklePath, \
+                            args.SCRATCH_SPACE, args.MISR_PATH, args.HASH_DIR, projPath, args.GLOBUS_PRL, args.NODES, args.PPN, \
+                            output_granule_list )
 
-   
-         
+        # ------------------------------------
+        # - MAKE THE GLOBUS PUSH PBS SCRIPTS -
+        # ------------------------------------
+
+        #i.PBSfile['push'] = makePBS_push( output_granule_list, PBSdirs['globus_push'], args.REMOTE_ID, args.HOST_ID, \
+        #    globPushName, projPath )
+
+    
+    # Now that all quantas have been prepared, we can submit their jobs to the queue
+
+    for i in quantas:    
         
+        logger.info('Calling qsub on {}'.format( i.PBSfile['pull'] ) )
+
+        # Submit this to the scheduler, taking care to save stdout (which will contain the job ID)
+        # I'm using the shell command cd {} && qsub because qsub is going to make stderr and stdout
+        # files. I just want those files to be in the same directory as the PBS files. Of course, these
+        # two log files should not have any substantial information in them since this workflow should
+        # have all output redirected to the proper log file.
+
+        qsubCall = 'cd {} && qsub {}'.format( os.path.dirname(i.PBSfile['pull']),  i.PBSfile['pull']) 
+        child = subprocess.Popen( qsubCall, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
+        retCode = child.wait()
+
+        # Get the stderr and stdout
+        stderrFile = child.stderr
+        stderr = stderrFile.readlines()
+        stdoutFile = child.stdout
+        stdout = stdoutFile.readlines()
+
+        
+        for line in stderr:
+            print line.strip()
+        for line in stdout:
+            print line.strip()
+        
+        if retCode != 0:
+            raise RuntimeError("qsub command exited with retcode {}".format(retCode))
+
+        i.jobID['pull'] = stdout[0].strip()
+
+
 if __name__ == '__main__':
     main()

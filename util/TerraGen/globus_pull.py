@@ -8,8 +8,8 @@ from mpi4py import MPI
 import hashlib
 from basicFusion import orbitYear
 import tarfile
-from shutil import copy
-from workflowClass import inputData
+import shutil
+from workflowClass import granule
 import re
 import time
 
@@ -87,12 +87,11 @@ def worker( hashDir ):
             with open( hashFile, 'r' ) as hashFile:
                 storedHash = hashFile.read()
 
-            logger.debug("storedHash: {} Calculated hash: {}".format(storedHash, hashHex))
-
             if storedHash != hashHex:
                 logger.debug("Hashes differ!")
                 mpi_comm.send( { 'line' : data, 'status' : MPI_SLAVE_HASH_FAIL }, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
             else:
+                logger.debug("Hashes match.")
                 mpi_comm.send( { 'line' : data, 'status' : MPI_SLAVE_HASH_SUCCEED }, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
         
         # ----------------
@@ -120,24 +119,25 @@ def worker( hashDir ):
                 logger.error(str(e))
                 mpi_comm.send( data, MPI_MASTER, tag = MPI_UNTAR_FAIL )
 
+            # Now delete the tar file
+            os.remove( tarPath )
+
         # -------------------
         # - MPI_DO_GENERATE -
         # -------------------
         elif stat.Get_tag() == MPI_DO_GENERATE:
             # data is a tuple.
-            # First element:    inputData class object
+            # First element:    granule class object
             # Second element:   basicFusion executable path
             # Third element:    genFusionInput.sh path
             # Fourth element:   dictionary of log directories
-            # Fifth element:    path to the orbit_path_time.bin file (is simply a binary version of the text file)
+            # Fifth element:    path to the orbit_path_time.bin file (is simply the binary flavor of the text file version)
 
             granule     = data[0]
             BFexe       = data[1]
             genFusInput = data[2]
             logDir      = data[3]
             orbit_info_bin = data[4]
-
-            outputFile = os.path.join( granule.BFoutputDir, granule.BFfileName )
 
             # TODO
             # Need to query genFusionInput.sh to make input file. Then,
@@ -152,23 +152,35 @@ def worker( hashDir ):
                 if retCode != 0:
                     logger.error("Orbit {} failed to process input file list.".format( granule.orbit) )
                     continue
-           
+          
+            # Try to remove the output file if it exists. This is to prevent the BF code from breaking
+            # if the file already exists.
+            try:
+                os.remove( granule.outputFilePath )
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
 
             logger.debug("Generating BF granule orbit {}".format(granule.orbit))
             with open( granule.logFile, 'w' ) as logFile:
-                args =  [ granule.BF_exe, granule.outputFile, granule.inputFileList, granule.orbit_times_bin ] 
+                args =  [ granule.BF_exe, granule.outputFilePath, granule.inputFileList, granule.orbit_times_bin ] 
                 retCode = subprocess.call( args, stdout=logFile, stderr=logFile ) 
                 if retCode != 0:
                     with open( summaryLog, 'a' ) as f:
                         print("{} failed in generating granule.".format( granule.orbit))
-     
+                    continue
+
+            # Delete the untarred input data. We don't need it anymore.
+            shutil.rmtree( granule.untarDir )
+
+
         # ---------------
         # - MPI_DO_COPY -
         # ---------------
 
         elif stat.Get_tag() == MPI_DO_COPY:
             for i in data:
-                copy( i[0], i[1] )
+                shutil.copy( i[0], i[1] )
 
         elif stat.Get_tag() == MPI_SLAVE_TERMINATE:
             logger.debug("Terminating.")
@@ -644,13 +656,13 @@ def slaveProcessBF( data ):
 
 #===========================================================================
  
-def generateBF( log_tree, inputDataList, genFusionInput, orbit_info_bin, orbit_info_txt, BF_exe ):
+def generateBF( log_tree, granuleList, genFusionInput, orbit_info_bin, orbit_info_txt, BF_exe ):
     '''
     DESCRIPTION:
         This function generates the Basic Fusion files.
     ARGUMENTS:
         log_tree        -- Pickle containing the paths of various log directories
-        transferPickle  -- A pickle containing a list of inputData objects. These objects
+        transferPickle  -- A pickle containing a list of granule objects. These objects
                            each contain information necessary to processe one orbit of BF
                            data.
         genFusionInput     -- Path to the genFusionInput.sh script
@@ -663,7 +675,7 @@ def generateBF( log_tree, inputDataList, genFusionInput, orbit_info_bin, orbit_i
     with open ( log_tree, 'rb' ) as f:
         logDirs = pickle.load(f)
  
-    for granule in inputDataList:
+    for granule in granuleList:
         processData = ( granule, BF_exe, genFusionInput, log_tree, orbit_info_bin )
         slaveProcessBF( processData )
 
@@ -700,10 +712,12 @@ def main():
     parser.add_argument("LOG_FILE", help="The text file to send all log output to.", type=str )
     parser.add_argument("MISR_PATH_FILES", help="Directory where all the MISR HRLL and AGP files are stored. Directory \
         structure does not matter, script will perform recursive search for the files.", type=str )
+    parser.add_argument("OUT_GRAN_LIST", help="The output granule list. This file will be a Python pickle of a list of \
+        granule objects produced by this workflow.", type=str )
     parser.add_argument("-g", "--num-transfer", help="The number of Globus transfer requests to split the TRANSFER_LIST into. \
-        Defaults to 1.", type=int, default=1)
-    parser.add_argument("-l", "--log", help="Set the log level. Allowable values are INFO, DEBUG. Absence of this parameter \
-        sets debug level to WARNING.", type=str, choices=['INFO', 'DEBUG' ] , default="WARNING")
+        Defaults to 1.", dest='num_transfer', type=int, default=1)
+    parser.add_argument("-l", "--log-level", help="Set the log level. Allowable values are INFO, DEBUG. Absence of this parameter \
+        sets debug level to WARNING.", dest='log', type=str, choices=['INFO', 'DEBUG' ] , default="WARNING")
 
     args = parser.parse_args()
    
@@ -720,22 +734,22 @@ def main():
         ll = logging.WARNING
     
     # Argument sanitizing
-    args.LOG_FILE = os.path.abspath( args.LOG_FILE )
-    args.HASH_DIR = os.path.abspath( args.HASH_DIR )
-    args.LOG_TREE = os.path.abspath( args.LOG_TREE )
-
+    args.LOG_FILE      = os.path.abspath( args.LOG_FILE )
+    args.HASH_DIR      = os.path.abspath( args.HASH_DIR )
+    args.LOG_TREE      = os.path.abspath( args.LOG_TREE )
+    args.OUT_GRAN_LIST = os.path.abspath( args.OUT_GRAN_LIST )
     # --------------------
     # - USEFUL VARIABLES -
     # --------------------    
-    input_list_dir = os.path.join( logDirs['misc'], 'BFinputListing' )
-    FILENAME='TERRA_BF_L1B_O{0}_{1}_F000_V000.h5'
+    input_list_dir      = os.path.join( logDirs['misc'], 'BFinputListing' )
+    FILENAME            = 'TERRA_BF_L1B_O{0}_{1}_F000_V000.h5'
     scriptPath          = os.path.realpath(__file__)
-    projPath            = ''.join( scriptPath.partition('basicFusion')[0:2] )
+    projPath            = ''.join( scriptPath.rpartition('basicFusion/')[0:2] )
     genFusInput         = os.path.join( projPath, "metadata-input", "genInput", "genFusionInput.sh" )
-    orbit_info_txt         = os.path.join( projPath, "metadata-input", "data", "Orbit_Path_Time.txt" )
-    orbit_info_bin     = os.path.join( projPath, "metadata-input", "data", "Orbit_Path_Time.bin" ) 
+    orbit_info_txt      = os.path.join( projPath, "metadata-input", "data", "Orbit_Path_Time.txt" )
+    orbit_info_bin      = os.path.join( projPath, "metadata-input", "data", "Orbit_Path_Time.bin" ) 
     BF_exe              = os.path.join( projPath, "bin", "basicFusion" )
-    BFoutputDir = os.path.join( args.SCRATCH_SPACE, "BFoutput" )
+    BFoutputDir         = os.path.join( args.SCRATCH_SPACE, "BFoutput" )
     try:
         os.makedirs( BFoutputDir )
     except OSError as e:
@@ -766,40 +780,45 @@ def main():
     if not os.path.isdir( projPath ):
         errMsg="The project path: {} does not exist!".format(projPath)
         logger.critical(errMsg)
-        raise NotADirectory( errMsg )
+        raise RuntimeError( errMsg )
     if not os.path.isfile( genFusInput ):
         errMsg="The genFusionInput.sh script was not found at: {}".format(genFusInput)
         logger.critical(errMsg)
-        raise FileNotFound( errMsg )
+        raise RuntimeError( errMsg )
     if not os.path.isfile( orbit_info_txt ):
         errMsg="The orbit time file was not found at: {}".format( orbit_info_txt )
         logger.critical(errMsg)
-        raise FileNotFound( errMsg )
+        raise RuntimeError( errMsg )
 
     if not os.path.isfile( orbit_info_bin ):
         errMsg="The orbit time binary file was not found at: {}".format( orbit_info_bin )
         logger.critical(errMsg)
-        raise FileNotFound( errMsg )
+        raise RuntimeError( errMsg )
 
     if not os.path.isfile( BF_exe ):
         errMsg="The basic fusion executable was not found at: {}".format( BF_exe)
         logger.critical(errMsg)
-        raise FileNotFound( errMsg )
+        raise RuntimeError( errMsg )
+
+    if args.num_transfer < 1:
+        raise ValueError("--num-transfer argument can't be less than 1!")
 
     global progName 
+    progName=args.JOB_NAME
 
     global summaryLog
     # Open the summary log as a simple file
     with open( args.SUMMARY_LOG, 'a' ) as sumLog:
         summaryLog = sumLog
         if mpi_rank == 0:
-            #
-            # SUBMIT GLOBUS TRANSFERS
-            #
+            
+            # ===========================
+            # = SUBMIT GLOBUS TRANSFERS =
+            # ===========================
             submitTransfer( args.TRANSFER_LIST, args.REMOTE_ID, args. HOST_ID, args.HASH_DIR, args.num_transfer)
             
             # The tar data is now (hopefully) all on the system. Untar the data.
-            inputDataList = []
+            granuleList = []
             with open( args.TRANSFER_LIST, 'r' ) as tList:
                 for i in tList:
                     file = i.split(' ')[-1].strip()
@@ -811,15 +830,15 @@ def main():
                     untarLoc = os.path.join( args.SCRATCH_SPACE, "untarData", str(year), str(orbit) )
                     if not os.path.isdir( untarLoc ):
                         os.makedirs( untarLoc )
-                    inputDataList.append( inputData( file, untarLoc, orbit, year=year ) )
+                    granuleList.append( granule( file, untarLoc, orbit, year=year ) )
             
             if True:        
-                failUntar = untarData( inputDataList )
+                failUntar = untarData( granuleList )
 
                 if len(failUntar) != 0:
                     sumLog.write("Failed to untar the following files:")
                 for i in failUntar:
-                    inputDataList.remove(i)
+                    granuleList.remove(i)
                     sumLog.write(i.tarFile)
 
                 logger.info("Copying over MISR path files.")
@@ -828,15 +847,15 @@ def main():
                 # = READ MISR_PATH_FILES =
                 # ========================
 
-                # For every untarred orbit in our inputDataList, we need to read the MISR_PATH_FILES.txt
-                # file and copy over those two files that it lists. inputDataList is a list of inputData
+                # For every untarred orbit in our granuleList, we need to read the MISR_PATH_FILES.txt
+                # file and copy over those two files that it lists. granuleList is a list of granule
                 # class objects. Each of these objects contains:
                 # 1. Directory where all untarred data for a single orbit is stored
                 # 2. Orbit of its directory
                 # 3. The tar file where these untarred files were extracted from (at this point in the program,
                 #    this tar file should be deleted. Files have been extracted.)
 
-                for i in inputDataList:
+                for i in granuleList:
                     i.pathFileList = os.path.join( i.untarDir, "MISR_PATH_FILES_{}.txt".format(i.orbit) )
                     pathCopyList = []
                     with open( i.pathFileList, 'r' ) as pfList:
@@ -857,28 +876,57 @@ def main():
 
                 # Delete all the MISR_PATH_FILES. Also, create and save directories where the output basic fusion files will go
 
-            for granule in inputDataList:
-                #os.remove( i.pathFileList )
-                fileOutDir = os.path.join( BFoutputDir, str(granule.year) )
+            #
+            # PREPARE ALL NECESSARY ATTRIBUTES FOR EACH GRANULE
+            #
+
+            for granule in granuleList:
+
+                # Save the top level output directory for the BF product
+                granule.BFoutputDir = BFoutputDir
+                # Save location of orbit_times binary file
+                granule.orbit_times_bin = orbit_info_bin                
+                
+                
+                # Retrieve the starting time of the orbit from orbit_info_txt
+                orbit_time = findOrbitStart( granule.orbit, orbit_info_txt )
+                granule.orbit_start_time = orbit_time
+
+                # Determine file name of this granule
+                granule.BFfileName = FILENAME.format( granule.orbit, orbit_time ) 
+                
+                # Save input file list
+                inputFileList = os.path.join( input_list_dir, "{}input.txt".format( granule.orbit ))
+                granule.inputFileList = inputFileList
+                
+                # Save the BF executable
+                granule.BF_exe = BF_exe
+                
+                # DEFINE THE OUTPUT DIRECTORY/FILE OF GRANULE
+                # The directory tree of the Basic Fusion product will simply be:
+                # year
+                #   month
+                #       day
+                # Using the orbit_time variable that determines start time of the granule,
+                # we can construct the directory tree.
+                # BFdirStructure defines the location of the granule within the BF directory tree (year, month, day)
+                BFdirStructure= os.path.join( str( orbit_time[0:4]), str( orbit_time[4:6]), str( orbit_time[6:8] ) )
+                outFileDir = os.path.join( granule.BFoutputDir, BFdirStructure)
+
+                # Make the file output directory
                 try:
-                    os.makedirs( fileOutDir )
+                    os.makedirs( outFileDir )
                 except OSError as e:
                     if e.errno != errno.EEXIST:
                         raise
-                granule.BFoutputDir = fileOutDir
-                granule.orbit_times_bin = orbit_info_bin                
                 
-                inputFileList = os.path.join( input_list_dir, "{}input.txt".format( granule.orbit ))
-                orbit_time = findOrbitStart( granule.orbit, orbit_info_txt )
+                # Finally, save the absolute path of the output file
+                outFilePath = os.path.join( outFileDir, granule.BFfileName )
+                granule.outputFilePath = outFilePath
 
-                granule.BFfileName = FILENAME.format( granule.orbit, orbit_time ) 
-                granule.inputFileList = inputFileList
-                granule.BF_exe = BF_exe
-                granule.outputFile = os.path.join( granule.BFoutputDir, granule.BFfileName )
-
-                # Make the log file
+                # Make the log file directory
                 try:
-                    yearLogDir = os.path.join( logDirs['process'], str(granule.year))
+                    yearLogDir = os.path.join( logDirs['process'], BFdirStructure )
                     logger.debug("Making process dir: {}".format(yearLogDir))
                     os.makedirs( yearLogDir )
                 except OSError as e:
@@ -896,14 +944,13 @@ def main():
             # of node hours waiting for the download phase. I'm opting to waste node hours in favor
             # of less queue wait time.
 
-            generateBF( args.LOG_TREE, inputDataList, genFusInput, orbit_info_bin, orbit_info_txt, BF_exe )
+            generateBF( args.LOG_TREE, granuleList, genFusInput, orbit_info_bin, orbit_info_txt, BF_exe )
  
-            # Pickle the inputDataList. This is done because I may make generateBF() a separate script, and would
+            # Pickle the granuleList. This is done because I may make generateBF() a separate script, and would
             # need to pass around a pickle instead of the actual list.
-            inputDataPickle = os.path.join( logDirs['misc'], "{}dataListPickle.txt".format(args.JOB_NAME))
-            logger.info("Saving the input data list pickle at {}".format(inputDataPickle))
-            with open( inputDataPickle, 'wb' ) as f:
-                pickle.dump( inputDataList, f )
+            logger.info("Saving the input data list pickle at {}".format(args.OUT_GRAN_LIST))
+            with open( args.OUT_GRAN_LIST, 'wb' ) as f:
+                pickle.dump( granuleList, f )
 
         else:
             worker( args.HASH_DIR )
