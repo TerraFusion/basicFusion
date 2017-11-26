@@ -179,19 +179,57 @@ fi
 
 #===========================================================================
 
-def makePBS_push( output_granule_list, PBSpath, remoteID, hosID, globPushName, projPath ):
+def makePBS_push( output_granule_list, PBSpath, remote_id, host_id, remote_dir, job_name, log_pickle_path, summary_log, projPath, logFile, num_transfer ):
     # ======================
     # = default parameters =
     # ======================
     WALLTIME      = "48:00:00"
     NUM_NODES     = 1
     PPN           = 1            # processors (cores) per node
-    VIRT_ENV      = os.environ['VIRTUAL_ENV']
-    GLOBUS_LOG    = os.path.join( logDir, jobName + ".log" )
-    GLOBUS_PBS    = os.path.join( PBSpath, jobName + "_pbs.pbs" )
-    globus_pull_script  = os.path.join( projPath, 'util', 'TerraGen', 'globus_pull.py' )
+    VIRT_ENV      = os.path.join( projPath, 'externLib', 'BFpyEnv', 'bin', 'activate' )
+    GLOBUS_LOG    = logFile
+    GLOBUS_PBS    = os.path.join( PBSpath, job_name + "_pbs.pbs" )
+    MPI_EXEC      = 'aprun'
+    globus_push_script  = os.path.join( projPath, 'util', 'TerraGen', 'globus_push.py' )
 
-    
+    PBSfile = '''#!/bin/bash 
+#PBS -l nodes={}:ppn={}
+#PBS -l walltime={}
+#PBS -N {}
+
+ppn={}
+nodes={}
+globus_push_script={}
+num_transfer={}
+output_granule_list={}
+remote_id={}
+remote_dir={}
+host_id={}
+job_name={}
+log_pickle_path={}
+summary_log={}
+log_file={}
+
+# Source the Basic Fusion python virtual environment
+source {}
+
+
+{{ {} -n $(( $ppn * $nodes )) -N $ppn -d 1 python "${{globus_push_script}}" -l DEBUG -g $num_transfer "$output_granule_list" $remote_id "$remote_dir" $host_id "$job_name" "$log_pickle_path" "$summary_dir" ; }} &> $logFile
+
+retVal=$?
+if [ $retVal -ne 0 ]; then
+    echo \"${{job_name}}: Failed to push data to nearline. See: $logFile\" > $summary_log
+    exit 1
+fi
+    '''.format( NUM_NODES, PPN, WALLTIME, PPN, PPN, NUM_NODES, globus_push_script, num_transfer, output_granule_list, \
+                remote_id, remote_dir, host_id, job_name, log_pickle_path, summary_log, GLOBUS_LOG, \
+                VIRT_ENV, MPI_EXEC )
+
+    with open ( GLOBUS_PBS, 'w' ) as f:
+        f.write( PBSfile )
+
+    return GLOBUS_PBS
+
 #==========================================================================
     
 def main():
@@ -319,7 +357,7 @@ def main():
     #
     # SAVE THE LOG DIRECTORY PICKLE
     #
-    picklePath = os.path.join( logDirs['misc'], 'logPickle.txt' )
+    picklePath = os.path.join( logDirs['misc'], 'logPickle.p' )
     logger.info("Saving the log directory as pickle at: {}".format(picklePath))
 
     with open( picklePath, 'wb' ) as f:
@@ -387,7 +425,9 @@ def main():
     for i in quantas:
         transferList = []
         globPullName = "pull_process_{}_{}".format(i.orbitStart, i.orbitEnd)
+        globPushName = "push_{}_{}.".format( i.orbitStart, i.orbitEnd )
         summaryLog = os.path.join( logDirs['summary'], globPullName + "_summary.log" )
+        summary_log_push = os.path.join( logDirs['summary'], globPushName + "_summary.log")
         globPushName = "push_{}_{}".format(i.orbitStart, i.orbitEnd)
 
         # We need to make the transfer list required by makePBS_globus
@@ -398,7 +438,7 @@ def main():
 
             # We should now have the year for this orbit
             remoteFile = os.path.join( args.REMOTE_TAR_DIR, str( year ), "{}archive.tar".format(orbit) )
-            hostFile   = os.path.join( args.SCRATCH_SPACE, str( year ), "tar", "{}archive.tar".format(orbit) )
+            hostFile   = os.path.join( args.SCRATCH_SPACE, "tar", str( year ), "{}archive.tar".format(orbit) )
 
             transferList.append( remoteFile + " " + hostFile )
      
@@ -406,7 +446,7 @@ def main():
         # - MAKE THE GLOBUS PULL PBS SCRIPTS -
         # ------------------------------------
 
-        output_granule_list = os.path.join( logDirs['misc'], "{}_output_granule_list.p" )
+        output_granule_list = os.path.join( logDirs['misc'], "{}_output_granule_list.p".format(globPullName) )
         logger.info("Making Globus pull PBS script for job {}.".format(globPullName))
         i.PBSfile['pull'] = makePBS_globus( transferList,  PBSdirs['globus_pull'], args.REMOTE_ID, args.HOST_ID, \
                             globPullName, logDirs['globus_pull'], summaryLog, [ i.orbitStart, i.orbitEnd], picklePath, \
@@ -417,8 +457,9 @@ def main():
         # - MAKE THE GLOBUS PUSH PBS SCRIPTS -
         # ------------------------------------
 
-        #i.PBSfile['push'] = makePBS_push( output_granule_list, PBSdirs['globus_push'], args.REMOTE_ID, args.HOST_ID, \
-        #    globPushName, projPath )
+        i.PBSfile['push'] = makePBS_push( output_granule_list, PBSdirs['globus_push'], args.REMOTE_ID, args.HOST_ID, \
+            args.REMOTE_BF_DIR, globPushName, picklePath, summary_log_push, projPath, os.path.join( logDirs['globus_push'], \
+            globPushName + "_log.log"), args.GLOBUS_PRL ) 
 
     
     # Now that all quantas have been prepared, we can submit their jobs to the queue
@@ -434,6 +475,36 @@ def main():
         # have all output redirected to the proper log file.
 
         qsubCall = 'cd {} && qsub {}'.format( os.path.dirname(i.PBSfile['pull']),  i.PBSfile['pull']) 
+        child = subprocess.Popen( qsubCall, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
+        retCode = child.wait()
+
+        # Get the stderr and stdout
+        stderrFile = child.stderr
+        stderr = stderrFile.readlines()
+        stdoutFile = child.stdout
+        stdout = stdoutFile.readlines()
+
+        
+        for line in stderr:
+            print line.strip()
+        for line in stdout:
+            print line.strip()
+        
+        if retCode != 0:
+            raise RuntimeError("qsub command exited with retcode {}".format(retCode))
+
+        i.jobID['pull'] = stdout[0].strip()
+
+        # --------------------
+        # - GLOBUS PUSH QSUB -
+        # --------------------
+        qsub_dep_specifier='afterok'
+        logger.info("Calling qsub on {} with {} dependency {}".format( i.PBSfile['push'], qsub_dep_specifier, i.jobID['pull'] ) )
+        
+
+        qsubCall = 'cd {} && qsub -W depend={}:{} {}'.format( os.path.dirname(i.PBSfile['push']),  qsub_dep_specifier, \
+                                                              i.jobID['pull'], i.PBSfile['push']) 
+
         child = subprocess.Popen( qsubCall, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
         retCode = child.wait()
 

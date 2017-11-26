@@ -9,7 +9,7 @@ import hashlib
 from basicFusion import orbitYear
 import tarfile
 import shutil
-from workflowClass import granule
+import workflowClass
 import re
 import time
 
@@ -456,13 +456,18 @@ def submitTransfer( transferFiles, remoteID, hostID, hashDir, numTransfer ):
     #ch.setFormatter(logFormatter)
     #logger.addHandler(ch)
 
+    logger.info("Calling globusDownload")
     globusDownload( transferFiles, remoteID, hostID, numTransfer ) 
+    logger.info("globusDownload complete")
 
     # ===========================================
     # =               HASHING FUN               =
     # ===========================================
 
+    logger.info("Calling hashCheck()")
     failedHash = hashCheck( transferFiles )
+    logger.info("hashCheck() complete.")
+
     transferPath = os.path.dirname( os.path.abspath(transferFiles) )
     failedBatch = os.path.join( transferPath, progName + "_failedHash.txt" )
 
@@ -815,8 +820,11 @@ def main():
             # ===========================
             # = SUBMIT GLOBUS TRANSFERS =
             # ===========================
+           
+            logger.debug("Calling submitTransfer().") 
             submitTransfer( args.TRANSFER_LIST, args.REMOTE_ID, args. HOST_ID, args.HASH_DIR, args.num_transfer)
-            
+            logger.debug("submitTransfer() complete.")
+
             # The tar data is now (hopefully) all on the system. Untar the data.
             granuleList = []
             with open( args.TRANSFER_LIST, 'r' ) as tList:
@@ -828,53 +836,54 @@ def main():
                     
                     # Create our location for untarring
                     untarLoc = os.path.join( args.SCRATCH_SPACE, "untarData", str(year), str(orbit) )
+                    logger.debug("Creating untar location at: {}".format(untarLoc))
                     if not os.path.isdir( untarLoc ):
                         os.makedirs( untarLoc )
-                    granuleList.append( granule( file, untarLoc, orbit, year=year ) )
-            
-            if True:        
-                failUntar = untarData( granuleList )
+                    granuleList.append( workflowClass.granule( file, untarLoc, orbit, year=year ) )
+           
+            logger.info("Untarring data.") 
+            failUntar = untarData( granuleList )
+            logger.info("Untarring complete.")
 
-                if len(failUntar) != 0:
-                    sumLog.write("Failed to untar the following files:")
-                for i in failUntar:
-                    granuleList.remove(i)
-                    sumLog.write(i.tarFile)
+            if len(failUntar) != 0:
+                sumLog.write("Failed to untar the following files:")
+            for i in failUntar:
+                granuleList.remove(i)
+                sumLog.write(i.tarFile)
 
-                logger.info("Copying over MISR path files.")
+            logger.info("Copying over MISR path files.")
 
-                # ========================
-                # = READ MISR_PATH_FILES =
-                # ========================
+            # ========================
+            # = READ MISR_PATH_FILES =
+            # ========================
 
-                # For every untarred orbit in our granuleList, we need to read the MISR_PATH_FILES.txt
-                # file and copy over those two files that it lists. granuleList is a list of granule
-                # class objects. Each of these objects contains:
-                # 1. Directory where all untarred data for a single orbit is stored
-                # 2. Orbit of its directory
-                # 3. The tar file where these untarred files were extracted from (at this point in the program,
-                #    this tar file should be deleted. Files have been extracted.)
+            # For every untarred orbit in our granuleList, we need to read the MISR_PATH_FILES.txt
+            # file and copy over those two files that it lists. granuleList is a list of granule
+            # class objects. Each of these objects contains:
+            # 1. Directory where all untarred data for a single orbit is stored
+            # 2. Orbit of its directory
+            # 3. The tar file where these untarred files were extracted from (at this point in the program,
+            #    this tar file should be deleted. Files have been extracted.)
 
-                for i in granuleList:
-                    i.pathFileList = os.path.join( i.untarDir, "MISR_PATH_FILES_{}.txt".format(i.orbit) )
-                    pathCopyList = []
-                    with open( i.pathFileList, 'r' ) as pfList:
-                        for file in pfList:
-                            # Find the absolute path of this pathfile
-                            pathAbs = findFile( file, args.MISR_PATH_FILES )
-                            if pathAbs == None:
-                                errMsg="Failed to find file {} in path {}.".format(file, args.MISR_PATH_FILES)
-                                logger.error(errMsg)
-                                raise ValueError(errMsg)
+            for i in granuleList:
+                i.pathFileList = os.path.join( i.untarDir, "MISR_PATH_FILES_{}.txt".format(i.orbit) )
+                pathCopyList = []
+                with open( i.pathFileList, 'r' ) as pfList:
+                    for file in pfList:
+                        # Find the absolute path of this pathfile
+                        pathAbs = findFile( file, args.MISR_PATH_FILES )
+                        if pathAbs == None:
+                            errMsg="Failed to find file {} in path {}.".format(file, args.MISR_PATH_FILES)
+                            logger.error(errMsg)
+                            raise ValueError(errMsg)
 
-                            pathCopyList.append( (pathAbs, i.untarDir) )
-                        # Send this job to the worker ranks
-                        slaveCopyFile( pathCopyList, i.orbit )
+                        pathCopyList.append( (pathAbs, i.untarDir) )
+                    # Send this job to the worker ranks
+                    slaveCopyFile( pathCopyList, i.orbit )
 
-                # Wait for all slaves to complete
-                slaveWait()
+            # Wait for all slaves to complete
+            slaveWait()
 
-                # Delete all the MISR_PATH_FILES. Also, create and save directories where the output basic fusion files will go
 
             #
             # PREPARE ALL NECESSARY ATTRIBUTES FOR EACH GRANULE
@@ -969,6 +978,6 @@ if __name__ == '__main__':
             # We need to terminate all slaves, or else the entire process might hang!
             for i in xrange(1, mpi_size ):
                 logger.debug("Terminating slave {}".format(i))
-                mpi_comm.isend( 0, dest = i, tag = MPI_SLAVE_IDLE )
+                mpi_comm.irecv( 0, source = i, tag = MPI_SLAVE_IDLE )
                 mpi_comm.isend( 0, dest = i, tag = MPI_SLAVE_TERMINATE )
 

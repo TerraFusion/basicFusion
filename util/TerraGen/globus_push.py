@@ -1,7 +1,10 @@
 import argparse
-from workflowClass import granule
+import workflowClass
 import subprocess
 import logging
+import pickle
+import os
+import sys
 
 FORMAT='%(asctime)s %(levelname)-8s %(name)s [%(filename)s:%(lineno)d] %(message)s'
 dateformat='%d-%m-%Y:%H:%M:%S'
@@ -19,27 +22,38 @@ def main():
     parser.add_argument("JOB_NAME", help="A name for this  job. Used to make unique log files, intermediary files, and any \
         other unique identifiers needed.", type=str)
     parser.add_argument("LOG_TREE", help="A Python pickle of the job log dictionary.", type=str)
+    parser.add_argument("SUMMARY_LOG", help="Path to the summary log file.", type=str)
     parser.add_argument("-g", "--num-transfer", help="The maximum number of Globus transfer requests to make. Defaults \
         to 1.", dest='num_transfer', type=int, default=1)    
     parser.add_argument("-l", "--log-level", help="Set the log level. Defaults to WARNING.", type=str, \
-        choices=['INFO', 'DEBUG' ] , default="WARNING")
+        choices=['INFO', 'DEBUG' ] , default="WARNING", dest='log_level')
     args = parser.parse_args()
-
+    print( type(args) )
     #
     # ENABLE LOGGING
     #
 
     # Define log level
-    if args.log == 'DEBUG':
+    if args.log_level == 'DEBUG':
         ll = logging.DEBUG
-    elif args.log == 'INFO':
+    elif args.log_level == 'INFO':
         ll = logging.INFO
     else:
         ll = logging.WARNING
     
     logFormatter = logging.Formatter(FORMAT, dateformat)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(logFormatter)
+    logFormatter = logging.Formatter(FORMAT, dateformat)
     logger = logging.getLogger()
+    logger.addHandler(consoleHandler)
     logger.setLevel(ll)
+
+    # -------------
+    # - VARIABLES -
+    # -------------
+    CHECK_SUM='--no-verify-checksum'
 
     # Unpickle the out_gran_list
     with open( args.OUT_GRAN_LIST, 'rb' ) as f:
@@ -66,7 +80,7 @@ def main():
 
     for i in xrange( args.num_transfer ):
         # Add the filename of our new split-file to the list
-        batchPath = os.path.join( transferPath, progName + "_push_list_{}.txt".format(i))
+        batchPath = os.path.join( transferPath, args.JOB_NAME + "_push_list_{}.txt".format(i))
         splitList.append( batchPath  )
 
         logger.info("Making new Globus batch file: {}".format(splitList[i]))
@@ -86,11 +100,12 @@ def main():
                 day     = orbit_start[6:8]
 
                 remote_dir       = os.path.join( args.REMOTE_DIR, str(year), str(month), str(day) )
-                remote_file_path = os.path.join( remote_dir, granule.BFfile )
+                remote_file_path = os.path.join( remote_dir, curGranule.BFfileName )
 
-                line = '{} {}'.format( granule.outputFilePath, remote_file_path )
-                batchFile.write( line )
+                line = '{} {}'.format( curGranule.outputFilePath, remote_file_path )
+                batchFile.write( str(line) + '\n' )
 
+    logger.info("Writing the extra files to last Globus batch file.")
     # Write the extra files to the last Globus batch file
     with open( splitList[args.num_transfer - 1], 'a') as batchFile:
         for j in xrange( granExtra ):
@@ -102,11 +117,61 @@ def main():
             day     = orbit_start[6:8]
 
             remote_dir       = os.path.join( args.REMOTE_DIR, str(year), str(month), str(day) )
-            remote_file_path = os.path.join( remote_dir, granule.BFfile )
+            remote_file_path = os.path.join( remote_dir, curGranule.BFfileName )
 
-            line = '{} {}'.format( granule.outputFilePath, remote_file_path )
+            line = '{} {}'.format( curGranule.outputFilePath, remote_file_path )
             
-            batchFile.write( line ) 
+            batchFile.write( str(line) + '\n' )
 
+    logger.info("Submitting the transfer tasks to Globus...")
+
+    submitIDs = []
+
+    for i in splitList:
+    
+        subprocCall = ['globus', 'transfer', CHECK_SUM, args.HOST_ID +':/', args.REMOTE_ID + ':/', '--batch' ]
+        with open( i, 'r' ) as stdinFile:
+            subProc = subprocess.Popen( subprocCall, stdin=stdinFile, stdout=subprocess.PIPE, stderr=subprocess.PIPE ) 
+            subProc.wait()
+    
+        # We need to retrieve the stdout/stderr of this globus call to extract the submission ID.
+        stdout = subProc.stdout
+        stderr = subProc.stderr
+
+        # stdout and stderr are files, so simply read the file contents into the variables themselves
+        stdout = stdout.read()
+        stderr = stderr.read()
+
+        # Extract the submission IDs from stdout
+        startLine = 'Task ID: '
+        startIdx = stdout.find( startLine )
+        submitID = stdout[ startIdx + len(startLine):].strip()
+
+        submitIDs.append(submitID)
+
+        # stdout and stderr are now strings. Concatenate the strings together
+        stdout += stderr
+
+        # Go ahead and write these to stdout
+        print( stdout )
+
+        retCode = subProc.returncode
+
+        if retCode != 0:
+            summaryLog.write("ERROR: Globus transfer failed! See {} for more details.\n".format(globPullLog))
+
+    # The transfers have been submitted. Need to wait for them to complete...
+    for id in submitIDs:
+        logger.info("Waiting for Globus task {}".format(id))
+        subprocCall = ['globus', 'task', 'wait', id ]
+
+        retCode = subprocess.call( subprocCall ) 
+        
+        # The program will not progress past this point until 'id' has finished
+        if retCode != 0:
+            summaryLog.write("Globus task failed with retcode {}! See: {}".format(retCode, globPullLog))
+
+        logger.info("Globus task {} completed with retcode: {}.".format(id, retCode))
+    
 if __name__ == '__main__':
     main()
