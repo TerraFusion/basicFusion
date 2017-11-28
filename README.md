@@ -1,5 +1,6 @@
 # Basic Fusion
-**University of Illinois - Urbana/Champaign**  
+
+<p align="center"> <img src="https://github.com/TerraFusion/basicFusion/blob/master/doc/img/nasaLogo-570x450.png" width="100" hspace="25"/> <img src="https://github.com/TerraFusion/basicFusion/blob/master/doc/img/ncsa_horizontal.png" width="150" hspace="25" /> <img src="https://github.com/TerraFusion/basicFusion/blob/master/doc/img/blue_waters_logo.png" width="150" hspace="25" /> <img src="https://github.com/TerraFusion/basicFusion/blob/master/doc/img/trademark-examples2.png" width="48" hspace="50" /> </p>
 
 The Terra weather satellite is the flagship of NASA's Earth Observing System. Aboard Terra are five instruments, MOPITT, CERES, MISR, ASTER, and MODIS. Atmospheric researchers have been largely unable to use more than one or two instruments at a time due to the complexities involved in fusing the data from different file formats, different grids, and different data gathering methods. The Basic Fusion project aims at providing a solution to this issue by fusing the Level 1B data from the five instruments into one, unified "Basic Fusion" **(BF)** file set. One BF granule contains data from each instrument over a single Terra orbit.
 
