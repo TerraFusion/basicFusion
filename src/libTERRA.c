@@ -6188,7 +6188,39 @@ herr_t copyDimension_MODIS_Special( char* dimSuffix, int32 h4fileID, char* h4dat
              special_suffix = "_8";
              have_special_suffix = 1;
            }
-         
+           else if(size == 2020 || size == 4040 || size == 8080){
+             special_suffix = "_a";
+             have_special_suffix = 1;
+           }
+            else if(size == 2010 || size == 4020 || size == 8040){
+             special_suffix = "_b";
+             have_special_suffix = 1;
+           }
+           else if(size == 2000 || size == 4000 || size == 8000){
+             special_suffix = "_c";
+             have_special_suffix = 1;
+           }
+           else if(size == 1990 || size == 3980 || size == 7960){
+             special_suffix = "_d";
+             have_special_suffix = 1;
+           }
+           else if(size == 1980 || size == 3960 || size == 7920){
+             special_suffix = "_e";
+             have_special_suffix = 1;
+           }
+           else if(size == 1970 || size == 3940 || size == 7880){
+             special_suffix = "_f";
+             have_special_suffix = 1;
+           }
+           else if(size == 1960 || size == 3920 || size == 7840){
+             special_suffix = "_g";
+             have_special_suffix = 1;
+           }
+           else if(size == 1950 || size == 3900 || size == 7800){
+             special_suffix = "_h";
+             have_special_suffix = 1;
+           }
+ 
            if(have_special_suffix == 1) {
             // store allocated memory in temp pointer
             strcpy(tempStack, dimName);
