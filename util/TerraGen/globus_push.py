@@ -5,6 +5,7 @@ import logging
 import pickle
 import os
 import sys
+import errno
 
 FORMAT='%(asctime)s %(levelname)-8s %(name)s [%(filename)s:%(lineno)d] %(message)s'
 dateformat='%d-%m-%Y:%H:%M:%S'
@@ -102,9 +103,11 @@ def main():
                 remote_dir       = os.path.join( args.REMOTE_DIR, str(year), str(month), str(day) )
                 remote_file_path = os.path.join( remote_dir, curGranule.BFfileName )
 
-                line = '{} {}'.format( curGranule.outputFilePath, remote_file_path )
-                batchFile.write( str(line) + '\n' )
+                if os.path.isfile( curGranule.outputFilePath ):
+                    line = '{} {}'.format( curGranule.outputFilePath, remote_file_path )
+                    batchFile.write( str(line) + '\n' )
 
+                
     logger.info("Writing the extra files to last Globus batch file.")
     # Write the extra files to the last Globus batch file
     with open( splitList[args.num_transfer - 1], 'a') as batchFile:
@@ -119,9 +122,10 @@ def main():
             remote_dir       = os.path.join( args.REMOTE_DIR, str(year), str(month), str(day) )
             remote_file_path = os.path.join( remote_dir, curGranule.BFfileName )
 
-            line = '{} {}'.format( curGranule.outputFilePath, remote_file_path )
             
-            batchFile.write( str(line) + '\n' )
+            if os.path.isfile( curGranule.outputFilePath ):
+                line = '{} {}'.format( curGranule.outputFilePath, remote_file_path )            
+                batchFile.write( str(line) + '\n' )
 
     logger.info("Submitting the transfer tasks to Globus...")
 
@@ -160,6 +164,7 @@ def main():
         if retCode != 0:
             summaryLog.write("ERROR: Globus transfer failed! See {} for more details.\n".format(globPullLog))
 
+    
     # The transfers have been submitted. Need to wait for them to complete...
     for id in submitIDs:
         logger.info("Waiting for Globus task {}".format(id))
@@ -172,6 +177,14 @@ def main():
             summaryLog.write("Globus task failed with retcode {}! See: {}".format(retCode, globPullLog))
 
         logger.info("Globus task {} completed with retcode: {}.".format(id, retCode))
+
+    logger.info("Deleting all Basic Fusion granules on the host machine.")
+    for i in ganuleList:
+        try:
+            os.remove( i.outputFilePath )
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
     
 if __name__ == '__main__':
     main()

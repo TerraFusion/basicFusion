@@ -42,19 +42,6 @@ logName='BF_jobFiles'
 logger = 0
 #=================================
 
-class processQuanta:
-    '''
-    This is a class that contains all relevant information for submitting one "quanta"
-    of work in the Basic Fusion workflow. One quanta of work involves three separate jobs:
-    1. Pulling tar data from Nearline (pull)
-    2. Generating the new Basic Fusion files (process)
-    3. Pushing the new Basic Fusion files back to Nearline. (push)
-    '''
-    def __init__( self, pullPBS='', processPBS='', pushPBS='', orbitStart=0, orbitEnd=0):
-        self.orbitStart = orbitStart
-        self.orbitEnd = orbitEnd
-        self.PBSfile = { 'pull' : pullPBS, 'process' : processPBS, 'push' : pushPBS }
-        self.jobID   = { 'pull' : '',      'process' : '',         'push' : ''      }
 
 def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, summaryLog, oLimits, logPickle, scratchSpace, MISR_path_files, hashDir, projPath, globus_parallelism, \
                     nodes, ppn, output_granule_list ):
@@ -102,15 +89,15 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
     GLOBUS_LOG    = os.path.join( logDir, jobName + ".log" )
     GLOBUS_PBS    = os.path.join( PBSpath, jobName + "_pbs.pbs" )
     mpi_exec      = 'aprun'
-    globus_pull_script  = os.path.join( projPath, 'util', 'TerraGen', 'globus_pull.py' )
+    pull_process_script  = os.path.join( projPath, 'util', 'TerraGen', 'pull_process.py' )
 
     logger.debug("Globus log saved at {}.".format(GLOBUS_LOG))
     logger.debug("Globus PBS script saved at {}.".format(GLOBUS_PBS))
     logger.debug("jobName: {}".format(jobName))
     logger.debug("Using virtual environment: {}".format(VIRT_ENV))
     
-    if not os.path.isfile( globus_pull_script ):
-        raise FileNotFound("globus_pull.py not found at: {}".format( globus_pull_script) )
+    if not os.path.isfile( pull_process_script ):
+        raise RuntimeError("pull_process.py not found at: {}".format( pull_process_script) )
 
     # Argument check
     if not isinstance( oLimits, list ) or len( oLimits) != 2:
@@ -129,6 +116,7 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
 #PBS -l nodes={}:ppn={}
 #PBS -l walltime={}
 #PBS -N {}
+#PBS -l flags=commtransparent
 
 # Need to source this file before calling module command
 source /opt/modules/default/init/bash
@@ -137,6 +125,10 @@ source /opt/modules/default/init/bash
 module load bwpy
 module load bwpy-mpi
 
+# Set the environment variables for Basic Fusion code
+export USE_GZIP=1
+export USE_CHUNK=1
+ 
 # Source the Basic Fusion python virtual environment
 source {}
 
@@ -148,7 +140,7 @@ batchFile={}
 summaryLog={}
 oLower={}
 oMax={}
-globus_pull_script={}
+pull_process_script={}
 logPickle={}
 hashDir={}
 nodes={}
@@ -158,7 +150,7 @@ MISR_path_files={}
 globus_parallelism={}
 output_granule_list={}
 
-{{ {} -n {} -N $ppn -d 1 python ${{globus_pull_script}} -l DEBUG $logPickle $batchFile $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $logFile $MISR_path_files --num-transfer $globus_parallelism $output_granule_list ; }} &> $logFile
+{{ {} -n {} -N $ppn -d 1 python ${{pull_process_script}} -l DEBUG $logPickle $batchFile $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $logFile $MISR_path_files --num-transfer $globus_parallelism $output_granule_list ; }} &> $logFile
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
@@ -169,7 +161,7 @@ fi
 
 '''.format( NUM_NODES, PPN, WALLTIME, jobName, os.path.join( VIRT_ENV, "bin", "activate"), GLOBUS_LOG, remoteID, hostID, \
     jobName, batchFile, summaryLog, oLimits[0], oLimits[1], \
-    globus_pull_script, logPickle, hashDir, NUM_NODES, PPN, scratchSpace, MISR_path_files, globus_parallelism, output_granule_list, \
+    pull_process_script, logPickle, hashDir, NUM_NODES, PPN, scratchSpace, MISR_path_files, globus_parallelism, output_granule_list, \
     mpi_exec, PPN * NUM_NODES )
 
     with open ( GLOBUS_PBS, 'w' ) as f:
@@ -196,6 +188,7 @@ def makePBS_push( output_granule_list, PBSpath, remote_id, host_id, remote_dir, 
 #PBS -l nodes={}:ppn={}
 #PBS -l walltime={}
 #PBS -N {}
+#PBS -l flags=commtransparent
 
 ppn={}
 nodes={}
@@ -214,14 +207,14 @@ log_file={}
 source {}
 
 
-{{ {} -n $(( $ppn * $nodes )) -N $ppn -d 1 python "${{globus_push_script}}" -l DEBUG -g $num_transfer "$output_granule_list" $remote_id "$remote_dir" $host_id "$job_name" "$log_pickle_path" "$summary_dir" ; }} &> $logFile
+{{ {} -n $(( $ppn * $nodes )) -N $ppn -d 1 python "${{globus_push_script}}" -l DEBUG -g $num_transfer "$output_granule_list" $remote_id "$remote_dir" $host_id "$job_name" "$log_pickle_path" "$summary_dir" ; }} &> $log_file
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
-    echo \"${{job_name}}: Failed to push data to nearline. See: $logFile\" > $summary_log
+    echo \"${{job_name}}: Failed to push data to nearline. See: $log_file\" > $summary_log
     exit 1
 fi
-    '''.format( NUM_NODES, PPN, WALLTIME, PPN, PPN, NUM_NODES, globus_push_script, num_transfer, output_granule_list, \
+    '''.format( NUM_NODES, PPN, WALLTIME, job_name, PPN, NUM_NODES, globus_push_script, num_transfer, output_granule_list, \
                 remote_id, remote_dir, host_id, job_name, log_pickle_path, summary_log, GLOBUS_LOG, \
                 VIRT_ENV, MPI_EXEC )
 
@@ -291,13 +284,6 @@ def main():
     else:
         ll = logging.WARNING
 
-    # ======================
-    # = VARIABLES / MACROS =
-    # ======================
-    VIRT_ENV      = os.environ['VIRTUAL_ENV']
-    scriptPath    = os.path.realpath(__file__)
-    projPath      = ''.join( scriptPath.rpartition('basicFusion/')[0:2] )
-    orbit_times_txt = os.path.join( projPath, 'metadata-input', 'data', 'Orbit_Path_Time.txt' )
 
     # Create all of the necessary PBS scripts and the logging tree for every job.
     # We use try/except because the log directory may already exist. If it does,
@@ -315,15 +301,16 @@ def main():
     # Make the rest of the log directory
     PBSdir          = os.path.join( runDir, 'PBSscripts' )
     PBSdirs         = { 'globus_push' : os.path.join( PBSdir, 'globus_push' ), \
-                        'globus_pull' : os.path.join( PBSdir, 'globus_pull' ), \
+                        'pull_process' : os.path.join( PBSdir, 'pull_process' ), \
                         'process'     : os.path.join( PBSdir, 'process' ) \
                       }
     logDir          = os.path.join( runDir, 'logs' )
-    logDirs         = { 'summary'     : os.path.join( logDir, 'summary' ), \
-                        'globus_pull' : os.path.join( logDir, 'globus_pull' ), \
-                        'misc'        : os.path.join( logDir, 'misc' ), \
-                        'process'     : os.path.join( logDir, 'process'), \
-                        'globus_push' : os.path.join( logDir, 'globus_push') \
+    logDirs         = { 'submit_workflow'   : os.path.join( logDir, 'submit_workflow' ), \
+                        'summary'           : os.path.join( logDir, 'summary' ), \
+                        'pull_process'       : os.path.join( logDir, 'pull_process' ), \
+                        'misc'              : os.path.join( logDir, 'misc' ), \
+                        'process'           : os.path.join( logDir, 'process'), \
+                        'globus_push'       : os.path.join( logDir, 'globus_push') \
                       }
 
     os.makedirs( PBSdir )
@@ -333,6 +320,16 @@ def main():
     for i in logDirs:
         os.makedirs( logDirs[i] )
 
+    # ======================
+    # = VARIABLES / MACROS =
+    # ======================
+    VIRT_ENV      = os.environ['VIRTUAL_ENV']
+    scriptPath    = os.path.realpath(__file__)
+    projPath      = ''.join( scriptPath.rpartition('basicFusion/')[0:2] )
+    orbit_times_txt = os.path.join( projPath, 'metadata-input', 'data', 'Orbit_Path_Time.txt' )
+    SUBMIT_LOG      = os.path.join( logDirs['submit_workflow'], 'submit_workflow.log')
+    qsub_dep_specifier='afterany'
+    
     #
     # ENABLE LOGGING
     #
@@ -348,10 +345,14 @@ def main():
 
     consoleHandler = logging.StreamHandler(sys.stdout)
     consoleHandler.setFormatter(logFormatter)
+    fileHandler = logging.FileHandler( SUBMIT_LOG , mode='a' )
+    fileHandler.setFormatter(logFormatter)
+    
+    rootLogger.addHandler(fileHandler)
     rootLogger.addHandler(consoleHandler)
     rootLogger.setLevel(ll)
  
-    logger = logging.getLogger('BFprocess')
+    logger = logging.getLogger('submit_workflow')
 
     logger.debug("Using virtual environment detected here: {}".format(VIRT_ENV))
     #
@@ -448,8 +449,8 @@ def main():
 
         output_granule_list = os.path.join( logDirs['misc'], "{}_output_granule_list.p".format(globPullName) )
         logger.info("Making Globus pull PBS script for job {}.".format(globPullName))
-        i.PBSfile['pull'] = makePBS_globus( transferList,  PBSdirs['globus_pull'], args.REMOTE_ID, args.HOST_ID, \
-                            globPullName, logDirs['globus_pull'], summaryLog, [ i.orbitStart, i.orbitEnd], picklePath, \
+        i.PBSfile['pull'] = makePBS_globus( transferList,  PBSdirs['pull_process'], args.REMOTE_ID, args.HOST_ID, \
+                            globPullName, logDirs['pull_process'], summaryLog, [ i.orbitStart, i.orbitEnd], picklePath, \
                             args.SCRATCH_SPACE, args.MISR_PATH, args.HASH_DIR, projPath, args.GLOBUS_PRL, args.NODES, args.PPN, \
                             output_granule_list )
 
@@ -464,67 +465,72 @@ def main():
     
     # Now that all quantas have been prepared, we can submit their jobs to the queue
 
+    prevQuant=None
     for i in quantas:    
-        
-        logger.info('Calling qsub on {}'.format( i.PBSfile['pull'] ) )
-
+       
         # Submit this to the scheduler, taking care to save stdout (which will contain the job ID)
         # I'm using the shell command cd {} && qsub because qsub is going to make stderr and stdout
         # files. I just want those files to be in the same directory as the PBS files. Of course, these
         # two log files should not have any substantial information in them since this workflow should
         # have all output redirected to the proper log file.
+         
+        if prevQuant is not None: 
+            logger.info('Calling qsub on {} with {} dependency {}'.format( i.PBSfile['pull'], \
+                        qsub_dep_specifier, prevQuant.jobID['pull'] ) )
+            qsubCall = 'cd {} && qsub -W depend={}:{} {}'.format( os.path.dirname(i.PBSfile['pull']), \
+                qsub_dep_specifier, prevQuant.jobID['pull'], i.PBSfile['pull']) 
+        else:
+            logger.info('Calling qsub on {}'.format( i.PBSfile['pull'] ) )
+            qsubCall = 'cd {} && qsub {}'.format( os.path.dirname(i.PBSfile['pull']),  i.PBSfile['pull']) 
 
-        qsubCall = 'cd {} && qsub {}'.format( os.path.dirname(i.PBSfile['pull']),  i.PBSfile['pull']) 
+        logger.debug( qsubCall )
         child = subprocess.Popen( qsubCall, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
         retCode = child.wait()
 
         # Get the stderr and stdout
         stderrFile = child.stderr
-        stderr = stderrFile.readlines()
+        stderr = stderrFile.read()
         stdoutFile = child.stdout
-        stdout = stdoutFile.readlines()
+        stdout = stdoutFile.read()
 
-        
-        for line in stderr:
-            print line.strip()
-        for line in stdout:
-            print line.strip()
+        logger.info( 'QSUB OUTPUT: ' + '\n' + stdout + '\n' + stderr )
         
         if retCode != 0:
-            raise RuntimeError("qsub command exited with retcode {}".format(retCode))
+            errMsg="qsub command exited with retcode {}".format(retCode)
+            logger.error(errMsg)
+            raise RuntimeError(errMsg)
 
-        i.jobID['pull'] = stdout[0].strip()
+        i.jobID['pull'] = stdout.strip()
 
         # --------------------
         # - GLOBUS PUSH QSUB -
         # --------------------
-        qsub_dep_specifier='afterok'
         logger.info("Calling qsub on {} with {} dependency {}".format( i.PBSfile['push'], qsub_dep_specifier, i.jobID['pull'] ) )
         
 
         qsubCall = 'cd {} && qsub -W depend={}:{} {}'.format( os.path.dirname(i.PBSfile['push']),  qsub_dep_specifier, \
                                                               i.jobID['pull'], i.PBSfile['push']) 
 
+        logger.debug( qsubCall )
         child = subprocess.Popen( qsubCall, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
         retCode = child.wait()
 
         # Get the stderr and stdout
         stderrFile = child.stderr
-        stderr = stderrFile.readlines()
+        stderr = stderrFile.read()
         stdoutFile = child.stdout
-        stdout = stdoutFile.readlines()
+        stdout = stdoutFile.read()
 
-        
-        for line in stderr:
-            print line.strip()
-        for line in stdout:
-            print line.strip()
+        logger.info( 'QSUB OUTPUT: ' + '\n' + stdout + '\n' + stderr )
         
         if retCode != 0:
-            raise RuntimeError("qsub command exited with retcode {}".format(retCode))
+            eMsg="qsub command exited with retcode {}".format(retCode)
+            logger.error( eMsg )
+            raise RuntimeError(eMsg)
 
-        i.jobID['pull'] = stdout[0].strip()
+        i.jobID['pull'] = stdout.strip()
 
+        prevQuant=i
 
 if __name__ == '__main__':
     main()

@@ -179,10 +179,14 @@ int main( int argc, char* argv[] )
         if(s && isdigit((int)*s)) 
         {
             envVal = strtol(s, NULL, 10);
-            unpack = envVal;
+            /* LTC 2017-11-30: Env var and unpack var are boolean inverses of each other.
+             * Need to invert the bool to retain default behavior as unpacked.
+             */
+            if ( envVal != 0 )
+                unpack = 0;
+            else
+                unpack = 1;
         }
-        else
-            unpack = 0;
 
         s = getenv("USE_CHUNK");
         

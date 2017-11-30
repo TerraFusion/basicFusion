@@ -70,6 +70,7 @@ def worker( hashDir ):
             orbit = int( file.replace('archive.tar', '') )
             year = orbitYear( orbit )
 
+            logger.info("Hashing orbit {}".format(orbit))
             # We now have the year of the orbit. We have enough information to find the hash file
             hashFile = os.path.join( hashDir, str(year), str(orbit) + "hash.md5" )
 
@@ -149,9 +150,12 @@ def worker( hashDir ):
             args = [ genFusInput, granule.untarDir, granule.orbit, granule.inputFileList, '--dir' ]
             with open( granule.logFile, 'a+' ) as logFile:
                 retCode = subprocess.call( args, stdout=logFile, stderr=logFile )
-                if retCode != 0:
-                    logger.error("Orbit {} failed to process input file list.".format( granule.orbit) )
-                    continue
+            
+            if retCode != 0:
+                with open( summaryLog, 'a') as sumLog:
+                    sumLog.write('{} input file generation error.'.format( granule.orbit )
+                logger.error("Orbit {} failed to process input file list.".format( granule.orbit) )
+                continue
           
             # Try to remove the output file if it exists. This is to prevent the BF code from breaking
             # if the file already exists.
@@ -165,10 +169,11 @@ def worker( hashDir ):
             with open( granule.logFile, 'w' ) as logFile:
                 args =  [ granule.BF_exe, granule.outputFilePath, granule.inputFileList, granule.orbit_times_bin ] 
                 retCode = subprocess.call( args, stdout=logFile, stderr=logFile ) 
-                if retCode != 0:
-                    with open( summaryLog, 'a' ) as f:
-                        print("{} failed in generating granule.".format( granule.orbit))
-                    continue
+            if retCode != 0:
+                with open( summaryLog, 'a' ) as f:
+                    print("{} granule generation error.".format( granule.orbit))
+                logger.error("Orbit {} failed to generate granule.".format(granule.orbit))
+                continue
 
             # Delete the untarred input data. We don't need it anymore.
             shutil.rmtree( granule.untarDir )
@@ -179,6 +184,7 @@ def worker( hashDir ):
         # ---------------
 
         elif stat.Get_tag() == MPI_DO_COPY:
+            logger.info("Copying data.")
             for i in data:
                 shutil.copy( i[0], i[1] )
 
@@ -698,7 +704,7 @@ def main():
     attempts to download the file again, repeating the checksum a second time. If it fails again, the file is marked as corrupt \
     in the BasicFusion workflow logs.")
     parser.add_argument("LOG_TREE", help="Path to a Python Pickle containing the workflow log tree. This Pickle is a \
-        Python dict that contains the following keys: 'summary', 'globus_pull', 'misc', 'process', 'globus_push'. \
+        Python dict that contains the following keys: 'summary', 'pull_process', 'misc', 'process', 'globus_push'. \
         The value for each key is the absolute path to the respective log directory.", type=str)
     parser.add_argument("TRANSFER_LIST", help="This is a text file where each line contains FIRST an absolute path of the \
         file on the remote machine to transfer, and then SECOND the absolute path on the host machine where the file will be \
@@ -970,14 +976,18 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print e
-        raise
+        logger.exception( "Encountered exception." )
         mpi_comm.Abort()
-    finally:        
-        if mpi_rank == 0:
+    finally:     
+        # I'm having issues with the processes not gracefully terminating. So, let's just call abort
+        # to clear out all processes whether or not an exception happens.
+        mpi_comm.Abort()
+   
+        #if mpi_rank == 0:
             # We need to terminate all slaves, or else the entire process might hang!
-            for i in xrange(1, mpi_size ):
-                logger.debug("Terminating slave {}".format(i))
-                mpi_comm.irecv( 0, source = i, tag = MPI_SLAVE_IDLE )
-                mpi_comm.isend( 0, dest = i, tag = MPI_SLAVE_TERMINATE )
+            # mpi_comm.Abort()
+            #for i in xrange(1, mpi_size ):
+                #logger.debug("Terminating slave {}".format(i))
+                #mpi_comm.recv( source = i, tag = MPI_SLAVE_IDLE )
+                #mpi_comm.send( 0, dest = i, tag = MPI_SLAVE_TERMINATE )
 
