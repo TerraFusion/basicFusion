@@ -172,7 +172,7 @@ hid_t insertDataset(  hid_t const *outputFileID, hid_t *datasetGroup_ID, int ret
             Returns the identifier to the newly created dataset upon success.
 */
 hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int returnDatasetID,
-                          int rank, hsize_t* datasetDims, hid_t dataType, char* datasetName, void* data_out)
+                          int rank, hsize_t* datasetDims, hid_t dataType, const char* datasetName, void* data_out, unsigned short is_modis)
 {
     hid_t memspace;
     hid_t dataset;
@@ -187,12 +187,28 @@ hid_t insertDataset_comp( hid_t const *outputFileID, hid_t *datasetGroup_ID, int
         FATAL_MSG("Cannot create the HDF5 dataset creation property list.\n");
         return(FATAL_ERR);
     }
-    // The chunk size is the same as the array size
+
+    if(is_modis ==1 && rank ==3) {
+
+        hsize_t chunkdims[3];
+        chunkdims[0]=1;
+        chunkdims[1]=datasetDims[1];
+        chunkdims[2]=datasetDims[2];     
+       if(H5Pset_chunk(plist_id,rank,chunkdims)<0)
+       {
+        FATAL_MSG("Cannot set MODIS rank 3 chunk for the HDF5 dataset creation property list.\n");
+        H5Pclose(plist_id);
+        return(FATAL_ERR);
+       }
+
+    }
+    else {// The chunk size is the same as the array size
     if(H5Pset_chunk(plist_id,rank,datasetDims)<0)
     {
         FATAL_MSG("Cannot set chunk for the HDF5 dataset creation property list.\n");
         H5Pclose(plist_id);
         return(FATAL_ERR);
+    }
     }
 
     short gzip_comp_level = 0;
@@ -340,25 +356,40 @@ hid_t MOPITTinsertDataset( hid_t const *inputFileID, hid_t *datasetGroup_ID,
 
     herr_t status_n, status;
 
-    double * data_out;
+    double * data_out = NULL;
 
     int rank;
     short fail = 0;
 
     /* Make sure that bound[1] is >= bound[0] */
+    /* only apply when bound is not NULL, KY 2017-10-24 */
+#if 0
+   if(bound !=NULL) {
     if ( bound[1] < bound[0] )
     {
         FATAL_MSG("The bounds provided for MOPITT subsetting are invalid!\n\tThe right bound is less than the left bound.\n");
         goto cleanupFail;
     }
+   }
+#endif
 
-    // Get the corrected dataset name.
+    // Get the corrected dataset name. This block must be run first since the outDatasetName can only be freed after correct-name
+    // KY 2017-10-31
     outDatasetName = correct_name(outDatasetName);
     if ( outDatasetName == NULL )
     {
         FATAL_MSG("Failed to get corrected name.\n");
         goto cleanupFail;
     }
+
+   if(bound !=NULL) {
+    if ( bound[1] < bound[0] )
+    {
+        FATAL_MSG("The bounds provided for MOPITT subsetting are invalid!\n\tThe right bound is less than the left bound.\n");
+        goto cleanupFail;
+    }
+   }
+
 
     /*
      * open dataset and do error checking
@@ -878,6 +909,7 @@ int32 H4readData( int32 fileID, const char* datasetName, void** data, int32 *ret
 
     int total_elems = 1;
 
+//printf("datasetName is %s\n:",datasetName);
     /* get the index of the dataset from the dataset's name */
     sds_index = SDnametoindex( fileID, datasetName );
     if( sds_index < 0 )
@@ -1105,6 +1137,8 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
                              datatypes.
         5. inputFileID    -- The HDF4 input file identifier
 
+        6. comp_flag a    --  1: use the compression, other values: don't use the compression
+
     EFFECTS:
         Reads the input file dataset and then writes to the HDF5 output file. Returns
         a dataset identifier for the new dataset created in the output file. It is the
@@ -1117,7 +1151,7 @@ hid_t attrCreateString( hid_t objectID, char* name, char* value )
 */
 
 hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char* inDatasetName, int32 inputDataType,
-                     hid_t outputDataType, int32 inputFileID )
+                     hid_t outputDataType, int32 inputFileID, unsigned short comp_flag )
 {
     int32 dataRank;
     int32 dataDimSizes[DIM_MAX];
@@ -1148,12 +1182,47 @@ hid_t readThenWrite( const char* outDatasetName, hid_t outputGroupID, const char
     for ( int i = 0; i < DIM_MAX; i++ )
         temp[i] = (hsize_t) dataDimSizes[i];
 
-    if ( outDatasetName )
+    if(comp_flag == 1) {
+      short use_chunk = 0;
+
+      /* If using chunk */
+      {
+        const char *s;
+        s = getenv("USE_CHUNK");
+
+        if(s && isdigit((int)*s))
+            if((unsigned int)strtol(s,NULL,0) == 1)
+                use_chunk = 1;
+      }
+
+      if(use_chunk == 1)
+      {// The chunk size will always be the whole dataset size for this case.
+       if(outDatasetName) 
+        datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
+                                        temp, outputDataType, outDatasetName, dataBuffer,0);
+       else
+        datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
+                                   temp, outputDataType, inDatasetName, dataBuffer,0 );
+ 
+     }
+     else // No compression
+     {
+       if ( outDatasetName )
         datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                    temp, outputDataType, outDatasetName, dataBuffer );
-    else
+       else
         datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                    temp, outputDataType, inDatasetName, dataBuffer );
+     }
+   }
+    else {
+      if ( outDatasetName )
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
+                                   temp, outputDataType, outDatasetName, dataBuffer );
+      else
+        datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
+                                   temp, outputDataType, inDatasetName, dataBuffer );
+    }
 
     if ( datasetID == FATAL_ERR )
     {
@@ -1582,7 +1651,7 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
     if(use_chunk == 1)
     {
         datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
-                                        temp, outputDataType, datasetName, output_dataBuffer );
+                                        temp, outputDataType, datasetName, output_dataBuffer,0);
     }
     else
     {
@@ -1651,8 +1720,8 @@ hid_t readThenWrite_ASTER_Unpack( hid_t outputGroupID, char* datasetName, int32 
         any errors.
 */
 /* MY-2016-12-20 Routine to unpack MISR data */
-hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** retDatasetNamePtr,int32 inputDataType,
-                                 int32 inputFileID,float scale_factor )
+hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* cameraName,char* datasetName, char** retDatasetNamePtr,int32 inputDataType,
+                                 int32 inputFileID,float scale_factor,unsigned short * has_LAI_DIM1_ptr )
 {
     int32 dataRank = 0;
     int32 dataDimSizes[DIM_MAX] = {0};
@@ -1669,6 +1738,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
         return (FATAL_ERR);
 
     }
+//printf("cameraName is %s\n",cameraName);
     status = H4readData( inputFileID, datasetName,
                          (void**)&input_dataBuffer, &dataRank, dataDimSizes, inputDataType,NULL,NULL,NULL);
     if ( status < 0 )
@@ -1703,14 +1773,13 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
 
         float* temp_float_pointer = NULL;
         unsigned short* temp_uint16_pointer = input_dataBuffer;
+        unsigned short* temp_uint16_pointer_mask = input_dataBuffer;
+        unsigned short temp_cklq_input_val = 0;
         size_t buffer_size = 1;
         unsigned short  rdqi = 0;
         unsigned short  rdqi_mask = 3;
         size_t num_la_data = 0;
-        uint8_t has_la_data = 0;
 
-        unsigned int* la_data_pos = NULL;
-        unsigned int* temp_la_data_pos_pointer = NULL;
 
         for(int i = 0; i <dataRank; i++)
             buffer_size *=dataDimSizes[i];
@@ -1718,80 +1787,86 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
 
         for(int i = 0; i<buffer_size; i++)
         {
-            rdqi = (*temp_uint16_pointer)&rdqi_mask;
-            if(rdqi == 1)
-                num_la_data++;
+            rdqi = (*temp_uint16_pointer_mask)&rdqi_mask;
+            if(rdqi == 1){
+                temp_cklq_input_val = (*temp_uint16_pointer_mask)>>2;
+                if(temp_cklq_input_val != 16378 && temp_cklq_input_val != 16380) 
+                    num_la_data++;
+            }
+            temp_uint16_pointer_mask++;
         }
 
+#if 0
         if(num_la_data>0)
         {
             has_la_data = 1;
-            la_data_pos = malloc(sizeof la_data_pos*num_la_data);
+            la_data_pos = calloc(sizeof la_data_pos*num_la_data,dankRank);
             temp_la_data_pos_pointer = la_data_pos;
         }
-
-        /* We need to check if there are any the low accuracy data */
-
-
-        output_dataBuffer = malloc(sizeof output_dataBuffer *buffer_size);
-        temp_float_pointer = output_dataBuffer;
-
-        unsigned short temp_input_val;
-
-        if(has_la_data == 1)
+#endif
+        /* Need to obtain low frequency indexes */
+        if(num_la_data >0)
         {
-            for(int i = 0; i<buffer_size; i++)
-            {
 
-                rdqi = (*temp_uint16_pointer)&rdqi_mask;
-                if(rdqi == 2 || rdqi == 3)
-                    *temp_float_pointer = -999.0;
-                else
-                {
-                    if(rdqi == 1)
-                    {
-                        *temp_la_data_pos_pointer = i;
-                        temp_la_data_pos_pointer++;
+            unsigned short*temp_ck_uint16_pointer = input_dataBuffer;
+            if(dataRank != 3) {
+                FATAL_MSG("Error MISR radiance  %s dataset should be 3-D array.\n", datasetName );
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
+                return (FATAL_ERR);
+            } 
+
+            //unsigned int la_data_pos[num_la_data][3] ;
+            //unsigned int* la_data_pos =(unsigned int*)malloc(sizeof(unsigned int) *num_la_data*3) ;
+            unsigned short* la_data_pos =(unsigned short*)malloc(sizeof(unsigned short) *num_la_data*3) ;
+            //unsigned int* temp_la_data_pos = la_data_pos;
+            unsigned short* temp_la_data_pos = la_data_pos;
+
+            /* obtain the low accuracy tindex */
+            /* We know the index is within the unsigned short range. This can reduce some space. */
+            unsigned int ck_count = 0;
+            for(unsigned short i =0; i <dataDimSizes[0];i++) {
+                for (unsigned short j =0;j<dataDimSizes[1];j++) {
+                    for (unsigned short k=0;k<dataDimSizes[2];k++) {
+                        rdqi = (*temp_ck_uint16_pointer)&rdqi_mask;
+                        if(rdqi == 1){
+                    
+                            temp_cklq_input_val = (*temp_ck_uint16_pointer)>>2;
+                            if(temp_cklq_input_val != 16378 && temp_cklq_input_val != 16380) {
+                                /* Remember the index */ 
+                                /* The toolkit generates block number. So the first one may be i+1.*/
+#if 0
+                                la_data_pos[ck_count][0] = i+1;
+                                la_data_pos[ck_count][1] = j;
+                                la_data_pos[ck_count][2] = k;
+#endif
+                                *temp_la_data_pos = i+1;
+                                temp_la_data_pos++;
+                                *temp_la_data_pos = j;
+                                temp_la_data_pos++;
+                                *temp_la_data_pos = k;
+                                temp_la_data_pos++;
+                                ck_count++;
+                            }
+                        }
+                        temp_ck_uint16_pointer++;
                     }
-                    temp_input_val = (*temp_uint16_pointer)>>2;
-                    if(temp_input_val == 16378 || temp_input_val == 16380)
-                        *temp_float_pointer = -999.0;
-                    else
-                        *temp_float_pointer = scale_factor*((float)temp_input_val);
                 }
-                temp_uint16_pointer++;
-                temp_float_pointer++;
             }
-        }
-        else
-        {
-            for(int i = 0; i<buffer_size; i++)
-            {
-                rdqi = (*temp_uint16_pointer)&rdqi_mask;
-                if(rdqi == 2 || rdqi == 3)
-                    *temp_float_pointer = -999.0;
-                else
-                {
-                    temp_input_val = (*temp_uint16_pointer)>>2;
-                    if(temp_input_val == 16378 || temp_input_val == 16380)
-                        *temp_float_pointer = -999.0;
-                    else
-                        *temp_float_pointer = scale_factor*((float)temp_input_val);
-                }
-                temp_uint16_pointer++;
-                temp_float_pointer++;
-            }
-        }
 
-        /* Here we want to record the low accuracy data information for this dataset.*/
-        if(has_la_data ==1)
-        {
+            if(ck_count != num_la_data) {
+                FATAL_MSG("Error MISR radiance  %s dataset low accuracy index is wrong.\n", datasetName );
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
+                return (FATAL_ERR);
+            } 
 
             hid_t la_pos_dsetid =0 ;
-            int la_pos_dset_rank = 1;
-            hsize_t la_pos_dset_dims[1];
+            int la_pos_dset_rank = 2;
+            hsize_t la_pos_dset_dims[2];
             la_pos_dset_dims[0]= num_la_data;
-            char* la_pos_dset_name_suffix="_low_accuracy_pos";
+            la_pos_dset_dims[1]= 3;
+            char* la_pos_dset_name_suffix="_low_accuracy_index";
             size_t la_pos_dset_name_len = strlen(la_pos_dset_name_suffix)+strlen(newdatasetName)+1;
             char* la_pos_dset_name=malloc(la_pos_dset_name_len);
             la_pos_dset_name[la_pos_dset_name_len-1]='\0';
@@ -1799,27 +1874,114 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
             strcat(la_pos_dset_name,la_pos_dset_name_suffix);
 
             /* Create a dataset to remember the postion of low accuracy data */
-            la_pos_dsetid = insertDataset( &outputFile, &outputGroupID, 1, la_pos_dset_rank,
-                                           la_pos_dset_dims, H5T_NATIVE_INT, la_pos_dset_name, la_data_pos );
+            la_pos_dsetid = insertDataset_comp( &outputFile, &outputGroupID, 1, la_pos_dset_rank,
+                                           la_pos_dset_dims, H5T_NATIVE_USHORT, la_pos_dset_name, la_data_pos,0 );
+                                           //la_pos_dset_dims, H5T_NATIVE_UINT, la_pos_dset_name, la_data_pos );
 
             if ( la_pos_dsetid == FATAL_ERR )
             {
                  FATAL_MSG("Error writing %s dataset.\n", newdatasetName );
                 if(la_pos_dset_name)
                     free(la_pos_dset_name);
-                if(la_data_pos)
-                    free(la_data_pos);
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
                 H5Dclose(la_pos_dsetid);
                 return (FATAL_ERR);
             }
             if(la_pos_dset_name)
                 free(la_pos_dset_name);
-            if(la_data_pos)
-                free(la_data_pos);
+            free(la_data_pos);
+ 
+            // Need to create/attach dimensions
+            // First the fixed 3-element dimension
+            char* lai_dim1="/MISR_LA_POS_DIM";
+            if(*has_LAI_DIM1_ptr == 0) {
+                hid_t lai_dim1_id = 0;
+                hsize_t lai_dim1_size = la_pos_dset_dims[1];
+                hid_t lai_dspace = H5Screate_simple(1,&lai_dim1_size,NULL);
+                if(makePureDim(outputFile,lai_dim1,lai_dspace,H5T_NATIVE_INT,&lai_dim1_id)!=RET_SUCCESS) {
+                    FATAL_MSG("Error creating MISR Low accuracy position dimenson.  \n");
+                    H5Sclose(lai_dspace);
+                    H5Dclose(la_pos_dsetid);
+                    if(newdatasetName) free(newdatasetName);
+                    if( input_dataBuffer) free(input_dataBuffer);
+                    return (FATAL_ERR);
+                }
+                H5Sclose(lai_dspace);
+                H5Dclose(lai_dim1_id);
+                *has_LAI_DIM1_ptr = 1;
+            }
 
+            if(attachDimension(outputFile,lai_dim1,la_pos_dsetid,1)!=RET_SUCCESS) {
+                FATAL_MSG("Error creating MISR Low accuracy position dimenson.  \n");
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
+                H5Dclose(la_pos_dsetid);
+            }
+            // Need to create the dimension name for LA index dimension.
+            // Name will be /MISR_AN_RR_LA_INX_DIM
+            char* lai_dim0_temp="/MISR_AN_RR_LA_INX_DIM";
+            char * lai_dim0=malloc(strlen(lai_dim0_temp)+1);
+            strcpy(lai_dim0,"/MISR_");
+            strcat(lai_dim0,cameraName);
+            strcat(lai_dim0,"_");
+            char*RadName_short=malloc(3);
+            RadName_short[0] = newdatasetName[0];
+            RadName_short[1] = 'R';
+            RadName_short[2]='\0';
+            
+            strcat(lai_dim0,RadName_short);
+            free(RadName_short);
+            strcat(lai_dim0,"_LA_INX_DIM");
+            hsize_t lai_dim0_size = la_pos_dset_dims[0];
+            hid_t lai_dim0_id = 0;
+            hid_t lai_dspace0 = H5Screate_simple(1,&lai_dim0_size,NULL);
+            if(makePureDim(outputFile,lai_dim0,lai_dspace0,H5T_NATIVE_INT,&lai_dim0_id)!=RET_SUCCESS) {
+                FATAL_MSG("Error creating MISR Low accuracy index dimenson.  \n");
+                H5Sclose(lai_dspace0);
+                H5Dclose(la_pos_dsetid);
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
+                return (FATAL_ERR);
+            }
+            H5Sclose(lai_dspace0);
+            H5Dclose(lai_dim0_id);
+            if(attachDimension(outputFile,lai_dim0,la_pos_dsetid,0)!=RET_SUCCESS) {
+                FATAL_MSG("Error creating MISR Low accuracy dimenson 1.  \n");
+                if(newdatasetName) free(newdatasetName);
+                if( input_dataBuffer) free(input_dataBuffer);
+                H5Dclose(la_pos_dsetid);
+            }
+            free(lai_dim0);
             H5Dclose(la_pos_dsetid);
+            // { } may add an attribute to the group later.
         }
-        //else { } may add an attribute to the group later.
+
+        output_dataBuffer = malloc(sizeof output_dataBuffer *buffer_size);
+        temp_float_pointer = output_dataBuffer;
+
+        unsigned short temp_input_val;
+
+        /* Unpacking the data, both reduced accuracy and within specifications. RDQI=0 and RDQI=1. */
+        {
+            for(int i = 0; i<buffer_size; i++)
+            {
+                rdqi = (*temp_uint16_pointer)&rdqi_mask;
+                if(rdqi == 2 || rdqi == 3)
+                    *temp_float_pointer = -999.0;
+                else
+                {
+                    temp_input_val = (*temp_uint16_pointer)>>2;
+                    if(temp_input_val == 16378 || temp_input_val == 16380)
+                        *temp_float_pointer = -999.0;
+                    else
+                        *temp_float_pointer = scale_factor*((float)temp_input_val);
+                }
+                temp_uint16_pointer++;
+                temp_float_pointer++;
+            }
+        }
+
     }
 
 
@@ -1853,7 +2015,7 @@ hid_t readThenWrite_MISR_Unpack( hid_t outputGroupID, char* datasetName, char** 
     if(use_chunk == 1)
     {
         datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
-                                        temp, outputDataType, newdatasetName, output_dataBuffer );
+                                        temp, outputDataType, newdatasetName, output_dataBuffer,0 );
     }
     else
     {
@@ -2139,7 +2301,7 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
 
     outputDataType = H5T_NATIVE_FLOAT;
 
-#if 0
+//#if 0
     short use_chunk = 0;
 
     /* If using chunk */
@@ -2155,18 +2317,20 @@ hid_t readThenWrite_MODIS_Unpack( hid_t outputGroupID, char* datasetName, int32 
     if(use_chunk == 1)
     {
         datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
-                                        temp, outputDataType, datasetName, output_dataBuffer );
+                                        temp, outputDataType, datasetName, output_dataBuffer,1 );
     }
     else
     {
         datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                    temp, outputDataType, datasetName, output_dataBuffer );
     }
-#endif
+//#endif
 
 
+#if 0
     datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                temp, outputDataType, datasetName, output_dataBuffer );
+#endif
 
     if ( datasetID == FATAL_ERR )
     {
@@ -2402,7 +2566,7 @@ hid_t readThenWrite_MODIS_Uncert_Unpack( hid_t outputGroupID, char* datasetName,
     if(use_chunk == 1)
     {
         datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
-                                        temp, outputDataType, datasetName, output_dataBuffer );
+                                        temp, outputDataType, datasetName, output_dataBuffer,1);
     }
     else
     {
@@ -2585,7 +2749,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
         temp[i] = (hsize_t) dataDimSizes[i];
 
     outputDataType = H5T_NATIVE_FLOAT;
-#if 0
+//#if 0
     short use_chunk = 0;
 
     /* If using chunk */
@@ -2601,18 +2765,20 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
     if(use_chunk == 1)
     {
         datasetID = insertDataset_comp( &outputFile, &outputGroupID, 1, dataRank,
-                                        temp, outputDataType, datasetName, output_dataBuffer );
+                                        temp, outputDataType, datasetName, output_dataBuffer,1 );
     }
     else
     {
         datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                    temp, outputDataType, datasetName, output_dataBuffer );
     }
-#endif
+//#endif
 
 
+#if 0
     datasetID = insertDataset( &outputFile, &outputGroupID, 1, dataRank,
                                temp, outputDataType, datasetName, output_dataBuffer );
+#endif
 
     if ( datasetID == FATAL_ERR )
     {
@@ -2630,7 +2796,7 @@ hid_t readThenWrite_MODIS_GeoMetry_Unpack( hid_t outputGroupID, char* datasetNam
     return datasetID;
 }
 
-herr_t convert_SD_Attrs(int32 sd_id,hid_t h5parobj_id,char*h5obj_name,char*sds_name)
+herr_t convert_SD_Attrs(int32 sd_id,hid_t h5parobj_id,char*h5obj_name,char*sds_name,char *ignore_attr_name)
 {
 
     int   i = 0;
@@ -2664,13 +2830,28 @@ herr_t convert_SD_Attrs(int32 sd_id,hid_t h5parobj_id,char*h5obj_name,char*sds_n
         return -1;
     }
 
-    for( i = 0; i <n_attrs; i++)
-    {
+    if(ignore_attr_name == NULL) {
+     for( i = 0; i <n_attrs; i++)
+     {
         h4_status = SDattrinfo (sds_id, i, attr_name, &data_type, &n_values);
         attr_values = malloc(n_values*DFKNTsize(data_type));
         h4_status = SDreadattr (sds_id, i, attr_values);
         copy_h5_attrs(data_type,n_values,attr_name,attr_values,h5parobj_id,h5obj_name);
         free (attr_values);
+     }
+    }
+    else {
+     for( i = 0; i <n_attrs; i++)
+     {
+        h4_status = SDattrinfo (sds_id, i, attr_name, &data_type, &n_values);
+        if(strcmp(ignore_attr_name,attr_name)==0) 
+            continue;
+        attr_values = malloc(n_values*DFKNTsize(data_type));
+        h4_status = SDreadattr (sds_id, i, attr_values);
+        copy_h5_attrs(data_type,n_values,attr_name,attr_values,h5parobj_id,h5obj_name);
+        free (attr_values);
+     }
+
     }
 
     if(sds_name != NULL)
@@ -2898,7 +3079,12 @@ herr_t copyAttrFromName( int32 inFileID, const char* inObjName, const char* attr
 
     // Create a simple dataspace for the attribute
     // We only want one string of length count, so temp_hsize will just be 1
-    const hsize_t temp_hsize = 1;
+    // KY: We also find some attributes that use other types,so we cannot hard-code
+    // those attriabute as size 1.
+    hsize_t temp_hsize = 1;
+    // Bad,  the whole routine needs to be rewrittedn, just make it work for now. KY
+    if(h5TypeOld != H5T_STRING) 
+        temp_hsize = count;
     attrDataspace = H5Screate_simple( 1, &temp_hsize,  NULL );
     if ( attrDataspace < 0 )
     {
@@ -4515,10 +4701,10 @@ herr_t attachDimension(hid_t fileID,char*dimname, hid_t dsetID,int dim_index)
 }
 
 /*
-        makeDimFromBuf
+        makePureDim
 
  DESCRIPTION:
-    makeDimFromBuf takes as input a data buffer containing the data that a new dimension will contain.
+    makePureDim takes as input a data buffer containing the data that a new dimension will contain.
     This function makes sure that the dimension complies with netCDF standards.
 
  ARGUMENTS:
@@ -4543,7 +4729,8 @@ herr_t attachDimension(hid_t fileID,char*dimname, hid_t dsetID,int dim_index)
     FATAL_ERR  
 
 */
-herr_t makeDimFromBuf( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID )
+//herr_t makePureDim( hid_t locID, const char* dimName, void* dataBuffer, hid_t dataspace, hid_t h5Type, hid_t* retID )
+herr_t makePureDim( hid_t locID, const char* dimName,  hid_t dataspace, hid_t h5Type, hid_t* retID )
 {
     hid_t dimID = 0;
     herr_t retVal = RET_SUCCESS;
@@ -4558,12 +4745,14 @@ herr_t makeDimFromBuf( hid_t locID, const char* dimName, void* dataBuffer, hid_t
         goto cleanupFail;
     }
 
+#if 0
     status = H5Dwrite( dimID, h5Type, H5S_ALL, H5S_ALL, H5P_DEFAULT, dataBuffer );
     if ( status < 0 )
     {
         FATAL_MSG("Failed to write to the dataset.\n");
         goto cleanupFail;
     }    
+#endif
     
     // Make this new dataset a dimension
     status = H5DSset_scale( dimID, dimName );
@@ -4610,15 +4799,41 @@ size_t obtainDimSize(hid_t dsetID)
 
 }
 
-herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size)
+herr_t Generate2D_Dataset(hid_t h5_group,char* dsetname,hid_t h5_type,void* databuffer,hid_t dim0_id,hid_t dim1_id,size_t dim0_size,size_t dim1_size,unsigned short comp_flag)
 {
     hsize_t temp[2];
     temp[0] = (hsize_t) (dim0_size);
     temp[1] = (hsize_t) (dim1_size);
     hid_t dummy_output_file_id, datasetID;
 
-    datasetID = insertDataset( &dummy_output_file_id, &h5_group, 1, 2,
+    if(comp_flag == 1) {
+      short use_chunk = 0;
+
+      /* If using chunk */
+      {
+        const char *s;
+        s = getenv("USE_CHUNK");
+
+        if(s && isdigit((int)*s))
+            if((unsigned int)strtol(s,NULL,0) == 1)
+                use_chunk = 1;
+      }
+
+      if(use_chunk == 1)
+      {// The chunk size will always be the whole dataset size for this case.
+        datasetID = insertDataset_comp( &dummy_output_file_id, &h5_group, 1, 2,
+                               temp, h5_type, dsetname, databuffer,0 );
+     
+      }
+      else {
+       datasetID = insertDataset( &dummy_output_file_id, &h5_group, 1, 2,
                                temp, h5_type, dsetname, databuffer );
+      }
+    }
+    else {
+       datasetID = insertDataset( &dummy_output_file_id, &h5_group, 1, 2,
+                               temp, h5_type, dsetname, databuffer );
+    }
 
     if ( datasetID == FATAL_ERR )
     {
@@ -5266,8 +5481,10 @@ herr_t binarySearchDouble ( const double* array, double target, hsize_t size, sh
         FATAL_MSG("Binary search produced an invalid result. Debug information:\n\ttargetIndex = %ld\n\tsize = %u\n", middle, (unsigned int) size);
         return -1;
     }
-
-    if ( firstGreater == 0 && middle > 0 )
+ 
+    // When middle points to the last element of the array,we should not decrease the middle value by 1. 
+    if ( firstGreater == 0 && middle > 0 && middle<(size-1))
+    //if ( firstGreater == 0 && middle > 0 )
     {
         middle--;
     }
@@ -5387,9 +5604,24 @@ herr_t MOPITT_OrbitInfo( const hid_t inputFile, OInfo_t cur_orbit_info, const ch
     }
 
     /* If the start and end indices are equal, this file is probably out of bounds of the orbit. */
-    if ( startIdx == endIdx )
+    // When the difference of startIdx and endIdx is 1, it may be still out of bound.
+    // orbit 3295, the whole orbit time is between the index 3174 and 3175. In fact, 
+    // there may be a few missing data orbits(3295 to 3297).We need to consider this. KY 2017-10-31
+    if ( startIdx == endIdx ){
+        if((timeData[startIdx]<startTAI93)||(timeData[startIdx]>endTAI93))// Out of bound
+            retStatus = 1;
+
+    }
+    else if ((endIdx-startIdx)==1){
+        if((timeData[startIdx]<startTAI93)||(timeData[endIdx]>endTAI93))// Out of bound
+            retStatus = 1;
+    }
+    else if ((endIdx-startIdx)==-1)
+     // We can make the binary search better to avoid this case.  
+     // However, I think the end results are the same. Just keep it. KY 2017-10-31
     {
-        retStatus = 1;
+        if((timeData[endIdx]<startTAI93)||(timeData[startIdx]>endTAI93))// Out of bound
+            retStatus = 1;
     }
 
     *start_indx_ptr = startIdx;
@@ -5825,4 +6057,361 @@ herr_t updateGranList( char** granList, const char* newGran, size_t * curSize )
 
     return RET_SUCCESS;
 }
+
+// Quick check for MODIS change dimension(code copied from copyDimension.)
+herr_t copyDimension_MODIS_Special( char* dimSuffix, int32 h4fileID, char* h4datasetName, hid_t h5dimGroupID, hid_t h5dsetID )
+{
+    hsize_t tempInt = 0;
+    char* correct_dsetname = NULL;
+    char* dimName = NULL;
+    herr_t errStatus = 0;
+    int32 ntype = 0;
+    int32 h4dsetID = 0;
+    intn statusn = 0;
+    int rank = 0;
+    int status = 0;
+    hid_t h5dimID = 0;
+    void *dimBuffer = NULL;
+    short fail = 0;
+    hid_t memspace = 0;
+    htri_t dsetExists = 0;
+    short wasHardCodeCopy = 0;
+    char* catString = NULL;
+    char* temp = NULL;
+    char tempStack[STR_LEN] = {'\0'};
+
+    /* Get dataset index */
+    int32 sds_index = SDnametoindex(h4fileID, h4datasetName );
+    if ( sds_index == FAIL )
+    {
+        FATAL_MSG("Failed to get SD index.\n");
+        goto cleanupFail;
+    }
+    /* select the dataset */
+    h4dsetID = SDselect(h4fileID, sds_index);
+    if ( h4dsetID == FAIL )
+    {
+        h4dsetID = 0;
+        FATAL_MSG("Failed to select the HDF4 dataset.\n");
+        goto cleanupFail;
+    }
+
+    /* get the rank of the dataset so we know how many dimensions to copy */
+    statusn = SDgetinfo(h4dsetID, NULL, &rank, NULL, NULL, NULL );
+    if ( statusn == FAIL )
+    {
+        FATAL_MSG("Failed to get SD info.\n");
+        goto cleanupFail;
+    }
+
+
+    int32 dim_index;
+
+    // COPY OVER DIMENSION SCALES TO HDF5 OBJECT
+    dimName = calloc(500, 1);
+    int32 size = 0;
+    int32 num_attrs = 0;
+    hid_t h5type = 0;
+    int32 h4dimID = 0;
+
+    for ( dim_index = 0; dim_index < rank; dim_index++ )
+    {
+        // Get the dimension ID
+        h4dimID = SDgetdimid ( h4dsetID, dim_index );
+        if ( h4dimID == FAIL )
+        {
+            FATAL_MSG("Failed to get dimension ID.\n");
+            h4dimID = 0;
+            goto cleanupFail;
+        }
+
+
+        /* get various useful info about this dimension */
+        statusn = SDdiminfo( h4dimID, dimName, &size, &ntype, &num_attrs );
+        //int32 dimRank = 0;
+        //int32 dimSizes = 0;
+        //statusn = SDgetinfo( h4dimID, dimName, &dimRank, &dimSizes, &ntype, &num_attrs);
+        if ( statusn == FAIL )
+        {
+            FATAL_MSG("Failed to get dimension info.\n");
+            goto cleanupFail;
+        }
+
+
+        /* If dimSuffix is provided, we need to append this string to the dimName variable.*/
+       
+        correct_dsetname = correct_name(dimName);
+
+        if ( dimSuffix ) 
+        {
+            // store allocated memory in temp pointer
+            strcpy(tempStack, dimName);
+            temp = calloc ( sizeof(tempStack) + sizeof(dimSuffix) + 1, 1 );
+            // copy dimName to the temp pointer memory
+            strcpy(temp, tempStack);
+            // concatenate dimName with dimSuffix
+            strcat(temp,dimSuffix);
+            // Fix the name to comply with netCDF standards
+            catString = correct_name(temp);
+            // free the temp memory (catString is separately allocated memory, malloc'ed in the correct_name function
+            free(temp); temp = NULL;
+        }
+        else
+        {
+           char* special_suffix;
+           unsigned short have_special_suffix = 0;
+           if(size == 2040 || size == 4080 || size == 8160){
+             special_suffix = "_2";
+             have_special_suffix = 1;
+           }
+           else if(size == 2050 || size == 4100 || size == 8200){
+             special_suffix = "_3";
+             have_special_suffix = 1;
+           }
+           else if(size == 2060 || size == 4120 || size == 8240){
+             special_suffix = "_4";
+             have_special_suffix = 1;
+           }
+           else if(size == 2070 || size == 4140 || size == 8280){
+             special_suffix = "_5";
+             have_special_suffix = 1;
+           }
+           else if(size == 2080 || size == 4160 || size == 8320){
+             special_suffix = "_6";
+             have_special_suffix = 1;
+           }
+           else if(size == 2090 || size == 4180 || size == 8360){
+             special_suffix = "_7";
+             have_special_suffix = 1;
+           }
+           else if(size == 2100 || size == 4200 || size == 8400){
+             special_suffix = "_8";
+             have_special_suffix = 1;
+           }
+         
+           if(have_special_suffix == 1) {
+            // store allocated memory in temp pointer
+            strcpy(tempStack, dimName);
+            temp = calloc ( sizeof(tempStack) + sizeof(special_suffix) + 1, 1 );
+            // copy dimName to the temp pointer memory
+            strcpy(temp, tempStack);
+            // concatenate dimName with dimSuffix
+            strcat(temp,special_suffix);
+            // Fix the name to comply with netCDF standards
+            catString = correct_name(temp);
+            // free the temp memory (catString is separately allocated memory, malloc'ed in the correct_name function
+            free(temp); temp = NULL;
+ 
+           }
+           else 
+             catString = correct_name(dimName);
+        }
+        /* Since dimension scales are shared, it is possible this dimension already exists in HDF5 file (previous
+           call to this function created it). Check to see if it does. If so, use the dimension that eixsts.
+        */
+        
+        free(correct_dsetname); correct_dsetname = NULL;
+
+        dsetExists = H5Lexists(h5dimGroupID, catString, H5P_DEFAULT);
+        // if dsetExists is <= 0, then dimension does not yet exist.
+        if ( dsetExists <= 0 )
+        {
+            /* If the dimension is one of the following, we will do an explicit dimension scale copy (hard code
+             * the scale values)
+             */
+            if ( strstr( catString, "Band_250M" ) != NULL )
+            {
+                tempInt = 2;
+                float floatBuffer[2] = {1.0f, 2.0f};
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
+                if ( h5dimID == FATAL_ERR )
+                {
+                    h5dimID = 0;
+                    FATAL_MSG("Failed to insert dataset.\n");
+                    goto cleanupFail;
+                }
+                /* The dimensions in this if else chain are pure dimensions in HDF4, but we want to convert them to a real
+                 * dimension in the HDF5 file. Set this flag to 1 to indicate that the final result IS a real dimension.
+                 * Flag will be used to prevent setting the NAME attribute downstream
+                 */
+                wasHardCodeCopy = 1;
+            }
+            else if ( strstr( catString, "Band_500M" ) != NULL )
+            {
+                tempInt = 5;
+                float floatBuffer[5] = {3.0f, 4.0f, 5.0f, 6.0f, 7.0f};
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
+                if ( h5dimID == FATAL_ERR )
+                {
+                    h5dimID = 0;
+                    FATAL_MSG("Failed to insert dataset.\n");
+                    goto cleanupFail;
+                }
+                wasHardCodeCopy = 1;
+            }
+            else if ( strstr( catString, "Band_1KM_RefSB" ) != NULL )
+            {
+                float floatBuffer[15] = { 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 13.5f, 14.0f, 14.5f, 15.0f, 16.0f, 17.0f, 18.0f, 19.0f, 26.0f };
+                tempInt = 15;
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
+                if ( h5dimID == FATAL_ERR )
+                {
+                    h5dimID = 0;
+                    FATAL_MSG("Failed to insert dataset.\n");
+                    goto cleanupFail;
+                }
+                wasHardCodeCopy = 1;
+            }
+            else if ( strstr( catString, "Band_1KM_Emissive" ) != NULL )
+            {
+                float floatBuffer[16] = { 20.0f, 21.0f, 22.0f, 23.0f, 24.0f, 25.0f, 27.0f, 28.0f, 29.0f, 30.0f, 31.0f, 32.0f, 33.0f, 34.0f, 35.0f, 36.0f };
+                tempInt = 16;
+                h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, H5T_NATIVE_FLOAT, catString, floatBuffer);
+                if ( h5dimID == FATAL_ERR )
+                {
+                    h5dimID = 0;
+                    FATAL_MSG("Failed to insert dataset.\n");
+                    goto cleanupFail;
+                }
+                wasHardCodeCopy = 1;
+            }
+
+            /* Else, the dimension is none of those listed. Do a normal copy by reading scale values from
+               the input file (a non-hard coded copy)
+             */
+            else
+            {
+                wasHardCodeCopy = 0;
+                /* SDdiminfo will return 0 for ntype if the dimension has no scale information. This is the case when
+                   it is a pure dimension.  We need two separate cases for when it is and is not a pure dim
+                */
+
+                if ( ntype != 0 )
+                {
+                    /* get the correct HDF5 datatype from ntype */
+                    status = h4type_to_h5type( ntype, &h5type );
+                    if ( status != 0 )
+                    {
+                        FATAL_MSG("Failed to convert HDF4 to HDF5 datatype.\n");
+                        goto cleanupFail;
+                    }
+
+                    /* read the dimension scale into a buffer */
+                    dimBuffer = malloc(size);
+                    //int32 start[1] = {0};
+                    //int32 stride[1] = {1};
+                    //statusn = SDreaddata( h4dimID, start, stride, &dimSizes, dimBuffer );
+                    statusn = SDgetdimscale(h4dimID, dimBuffer);
+                    if ( statusn != 0 )
+                    {
+                        FATAL_MSG("Failed to get dimension scale.\n");
+                        goto cleanupFail;
+                    }
+
+                    /* make a new dataset for our dimension scale */
+
+                    tempInt = size;
+                    h5dimID = insertDataset(&outputFile, &h5dimGroupID, 1, 1, &tempInt, h5type, catString, dimBuffer);
+                    if ( h5dimID == FATAL_ERR )
+                    {
+                        h5dimID = 0;
+                        FATAL_MSG("Failed to insert dataset.\n");
+                        goto cleanupFail;
+                    }
+
+                    free(dimBuffer);
+                    dimBuffer = NULL;
+                }
+
+                else
+                {
+                    hsize_t tempSize2 = 0;
+
+                    tempSize2 = (hsize_t) size;
+                    memspace = H5Screate_simple( 1, &tempSize2, NULL );
+
+                    h5dimID = H5Dcreate( h5dimGroupID, catString, H5T_NATIVE_INT, memspace,
+                                         H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+                    if ( h5dimID < 0 )
+                    {
+                        FATAL_MSG("Failed to create dataset.\n");
+                        h5dimID = 0;
+                        goto cleanupFail;
+                    }
+
+                    H5Sclose(memspace);
+                    memspace = 0;
+
+                } // end else
+            } // end else
+
+            errStatus = H5DSset_scale(h5dimID, catString);
+            if ( errStatus != 0 )
+            {
+                FATAL_MSG("Failed to set dataset as a dimension scale.\n");
+                goto cleanupFail;
+            }
+
+
+            /* Correct the NAME attribute of the pure dimension to conform with netCDF
+               standards.
+            */
+            if ( ntype == 0 && !wasHardCodeCopy )
+            {
+                statusn = change_dim_attr_NAME_value(h5dimID);
+                if ( statusn == FAIL )
+                {
+                    FATAL_MSG("Failed to change the NAME attribute of a dimension.\n");
+                    goto cleanupFail;
+                }
+            }
+        } // end if ( dsetExists <= 0 )
+
+        else
+        {
+            h5dimID = H5Dopen2(h5dimGroupID, catString, H5P_DEFAULT);
+            if ( h5dimID < 0 )
+            {
+                h5dimID = 0;
+                FATAL_MSG("Failed to open dataset.\n");
+                goto cleanupFail;
+            }
+        }
+
+
+        errStatus = H5DSattach_scale(h5dsetID, h5dimID, dim_index);
+        if ( errStatus != 0 )
+        {
+            FATAL_MSG("Failed to attach dimension scale.\n");
+            goto cleanupFail;
+        }
+
+        free(correct_dsetname);
+        correct_dsetname = NULL;
+        H5Dclose(h5dimID);
+        h5dimID = 0;
+        free(catString); catString = NULL;
+    }   // end for loop
+
+    fail = 0;
+    if ( 0 )
+    {
+cleanupFail:
+        fail = 1;
+    }
+
+    if ( dimName ) free ( dimName );
+    if ( h5dimID ) H5Dclose(h5dimID);
+    if ( dimBuffer ) free(dimBuffer);
+    if ( correct_dsetname ) free(correct_dsetname);
+    if ( memspace ) H5Sclose(memspace);
+    if ( catString ) free(catString);
+    if ( temp ) free(temp);
+
+    if ( fail ) return FAIL;
+
+    return SUCCEED;
+
+}
+
 

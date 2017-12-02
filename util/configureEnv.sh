@@ -21,7 +21,7 @@ downloadPY()
     # Create the virtual environment
     rm -rf "$virtEnvName"
     echo "Generating the virtual environment..."
-    virtualenv --no-site-packages ./"$virtEnvName"
+    virtualenv --system-site-packages ./"$virtEnvName"
     retVal_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to establish the virtual environment." >&2
@@ -312,6 +312,9 @@ if [[ $hn == "h2ologin"* ]]; then
     ON_BW=1
     echo "DETECTED BLUE WATERS."
     echo
+
+    module load bwpy
+    module load bwpy-mpi
 # ON ROGER
 elif [[ $hn == "cg-gpu01" ]]; then
     module load mpich

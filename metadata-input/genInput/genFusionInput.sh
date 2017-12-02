@@ -134,7 +134,7 @@ orderFiles() {
     #      for each file type given by: MOD021KM, MOD02HKM, MOD02QKM, MOD03
     #   5. Remove the extra "A2001332.0415 /MOD021KM " from each line. They are no longer needed for sorting purposes.
 
-    MODGREP="$(grep "/MODIS/" "$UNORDEREDFILE" | \
+    MODGREP="$(grep "MOD0[2HKM|2QKM|21KM|3]" "$UNORDEREDFILE" | \
 awk '{match($0,/\/MOD0(21KM|2HKM|2QKM|3)./)} {print substr($0, RSTART, RLENGTH),$0}' | \
 awk --posix '{match($0,/A[0-9]{7}.[0-9]{4}/)} {print substr($0, RSTART, RLENGTH),$0}' | \
 sort | \
@@ -1106,29 +1106,36 @@ verifyFiles()
 #!/bin/bash
 usage(){
 
-    description="Usage: $0 [database file] [orbit number] [.txt output filepath]
+    description="Usage: $0 [arg1] [orbit number] [.txt output filepath] [--SQL | --dir]
 
 DESCRIPTION:
 \tThis script generates one single, canonical Basic Fusion input file list. It parses the database given to it through the basicFusion/metadata-input/queries.bash script and orders the files properly.
 
 ARGUMENTS:
-\t[database file]               -- The SQLite database made from the scripts in metadata-input/build
+\t[arg1]                        -- The SQLite database made from the scripts in metadata-input/build
 \t[orbit number]                -- The orbit to create the input file list for
 \t[.txt output filepath]        -- The path to place the resulting output file.
+\t[--SQL | --dir]               -- If --SQL, arg1 denotes path to the SQLite database.
+\t                                 If --dir, arg1 denotes a directory where the files to be used for the BF input generation
+\t                                 reside.
 "
     while read -r line; do
         printf "$line\n"
     done <<< "$description"
 }
 
-if [ "$#" -ne 3 ]; then
+if [ "$#" -ne 4 ]; then
     usage
     exit 1
 fi
 
-DB=$1
-UNORDERED="$3".unorderedDB
-ORDERED="$3"
+DB=$1; shift
+ORBIT=$1; shift
+ORDERED="$1"; shift
+INPUT_OPT="$1"; shift
+
+UNORDERED="$ORDERED".unorderedDB
+
 SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ORBITINFO="$SCRIPT_PATH/../data/Orbit_Path_Time.txt"
 PROJ_PATH="$(cd "${SCRIPT_PATH}/../../" && pwd )"
@@ -1141,18 +1148,48 @@ UNORDERED=$(dirname $ORDERED)/$(basename $ORDERED).unordered
 QUERIES="$SCRIPT_PATH/../queries.bash"
 #source "$SCRIPT_PATH/../queries.bash"
 
+# =========
+# = REGEX =
+# =========
+MOP_RE="MOP"
+CER_RE="CER_SSF"
+MOD_RE="MOD0"
+AST_RE="AST_L1T"
+MIS1_RE="MISR_AM1"
+MIS2_RE="MISR_HRLL"
+
 rm -f "$ORDERED"
 rm -f "$UNORDERED"
 
+if [ $INPUT_OPT == "--SQL" ]; then
+    MOPLINES=$( $QUERIES instrumentOverlappingOrbit "$DB" $ORBIT MOP)
+    CERLINES=$( $QUERIES instrumentOverlappingOrbit "$DB" $ORBIT CER)
+    MODLINES=$( $QUERIES instrumentStartingInOrbit "$DB" $ORBIT MOD)
+    ASTLINES=$( $QUERIES instrumentStartingInOrbit "$DB" $ORBIT AST)
+    # The use of "instrumentInOrbit" instead of "instrumentStartingInOrbit" for MISR helps
+    # prevent against edge cases
+    MISLINES=$( $QUERIES instrumentInOrbit "$DB" $2 MIS)
+elif [ $INPUT_OPT == "--dir" ]; then
+    # Make $DB an absolute directory
+    DB="$(cd $DB && pwd)"
 
-MOPLINES=$( $QUERIES instrumentOverlappingOrbit "$DB" $2 MOP)
-CERLINES=$( $QUERIES instrumentOverlappingOrbit "$DB" $2 CER)
-MODLINES=$( $QUERIES instrumentStartingInOrbit "$DB" $2 MOD)
-ASTLINES=$( $QUERIES instrumentStartingInOrbit "$DB" $2 AST)
-# The use of "instrumentInOrbit" instead of "instrumentStartingInOrbit" for MISR helps
-# prevent against edge cases
-MISLINES=$( $QUERIES instrumentInOrbit "$DB" $2 MIS)
+    fileListings=""    
+    # Save all of the files in $DB into a variable, prepending their absolute path
+    for file in $DB/*; do
+        fileListings="${fileListings}${file}\n"
+    done
 
+    orbitPlusOne=$((ORBIT + 1))
+    MOPLINES=$( printf "$fileListings" | grep "$MOP_RE")
+    CERLINES=$( printf "$fileListings" | grep "$CER_RE")
+    MODLINES=$( printf "$fileListings" | grep "$MOD_RE")
+    ASTLINES=$( printf "$fileListings" | grep "$AST_RE")
+    MISLINES=$( printf "$fileListings" | grep -e "$MIS1_RE" -e "$MIS2_RE" | grep -v "_O[0-9]*${orbitPlusOne}_" )
+else
+    echo "ERROR: Unrecognized argument: $INPUT_OPT"
+    exit 1
+fi
+    
 source "$PROJ_PATH"/externLib/BFpyEnv/bin/activate
 
 if [ ${#MOPLINES} -lt 2 ]; then
@@ -1184,10 +1221,9 @@ numGRP=$(echo "$MISLINES" | grep "GRP" | wc -l)
 if [ $numGRP -eq 0 ]; then
     echo "MIS N/A" >> "$UNORDERED"
 
-else [ $numGRP -eq 9 ]
+else
     echo "$MISLINES" >> "$UNORDERED"
 fi
-
 # Order and format the files appropriately (Fusion program requires specific input format)
 orderFiles $UNORDERED $ORDERED
 if [ "$?" -ne 0 ]; then
@@ -1198,7 +1234,7 @@ fi
 
 
 # Add the orbit number to the top of the file
-echo -e "$2\n$(cat $ORDERED)" > "$ORDERED"
+echo -e "$ORBIT\n$(cat $ORDERED)" > "$ORDERED"
 
 # Perform verification (ensures BF program won't crash due to bad input)
 verifyFiles "$ORDERED" "$ORBITINFO"

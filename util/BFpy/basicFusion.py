@@ -10,6 +10,83 @@ MIS_re_AGP='^MISR_AM1_AGP_P[0-9]{3}_F[0-9]+_[0-9]+.hdf$'
 MIS_re_GP='^MISR_AM1_GP_GMP_P[0-9]{3}_O[0-9]+_F[0-9]+_[0-9]+.hdf$'
 MIS_re_HRLL='^MISR_HRLL_P[0-9]{3}.hdf$'
 
+# ==========================================
+# = Define what orbits belong to what year =
+# ==========================================
+
+_orbitYear = { 2000 : { 'start' : 1000, 'end' : 5528 }, \
+              2001 : { 'start' : 5529, 'end' : 10844 }, \
+              2002 : { 'start' : 10845, 'end' : 16159 }, \
+              2003 : { 'start' : 16160, 'end' : 21474 }, \
+              2004 : { 'start' : 21475, 'end' : 26804 }, \
+              2005 : { 'start' : 26805, 'end' : 32119 }, \
+              2006 : { 'start' : 32120, 'end' : 37435 }, \
+              2007 : { 'start' : 37436, 'end' : 42750 }, \
+              2008 : { 'start' : 42751, 'end' : 48080 }, \
+              2009 : { 'start' : 48081, 'end' : 53395 }, \
+              2010 : { 'start' : 53396, 'end' : 58711 }, \
+              2011 : { 'start' : 58712, 'end' : 64026 }, \
+              2012 : { 'start' : 64027, 'end' : 69365 }, \
+              2013 : { 'start' : 69357, 'end' : 74671 }, \
+              2014 : { 'start' : 74672, 'end' : 79986 }, \
+              2015 : { 'start' : 79987, 'end' : 85302 }, \
+              'orbitLimits' : { 'start' : 1000, 'end' : 85302 }, \
+              'yearLimits'  : { 'start' : 2000, 'end' : 2015 } \
+            }
+def orbitYear( orbit ):
+    '''
+    DESCRIPTION:
+        Returns the year that orbit belongs to.
+    ARGUMENTS:
+        orbit (int) -- Terra orbit
+    EFFECTS:
+        None
+    RETURN:
+        Year that orbit belongs to.
+        -1 on failure.
+    '''
+
+    for i in xrange( _orbitYear['yearLimits']['start'], _orbitYear['yearLimits']['end']):
+        if orbit >= _orbitYear[i]['start'] and orbit <= _orbitYear[i]['end']:
+            return i
+
+    raise ValueError("Orbit {} outside the range of accepted values!".format(orbit))
+
+def makeRunDir( dir ):
+    '''
+    DESCRIPTION:
+        This function makes a directory called run# where # is the first integer greater than any other run# in
+        the directory given by the argument dir.
+    ARGUMENTS:
+        dir (str)   -- Directory to create the run#.
+    EFFECTS:
+        Creates a directory.
+    RETURN:
+        Returns the full path of the newly created directory.
+    '''
+
+    if not isinstance(dir, basestring):
+        raise ValueError("Passed argument \'dir\' is not a string!")
+
+    greatestSeen=-1
+    runRE='^run[0-9]+$'
+
+    # Walk through every entry in dir. Find the greatest run#.
+    for i in os.listdir( dir ):
+        if not re.match( runRE, i ) :
+            continue
+        tempRunNum = int( i.replace( 'run', '') )
+        if tempRunNum > greatestSeen:
+            greatestSeen = tempRunNum
+
+    newNum = greatestSeen + 1
+
+    # We can make our new run directory
+    newDir = os.path.join( dir, 'run' + str(newNum) )
+    os.mkdir( newDir )
+
+    return newDir
+         
 def findProcPartition( numProcess, numTasks):
     """DESCRIPTION:
         This function determines which MPI processes will be responsible for how many orbits. It loops through the

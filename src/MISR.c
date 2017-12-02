@@ -55,6 +55,7 @@ int MISR( char* fileList[],int unpack )
     char *camera_name[9]= {"AA","AF","AN","BA","BF","CA","CF","DA","DF"};
     char *band_name[4]= {"RedBand","BlueBand","GreenBand","NIRBand"};
     char *radiance_name[4]= {"Red Radiance/RDQI","Blue Radiance/RDQI","Green Radiance/RDQI","NIR Radiance/RDQI"};
+    char *BRF_CF_name[4] ={"BlueConversionFactor","GreenConversionFactor","RedConversionFactor","NIRConversionFactor"};
     char *band_geom_name[36] =     {"AaAzimuth","AaGlitter","AaScatter","AaZenith",
                                     "AfAzimuth","AfGlitter","AfScatter","AfZenith",
                                     "AnAzimuth","AnGlitter","AnScatter","AnZenith",
@@ -68,12 +69,22 @@ int MISR( char* fileList[],int unpack )
 
     char *solar_geom_name[2] = {"SolarAzimuth","SolarZenith"};
     char *geo_name[2] = {"GeoLatitude","GeoLongitude"};
+    char *an_rad_dims[9] ={"SOMBlockDim_BlueBand","AN_XDim_BlueBand","AN_YDim_BlueBand",
+                           "SOMBlockDim_GreenBand","AN_XDim_GreenBand","AN_YDim_GreenBand",
+                           "SOMBlockDim_NIRBand","AN_XDim_NIRBand","AN_YDim_NIRBand"};
 
+    char *BRF_gname="BRF_Conversion_Factors";
     char *solar_geom_gname="Solar_Geometry";
     char *geo_gname="Geolocation";
     char *hgeo_gname="HRGeolocation";
     char *data_gname="Data Fields";
     char *sensor_geom_gname ="Sensor_Geometry";
+    char *misr_camera_miss ="MISR_AM1_GRP_MISS";
+    char *misr_geom_miss ="MISR_AM1_GP_MISS";
+    unsigned short misr_camera_miss_flag = 0;
+    unsigned short misr_camera_miss_ID[9] ={0};
+    unsigned short misr_geom_miss_flag = 0;
+    int misr_1st_valid_index = 0;
     herr_t status = 0;
     int retVal = RET_SUCCESS;
     herr_t errStatus = 0;
@@ -89,8 +100,9 @@ int MISR( char* fileList[],int unpack )
     size_t granSize = 0;
     ssize_t pathSize = 0;
     int i;
-    int32 status32;
-    intn statusn;
+    //int32 status32;
+    //intn statusn;
+    unsigned short has_LAI_DIM1 = 0;
     /******************
      * geo data files *
      ******************/
@@ -121,12 +133,51 @@ int MISR( char* fileList[],int unpack )
 
     hid_t h5CameraGroupID = 0;
     hid_t h5DataGroupID = 0;
+    hid_t h5BRFGroupID = 0;
     hid_t h5SensorGeomGroupID = 0;
 
     hid_t h5DataFieldID = 0;
+    hid_t h5BRFFieldID = 0;
     hid_t h5SensorGeomFieldID = 0;
+    hid_t AnXdimDspaceID = 0;
+    hid_t AnYdimDspaceID = 0;
+    
+    // Check any legal files that can be skipped
+    for ( i = 1; i < 13; i++ )
+    {
 
-    /* First, make an attempt to open all the files. If any fail to open, skip
+        if ( fileList[i] )
+        {
+            if(strncmp(fileList[i],misr_camera_miss,strlen(misr_camera_miss))==0){
+                misr_camera_miss_flag=1;
+                misr_camera_miss_ID[i-1]=1;
+                continue;
+            }
+            else if(strncmp(fileList[i],misr_geom_miss,strlen(misr_geom_miss))==0){
+                misr_geom_miss_flag =1;
+                continue;
+            }
+            if(misr_1st_valid_index == 0)
+                misr_1st_valid_index = i;
+            tmpCharPtr = strrchr(fileList[i], '/');
+            if ( tmpCharPtr == NULL )
+            {
+                FATAL_MSG("Failed to find a specific character within the string.\n");
+                goto cleanupFail;
+            }
+            errStatus = updateGranList(&granList, tmpCharPtr+1, &granSize);
+            if ( errStatus == FATAL_ERR )
+            {
+                FATAL_MSG("Failed to append granule to granule list.\n");
+                goto cleanupFail;
+            }
+
+        }
+    }
+
+
+
+    /* Make an attempt to open all legal files. If any fail to open, skip
      * this entire granule.
      */
     short openFail = 0;
@@ -139,12 +190,14 @@ int MISR( char* fileList[],int unpack )
         openFail = 1;
     }
 
+    if(strncmp(fileList[11],misr_geom_miss,strlen(misr_geom_miss))!=0) { 
     gmpFileID = SDstart( fileList[11], DFACC_READ );
     if ( gmpFileID == -1 )
     {
         WARN_MSG("Failed to open MISR file.\n\t%s\n", fileList[11]);
         gmpFileID = 0;
         openFail = 1;
+    }
     }
 
     hgeoFileID = SDstart( fileList[12], DFACC_READ );
@@ -158,6 +211,8 @@ int MISR( char* fileList[],int unpack )
 
     for ( i = 0; i < 9; i++ )
     { 
+        if(misr_camera_miss_ID[i] == 1) 
+            continue;
         h4FileID[i] = SDstart(fileList[i+1],DFACC_READ);
         if ( h4FileID[i] < 0 )
         {
@@ -179,7 +234,9 @@ int MISR( char* fileList[],int unpack )
         }
     }
 
-    if ( openFail ) goto cleanupFO;
+    // During the validation, we still make this a fatal error since this is unexpected.
+    //if ( openFail ) goto cleanupFO;
+    if ( openFail ) goto cleanupFail;
 
     createGroup( &outputFile, &MISRrootGroupID, "MISR" );
     if ( MISRrootGroupID == FATAL_ERR )
@@ -188,33 +245,53 @@ int MISR( char* fileList[],int unpack )
         return FATAL_ERR;
     }
 
-    for ( i = 1; i < 13; i++ )
-    {
-        if ( fileList[i] )
-        {
-            tmpCharPtr = strrchr(fileList[i], '/');
-            if ( tmpCharPtr == NULL )
-            {
-                FATAL_MSG("Failed to find a specific character within the string.\n");
-                goto cleanupFail;
-            }
-            errStatus = updateGranList(&granList, tmpCharPtr+1, &granSize);
-            if ( errStatus == FATAL_ERR )
-            {
-                FATAL_MSG("Failed to append granule to granule list.\n");
-                goto cleanupFail;
-            }
+    { // Comments for MISR descriptions.
+        char *comment_name ="comment_for_fillvalue";
+        char *comment_value = "The radiance value for a pixel is set to -999.0, if the value of its RDQI is 2 or 3"
+                              " or if its original dn value is either 16378 or 16380. ";
 
+        char *la_comment_name ="comment_for_low_accuracy_index";
+        char *la_comment_value = "When RDQI for a pixel is 1, its radiance value will be flagged as the 'low accuracy'. The "
+                              "positions of these low accuracy radiance measurements are indexed and reported in a two dimensional "
+                              "array for each radiance band.  The first dimension of the array represents the number of reduced "
+                              "accuracy pixels, while the second dimension gives their indexed coordinates in the order of block,"
+                              " block-relative line and block-relative sample. For example, if the second dimension for a low accuracy pixel"
+                              " in the array contains the values of (57,9,316), the location of the pixel is block 57, line 9 and sample 316." ;
+
+
+        char *time_comment_name="comment_for_GranuleTime";
+        char *time_comment_value = "The attribute GranuleTime is represented by orbit numbers. For example, the value of 040110 "
+                                   "indicates the data was acquired for orbit 40110.";
+                          
+
+        if(H5LTset_attribute_string(outputFile,"MISR",comment_name,comment_value) <0){
+            FATAL_MSG("Failed to add the MISR comment attribute.\n");
+            goto cleanupFail;
         }
-    }
 
+        if(H5LTset_attribute_string(outputFile,"MISR",la_comment_name,la_comment_value) <0){
+            FATAL_MSG("Failed to add the MISR comment attribute.\n");
+            goto cleanupFail;
+        }
+
+
+        if(H5LTset_attribute_string(outputFile,"MISR",time_comment_name,time_comment_value) <0){
+            FATAL_MSG("Failed to add the MISR time comment attribute.\n");
+            goto cleanupFail;
+        }
+ 
+    }
     if(H5LTset_attribute_string(outputFile,"MISR","GranuleName",granList)<0)
     {
         FATAL_MSG("Cannot add granule list.\n");
         goto cleanupFail;
     }
 
-
+    if(misr_1st_valid_index > 9) {
+        FATAL_MSG("No any MISR radiance fields in this orbit. \n");
+        goto cleanupFail;
+    }
+    else {
     // Extract the time substring from the file path
     fileTime = getTime( fileList[1], 4 );
     if(H5LTset_attribute_string(outputFile,"MISR","GranuleTime",fileTime)<0)
@@ -224,6 +301,7 @@ int MISR( char* fileList[],int unpack )
     }
     free(fileTime);
     fileTime = NULL;
+    }
 
 
     /************************
@@ -240,7 +318,7 @@ int MISR( char* fileList[],int unpack )
     }
 
 
-    latitudeID  = readThenWrite( NULL,geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
+    latitudeID  = readThenWrite( NULL,geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID,1);
     if ( latitudeID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (latitude dataset).\n");
@@ -290,7 +368,7 @@ int MISR( char* fileList[],int unpack )
     free(correctedName);
     correctedName = NULL;
 
-    longitudeID = readThenWrite( NULL,geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID);
+    longitudeID = readThenWrite( NULL,geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,geoFileID,1);
     if ( longitudeID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (longitude dataset).\n");
@@ -349,7 +427,7 @@ int MISR( char* fileList[],int unpack )
     }
 
 
-    hr_latitudeID  = readThenWrite( NULL,hr_geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
+    hr_latitudeID  = readThenWrite( NULL,hr_geoGroupID,geo_name[0],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID,1);
     if ( hr_latitudeID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (latitude dataset).\n");
@@ -377,7 +455,7 @@ int MISR( char* fileList[],int unpack )
     free(correctedName);
     correctedName = NULL;
 
-    hr_longitudeID = readThenWrite( NULL,hr_geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID);
+    hr_longitudeID = readThenWrite( NULL,hr_geoGroupID,geo_name[1],DFNT_FLOAT32,H5T_NATIVE_FLOAT,hgeoFileID,1);
     if ( hr_longitudeID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (longitude dataset).\n");
@@ -404,6 +482,7 @@ int MISR( char* fileList[],int unpack )
     free(correctedName);
     correctedName = NULL;
 
+    if(misr_geom_miss_flag !=1) {
     createGroup( &MISRrootGroupID, &gmpSolarGeoGroupID, solar_geom_gname );
     if ( gmpSolarGeoGroupID == FATAL_ERR )
     {
@@ -412,8 +491,7 @@ int MISR( char* fileList[],int unpack )
         goto cleanupFail;
     }
 
-
-    solarAzimuthID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[0],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
+    solarAzimuthID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[0],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID,0);
     if ( solarAzimuthID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (solarAzimuth dataset).\n");
@@ -449,7 +527,7 @@ int MISR( char* fileList[],int unpack )
     free(correctedName);
     correctedName = NULL;
 
-    solarZenithID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID);
+    solarZenithID = readThenWrite( NULL,gmpSolarGeoGroupID,solar_geom_name[1],DFNT_FLOAT64,H5T_NATIVE_DOUBLE,gmpFileID,0);
     if ( solarZenithID == FATAL_ERR )
     {
         FATAL_MSG("MISR readThenWrite function failed (solarZenith dataset).\n");
@@ -477,6 +555,8 @@ int MISR( char* fileList[],int unpack )
     free(correctedName);
     correctedName = NULL;
 
+    }
+
     /* Concatenate the geolocation paths into one string */
     LRcoord = calloc( strlen(LRgeoLon) + strlen(LRgeoLat) + 2, 1);
     strcpy(LRcoord,LRgeoLon);
@@ -490,9 +570,21 @@ int MISR( char* fileList[],int unpack )
      *                  RADIANCE DATASETS                       *
      ************************************************************/
 
+     //AN Dimension sizes are always 180*512*2048. So we need to handle the dimensions differently.
+     // Create data spaces for the dimensions.
+     hsize_t an_xdim_dsize = 512;
+     hsize_t an_ydim_dsize = 2048;
+     AnXdimDspaceID  = H5Screate_simple(1,&an_xdim_dsize,NULL);
+     AnYdimDspaceID  = H5Screate_simple(1,&an_ydim_dsize,NULL);
+
+
     /* Loop all 9 cameras */
     for( i = 0; i<9; i++)
     {
+
+        // Skip the missing cameras
+        if(misr_camera_miss_ID[i]==1) 
+            continue;
         /*
          *          *    * Initialize the V interface.
          *                   *       */
@@ -534,15 +626,23 @@ int MISR( char* fileList[],int unpack )
                     FATAL_MSG("Failed to obtain scale factor for MISR.\n)");
                     goto cleanupFail;
                 }
-                h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, radiance_name[j],  &correctedName,DFNT_UINT16,
-                                 h4FileID[i],scale_factor);
+                if(has_LAI_DIM1 == 0) {
+                    has_LAI_DIM1 = H5Lexists(outputFile,"/MISR_LA_POS_DIM",H5P_DEFAULT);
+                    if(has_LAI_DIM1 <0) {
+                        FATAL_MSG("Failed to check MISR Low Accuracy Position dimension .\n)");
+                        goto cleanupFail;
+                    }
+                    
+                }
+                // Pass LAI_DIM1
+                h5DataFieldID =  readThenWrite_MISR_Unpack( h5DataGroupID, camera_name[i],radiance_name[j],  &correctedName,DFNT_UINT16,
+                                 h4FileID[i],scale_factor,&has_LAI_DIM1);
                 if ( h5DataFieldID == FATAL_ERR )
                 {
                     FATAL_MSG("MISR readThenWrite Unpacking function failed.\n");
                     h5DataFieldID = 0;
                     goto cleanupFail;
                 }
-                tempFloat = -999.0;
 
 
             }
@@ -551,7 +651,7 @@ int MISR( char* fileList[],int unpack )
                 //correctedName = correct_name(radiance_name[j]);
 
                 h5DataFieldID =  readThenWrite( NULL, h5DataGroupID, radiance_name[j], DFNT_UINT16,
-                                                H5T_NATIVE_USHORT,h4FileID[i]);
+                                                H5T_NATIVE_USHORT,h4FileID[i],1);
                 if ( h5DataFieldID == FATAL_ERR )
                 {
                     h5DataFieldID = 0;
@@ -566,6 +666,7 @@ int MISR( char* fileList[],int unpack )
             if ( correctedName == NULL )
                 correctedName = correct_name(radiance_name[j]);
 
+          if(unpack == 1) {
             status = H5LTset_attribute_string( h5DataGroupID, correctedName, "coordinates", LRcoord );
             if ( status < 0 )
             {
@@ -573,7 +674,7 @@ int MISR( char* fileList[],int unpack )
                 goto cleanupFail;
             }
             // Set the units attribute
-            status = H5LTset_attribute_string( h5DataGroupID, correctedName, "Units", "Watts/m^2/micrometer/steradian");
+            status = H5LTset_attribute_string( h5DataGroupID, correctedName, "units", "Watts/m^2/micrometer/steradian");
             if ( status < 0 )
             {
                 FATAL_MSG("Failed to set string attribute. i = %d j = %d\n", i, j);
@@ -584,16 +685,72 @@ int MISR( char* fileList[],int unpack )
 
             if ( errStatus < 0 )
             {
-                FATAL_MSG("Failed to write an HDF5 attribute.\n");
+                FATAL_MSG("Failed to write the radiance_FillValue attribute.\n");
                 goto cleanupFail;
             }
 
-            // Copy over the dimensions
-            errStatus = copyDimension( NULL, h4FileID[i], radiance_name[j], outputFile, h5DataFieldID);
-            if ( errStatus == FAIL )
+            tempFloat = 0.0;
+
+            errStatus = H5LTset_attribute_float( h5DataGroupID, correctedName,"valid_min",&tempFloat,1);
+
+            if ( errStatus < 0 )
             {
-                FATAL_MSG("Failed to copy dimensions.\n");
+                FATAL_MSG("Failed to write the radiance valid_min attribute.\n");
                 goto cleanupFail;
+            }
+
+            tempFloat = 800.0;
+
+            errStatus = H5LTset_attribute_float( h5DataGroupID, correctedName,"valid_max",&tempFloat,1);
+
+            if ( errStatus < 0 )
+            {
+                FATAL_MSG("Failed to write the radiance valid_max attribute.\n");
+                goto cleanupFail;
+            }
+        }
+
+            // Copy over the dimensions
+            // AN Band GR,BR and NIR are all 180*512*2048 
+            // i =2 is the AN band, we only need to change Blue,Green and NIR dimension names, that is j >0)
+            if(i==2 && j>0){ 
+
+                // We have to create our own dimensions. Here just use the hard-coded dimensions to avoid a massive dimension retrieval routine calls.
+                // No need to create the the first dimension since the block number is always 180
+                if(attachDimension(outputFile,an_rad_dims[(j-1)*3],h5DataFieldID,0)!=RET_SUCCESS) {
+                   FATAL_MSG("Error attaching MISR AN SOM dimenson.  \n");
+                   goto cleanupFail;
+                }
+                hid_t an_xdim_id = 0;
+                if(makePureDim(outputFile,an_rad_dims[(j-1)*3+1],AnXdimDspaceID,H5T_NATIVE_INT,&an_xdim_id)!=RET_SUCCESS) {
+                   FATAL_MSG("Error creating MISR AN X dimenson.  \n");
+                   goto cleanupFail;
+                }
+                H5Dclose(an_xdim_id);
+                if(attachDimension(outputFile,an_rad_dims[(j-1)*3+1],h5DataFieldID,1)!=RET_SUCCESS) {
+                   FATAL_MSG("Error attaching MISR AN X dimenson.  \n");
+                   goto cleanupFail;
+                }
+
+                hid_t an_ydim_id = 0;
+                if(makePureDim(outputFile,an_rad_dims[(j-1)*3+2],AnYdimDspaceID,H5T_NATIVE_INT,&an_ydim_id)!=RET_SUCCESS) {
+                   FATAL_MSG("Error creating MISR AN X dimenson.  \n");
+                   goto cleanupFail;
+                }
+                H5Dclose(an_ydim_id);
+                if(attachDimension(outputFile,an_rad_dims[(j-1)*3+2],h5DataFieldID,2)!=RET_SUCCESS) {
+                   FATAL_MSG("Error attaching MISR AN X dimenson.  \n");
+                   goto cleanupFail;
+                }
+
+            }
+            else {
+                errStatus = copyDimension( NULL, h4FileID[i], radiance_name[j], outputFile, h5DataFieldID);
+                if ( errStatus == FAIL )
+                {
+                    FATAL_MSG("Failed to copy dimensions.\n");
+                    goto cleanupFail;
+                }
             }
 
             H5Dclose(h5DataFieldID);
@@ -603,6 +760,46 @@ int MISR( char* fileList[],int unpack )
             correctedName = NULL;
         } // End for (first inner j loop)
 
+        createGroup(&h5CameraGroupID,&h5BRFGroupID,BRF_gname);
+        if ( h5BRFGroupID == FATAL_ERR )
+        {
+            h5BRFGroupID = 0;
+            FATAL_MSG("Failed to create an HDF5 group.\n");
+            goto cleanupFail;
+        }
+
+        /* Inserting the "BlueConversionFactor... etc. */
+        for (int j = 0; j<4; j++)
+        {
+            h5BRFFieldID = readThenWrite( NULL,h5BRFGroupID,BRF_CF_name[j],DFNT_FLOAT32,
+                                                 H5T_NATIVE_FLOAT,h4FileID[i],0);
+            if ( h5BRFFieldID == FATAL_ERR )
+            {
+                FATAL_MSG("MISR readThenWrite function failed.\n");
+                h5BRFFieldID = 0;
+                goto cleanupFail;
+            }
+
+            // Copy over the dimensions
+            errStatus = copyDimension( NULL, h4FileID[i], BRF_CF_name[j], outputFile, h5BRFFieldID);
+            if ( errStatus == FAIL )
+            {
+                FATAL_MSG("Failed to copy dimensions.\n");
+                goto cleanupFail;
+            }
+
+            tempFloat = -555.0;
+            //correctedName = correct_name(band_geom_name[i*4+j]);
+            errStatus = H5LTset_attribute_float( h5BRFGroupID, BRF_CF_name[j],"_Fillvalue",&tempFloat,1);
+            if ( errStatus < 0 )
+            {
+                FATAL_MSG("Failed to write an HDF5 attribute.\n");
+                goto cleanupFail;
+            }
+            status = H5Dclose(h5BRFFieldID);
+            h5BRFFieldID = 0;
+        }
+        if(misr_geom_miss_flag !=1) {
         createGroup(&h5CameraGroupID,&h5SensorGeomGroupID,sensor_geom_gname);
         if ( h5SensorGeomGroupID == FATAL_ERR )
         {
@@ -615,7 +812,7 @@ int MISR( char* fileList[],int unpack )
         for (int j = 0; j<4; j++)
         {
             h5SensorGeomFieldID = readThenWrite( NULL,h5SensorGeomGroupID,band_geom_name[i*4+j],DFNT_FLOAT64,
-                                                 H5T_NATIVE_DOUBLE,gmpFileID);
+                                                 H5T_NATIVE_DOUBLE,gmpFileID,0);
             if ( h5SensorGeomFieldID == FATAL_ERR )
             {
                 FATAL_MSG("MISR readThenWrite function failed.\n");
@@ -654,6 +851,10 @@ int MISR( char* fileList[],int unpack )
 
 
         } // End for (second inner j loop)
+        status = H5Gclose(h5SensorGeomGroupID);
+        h5SensorGeomGroupID = 0;
+ 
+        }//If GMP file exists
 
 
         /******************************************************/
@@ -680,8 +881,10 @@ int MISR( char* fileList[],int unpack )
         h4FileID[i] = 0;
         status = H5Gclose(h5DataGroupID);
         h5DataGroupID = 0;
-        status = H5Gclose(h5SensorGeomGroupID);
-        h5SensorGeomGroupID = 0;
+        status = H5Gclose(h5BRFGroupID);
+        h5BRFGroupID = 0;
+        //status = H5Gclose(h5SensorGeomGroupID);
+        //h5SensorGeomGroupID = 0;
         status = H5Gclose(h5CameraGroupID);
         h5CameraGroupID = 0;
     } // end loop all cameras
@@ -714,6 +917,7 @@ cleanupFO:
     }
     if ( h5CameraGroupID )      H5Gclose(h5CameraGroupID);
     if ( h5DataGroupID )        H5Gclose(h5DataGroupID);
+    if ( h5BRFGroupID)          H5Gclose(h5BRFGroupID);
     if ( h5DataFieldID )        H5Dclose(h5DataFieldID);
     if ( h5SensorGeomGroupID )  H5Gclose(h5SensorGeomGroupID);
     if ( h5SensorGeomFieldID )  H5Dclose(h5SensorGeomFieldID);
@@ -726,6 +930,8 @@ cleanupFO:
     if ( gmpSolarGeoGroupID )   H5Gclose(gmpSolarGeoGroupID);
     if ( solarAzimuthID )       H5Dclose(solarAzimuthID);
     if ( solarZenithID )        H5Dclose(solarZenithID);
+    if (AnXdimDspaceID)         H5Sclose(AnXdimDspaceID);
+    if (AnYdimDspaceID)         H5Sclose(AnYdimDspaceID);
     if ( correctedName )        free(correctedName);
     if ( fileTime )             free(fileTime);
     if ( granList )             free(granList);
@@ -978,7 +1184,7 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
     hid_t perBlockMetaDspace = 0;
     herr_t status = 0;
     hid_t perBlockMetaDset = 0;
-    int *dimBuf = NULL;
+    //int *dimBuf = NULL;
     hid_t dSpaceID = 0;
     const char* dimName = "SOMBlock_Time";
     const hsize_t BCTsize = 180;
@@ -1106,13 +1312,13 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
     }
 
     // Set the attributes for the BlockCenterTime dataset
-    status = H5LTset_attribute_string( BCTgroupID, blockCent, "Units", "UTC" );
+    status = H5LTset_attribute_string( BCTgroupID, blockCent, "units", "UTC" );
     if ( status < 0 )
     {
         FATAL_MSG("Failed to set attribute.\n");
         goto cleanupFail;
     }
-    status = H5LTset_attribute_string( BCTgroupID, blockCent, "FillValue", fillVal );
+    status = H5LTset_attribute_string( BCTgroupID, blockCent, "_FillValue", fillVal );
     if ( status < 0 )
     {
         FATAL_MSG("Failed to set attribute.\n");
@@ -1222,7 +1428,8 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
     }
     else
     {
-        dimBuf = calloc( BCTsize, sizeof(int) );
+        // No need to allocate buffer for pure dimension
+        //dimBuf = calloc( BCTsize, sizeof(int) );
         // Create the dataspace for the dimension
         // Dimension will always be of size 180
         
@@ -1234,7 +1441,7 @@ herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID )
             goto cleanupFail;
         }
 
-        status = makeDimFromBuf( dimGroupID, dimName, dimBuf, dSpaceID, H5T_NATIVE_INT, &dimID );
+        status = makePureDim( dimGroupID, dimName, dSpaceID, H5T_NATIVE_INT, &dimID );
         if ( status != RET_SUCCESS )
         {
             FATAL_MSG("Failed to create dimension.\n");
@@ -1261,9 +1468,10 @@ cleanupFail:
     if ( dimID )                H5Dclose(dimID); 
     if ( stringType )           H5Tclose(stringType);
     if ( perBlockMetaDspace )   H5Sclose(perBlockMetaDspace);
-    if ( dimBuf )               free(dimBuf);
+    //if ( dimBuf )               free(dimBuf);
     if ( dSpaceID )             H5Sclose(dSpaceID);
     if ( BCTbuf )               free(BCTbuf);
     if ( inSDID )               SDend(inSDID);
     return retVal; 
 }
+
