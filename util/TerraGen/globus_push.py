@@ -179,7 +179,7 @@ def main():
         logger.info("Globus task {} completed with retcode: {}.".format(id, retCode))
 
     logger.info("Deleting all Basic Fusion granules on the host machine.")
-    for i in ganuleList:
+    for i in granuleList:
         try:
             os.remove( i.outputFilePath )
         except OSError as e:

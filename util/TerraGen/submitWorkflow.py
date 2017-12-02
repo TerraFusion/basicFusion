@@ -35,7 +35,7 @@ from basicFusion import makeRunDir, orbitYear
 import pickle
 import errno
 import subprocess
-from workflowClass import *
+from workflowClass import granule, processQuanta
 
 #=================================
 logName='BF_jobFiles'

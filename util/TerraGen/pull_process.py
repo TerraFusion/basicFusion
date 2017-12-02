@@ -153,7 +153,7 @@ def worker( hashDir ):
             
             if retCode != 0:
                 with open( summaryLog, 'a') as sumLog:
-                    sumLog.write('{} input file generation error.'.format( granule.orbit )
+                    sumLog.write('{} input file generation error.'.format( granule.orbit ))
                 logger.error("Orbit {} failed to process input file list.".format( granule.orbit) )
                 continue
           
@@ -822,7 +822,9 @@ def main():
     with open( args.SUMMARY_LOG, 'a' ) as sumLog:
         summaryLog = sumLog
         if mpi_rank == 0:
-            
+           
+            # Prepare the granule list
+             
             # ===========================
             # = SUBMIT GLOBUS TRANSFERS =
             # ===========================
@@ -832,7 +834,6 @@ def main():
             logger.debug("submitTransfer() complete.")
 
             # The tar data is now (hopefully) all on the system. Untar the data.
-            granuleList = []
             with open( args.TRANSFER_LIST, 'r' ) as tList:
                 for i in tList:
                     file = i.split(' ')[-1].strip()
@@ -845,6 +846,57 @@ def main():
                     logger.debug("Creating untar location at: {}".format(untarLoc))
                     if not os.path.isdir( untarLoc ):
                         os.makedirs( untarLoc )
+
+                    #
+                    # PREPARE THE GRANULE ATTRIBUTES
+                    #
+                    curGranule = workflowClass.granule( file, untarLoc, orbit, year=year )
+                    curGranule.tarFile          = file
+                    curGranule.untarDir         = untarLoc
+                    curGranule.orbit            = orbit
+                    curGranule.pathFileList     = os.path.join( curGranule.untarDir, "MISR_PATH_FILES_{}.txt".format(curGranule.orbit) )
+                    curGranule.year             = year
+                    curGranule.BFoutputDir      = BFoutputDir
+                    orbit_time = findOrbitStart( curGranule.orbit, orbit_info_txt )
+                    curGranule.orbit_start_time = orbit_time
+                    curGranule.BFfileName       = FILENAME.format( curGranule.orbit, orbit_time ) 
+                    logFile = os.path.join( yearLogDir, "{}process_log.txt".format( granule.orbit ) )
+                    curGranule.logFile          = logFile
+                    inputFileList = os.path.join( input_list_dir, "{}input.txt".format( granule.orbit ))
+                    curGranule.inputFileList    = inputFileList
+                    curGranule.BF_exe           = BF_exe
+                    curGranule.orbit_times_bin  = orbit_info_bin                
+                    
+                    # DEFINE THE OUTPUT DIRECTORY/FILE OF GRANULE
+                    # The directory tree of the Basic Fusion product will simply be:
+                    # year
+                    #   month
+                    #       day
+                    # Using the orbit_time variable that determines start time of the granule,
+                    # we can construct the directory tree.
+                    # BFdirStructure defines the location of the granule within the BF directory tree (year, month, day)
+                    BFdirStructure= os.path.join( str( curGranule.orbit_time[0:4]), str( orbit_time[4:6]), str( orbit_time[6:8] ) )
+                    outFileDir = os.path.join( granule.BFoutputDir, BFdirStructure)
+
+                    # Make the file output directory
+                    try:
+                        os.makedirs( outFileDir )
+                    except OSError as e:
+                        if e.errno != errno.EEXIST:
+                            raise
+                    
+                    # Finally, save the absolute path of the output file
+                    outFilePath = os.path.join( outFileDir, granule.BFfileName )
+                    granule.outputFilePath = outFilePath
+
+                    # Make the log file directory
+                    try:
+                        yearLogDir = os.path.join( logDirs['process'], BFdirStructure )
+                        logger.debug("Making process dir: {}".format(yearLogDir))
+                        os.makedirs( yearLogDir )
+                    except OSError as e:
+                        if e.errno != errno.EEXIST:
+                            raise
                     granuleList.append( workflowClass.granule( file, untarLoc, orbit, year=year ) )
            
             logger.info("Untarring data.") 
@@ -872,7 +924,6 @@ def main():
             #    this tar file should be deleted. Files have been extracted.)
 
             for i in granuleList:
-                i.pathFileList = os.path.join( i.untarDir, "MISR_PATH_FILES_{}.txt".format(i.orbit) )
                 pathCopyList = []
                 with open( i.pathFileList, 'r' ) as pfList:
                     for file in pfList:
@@ -889,75 +940,6 @@ def main():
 
             # Wait for all slaves to complete
             slaveWait()
-
-
-            #
-            # PREPARE ALL NECESSARY ATTRIBUTES FOR EACH GRANULE
-            #
-
-            for granule in granuleList:
-
-                # Save the top level output directory for the BF product
-                granule.BFoutputDir = BFoutputDir
-                # Save location of orbit_times binary file
-                granule.orbit_times_bin = orbit_info_bin                
-                
-                
-                # Retrieve the starting time of the orbit from orbit_info_txt
-                orbit_time = findOrbitStart( granule.orbit, orbit_info_txt )
-                granule.orbit_start_time = orbit_time
-
-                # Determine file name of this granule
-                granule.BFfileName = FILENAME.format( granule.orbit, orbit_time ) 
-                
-                # Save input file list
-                inputFileList = os.path.join( input_list_dir, "{}input.txt".format( granule.orbit ))
-                granule.inputFileList = inputFileList
-                
-                # Save the BF executable
-                granule.BF_exe = BF_exe
-                
-                # DEFINE THE OUTPUT DIRECTORY/FILE OF GRANULE
-                # The directory tree of the Basic Fusion product will simply be:
-                # year
-                #   month
-                #       day
-                # Using the orbit_time variable that determines start time of the granule,
-                # we can construct the directory tree.
-                # BFdirStructure defines the location of the granule within the BF directory tree (year, month, day)
-                BFdirStructure= os.path.join( str( orbit_time[0:4]), str( orbit_time[4:6]), str( orbit_time[6:8] ) )
-                outFileDir = os.path.join( granule.BFoutputDir, BFdirStructure)
-
-                # Make the file output directory
-                try:
-                    os.makedirs( outFileDir )
-                except OSError as e:
-                    if e.errno != errno.EEXIST:
-                        raise
-                
-                # Finally, save the absolute path of the output file
-                outFilePath = os.path.join( outFileDir, granule.BFfileName )
-                granule.outputFilePath = outFilePath
-
-                # Make the log file directory
-                try:
-                    yearLogDir = os.path.join( logDirs['process'], BFdirStructure )
-                    logger.debug("Making process dir: {}".format(yearLogDir))
-                    os.makedirs( yearLogDir )
-                except OSError as e:
-                    if e.errno != errno.EEXIST:
-                        raise
-
-                logFile = os.path.join( yearLogDir, "{}process_log.txt".format( granule.orbit ) )
-                granule.logFile = logFile
-
-    
-            # Files have been downloaded, extracted and prepared. Initiate the processing phase.
-            # As of Nov 23, 2017, I am going to write this processing function inside this script.
-            # The reason for doing that is so we do not have to submit an extra job to PBS. Doing so
-            # will waste a lot of time waiting in the queue. The downside is that we will burn a lot
-            # of node hours waiting for the download phase. I'm opting to waste node hours in favor
-            # of less queue wait time.
 
             generateBF( args.LOG_TREE, granuleList, genFusInput, orbit_info_bin, orbit_info_txt, BF_exe )
  
