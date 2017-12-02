@@ -434,11 +434,15 @@ verifyFiles()
         # it will interpret it as a file path.
 
         # continue if we have a non-valid line (comment or otherwise)
+        #if [[ ${#line} == 0 || ${line:0:1} == "#" || "$line" == "MOP N/A" || "$line" == "CER N/A" || "$line" == "MIS N/A" || \
+        #   "$line" == "MOD N/A" || "$line" == "AST N/A" || "$line" == "$grpMiss" || "$line" == "$gpMiss" ]]; then
+        #    continue
+        #fi
+
         if [[ ${#line} == 0 || ${line:0:1} == "#" || "$line" == "MOP N/A" || "$line" == "CER N/A" || "$line" == "MIS N/A" || \
-           "$line" == "MOD N/A" || "$line" == "AST N/A" || "$line" == "$grpMiss" || "$line" == "$gpMiss" ]]; then
+           "$line" == "MOD N/A" || "$line" == "AST N/A"  ]]; then
             continue
         fi
-
         if [[ ${line:0:1} != "." && ${line:0:1} != "/" && ${line:0:1} != ".." && ${line:0:1} != "#" && ${line:0:1} != "\n" && \
             ${line:0:1} != "\0" && ${#line} != 0 && "$line" != "$grpMiss" && "$line" != "$gpMiss" ]]; then
             printf "Fatal Error:\n" >&2
@@ -815,6 +819,10 @@ verifyFiles()
                 continue    
                 
             elif [[ "$prevCam" == "AA" ]]; then
+                if [ "$line" == "$grpMiss" ]; then
+                    prevCam="AF"
+                    continue
+                fi
                 if [[ "$curCam" != "AF" && "$line" != "$grpMiss" ]]; then
                     printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
@@ -822,7 +830,7 @@ verifyFiles()
                     printf "\tExpected to see AF after AA.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                else
+                elif [ "$line" != "$grpMiss" ]; then
                     belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
                     retVal=$?
                     if [ $retVal -ne 0 ]; then
@@ -830,6 +838,10 @@ verifyFiles()
                     fi
                 fi
             elif [[ "$prevCam" == "AF" ]]; then
+                if [ "$line" == "$grpMiss" ]; then
+                    prevCam="AN"
+                    continue
+                fi
                 if [[ "$curCam" != "AN" && "$line" != "$grpMiss" ]]; then
                     printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
@@ -837,7 +849,7 @@ verifyFiles()
                     printf "\tExpected to see AN after AF.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                else    
+                elif [ "$line" != "$grpMiss" ]; then  
                     belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
                     retVal=$?
                     if [ $retVal -ne 0 ]; then
@@ -845,6 +857,10 @@ verifyFiles()
                     fi
                 fi
             elif [[ "$prevCam" == "AN" ]]; then
+                if [ "$line" == "$grpMiss" ]; then
+                    prevCam="BA"
+                    continue
+                fi
                 if [[ "$curCam" != "BA" && "$line" != "$grpMiss" ]]; then
                     printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
@@ -852,7 +868,7 @@ verifyFiles()
                     printf "\tExpected to see BA after AN.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                else
+                elif [ "$line" != "$grpMiss" ]; then
                     belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
                     retVal=$?
                     if [ $retVal -ne 0 ]; then
@@ -860,6 +876,10 @@ verifyFiles()
                     fi
                 fi
             elif [[ "$prevCam" == "BA" ]]; then
+                if [ "$line" == "$grpMiss" ]; then
+                    prevCam="BF"
+                    continue
+                fi
                 if [[ "$curCam" != "BF" && "$line" != "$grpMiss" ]]; then
                     printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
@@ -868,7 +888,7 @@ verifyFiles()
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
                     return 1
-                else
+                elif [ "$line" != "$grpMiss" ]; then
                     belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
                     retVal=$?
                     if [ $retVal -ne 0 ]; then
@@ -876,6 +896,10 @@ verifyFiles()
                     fi
                 fi
             elif [[ "$prevCam" == "BF" ]]; then
+                if [ "$line" == "$grpMiss" ]; then
+                    prevCam="CA"
+                    continue
+                fi
                 if [[ "$curCam" != "CA" && "$line" != "$grpMiss" ]]; then
                     printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
@@ -883,7 +907,7 @@ verifyFiles()
                     printf "\tExpected to see CA after BF.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                else
+                elif [ "$line" != "$grpMiss" ]; then
                     belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
                     retVal=$?
                     if [ $retVal -ne 0 ]; then
@@ -891,6 +915,10 @@ verifyFiles()
                     fi
                 fi
             elif [[ "$prevCam" == "CA" ]]; then
+                if [ "$line" == "$grpMiss" ]; then
+                    prevCam="CF"
+                    continue
+                fi
                 if [[ "$curCam" != "CF" && "$line" != "$grpMiss" ]]; then
                     printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
@@ -898,7 +926,7 @@ verifyFiles()
                     printf "\tExpected to see CF after CA.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                else
+                elif [ "$line" != "$grpMiss" ]; then
                     belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
                     retVal=$?
                     if [ $retVal -ne 0 ]; then
@@ -906,6 +934,10 @@ verifyFiles()
                     fi
                 fi
             elif [[ "$prevCam" == "CF" ]]; then
+                if [ "$line" == "$grpMiss" ]; then
+                    prevCam="DA"
+                    continue
+                fi
                 if [[ "$curCam" != "DA" && "$line" != "$grpMiss" ]]; then
                     printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
@@ -913,7 +945,7 @@ verifyFiles()
                     printf "\tExpected to see DA after CF.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                else
+                elif [ "$line" != "$grpMiss" ]; then
                     # VERIFY THAT MISR BELONGS TO ORBIT
                     belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
                     retVal=$?
@@ -922,6 +954,10 @@ verifyFiles()
                     fi
                 fi
             elif [[ "$prevCam" == "DA" ]]; then
+                if [ "$line" == "$grpMiss" ]; then
+                    prevCam="DF"
+                    continue
+                fi
                 if [[ "$curCam" != "DF" && "$line" != "$grpMiss" ]]; then
                     printf "Warning: \n" >&2
                     printf "MISR files are out of order.\n" >&2
@@ -929,7 +965,7 @@ verifyFiles()
                     printf "\tExpected to see DF after DA.\n" >&2
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
-                else
+                elif [ "$line" != "$grpMiss" ]; then
                     belongsToOrbit "$startTime" "$endTime" "$curDate" MIS $orbitNum
                     retVal=$?
                     if [ $retVal -ne 0 ]; then
