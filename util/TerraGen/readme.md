@@ -29,7 +29,7 @@ If these assumptions are met, the user has a fair chance at successful granule g
 
 ```
 source activateBF
-python submitWorkflow.py -h
+python submitWorkflow.py --help
 ```
 
 Due to the verbosity of the script's arguments, it is recommended that users create a simple shell wrapper around the script so that arguments may be easily saved and changed if needed.
