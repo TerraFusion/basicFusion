@@ -351,6 +351,20 @@ if [ $DOWNLOAD_SCHED -eq 1 ]; then
 
 fi
 
+# Export some useful globus endpoint IDs and also append them to the user's ~/.bashrc file.
+GLOBUS_NL=d599008e-6d04-11e5-ba46-22000b92c6ec
+GLOBUS_ROGER=da262cbf-6d04-11e5-ba46-22000b92c6ec
+GLOBUS_BW=d59900ef-6d04-11e5-ba46-22000b92c6ec
+
+export GLOBUS_NL=$GLOBUS_NL
+export GLOBUS_ROGER=$GLOBUS_ROGER
+export GLOBUS_BW=$GLOBUS_BW
+
+echo "export GLOBUS_NL=$GLOBUS_NL" >> ~/.bashrc
+echo "export GLOBUS_ROGER=$GLOBUS_ROGER" >> ~/.bashrc
+echo "export GLOBUS_BW=$GLOBUS_BW" >> ~/.bashrc
+
+
 export CC=$OLD_CC
 export CXX=$OLD_CXX
 exit 0
