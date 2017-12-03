@@ -13,7 +13,7 @@ This script is the official workflow for the Basic Fusion project. It represents
 3. The user has properly compiled the BasicFusion code:  
     - Compile `HDF4 4.2.13` and `HDF5 1.8.16` from source. Blue Waters system HDF *cannot* be used! These may be compiled with system zlib, libjpeg, and szip libraries.  
     - Once the HDF libraries have been compiled, the Basic Fusion code must be compiled using gcc (NOT cc as recommended by Blue Waters documentation), linking your user-level HDF libraries. All HDF environment modules *must* be unloaded before attempting to compile the code.  
-4. The user has gained proper authority from the NCSA to use the `#PBS -l flags=commtransparent` PBS directive. This flag directs the PBS scheduler to disperse the workflow jobs across the system instead of attempting to group the nodes in a tight geometry. This is done to prevent network congestion of the system due to the IO intensive nature of the workflow.
+4. The user has gained proper authority from the NCSA to use the `#PBS -l flags=commtransparent` PBS directive. This flag directs the PBS scheduler to disperse the MPI compute nodes across the system instead of attempting to group the nodes in a tight geometry. This is done to prevent network congestion of the system due to the IO intensive nature of the workflow.
 5. The user has logged into the Globus Python CLI and activated both the Blue Waters and the Nearline Globus endpoints. This can be done by executing and completing the following terminal commands in sequence:
 
     ```
