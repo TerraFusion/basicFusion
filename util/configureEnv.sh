@@ -360,9 +360,21 @@ export GLOBUS_NL=$GLOBUS_NL
 export GLOBUS_ROGER=$GLOBUS_ROGER
 export GLOBUS_BW=$GLOBUS_BW
 
-echo "export GLOBUS_NL=$GLOBUS_NL" >> ~/.bashrc
-echo "export GLOBUS_ROGER=$GLOBUS_ROGER" >> ~/.bashrc
-echo "export GLOBUS_BW=$GLOBUS_BW" >> ~/.bashrc
+# Check if these variables have already been added to .bashrc. If not, go ahead
+# and append the export lines.
+
+globus_vars="$(grep "GLOBUS_NL" ~/.bashrc)"
+if [ ${#globus_vars} -le 2 ]; then
+    echo "export GLOBUS_NL=$GLOBUS_NL" >> ~/.bashrc
+fi
+globus_vars="$(grep "GLOBUS_ROGER" ~/.bashrc)"
+if [ ${#globus_vars} -le 2 ]; then
+    echo "export GLOBUS_ROGER=$GLOBUS_ROGER" >> ~/.bashrc
+fi
+globus_vars="$(grep "GLOBUS_BW" ~/.bashrc)"
+if [ ${#globus_vars} -le 2 ]; then
+    echo "export GLOBUS_BW=$GLOBUS_BW" >> ~/.bashrc
+fi
 
 
 export CC=$OLD_CC
