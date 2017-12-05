@@ -34,3 +34,5 @@ python submitWorkflow.py --help
 
 Due to the verbosity of the script's arguments, it is recommended that users create a simple shell wrapper around the script so that arguments may be easily saved and changed if needed.
 
+#### Improvements to be made
+- submitWorkflow.py combines both pulling data from Nearline and generating BF granules in the same job. This means that many node hours will be wasted waiting for the data to be downloaded. This was originally done to expedite the entire workflow due to sometimes long queue wait times. In the future, these two steps should be separated into two different jobs.
