@@ -12,11 +12,11 @@ The Basic Fusion program requires the following Hierarchical Data Format (HDF) C
 1. [HDF4 4.2.13](https://support.hdfgroup.org/release4/obtain.html)
 1. [HDF5 1.8.16](https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.16/)
 
-No other version of HDF libraries may be used. It is highly preferable for users of the BasicFusion code to compile against user-level HDF libraries rather than system HDF. **For Blue Waters, it is in fact required.** 
+No other version of HDF libraries may be used. It is required that users install both of these libraries from source. Do not attempt to use Blue Waters HDF.
 
 The HDF libraries also depend on jpeg, zlib, and szip (optional). Users may use system installs of these libraries when compiling the HDF source.
 
-#### GitHub Download & Python Installation
+### GitHub Download & Python Install
 
 1. cd into the desired directory and type
     ```
@@ -41,6 +41,18 @@ If users have more than one basicFusion repository on the file system and have c
 source /path/to/basicFusion/externLib/BFpyEnv/bin/activate
 ```
 
+### Compilation
+
+The following steps need to be followed to compile the BF program:
+1. Compile the required HDF4 4.2.13 and HDF5 1.8.16 from source, linking against system zlib and, optionally, szip.
+2. Copy one of the provided BW makefiles under `basicFusion/Makefiles` to the `basicFusion` directory. Modify the Makefile to point to your user-installed HDF4 and HDF5 libraries.
+3. Ensure gcc is being used to compile and link. Do *not* use the `cc` wrapper as recommended by Blue Waters.
+4. Run `make`
+
+It is likely that users will need to exercise some effort into compiling the BF program.
+
+Please see KNOWN ISSUES for issues specific to compiling the BF program.
+
 ### basicFusion.py
 The basicFusion.py module is a small script we wrote that configureEnv.sh installs to the virutal environment's site-packages. This module provides a set of useful functions to use in your Python scripts. After sourcing the environment, you can import the module in any script using:
 
@@ -55,20 +67,7 @@ This function acts as the authority on which files are proper and which are not.
 >>> help(basicFusion)  
 ```
 
-#### Compilation
 
-A series of different Makefiles have been provided to compile the program under basicFusion/Makefiles. The two main flavors are static and dynamic Makefiles. Currently, the dynamic Makefiles (as of Jul 12, 2017) are not operational.
-
-```
-cp Makefile.bwStatic ../Makefile
-```
-Load the necessary modules:
-```
-module load hdf4 cray-hdf5 PrgEnv-intel zlib szip
-```
-Run: `make`. If it compiles without any errors (warnings are acceptable), the compilation was successful.
-
-Please see KNOWN ISSUES for issues specific to compiling the BF program.
 
 ## Database generation
 
