@@ -528,7 +528,7 @@ def main():
             logger.error( eMsg )
             raise RuntimeError(eMsg)
 
-        i.jobID['pull'] = stdout.strip()
+        i.jobID['push'] = stdout.strip()
 
         prevQuant=i
 
