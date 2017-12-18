@@ -7,6 +7,9 @@ import os
 import sys
 import errno
 
+summaryLog=''
+jobName=''
+
 FORMAT='%(asctime)s %(levelname)-8s %(name)s [%(filename)s:%(lineno)d] %(message)s'
 dateformat='%d-%m-%Y:%H:%M:%S'
 
@@ -20,6 +23,8 @@ def main():
         will be transferred to. This directory will be populated with the canonical BasicFusion directory structure.", \
         type=str )
     parser.add_argument("HOST_ID", help="The Globus endpoint identifier of the machine running this script.", type=str )
+        qsubCall = 'cd {} && qsub -W depend={}:{} {}'.format( os.path.dirname(i.PBSfile['push']),  qsub_dep_specifier, \
+                                                              i.jobID['pull'], i.PBSfile['push']) 
     parser.add_argument("JOB_NAME", help="A name for this  job. Used to make unique log files, intermediary files, and any \
         other unique identifiers needed.", type=str)
     parser.add_argument("LOG_TREE", help="A Python pickle of the job log dictionary.", type=str)
@@ -55,6 +60,12 @@ def main():
     # - VARIABLES -
     # -------------
     CHECK_SUM='--no-verify-checksum'
+
+    global summaryLog
+    summaryLog = args.SUMMARY_LOG
+
+    global jobName
+    jobName = args.JOB_NAME
 
     # Unpickle the out_gran_list
     with open( args.OUT_GRAN_LIST, 'rb' ) as f:
@@ -133,7 +144,7 @@ def main():
 
     for i in splitList:
     
-        subprocCall = ['globus', 'transfer', CHECK_SUM, args.HOST_ID +':/', args.REMOTE_ID + ':/', '--batch' ]
+        subprocCall = ['globus', 'transfer', CHECK_SUM, args.HOST_ID +':/', args.REMOTE_ID + ':/', '--batch', '--label', args.JOB_NAME ]
         with open( i, 'r' ) as stdinFile:
             subProc = subprocess.Popen( subprocCall, stdin=stdinFile, stdout=subprocess.PIPE, stderr=subprocess.PIPE ) 
             subProc.wait()
@@ -162,7 +173,8 @@ def main():
         retCode = subProc.returncode
 
         if retCode != 0:
-            summaryLog.write("ERROR: Globus transfer failed! See {} for more details.\n".format(globPullLog))
+            with open( args.SUMMARY_LOG, 'a') as summaryLog:
+                summaryLog.write("ERROR: Globus transfer failed! See {} for more details.\n".format(globPullLog))
 
     
     # The transfers have been submitted. Need to wait for them to complete...
@@ -174,7 +186,8 @@ def main():
         
         # The program will not progress past this point until 'id' has finished
         if retCode != 0:
-            summaryLog.write("Globus task failed with retcode {}! See: {}".format(retCode, globPullLog))
+            with open( args.SUMMARY_LOG, 'a') as summaryLog:
+                summaryLog.write("Globus task failed with retcode {}! See: {}".format(retCode, globPullLog))
 
         logger.info("Globus task {} completed with retcode: {}.".format(id, retCode))
 
@@ -187,4 +200,9 @@ def main():
                 raise
     
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        with open( summaryLog, 'a') as f:
+            f.write('{}: Failed to pull data. See log files for more info.'.format(jobName))
+        raise

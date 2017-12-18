@@ -1,7 +1,6 @@
 class granule:
     def __init__ (self, tarFile='', untarDir='', orbit=0, pathFileList='', year=0, BFoutputDir='', BFfileName = '', logFile = '', \
                     inputFileList = '' ):
-        self.tarFile    = tarFile
         self.untarDir   = untarDir
         self.orbit      = orbit
         self.pathFileList   = pathFileList
@@ -24,6 +23,8 @@ class granule:
         self.inputFileList = inputFileList
         self.BF_exe     = ''
         self.orbit_times_bin = ''
+        self.sourceTarPath = ''
+        self.destTarPath   = tarFile
 
         # outputFilePath
         # Determines the absolute path of the output file on the host machine. This will include
@@ -31,6 +32,7 @@ class granule:
         # directory structure in between those two attributes.
         self.outputFilePath = ''
 
+        self.hash_status = -1
 
 class processQuanta:
     '''

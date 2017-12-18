@@ -18,6 +18,9 @@ dateformat='%d-%m-%Y:%H:%M:%S'
 progName=''
 globPullLog=''
 summaryLog=''
+logDirs={}
+genFusInput = ''
+MODIS_MISSING = None
 
 #MPI Variables
 mpi_comm = MPI.COMM_WORLD
@@ -65,17 +68,14 @@ def worker( hashDir ):
 
         if stat.Get_tag() == MPI_DO_HASH :
             # Find the appropriate hash file. First extract the orbit from the file name
-            filePath = data.split(' ')[1]
-            file = os.path.split( filePath )[1]
-            orbit = int( file.replace('archive.tar', '') )
-            year = orbitYear( orbit )
+            year = int(data.orbit_start_time[0:4])
 
-            logger.info("Hashing orbit {}".format(orbit))
+            logger.info("Hashing orbit {}".format(data.orbit))
             # We now have the year of the orbit. We have enough information to find the hash file
-            hashFile = os.path.join( hashDir, str(year), str(orbit) + "hash.md5" )
+            hashFile = os.path.join( hashDir, str(year), str(data.orbit) + "hash.md5" )
 
             hasher = hashlib.md5()
-            with open( filePath, 'rb' ) as tarFile:
+            with open( data.destTarPath, 'rb' ) as tarFile:
                 buf = tarFile.read( hashReadSize )
                 while buf:
                     hasher.update(buf)
@@ -89,23 +89,24 @@ def worker( hashDir ):
                 storedHash = hashFile.read()
 
             if storedHash != hashHex:
-                logger.debug("Hashes differ!")
-                mpi_comm.send( { 'line' : data, 'status' : MPI_SLAVE_HASH_FAIL }, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
+                logger.debug("Hashes differ! Stored: {} Generated: {}".format(storedHash, hashHex))
+                data.hash_status = MPI_SLAVE_HASH_FAIL
+                mpi_comm.send( data, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
             else:
                 logger.debug("Hashes match.")
-                mpi_comm.send( { 'line' : data, 'status' : MPI_SLAVE_HASH_SUCCEED }, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
+                data.hash_status = MPI_SLAVE_HASH_SUCCEED
+                mpi_comm.send( data, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
         
         # ----------------
         # - MPI_DO_UNTAR -
         # ----------------
 
         elif stat.Get_tag() == MPI_DO_UNTAR:
-            tarPath = data.tarFile
             untarDir = data.untarDir
-            logger.info("Untarring {}".format( os.path.split( tarPath )[1] ) )
+            logger.info("Untarring {}".format( os.path.split( data.destTarPath )[1] ) )
 
             try:
-                tar = tarfile.TarFile( tarPath )
+                tar = tarfile.TarFile( data.destTarPath )
 
                 # Get all the members (stored files) of the tar file
                 tarMembers = tar.getmembers()
@@ -113,15 +114,15 @@ def worker( hashDir ):
                 # For every member, extract it and destroy its directory structure
                 for member in tarMembers:
                     member.name = os.path.basename(member.name)
-                    tar.extract( member, untarDir )
+                    tar.extract( member, data.untarDir )
 
             except Exception as e:
-                logger.error("Failed to untar: {}".format(tarPath))
+                logger.error("Failed to untar: {}".format(data.destTarPath))
                 logger.error(str(e))
                 mpi_comm.send( data, MPI_MASTER, tag = MPI_UNTAR_FAIL )
 
             # Now delete the tar file
-            os.remove( tarPath )
+            os.remove( data.destTarPath )
 
         # -------------------
         # - MPI_DO_GENERATE -
@@ -134,11 +135,7 @@ def worker( hashDir ):
             # Fourth element:   dictionary of log directories
             # Fifth element:    path to the orbit_path_time.bin file (is simply the binary flavor of the text file version)
 
-            granule     = data[0]
-            BFexe       = data[1]
-            genFusInput = data[2]
-            logDir      = data[3]
-            orbit_info_bin = data[4]
+            granule     = data
 
             # TODO
             # Need to query genFusionInput.sh to make input file. Then,
@@ -188,6 +185,8 @@ def worker( hashDir ):
             for i in data:
                 shutil.copy( i[0], i[1] )
 
+            logger.info('Copying missing MODIS files.')
+
         elif stat.Get_tag() == MPI_SLAVE_TERMINATE:
             logger.debug("Terminating.")
             return
@@ -228,59 +227,69 @@ def slaveCopyFile( copyList, orbit=0 ):
 
 
 #==========================================================================
-def globusDownload( transferList, remoteID, hostID, numTransfer ):
+def globusDownload( granuleList, remoteID, hostID, numTransfer, retry=False ):
 
     CHECK_SUM='--no-verify-checksum'
+   
+    num_lines=len(granuleList) 
+    logger.debug("Number of orbits to transfer: {}".format( len(granuleList) ))
     
-    # Find number of lines in transferList
-    with open( transferList, 'r' ) as f:
-        numLines = sum(1 for line in f)
+    # ==========================
+    # = SPLIT THE GRANULE LIST =
+    # ==========================
 
-    logger.debug("Number of lines in {}: {}".format( transferList, numLines))
-    
-    # ===========================
-    # = SPLIT THE TRANSFER LIST =
-    # ===========================
-
-    # Find how to split the transferList
-    linesPerPartition = numLines / numTransfer
-    extra   = numLines % numTransfer
+    # Find how to split the granuleList
+    linesPerPartition = len(granuleList) / numTransfer
+    extra   = len(granuleList) % numTransfer
 
     logger.debug("linesPerPartition: {}".format(linesPerPartition))
     logger.debug("extra: {}".format(extra))
 
+    # Contains the path of each globus batch transfer text file. Will contain numTransfer elements
     splitList = []
 
-    # This will store all the entries in the transferList file
-    transferFiles = []
+    # Set the directory where our globus batch transfer files will go
+    transferPath = os.path.join( logDirs['misc'], 'globus_batch' )
+    try:
+        os.makedirs(transferPath)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
 
-    # transferPath is path of the transferList text file. We will store our temporary text files in the same place
-    transferPath = os.path.dirname( os.path.abspath(transferList) )
+    for i in xrange(numTransfer):
+        # Add the filename of our new split-file to the list
+        if retry == True:
+            splitList.append( os.path.join( transferPath, progName + "_globus_list_retry_{}.txt".format(i)) )
+        else:
+            splitList.append( os.path.join( transferPath, progName + "_globus_list_{}.txt".format(i)) )
+            
+        logger.debug("Making new split file: {}".format(splitList[i]))
 
-    with open( transferList, 'r' ) as tList:
-        for i in xrange(numTransfer):
-            # Add the filename of our new split-file to the list
-            splitList.append( os.path.join( transferPath, progName + "_temp_list_{}.txt".format(i)) )
-            logger.debug("Making new split file: {}".format(splitList[i]))
+        with open( splitList[i], 'w' ) as partition:
+            logger.debug("Writing {}".format( os.path.basename(splitList[i])))
+            
+            # Slice the granule list appropriately
+            for j in granuleList[i * linesPerPartition : i*linesPerPartition + linesPerPartition]:
+                line = '{} {}'.format( j.sourceTarPath, j.destTarPath )
+                # Write the line to the globus batch transfer file
+                partition.write( line + os.linesep )
 
-            with open( splitList[i], 'w' ) as partition:
-                logger.debug("Writing {}".format( os.path.basename(splitList[i])))
-                for j in xrange( linesPerPartition ):
-                    line = tList.readline()
-                    # Append both to the Python dict and the partition file
-                    transferFiles.append( line )
-                    partition.write( line )
+    # Write the extra files to the last partition
+    with open( splitList[numTransfer-1], 'a') as partition:
+        for j in granuleList[ numTransfer*linesPerPartition: ]:
+            line = '{} {}'.format( j.sourceTarPath, j.destTarPath )
+            logger.debug("Writing extra line to {}".format( os.path.basename(splitList[numTransfer-1])))
+            partition.write( line + os.linesep ) 
 
-        # Write the extra files to the last partition
-        with open( splitList[numTransfer-1], 'a') as partition:
-            for j in xrange( extra ):
-                line = tList.readline()
-                transferFiles.append( line )
-                logger.debug("Writing extra line to {}".format( os.path.basename(splitList[numTransfer-1])))
-                partition.write( line ) 
+    # Do a sanity check to make sure we didn't lose any files in the process.
+    # Sum the number of lines in all of our batch transfer files. If that does
+    # not equal to the length of granuleList, we missed something.
+    num_lines = 0
+    for batch in splitList:
+        num_lines += sum(1 for line in open( batch ) )
 
-    if len(transferFiles) != numLines:
-        raise ValueError("The length of transferFiles list ({}) does not match numLines ({})!".format(len(transferFiles), numLines))
+    if num_lines != len(granuleList):
+        raise ValueError("num_lines ({}) != length of granuleList ({})".format(num_lines, len(granuleList)))
 
     # ================================
     # = SUBMIT SPLIT LISTS TO GLOBUS =
@@ -342,7 +351,7 @@ def globusDownload( transferList, remoteID, hostID, numTransfer ):
 
 #=======================================================================================================
 
-def hashCheck( transferFiles ):
+def hashCheck( granuleList ):
 
     # Now for the fun part. All of our files have been supposedly downloaded by Globus. We need to hash them
     # and compare them with the saved hash files. Split the files evenly amongst all the MPI ranks.
@@ -351,23 +360,22 @@ def hashCheck( transferFiles ):
     hashing      = []           # List of lines currently being hashed
     succeedHash  = []           # List of lines that passed the hash check
     failedHash   = []           # List of lines that failed the hash check
-    transferList = []
 
-    # Get the transferFiles lines in a list
-    with open( transferFiles, 'r' ) as f:
-        transferList = [ x.strip() for x in f.readlines() ]
+    numFiles = len(granuleList)
 
-    numLines = len(transferList)
+    # Make a copy of granuleList. We want to delete elements in the list as they're successfully processed.
+    newGranuleList = granuleList[:]
+    num_orig = len(newGranuleList)
 
     # We will send the files to the slaves one-by-one. We define some global tags for the master-slave communication
     # so that they can effectively converse with each other.
-    while len(transferList) > 0 or len(hashing) > 0:
+    while len(newGranuleList) > 0 or len(hashing) > 0:
 
         # Check for slaves that want a job
         stat = MPI.Status()                 # Class that keeps track of MPI information
 
         # No more jobs to send. Only accept hash messages
-        if len(transferList) == 0:
+        if len(newGranuleList) == 0:
             mpi_comm.probe( tag = MPI_SLAVE_HASH_COMPLETE, status = stat )
         
         # Else, accept messages from any tag
@@ -377,47 +385,59 @@ def hashCheck( transferFiles ):
 
         # A slave wants a job and we have more jobs to send.
         if stat.Get_tag() == MPI_SLAVE_IDLE:
-            transferLine = transferList.pop()
+            granule = newGranuleList.pop()
             
             # Grab the orbit from the transferLine for logging purposes
-            _orbit = transferLine.split(' ')[1]
-            _orbit = os.path.split(_orbit)[1]
 
-            logger.debug("Sending slave {} hash job: {}.".format( stat.source, _orbit) )
+            logger.debug("Sending slave {} hash job: {}.".format( stat.source, granule.orbit ) )
 
             mpi_comm.recv( source=stat.source, tag = MPI_SLAVE_IDLE )
-            mpi_comm.send( transferLine, dest = stat.source, tag = MPI_DO_HASH )
+            mpi_comm.send( granule, dest = stat.source, tag = MPI_DO_HASH )
             # Save this line in the hashing dict to keep track of what is currently being hashed
-            hashing.append( transferLine )
+            hashing.append( granule )
 
 
         # Slave has finished hashing a file. Check its status.            
         elif stat.Get_tag() == MPI_SLAVE_HASH_COMPLETE:
-            hashStatus = mpi_comm.recv( source=stat.source, tag = stat.Get_tag() )
+            
+            # TODO
+            # worker will send back the granule it was given
+            recvGranule = mpi_comm.recv( source=stat.source, tag = stat.Get_tag() )
 
-            # Hash status is a dict that contains:
-            # { 'line' : '/remote/file.tar /host/file.tar', 'status' : MPI_SLAVE_HASH_FAIL/SUCCEED }
-            line = hashStatus['line']
-            hash = hashStatus['status']
-
-            if hash == MPI_SLAVE_HASH_FAIL:
-                logger.debug("{} failed hash check.".format(line))
+            if recvGranule.hash_status == MPI_SLAVE_HASH_FAIL:
 
                 # Remove this line from the hashing list
-                hashing.remove( line )
+                found_elem=0
+                for i in hashing:
+                    if i.orbit == recvGranule.orbit:
+                        hashing.remove(i)
+                        found_elem=1
+                if found_elem == 0:
+                    raise RuntimeError("Failed to find proper element to remove in list.")
+
                 # Append to the list of failed hashes
-                failedHash.append( line )
-            elif hash == MPI_SLAVE_HASH_SUCCEED:
+                failedHash.append( recvGranule )
+
+            elif recvGranule.hash_status == MPI_SLAVE_HASH_SUCCEED:
                 # Remove this line from the hashing list
-                hashing.remove( line )
+                found_elem=0
+                for i in hashing:
+                    if i.orbit == recvGranule.orbit:
+                        hashing.remove(i)
+                        found_elem=1
+                if found_elem == 0:
+                    raise RuntimeError("Failed to find proper element to remove in list.")
+                
                 # Append to the list of successful hashes
-                succeedHash.append( line )
+                succeedHash.append( recvGranule )
+            else:
+                raise ValueError("Slave gave invalid number {} for hash status.".format( recvGranule.hash_status ) )
 
     logger.info("{} hashes failed, {} hashes successful.".format( len(failedHash), len(succeedHash)))
 
     # Do a sanity check to make sure no files were lost in this process
-    if numLines != len(failedHash) + len(succeedHash):
-        errMsg="numLines ({}) does not equal failed + succeed ({}) hashes!".format(numLines,len(failedHash) + len(succeedHash))
+    if num_orig != len(failedHash) + len(succeedHash):
+        errMsg="num_orig ({}) does not equal failed + succeed ({}) hashes!".format(num_orig,len(failedHash) + len(succeedHash))
         logger.error( errMsg )
         raise ValueError(errMsg )
 
@@ -425,7 +445,7 @@ def hashCheck( transferFiles ):
 
 #===============================================================================
 
-def submitTransfer( transferFiles, remoteID, hostID, hashDir, numTransfer ):
+def submitTransfer( granuleList, remoteID, hostID, hashDir, numTransfer ):
     '''
     DESCRIPTION:
         This function submits for Globus transfer the files located in the transferList text file.
@@ -435,7 +455,7 @@ def submitTransfer( transferFiles, remoteID, hostID, hashDir, numTransfer ):
         If they differ, it attempts to download the files once more, repeating the hash check. If they differ
         a second time, the file is marked as failed.
     ARGUMENTS:
-        transferFiles (str)      -- Path to the text file containing all files to transfer.
+        granuleList (str)       -- A list of granule objects to process
         remoteID (str)          -- The Globus ID for the remote endpoint.
         hostID (str)            -- The Globus ID for the host endpoint.
         hashDir (str)           -- Directory where the hash files are.
@@ -463,7 +483,7 @@ def submitTransfer( transferFiles, remoteID, hostID, hashDir, numTransfer ):
     #logger.addHandler(ch)
 
     logger.info("Calling globusDownload")
-    globusDownload( transferFiles, remoteID, hostID, numTransfer ) 
+    globusDownload( granuleList, remoteID, hostID, numTransfer ) 
     logger.info("globusDownload complete")
 
     # ===========================================
@@ -471,29 +491,27 @@ def submitTransfer( transferFiles, remoteID, hostID, hashDir, numTransfer ):
     # ===========================================
 
     logger.info("Calling hashCheck()")
-    failedHash = hashCheck( transferFiles )
+    failedHash = hashCheck( granuleList )
     logger.info("hashCheck() complete.")
 
-    transferPath = os.path.dirname( os.path.abspath(transferFiles) )
-    failedBatch = os.path.join( transferPath, progName + "_failedHash.txt" )
+    
+    batchPath = logDirs['misc']
+    failedBatch = os.path.join( batchPath, progName + "_failedHash.txt" )
 
     if len(failedHash) > 0 :
         logger.info("Retrying the failed hashes")
 
-        # Write a new batch file for globus containing all of the failed lines
-        with open( failedBatch, 'w' ) as batchFile:
-            for i in failedHash:
-                batchFile.write( i )
+        globusDownload( failedHash, remoteID, hostID, retry=True )
 
-        failedHash = hashCheck( failedBatch )
+        failedHash = hashCheck( failedHash )
 
     # These failed hashes need to be logged
     if len(failedHash) > 0 :
         with open( failedBatch, 'w' ) as batchFile:
             for i in failedHash:
-                batchFile.write(i)
+                batchFile.write(i.destTarFile)
 
-        errMsg="Files failed hash. See {} for more info.".format(failedBatch)
+        errMsg="Files failed hash. See {} for list of failed orbits.".format(failedBatch)
         logger.error(errMsg)
         summaryLog.write(errMsg)
 
@@ -522,8 +540,9 @@ def untarData( untarList ):
         of the tuple being the file to untar, and the second element being the directory to
         place the untarred data.
     ARGUMENTS:
-        untarList (list)     -- Each element is a tuple. First element is tar file to untar.
-                                Second is location to place the untarred data.
+        untarList (list)     -- List of granule objects. Each granule object will contain an
+                                attribute destTarPath that contains the location of the tar file
+                                to untar.
     EFFECTS:
         Creates new, untarred files.
     RETURN:
@@ -545,7 +564,7 @@ def untarData( untarList ):
             logger.error("Rank {} failed to untar {}.".format( stat.Get_source(), data[0] ) )
             
         elif stat.Get_tag() == MPI_SLAVE_IDLE: 
-            logger.info("Sending untar job {} to rank {}".format( os.path.split( i.tarFile )[1], stat.Get_source()))        
+            logger.info("Sending untar job {} to rank {}".format( os.path.split( i.destTarPath )[1], stat.Get_source()))        
             mpi_comm.recv( source=stat.Get_source(), tag = MPI_SLAVE_IDLE )
             mpi_comm.send( i, dest = stat.Get_source(), tag = MPI_DO_UNTAR )
         else: 
@@ -660,35 +679,28 @@ def slaveProcessBF( data ):
     # Check for slaves that want a job
     stat = MPI.Status()                 # Class that keeps track of MPI information    
     mpi_comm.probe( status = stat, tag = MPI_SLAVE_IDLE )
-    logger.debug("Sending slave {} generate job: {}.".format( stat.source, data[0].orbit ) )
+    logger.debug("Sending slave {} generate job: {}.".format( stat.source, data.orbit ) )
 
     mpi_comm.recv( source=stat.source, tag = MPI_SLAVE_IDLE )
     mpi_comm.send( data, dest = stat.source, tag = MPI_DO_GENERATE)
 
 #===========================================================================
  
-def generateBF( log_tree, granuleList, genFusionInput, orbit_info_bin, orbit_info_txt, BF_exe ):
+def generateBF( granuleList, genFusionInput, orbit_info_bin, orbit_info_txt, BF_exe ):
     '''
     DESCRIPTION:
         This function generates the Basic Fusion files.
     ARGUMENTS:
-        log_tree        -- Pickle containing the paths of various log directories
-        transferPickle  -- A pickle containing a list of granule objects. These objects
-                           each contain information necessary to processe one orbit of BF
-                           data.
+        granuleList     -- A list of granule objects to process
         genFusionInput     -- Path to the genFusionInput.sh script
         orbit_info_bin      -- Path to the orbit_info binary file
         orbit_info_txt      -- Path to the orbit_info text file
         BF_exe              -- Path to the basic fusion executable
     '''
 
-
-    with open ( log_tree, 'rb' ) as f:
-        logDirs = pickle.load(f)
  
     for granule in granuleList:
-        processData = ( granule, BF_exe, genFusionInput, log_tree, orbit_info_bin )
-        slaveProcessBF( processData )
+        slaveProcessBF( granule )
 
     
     # Wait for all slaves to finish computation
@@ -729,9 +741,13 @@ def main():
         Defaults to 1.", dest='num_transfer', type=int, default=1)
     parser.add_argument("-l", "--log-level", help="Set the log level. Allowable values are INFO, DEBUG. Absence of this parameter \
         sets debug level to WARNING.", dest='log', type=str, choices=['INFO', 'DEBUG' ] , default="WARNING")
+    parser.add_argument('--include-missing', help='Path to the missing MODIS files, where passed directory contains subdirectories named \
+        after each orbit. Each of those subdirectories contains the MODIS files to include in the final BF granule.', type=str, \
+        dest='modis_missing' )
 
     args = parser.parse_args()
-   
+  
+    global logDirs 
     # Extract the pickle
     with open( args.LOG_TREE, 'rb' ) as f :
         logDirs = pickle.load(f)
@@ -756,6 +772,7 @@ def main():
     FILENAME            = 'TERRA_BF_L1B_O{0}_{1}_F000_V000.h5'
     scriptPath          = os.path.realpath(__file__)
     projPath            = ''.join( scriptPath.rpartition('basicFusion/')[0:2] )
+    global genFusInput
     genFusInput         = os.path.join( projPath, "metadata-input", "genInput", "genFusionInput.sh" )
     orbit_info_txt      = os.path.join( projPath, "metadata-input", "data", "Orbit_Path_Time.txt" )
     orbit_info_bin      = os.path.join( projPath, "metadata-input", "data", "Orbit_Path_Time.bin" ) 
@@ -766,6 +783,10 @@ def main():
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
+
+    global MODIS_MISSING
+    MODIS_MISSING = args.modis_missing
+
     # Make the directory to store input file listings
     try:
         os.makedirs( input_list_dir )
@@ -818,143 +839,179 @@ def main():
     progName=args.JOB_NAME
 
     global summaryLog
+    
+
+    if mpi_rank != 0:
+        worker( args.HASH_DIR )
+    
     # Open the summary log as a simple file
     with open( args.SUMMARY_LOG, 'a' ) as sumLog:
-        summaryLog = sumLog
-        if mpi_rank == 0:
-           
-            # Prepare the granule list
-             
-            # ===========================
-            # = SUBMIT GLOBUS TRANSFERS =
-            # ===========================
-           
-            logger.debug("Calling submitTransfer().") 
-            submitTransfer( args.TRANSFER_LIST, args.REMOTE_ID, args. HOST_ID, args.HASH_DIR, args.num_transfer)
-            logger.debug("submitTransfer() complete.")
+        summaryLog = sumLog 
+        # Prepare the granule list
+         
+        granuleList = []
+        # The tar data is now (hopefully) all on the system. Untar the data.
+        with open( args.TRANSFER_LIST, 'r' ) as tList:
+            for i in tList:
+                # Name of the tar file
+                sourceTarPath = i.split(' ')[0].strip()
+                destTarPath   = i.split(' ')[-1].strip()
+                orbit = os.path.split( sourceTarPath )[1].strip()
+                orbit = orbit.replace('archive.tar', '')
+                year = orbitYear( int(orbit) )
 
-            granuleList = []
-            # The tar data is now (hopefully) all on the system. Untar the data.
-            with open( args.TRANSFER_LIST, 'r' ) as tList:
-                for i in tList:
-                    # Name of the tar file
-                    tarFile = i.split(' ')[-1].strip()
-                    orbit = os.path.split( tarFile )[1].strip()
-                    orbit = orbit.replace('archive.tar', '')
-                    year = orbitYear( int(orbit) )
-                    # the start time of the orbit
-                    orbit_start_time = findOrbitStart( orbit, orbit_info_txt )
-                    # directory where the untarred data will go for this granule
-                    untarDir = os.path.join( args.SCRATCH_SPACE, "untarData", str(year), str(orbit) )
-                    # BFdirStructure is the year/month/day path inside the output directory for this particular granule
-                    BFdirStructure= os.path.join( str( orbit_start_time[0:4]), \
-                                    str( orbit_start_time[4:6]), \
-                                    str( orbit_start_time[6:8] ) )
-                    # outFileDir is the complete, absolute directory to store the basic fusion file in
-                    outFileDir = os.path.join( BFoutputDir, BFdirStructure)
-                    # directory where the log file will reside
-                    yearLogDir = os.path.join( logDirs['process'], BFdirStructure )
-                    # log file for the granule generation
-                    logFile = os.path.join( yearLogDir, "{}process_log.txt".format( orbit ) )
-                    # location of the input file lsit for the BF granule
-                    inputFileList = os.path.join( input_list_dir, "{}input.txt".format( orbit ))
-                    # Name of the output basic fusion file
-                    BFfileName = FILENAME.format( orbit, orbit_start_time )
-                    # Finally, save the absolute path of the output file
-                    outFilePath = os.path.join( outFileDir, BFfileName )
+                # the start time of the orbit
+                orbit_start_time = findOrbitStart( orbit, orbit_info_txt )
 
-                    # Create our location for untarring
-                    if not os.path.isdir( untarDir ):
-                        logger.debug("Creating untar location at: {}".format(untarDir))
-                        os.makedirs( untarDir )
+                # directory where the untarred data will go for this granule
+                untarDir = os.path.join( args.SCRATCH_SPACE, "untarData", str(year), str(orbit) )
 
-                    # Make the log file directory
-                    try:
-                        os.makedirs( yearLogDir )
-                        logger.debug("Making process dir: {}".format(yearLogDir))
-                    except OSError as e:
-                        if e.errno != errno.EEXIST:
-                            raise
-                    
-                    # Make the file output directory
-                    try:
-                        os.makedirs( outFileDir )
-                        logger.debug("Making the output directory: {}".format( outFileDir) )
-                    except OSError as e:
-                        if e.errno != errno.EEXIST:
-                            raise
-                    
-                    #
-                    # PREPARE THE GRANULE ATTRIBUTES
-                    #
-                    
-                    curGranule = workflowClass.granule( tarFile, untarDir, orbit, year=year )
-                    curGranule.orbit_start_time = orbit_start_time
-                    curGranule.pathFileList     = os.path.join( untarDir, "MISR_PATH_FILES_{}.txt".format(orbit) )
-                    curGranule.year             = year
-                    curGranule.BFoutputDir      = BFoutputDir
-                    curGranule.BFfileName       = BFfileName 
-                    curGranule.logFile          = logFile
-                    curGranule.inputFileList    = inputFileList
-                    curGranule.BF_exe           = BF_exe
-                    curGranule.orbit_times_bin  = orbit_info_bin                
-                    curGranule.outputFilePath   = outFilePath
-                    
+                # BFdirStructure is the year/month/day path inside the output directory for this particular granule
+                BFdirStructure= os.path.join( str( orbit_start_time[0:4]), \
+                                str( orbit_start_time[4:6]), \
+                                str( orbit_start_time[6:8] ) )
 
-                    granuleList.append( curGranule )
-           
-            logger.info("Untarring data.") 
-            failUntar = untarData( granuleList )
-            logger.info("Untarring complete.")
+                # outFileDir is the complete, absolute directory to store the basic fusion file in
+                outFileDir = os.path.join( BFoutputDir, BFdirStructure)
 
-            if len(failUntar) != 0:
-                sumLog.write("Failed to untar the following files:")
-            for i in failUntar:
-                granuleList.remove(i)
-                sumLog.write(i.tarFile)
+                # directory where the log file will reside
+                yearLogDir = os.path.join( logDirs['process'], BFdirStructure )
 
-            logger.info("Copying over MISR path files.")
+                # log file for the granule generation
+                logFile = os.path.join( yearLogDir, "{}process_log.txt".format( orbit ) )
+                
+                # location of the input file lsit for the BF granule
+                inputFileList = os.path.join( input_list_dir, BFdirStructure, "{}input.txt".format( orbit ))
+                
+                # Name of the output basic fusion file
+                BFfileName = FILENAME.format( orbit, orbit_start_time )
+                
+                # Finally, save the absolute path of the output file
+                outFilePath = os.path.join( outFileDir, BFfileName )
 
-            # ========================
-            # = READ MISR_PATH_FILES =
-            # ========================
+                # Create our location for untarring
+                if not os.path.isdir( untarDir ):
+                    logger.debug("Creating untar location at: {}".format(untarDir))
+                    os.makedirs( untarDir )
 
-            # For every untarred orbit in our granuleList, we need to read the MISR_PATH_FILES.txt
-            # file and copy over those two files that it lists. granuleList is a list of granule
-            # class objects. Each of these objects contains:
-            # 1. Directory where all untarred data for a single orbit is stored
-            # 2. Orbit of its directory
-            # 3. The tar file where these untarred files were extracted from (at this point in the program,
-            #    this tar file should be deleted. Files have been extracted.)
-
-            for i in granuleList:
-                pathCopyList = []
-                with open( i.pathFileList, 'r' ) as pfList:
-                    for file in pfList:
-                        # Find the absolute path of this pathfile
-                        pathAbs = findFile( file, args.MISR_PATH_FILES )
-                        if pathAbs == None:
-                            errMsg="Failed to find file {} in path {}.".format(file, args.MISR_PATH_FILES)
-                            logger.error(errMsg)
-                            raise ValueError(errMsg)
-
-                        pathCopyList.append( (pathAbs, i.untarDir) )
-                    # Send this job to the worker ranks
-                    slaveCopyFile( pathCopyList, i.orbit )
-
-            # Wait for all slaves to complete
-            slaveWait()
-
-            generateBF( args.LOG_TREE, granuleList, genFusInput, orbit_info_bin, orbit_info_txt, BF_exe )
+                # Make the log file directory
+                try:
+                    os.makedirs( yearLogDir )
+                    logger.debug("Making process dir: {}".format(yearLogDir))
+                except OSError as e:
+                    if e.errno != errno.EEXIST:
+                        raise
+               
+                # Make the input file list directory
+                try:
+                    os.makedirs( os.path.dirname( inputFileList ) )
+                except OSError as e:
+                    if e.errno != errno.EEXIST:
+                        raise
  
-            # Pickle the granuleList. This is done because I may make generateBF() a separate script, and would
-            # need to pass around a pickle instead of the actual list.
-            logger.info("Saving the input data list pickle at {}".format(args.OUT_GRAN_LIST))
-            with open( args.OUT_GRAN_LIST, 'wb' ) as f:
-                pickle.dump( granuleList, f )
+                # Make the file output directory
+                try:
+                    os.makedirs( outFileDir )
+                    logger.debug("Making the output directory: {}".format( outFileDir) )
+                except OSError as e:
+                    if e.errno != errno.EEXIST:
+                        raise
+                
+                #
+                # PREPARE THE GRANULE ATTRIBUTES
+                #
+                curGranule = workflowClass.granule( destTarPath, untarDir, orbit, year=year )
+                curGranule.sourceTarPath       = sourceTarPath
+                curGranule.destTarPath         = destTarPath
+                curGranule.orbit_start_time = orbit_start_time
+                curGranule.pathFileList     = os.path.join( untarDir, "MISR_PATH_FILES_{}.txt".format(orbit) )
+                curGranule.year             = year
+                curGranule.BFoutputDir      = BFoutputDir
+                curGranule.BFfileName       = BFfileName 
+                curGranule.logFile          = logFile
+                curGranule.inputFileList    = inputFileList
+                curGranule.BF_exe           = BF_exe
+                curGranule.orbit_times_bin  = orbit_info_bin                
+                curGranule.outputFilePath   = outFilePath
+                
 
-        else:
-            worker( args.HASH_DIR )
+                granuleList.append( curGranule )
+       
+        # ===========================
+        # = SUBMIT GLOBUS TRANSFERS =
+        # ===========================
+       
+        logger.debug("Calling submitTransfer().") 
+        submitTransfer( granuleList, args.REMOTE_ID, args. HOST_ID, args.HASH_DIR, args.num_transfer)
+        logger.debug("submitTransfer() complete.")
+        
+        logger.info("Untarring data.") 
+        failUntar = untarData( granuleList )
+        logger.info("Untarring complete.")
+
+        if len(failUntar) != 0:
+            sumLog.write("Failed to untar the following files:")
+        for i in failUntar:
+            granuleList.remove(i)
+            sumLog.write(i.tarFile)
+
+        logger.info("Copying over MISR path files.")
+
+        # ========================
+        # = READ MISR_PATH_FILES =
+        # ========================
+
+        # For every untarred orbit in our granuleList, we need to read the MISR_PATH_FILES.txt
+        # file and copy over those two files that it lists. granuleList is a list of granule
+        # class objects. Each of these objects contains:
+        # 1. Directory where all untarred data for a single orbit is stored
+        # 2. Orbit of its directory
+        # 3. The tar file where these untarred files were extracted from (at this point in the program,
+        #    this tar file should be deleted. Files have been extracted.)
+
+        for i in granuleList:
+            pathCopyList = []
+            with open( i.pathFileList, 'r' ) as pfList:
+                for file in pfList:
+                    # Find the absolute path of this pathfile
+                    pathAbs = findFile( file, args.MISR_PATH_FILES )
+                    if pathAbs == None:
+                        errMsg="Failed to find file {} in path {}.".format(file, args.MISR_PATH_FILES)
+                        logger.error(errMsg)
+                        raise ValueError(errMsg)
+
+                    pathCopyList.append( (pathAbs, i.untarDir) )
+                # Send this job to the worker ranks
+                slaveCopyFile( pathCopyList, i.orbit )
+
+            pathCopyList = []
+            if args.modis_missing:
+                logging.info('Copying missing MODIS files for all orbits.')
+                orbit_dir = os.path.join( args.modis_missing, str( i.orbit ) )
+                
+                for subdir, dirs, files in os.walk( orbit_dir ):
+                    for file in files:
+                        pathCopyList.append( ( os.path.join( subdir, file ),  i.untarDir ) )
+                slaveCopyFile( pathCopyList, i.orbit )
+                
+                    
+        # ============================
+        # = COPY MISSING MODIS FILES =
+        # ============================
+        # If the modis_missing parameter is given, we need to copy over these files
+        
+
+        # Wait for all slaves to complete
+        slaveWait()
+
+        generateBF( granuleList, genFusInput, orbit_info_bin, orbit_info_txt, BF_exe )
+
+        # Pickle the granuleList. This is done because I may make generateBF() a separate script, and would
+        # need to pass around a pickle instead of the actual list.
+        logger.info("Saving the input data list pickle at {}".format(args.OUT_GRAN_LIST))
+        with open( args.OUT_GRAN_LIST, 'wb' ) as f:
+            pickle.dump( granuleList, f )
+
 
  
 if __name__ == '__main__': 
@@ -967,6 +1024,7 @@ if __name__ == '__main__':
     finally:     
         # I'm having issues with the processes not gracefully terminating. So, let's just call abort
         # to clear out all processes whether or not an exception happens.
+        logger.info("Successful completion")
         mpi_comm.Abort()
    
         #if mpi_rank == 0:
