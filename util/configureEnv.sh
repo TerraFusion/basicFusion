@@ -212,9 +212,53 @@ downloadSched()
     return 0
 }
 
+downloadHDF(){
+    downloadPath=$1
+    oldWorkdir="$(pwd)"
+    hdf4url="https://support.hdfgroup.org/ftp/HDF/HDF_Current/src/hdf-4.2.13.tar.gz"
+    hdf5url="https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.16/src/hdf5-1.8.16.tar.gz"
+
+    cd "$downloadPath"
+
+    mkdir hdflib
+    cd hdflib
+
+    echo
+    echo "=========================================="
+    echo "= DOWNLOADING AND INSTALLING HDF4 4.2.13 ="
+    echo "=========================================="
+    echo
+
+    module load wget/1.19.2
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    wget --no-check-certificate "$hdf4url"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi 
+    gunzip "hdf-4.2.13.tar.gz" 
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    tar -xf "hdf-4.2.13.tar"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    cd "hdf-4.2.13"
+    ./configure --enable-shared --disable-fortran
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    make && make install
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+}
+
 if [ $# -ne 1 ]; then
     echo 
-    printf "\nUSAGE: $0 [-s | -p | -a]\n" >&2
+    printf "\nUSAGE: $0 [-s | -p | -h | -a]\n" >&2
     pyVers=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')
     description="
 DESCRIPTION:
@@ -224,7 +268,8 @@ DESCRIPTION:
 ARGUMENTS:
 \t[-s | -p | -a]                -- -s to download just Scheduler
 \t                                 -p to download just the Python packages
-\t                                 -a to download both Scheduler and Python
+\t                                 -h to download both HDF4 and HDF5 to ${HOME}
+\t                                 -a to enable all of the above flags
 
 REQUIREMENTS:
 \tThe following requirements must be met:
@@ -275,6 +320,7 @@ SCHED_PATH=$BF_PATH/externLib
 
 DOWNLOAD_SCHED=0
 DOWNLOAD_PY=0
+DOWNLOAD_HDF=0
 OLD_CC=''
 OLD_CXX=''
 
@@ -283,9 +329,12 @@ if [ "$DOWNLOAD_OPTS" == "-s" ]; then
     DOWNLOAD_SCHED=1
 elif [ "$DOWNLOAD_OPTS" == "-p" ]; then
     DOWNLOAD_PY=1
+elif [ "$DOWNLOAD_OPTS" == "-h" ]; then
+    DOWNLOAD_HDF=1
 elif [ "$DOWNLOAD_OPTS" == "-a" ]; then
     DOWNLOAD_SCHED=1
     DOWNLOAD_PY=1
+    DOWNLOAD_HDF=1
 else
     printf "Unrecognized command line argument: $DOWNLOAD_OPTS\n" >&2
     exit 1
@@ -350,6 +399,43 @@ if [ $DOWNLOAD_SCHED -eq 1 ]; then
     fi
 
 fi
+
+if [ $DOWNLOAD_HDF -eq 1 ]; then
+    downloadHDF $BF_PATH/externLibs
+    retVal=$?
+    if [ $retVal -ne 0 ]; then
+        echo "Failed to download and install HDF libraries." >&2
+        export CC=$OLD_CC
+        export CXX=$OLD_CXX
+        exit $retVal
+    fi
+fi
+
+# Export some useful globus endpoint IDs and also append them to the user's ~/.bashrc file.
+GLOBUS_NL=d599008e-6d04-11e5-ba46-22000b92c6ec
+GLOBUS_ROGER=da262cbf-6d04-11e5-ba46-22000b92c6ec
+GLOBUS_BW=d59900ef-6d04-11e5-ba46-22000b92c6ec
+
+export GLOBUS_NL=$GLOBUS_NL
+export GLOBUS_ROGER=$GLOBUS_ROGER
+export GLOBUS_BW=$GLOBUS_BW
+
+# Check if these variables have already been added to .bashrc. If not, go ahead
+# and append the export lines.
+
+globus_vars="$(grep "GLOBUS_NL" ~/.bashrc)"
+if [ ${#globus_vars} -le 2 ]; then
+    echo "export GLOBUS_NL=$GLOBUS_NL" >> ~/.bashrc
+fi
+globus_vars="$(grep "GLOBUS_ROGER" ~/.bashrc)"
+if [ ${#globus_vars} -le 2 ]; then
+    echo "export GLOBUS_ROGER=$GLOBUS_ROGER" >> ~/.bashrc
+fi
+globus_vars="$(grep "GLOBUS_BW" ~/.bashrc)"
+if [ ${#globus_vars} -le 2 ]; then
+    echo "export GLOBUS_BW=$GLOBUS_BW" >> ~/.bashrc
+fi
+
 
 export CC=$OLD_CC
 export CXX=$OLD_CXX

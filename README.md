@@ -12,11 +12,11 @@ The Basic Fusion program requires the following Hierarchical Data Format (HDF) C
 1. [HDF4 4.2.13](https://support.hdfgroup.org/release4/obtain.html)
 1. [HDF5 1.8.16](https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.16/)
 
-No other version of HDF libraries may be used. It is highly preferable for users of the BasicFusion code to compile against user-level HDF libraries rather than system HDF. **For Blue Waters, it is in fact required.** 
+No other version of HDF libraries may be used. It is required that users install both of these libraries from source. Do not attempt to use Blue Waters HDF.
 
 The HDF libraries also depend on jpeg, zlib, and szip (optional). Users may use system installs of these libraries when compiling the HDF source.
 
-#### GitHub Download & Python Installation
+### GitHub Download & Python Install
 
 1. cd into the desired directory and type
     ```
@@ -41,6 +41,18 @@ If users have more than one basicFusion repository on the file system and have c
 source /path/to/basicFusion/externLib/BFpyEnv/bin/activate
 ```
 
+### Compilation
+
+The following steps need to be followed to compile the BF program:
+1. Compile the required HDF4 4.2.13 and HDF5 1.8.16 from source, linking against system zlib and, optionally, szip.
+2. Copy one of the provided BW makefiles under `basicFusion/Makefiles` to the `basicFusion` directory. Modify the Makefile to point to your user-installed HDF4 and HDF5 libraries.
+3. Ensure gcc is being used to compile and link. Do *not* use the `cc` wrapper as recommended by Blue Waters.
+4. Run `make`
+
+It is likely that users will need to exercise some effort into compiling the BF program.
+
+Please see KNOWN ISSUES for issues specific to compiling the BF program.
+
 ### basicFusion.py
 The basicFusion.py module is a small script we wrote that configureEnv.sh installs to the virutal environment's site-packages. This module provides a set of useful functions to use in your Python scripts. After sourcing the environment, you can import the module in any script using:
 
@@ -55,20 +67,7 @@ This function acts as the authority on which files are proper and which are not.
 >>> help(basicFusion)  
 ```
 
-#### Compilation
 
-A series of different Makefiles have been provided to compile the program under basicFusion/Makefiles. The two main flavors are static and dynamic Makefiles. Currently, the dynamic Makefiles (as of Jul 12, 2017) are not operational.
-
-```
-cp Makefile.bwStatic ../Makefile
-```
-Load the necessary modules:
-```
-module load hdf4 cray-hdf5 PrgEnv-intel zlib szip
-```
-Run: `make`. If it compiles without any errors (warnings are acceptable), the compilation was successful.
-
-Please see KNOWN ISSUES for issues specific to compiling the BF program.
 
 ## Database generation
 
@@ -87,9 +86,9 @@ The `/path/to/inputfiles/` directory MUST contain the following subdirectories i
 Once the database has been generated, we need to generate all of the input file listings as required by the basicFusion program itself. These files tell the BF program which input HDF files to process. 
 
 #### Generate a single input file
-Under `basicFusion/metadata-input/genInput`, the genFusionInput.sh script generates one single BasicFusion input file list. This script requires the SQLite database built in the Database Generation section for file querying. An example of how to run this script:
+Under `basicFusion/metadata-input/genInput`, the genFusionInput.sh script generates one input file listing for a single BF granule. This script requires the SQLite database built in the Database Generation section for file querying. An example of how to run this script:
 
-`./genFusionInput.sh /path/to/accesslist.sqlite 69400 /path/to/outputList.txt`
+`./genFusionInput.sh /path/to/accesslist.sqlite 69400 /path/to/outputList.txt --SQL`
 
 Your resulting input file list will be a properly formatted, canonical BasicFusion input file list.
 
@@ -102,28 +101,39 @@ An example of how to invoke this script:
 ./genInputRange_SX.sh /path/to/accesslist.sqlite 69400 70000 /path/to/output/dir
 ```
 
-Use `qstat | grep [your username]` to see the status of your jobs.
+Use `showq -u [username]` (without square brackets) to see the status of your jobs.
 
 Based on the orbit start and end times, as well as the parameters set inside of the script (max job size etc.), it determines how many resources to request of the Blue Waters TORQUE resource manager. It will then generate all of the necessary files for parallel computation in the `basicFusion/jobFiles/BFinputGen` directory and submit its jobs to the queue. The resultant output files will reside in your `/path/to/output` directory.
+
+*This script is not meant for production. The script is not written to structure the output directories in any way, so the output directory will remain flat.*
 
 **NOTE!!!**: Inside the genInputRange_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters/ROGER. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. Do not run this script without reviewing the **JOB PARAMETERS** to determine if the values there are appropriate for the current system and job that you want to run! **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
 
 ## Program Execution
 
-There are multiple ways one can execute the BF program. First, **note that it is strongly recommended that you do NOT simply run the program by invoking "./basicFusion..."**. Running the program this way executes it on a login-node, and the IO-intensive nature of this program means that it will eat up shared resources on the login node, causing other BW users to experience poor responsiveness in the login nodes. Not to mention, this is a breach of the BW terms of use.
+There are multiple ways one can execute the BF program. Users may simply execute the BF binary from the login node, however you should not execute more than 1 instantiation of the program on login nodes due to the IO-intensive nature of the program. 
 
-A script has been written under `basicFusion/TerraGen/util/processBF_SX.sh` that handles submitting the basicFusion program for execution. This script expects to find the basicFusion executable, generated by compiling the program, in the basicFusion/bin directory. 
+### processBF_SX.sh
+*This script is not designed for production-level granule generation*
+
+A demo script has been written under `basicFusion/TerraGen/util/processBF_SX.sh` that handles submitting the basicFusion program for execution. This script expects to find the basicFusion executable, generated by compiling the program, in the basicFusion/bin directory. 
 
 ```
 ./processBF_SX.sh /path/to/input/txt/files 69400 70000 /path/to/output
 ```
-Use `qstat | grep [your username]` to see the status of your jobs.
+
+Use `showq -u [username]` to see the status of your jobs.
 
 Currently, the `/path/to/input/txt/files` must be a flat directory (these text files cannot be in any subdirectories). The `/path/to/output` will be a flat directory where all of the output HDF5 granules are placed. The script will determine---exactly how the genInputRange_SX.sh does---how many jobs, nodes per job, and processors per node to use based on the number of orbits you desire to process. The maximum values for number of jobs, nodes, and processors can be changed inside the script in the **JOB PARAMETERS** section.
 
 **NOTE!!!**: Inside the processBF_SX.sh script, there are variables that can be changed to tweak how the script requests resources from Blue Waters/ROGER. These variables are under the **JOB PARAMETERS** section, and it is recommended you change these from their default values to suit your needs. Do not run this script without reviewing the **JOB PARAMETERS** to determine if the values there are appropriate for the current system and job that you want to run! **ALSO NOTE** that this script requires the NCSA Scheduler Fortran program to be installed! Please refer to the Installation section of this Readme.
 
 Please refer to the command line description of ./processBF_SX.sh for a full listing of all the available parameters.
+
+### submitWorkflow.py
+*This script is the official production-level workflow for BasicFusion.*
+
+This script resides in `basicFusion/util/TerraGen`. This script submits the Basic Fusion workflow to the Blue Waters scheduler. It is designed with a very specific set of assumptions that must be carefully adhered to. Please see the readme.md file in `basicFusion/util/TerraGen` for full details of its operation.
 
 
 ## Known Issues

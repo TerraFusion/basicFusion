@@ -833,71 +833,75 @@ def main():
             submitTransfer( args.TRANSFER_LIST, args.REMOTE_ID, args. HOST_ID, args.HASH_DIR, args.num_transfer)
             logger.debug("submitTransfer() complete.")
 
+            granuleList = []
             # The tar data is now (hopefully) all on the system. Untar the data.
             with open( args.TRANSFER_LIST, 'r' ) as tList:
                 for i in tList:
-                    file = i.split(' ')[-1].strip()
-                    orbit = os.path.split( file )[1].strip()
+                    # Name of the tar file
+                    tarFile = i.split(' ')[-1].strip()
+                    orbit = os.path.split( tarFile )[1].strip()
                     orbit = orbit.replace('archive.tar', '')
                     year = orbitYear( int(orbit) )
-                    
-                    # Create our location for untarring
-                    untarLoc = os.path.join( args.SCRATCH_SPACE, "untarData", str(year), str(orbit) )
-                    logger.debug("Creating untar location at: {}".format(untarLoc))
-                    if not os.path.isdir( untarLoc ):
-                        os.makedirs( untarLoc )
-
-                    #
-                    # PREPARE THE GRANULE ATTRIBUTES
-                    #
-                    curGranule = workflowClass.granule( file, untarLoc, orbit, year=year )
-                    curGranule.tarFile          = file
-                    curGranule.untarDir         = untarLoc
-                    curGranule.orbit            = orbit
-                    curGranule.pathFileList     = os.path.join( curGranule.untarDir, "MISR_PATH_FILES_{}.txt".format(curGranule.orbit) )
-                    curGranule.year             = year
-                    curGranule.BFoutputDir      = BFoutputDir
-                    orbit_time = findOrbitStart( curGranule.orbit, orbit_info_txt )
-                    curGranule.orbit_start_time = orbit_time
-                    curGranule.BFfileName       = FILENAME.format( curGranule.orbit, orbit_time ) 
-                    logFile = os.path.join( yearLogDir, "{}process_log.txt".format( granule.orbit ) )
-                    curGranule.logFile          = logFile
-                    inputFileList = os.path.join( input_list_dir, "{}input.txt".format( granule.orbit ))
-                    curGranule.inputFileList    = inputFileList
-                    curGranule.BF_exe           = BF_exe
-                    curGranule.orbit_times_bin  = orbit_info_bin                
-                    
-                    # DEFINE THE OUTPUT DIRECTORY/FILE OF GRANULE
-                    # The directory tree of the Basic Fusion product will simply be:
-                    # year
-                    #   month
-                    #       day
-                    # Using the orbit_time variable that determines start time of the granule,
-                    # we can construct the directory tree.
-                    # BFdirStructure defines the location of the granule within the BF directory tree (year, month, day)
-                    BFdirStructure= os.path.join( str( curGranule.orbit_time[0:4]), str( orbit_time[4:6]), str( orbit_time[6:8] ) )
-                    outFileDir = os.path.join( granule.BFoutputDir, BFdirStructure)
-
-                    # Make the file output directory
-                    try:
-                        os.makedirs( outFileDir )
-                    except OSError as e:
-                        if e.errno != errno.EEXIST:
-                            raise
-                    
+                    # the start time of the orbit
+                    orbit_start_time = findOrbitStart( orbit, orbit_info_txt )
+                    # directory where the untarred data will go for this granule
+                    untarDir = os.path.join( args.SCRATCH_SPACE, "untarData", str(year), str(orbit) )
+                    # BFdirStructure is the year/month/day path inside the output directory for this particular granule
+                    BFdirStructure= os.path.join( str( orbit_start_time[0:4]), \
+                                    str( orbit_start_time[4:6]), \
+                                    str( orbit_start_time[6:8] ) )
+                    # outFileDir is the complete, absolute directory to store the basic fusion file in
+                    outFileDir = os.path.join( BFoutputDir, BFdirStructure)
+                    # directory where the log file will reside
+                    yearLogDir = os.path.join( logDirs['process'], BFdirStructure )
+                    # log file for the granule generation
+                    logFile = os.path.join( yearLogDir, "{}process_log.txt".format( orbit ) )
+                    # location of the input file lsit for the BF granule
+                    inputFileList = os.path.join( input_list_dir, "{}input.txt".format( orbit ))
+                    # Name of the output basic fusion file
+                    BFfileName = FILENAME.format( orbit, orbit_start_time )
                     # Finally, save the absolute path of the output file
-                    outFilePath = os.path.join( outFileDir, granule.BFfileName )
-                    granule.outputFilePath = outFilePath
+                    outFilePath = os.path.join( outFileDir, BFfileName )
+
+                    # Create our location for untarring
+                    if not os.path.isdir( untarDir ):
+                        logger.debug("Creating untar location at: {}".format(untarDir))
+                        os.makedirs( untarDir )
 
                     # Make the log file directory
                     try:
-                        yearLogDir = os.path.join( logDirs['process'], BFdirStructure )
-                        logger.debug("Making process dir: {}".format(yearLogDir))
                         os.makedirs( yearLogDir )
+                        logger.debug("Making process dir: {}".format(yearLogDir))
                     except OSError as e:
                         if e.errno != errno.EEXIST:
                             raise
-                    granuleList.append( workflowClass.granule( file, untarLoc, orbit, year=year ) )
+                    
+                    # Make the file output directory
+                    try:
+                        os.makedirs( outFileDir )
+                        logger.debug("Making the output directory: {}".format( outFileDir) )
+                    except OSError as e:
+                        if e.errno != errno.EEXIST:
+                            raise
+                    
+                    #
+                    # PREPARE THE GRANULE ATTRIBUTES
+                    #
+                    
+                    curGranule = workflowClass.granule( tarFile, untarDir, orbit, year=year )
+                    curGranule.orbit_start_time = orbit_start_time
+                    curGranule.pathFileList     = os.path.join( untarDir, "MISR_PATH_FILES_{}.txt".format(orbit) )
+                    curGranule.year             = year
+                    curGranule.BFoutputDir      = BFoutputDir
+                    curGranule.BFfileName       = BFfileName 
+                    curGranule.logFile          = logFile
+                    curGranule.inputFileList    = inputFileList
+                    curGranule.BF_exe           = BF_exe
+                    curGranule.orbit_times_bin  = orbit_info_bin                
+                    curGranule.outputFilePath   = outFilePath
+                    
+
+                    granuleList.append( curGranule )
            
             logger.info("Untarring data.") 
             failUntar = untarData( granuleList )
