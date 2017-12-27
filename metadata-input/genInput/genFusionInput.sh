@@ -1168,7 +1168,8 @@ if [ $INPUT_OPT == "--SQL" ]; then
     ASTLINES=$( $QUERIES instrumentStartingInOrbit "$DB" $ORBIT AST)
     # The use of "instrumentInOrbit" instead of "instrumentStartingInOrbit" for MISR helps
     # prevent against edge cases
-    MISLINES=$( $QUERIES instrumentInOrbit "$DB" $2 MIS)
+    MISLINES=$( $QUERIES instrumentInOrbit "$DB" $ORBIT MIS)
+
 elif [ $INPUT_OPT == "--dir" ]; then
     # Make $DB an absolute directory
     DB="$(cd $DB && pwd)"
