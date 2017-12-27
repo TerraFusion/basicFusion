@@ -119,7 +119,7 @@ downloadPY()
     echo
 
     echo "Copying BFfile.py to site-packages..."
-    cp "$BF_PATH_l"/util/BFpy/basicFusion.py "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages
+    cp "$BF_PATH_l"/util/basicFusion/basicFusion.py "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages
     echo "Done."
     echo
 

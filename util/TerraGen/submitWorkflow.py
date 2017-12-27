@@ -130,7 +130,7 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
 
 # Even with commtransparent, NCSA told me the jobs are still causing network conjestion.
 # So they told me to add this export command. Don't know what it does.
-export APRUN_BALANCED_INJECTION 64
+export APRUN_BALANCED_INJECTION=64
 
 
 # Need to source this file before calling module command
@@ -222,7 +222,7 @@ def makePBS_push( output_granule_list, PBSpath, remote_id, host_id, remote_dir, 
 
 # Even with commtransparent, NCSA told me the jobs are still causing network conjestion.
 # So they told me to add this export command. Don't know what it does.
-export APRUN_BALANCED_INJECTION 64
+export APRUN_BALANCED_INJECTION=64
 
 ppn={}
 nodes={}
@@ -502,6 +502,7 @@ def main():
     
     # Now that all quantas have been prepared, we can submit their jobs to the queue
 
+    # Keep track of the last 2 quanta
     prevQuant=None
     prev_2_Quant=None
     for i in quantas:    

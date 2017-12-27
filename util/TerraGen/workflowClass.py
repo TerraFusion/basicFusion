@@ -33,6 +33,11 @@ class granule:
         self.outputFilePath = ''
 
         self.hash_status = -1
+        
+        # copyList will be a list that contains:
+        # 1. The list of MISR path files to copy over to the untar directory
+        # 2. Any other files that need to be copied to the untar directory
+        self.copyList = None
 
 class processQuanta:
     '''

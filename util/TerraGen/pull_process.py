@@ -13,14 +13,18 @@ import workflowClass
 import re
 import time
 
-FORMAT='%(asctime)s %(levelname)-8s %(name)s [%(filename)s:%(lineno)d] %(message)s'
-dateformat='%d-%m-%Y:%H:%M:%S'
-progName=''
-globPullLog=''
-summaryLog=''
-logDirs={}
-genFusInput = ''
-MODIS_MISSING = None
+FORMAT            = '%(asctime)s %(levelname)-8s %(name)s [%(filename)s:%(lineno)d] %(message)s'
+dateformat        = '%d-%m-%Y:%H:%M:%S'
+progName          = ''
+globPullLog       = ''
+summaryLog        = ''
+logDirs           = {}
+genFusInput       = ''
+MODIS_MISSING     = None
+logger            = None
+hashDir           = None
+STAGGER_HASH_JOBS = True    # Set to true to make master rank sleep 0.01 seconds before sending out
+                            # a hash job.
 
 #MPI Variables
 mpi_comm = MPI.COMM_WORLD
@@ -40,12 +44,187 @@ MPI_UNTAR_FAIL          = 7
 MPI_DO_COPY             = 8
 MPI_DO_GENERATE         = 9
 
+#============================================================================================
+    
+def mpi_rank_hash( data ):
+    '''
+    DESCRIPTION:
+        MPI ranks will call this function to perform a hash on a tar file.
+    ARGUMENTS:
+        data (granule object) -- A granule object that contains attributes describing
+                                 the destination granule location
+    EFFECTS:
+        None
+    RETURN:
+        Updates data.hash_status with MPI_SLAVE_HASH_FAIL or MPI_SLAVE_HASH_SUCCEED.
+        Sends data back to master rank with tag MPI_SLAVE_HASH_COMPLETE.
+    '''
+
+    # Find the appropriate hash file. First extract the orbit from the file name
+    year = int(data.orbit_start_time[0:4])
+
+    logger.info("Hashing orbit {}".format(data.orbit))
+    # We now have the year of the orbit. We have enough information to find the hash file
+    hashFile = os.path.join( hashDir, str(year), str(data.orbit) + "hash.md5" )
+
+    hasher = hashlib.md5()
+    with open( data.destTarPath, 'rb' ) as tarFile:
+        buf = tarFile.read( hashReadSize )
+        while buf:
+            hasher.update(buf)
+            buf = tarFile.read( hashReadSize )
+
+    # Get the actual hash of the tar file
+    hashHex = hasher.hexdigest()
+
+    # Read the stored hash value
+    with open( hashFile, 'r' ) as hashFile:
+        storedHash = hashFile.read()
+
+    if storedHash != hashHex:
+        logger.debug("Hashes differ! Stored: {} Generated: {}".format(storedHash, hashHex))
+        data.hash_status = MPI_SLAVE_HASH_FAIL
+        mpi_comm.send( data, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
+    else:
+        logger.debug("Hashes match.")
+        data.hash_status = MPI_SLAVE_HASH_SUCCEED
+        mpi_comm.send( data, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
+
+#============================================================================================
+def mpi_rank_untar( data ):
+    '''
+    DESCRIPTION:
+        MPI ranks will call this function to untar tar files. The tar file is described by
+        data.destTarPath, and the untarring location is described by data.untarDir.
+    ARGUMENTS:
+        data (granule object) -- Granule object whose attributes contains tar location
+                                 and the untar directory. Note that data.untarDir must already
+                                 exit.
+    EFFECTS:
+        Untars tar file at data.untarDir.
+        Deletes tar file when untarring has succeeded.
+    RETURN:
+        mpi.send the data object to master rank with tag MPI_UNTAR_FAIL upon failure.
+        None upon success.
+    '''
+    untarDir = data.untarDir
+    logger.info("Untarring {}".format( os.path.split( data.destTarPath )[1] ) )
+
+    try:
+        tar = tarfile.TarFile( data.destTarPath )
+
+        # Get all the members (stored files) of the tar file
+        tarMembers = tar.getmembers()
+
+        # For every member, extract it and destroy its directory structure
+        for member in tarMembers:
+            member.name = os.path.basename(member.name)
+            tar.extract( member, data.untarDir )
+
+    except Exception as e:
+        logger.error("Failed to untar: {}".format(data.destTarPath))
+        logger.error(str(e))
+        mpi_comm.send( data, MPI_MASTER, tag = MPI_UNTAR_FAIL )
+
+    # Now delete the tar file
+    os.remove( data.destTarPath )
+
+#==============================================================================================
+   
+def mpi_rank_generate( data ):
+    '''
+    DESCRIPTION:
+        MPI ranks will call this function to generate a single Basic Fusion granule.
+    ARGUMENTS:
+        data (granule object)   -- The granule object that contains all of the metadata necessary to generate
+                                   the BF granule.
+    EFFECTS:
+        Creates an input file list for the Basic Fusion program at data.inputFileList.
+        Generates a Basic Fusion granule at data.outputFilePath.
+    RETURN:
+        None
+    '''
+
+
+    # Need to query genFusionInput.sh to make input file. Then,
+    # call basic fusion program
+    # Make the basic fusion input file list
+  
+    
+    logger.debug("Generating BF input file for orbit {}".format(data.orbit))
+    args = [ genFusInput, data.untarDir, data.orbit, data.inputFileList, '--dir' ]
+    with open( data.logFile, 'a+' ) as logFile:
+        retCode = subprocess.call( args, stdout=logFile, stderr=logFile )
+    
+    if retCode != 0:
+        with open( summaryLog, 'a') as sumLog:
+            sumLog.write('{} input file generation error.'.format( data.orbit ))
+        logger.error("Orbit {} failed to process input file list.".format( data.orbit) )
+  
+    # Try to remove the output file if it exists. This is to prevent the BF code from breaking
+    # if the file already exists.
+    try:
+        os.remove( data.outputFilePath )
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
+
+    logger.debug("Generating BF granule orbit {}".format(data.orbit))
+    with open( data.logFile, 'w' ) as logFile:
+        args =  [ data.BF_exe, data.outputFilePath, data.inputFileList, data.orbit_times_bin ] 
+        retCode = subprocess.call( args, stdout=logFile, stderr=logFile ) 
+    if retCode != 0:
+        with open( summaryLog, 'a' ) as f:
+            print("{} granule generation error.".format( data.orbit))
+        logger.error("Orbit {} failed to generate granule.".format(data.orbit))
+
+    # Delete the untarred input data. We don't need it anymore.
+    shutil.rmtree( data.untarDir )
+
 #=========================================================================
-def worker( hashDir ):
+
+def mpi_rank_copy( data ):
+    '''
+    DESCRIPTION:
+        MPI ranks will call this function to copy a list of files to a certain directory.
+    ARGUMENTS:
+        data    -- List of tuples. Each element i contains:
+                    i[0]: File to copy
+                    i[1]: Destination file or directory
+    EFFECTS:
+        Makes copy of files to new directory
+    RETURN:
+        None
+    '''
+
+    logger.info("Copying data.")
+    for i in data:
+        shutil.copy( i[0], i[1] )
+
+    logger.info('Copying missing MODIS files.')
+
+#=========================================================================
+
+def mpi_rank_terminate( data ):
+    '''
+    DESCRIPTION:
+        This function terminates the MPI rank.
+    ARGUMENTS:
+        data    -- Not used
+    EFFECTS:
+        Sends sys.exit() to interpreter.
+    RETURN:
+        None
+    '''
+
+    logger.debug("Terminating.")
+    sys.exit()    
+ 
+#=========================================================================
+def worker():
     '''
     DESCRIPTION:
         This is the worker function for all MPI ranks designated as a slave (i.e., != 0).
-        These slaves will focus on hashing the received tar data.
     '''
 
     
@@ -59,137 +238,13 @@ def worker( hashDir ):
         stat = MPI.Status()
         mpi_comm.send( 0, dest = MPI_MASTER, tag = MPI_SLAVE_IDLE )
         data = mpi_comm.recv( source = MPI_MASTER, status=stat )
+        func = data[0]
+        data = data[1]
 
-        logger.info("Received job {}.".format(stat.Get_tag() ) )
+        logger.info("Received job {}.".format( func ) )
 
-        # ---------------
-        # - MPI_DO_HASH -
-        # ---------------
+        func( data )
 
-        if stat.Get_tag() == MPI_DO_HASH :
-            # Find the appropriate hash file. First extract the orbit from the file name
-            year = int(data.orbit_start_time[0:4])
-
-            logger.info("Hashing orbit {}".format(data.orbit))
-            # We now have the year of the orbit. We have enough information to find the hash file
-            hashFile = os.path.join( hashDir, str(year), str(data.orbit) + "hash.md5" )
-
-            hasher = hashlib.md5()
-            with open( data.destTarPath, 'rb' ) as tarFile:
-                buf = tarFile.read( hashReadSize )
-                while buf:
-                    hasher.update(buf)
-                    buf = tarFile.read( hashReadSize )
-
-            # Get the actual hash of the tar file
-            hashHex = hasher.hexdigest()
-
-            # Read the stored hash value
-            with open( hashFile, 'r' ) as hashFile:
-                storedHash = hashFile.read()
-
-            if storedHash != hashHex:
-                logger.debug("Hashes differ! Stored: {} Generated: {}".format(storedHash, hashHex))
-                data.hash_status = MPI_SLAVE_HASH_FAIL
-                mpi_comm.send( data, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
-            else:
-                logger.debug("Hashes match.")
-                data.hash_status = MPI_SLAVE_HASH_SUCCEED
-                mpi_comm.send( data, dest=MPI_MASTER, tag=MPI_SLAVE_HASH_COMPLETE)
-        
-        # ----------------
-        # - MPI_DO_UNTAR -
-        # ----------------
-
-        elif stat.Get_tag() == MPI_DO_UNTAR:
-            untarDir = data.untarDir
-            logger.info("Untarring {}".format( os.path.split( data.destTarPath )[1] ) )
-
-            try:
-                tar = tarfile.TarFile( data.destTarPath )
-
-                # Get all the members (stored files) of the tar file
-                tarMembers = tar.getmembers()
-
-                # For every member, extract it and destroy its directory structure
-                for member in tarMembers:
-                    member.name = os.path.basename(member.name)
-                    tar.extract( member, data.untarDir )
-
-            except Exception as e:
-                logger.error("Failed to untar: {}".format(data.destTarPath))
-                logger.error(str(e))
-                mpi_comm.send( data, MPI_MASTER, tag = MPI_UNTAR_FAIL )
-
-            # Now delete the tar file
-            os.remove( data.destTarPath )
-
-        # -------------------
-        # - MPI_DO_GENERATE -
-        # -------------------
-        elif stat.Get_tag() == MPI_DO_GENERATE:
-            # data is a tuple.
-            # First element:    granule class object
-            # Second element:   basicFusion executable path
-            # Third element:    genFusionInput.sh path
-            # Fourth element:   dictionary of log directories
-            # Fifth element:    path to the orbit_path_time.bin file (is simply the binary flavor of the text file version)
-
-            granule     = data
-
-            # TODO
-            # Need to query genFusionInput.sh to make input file. Then,
-            # call basic fusion program
-            # Make the basic fusion input file list
-          
-            
-            logger.debug("Generating BF input file for orbit {}".format(granule.orbit))
-            args = [ genFusInput, granule.untarDir, granule.orbit, granule.inputFileList, '--dir' ]
-            with open( granule.logFile, 'a+' ) as logFile:
-                retCode = subprocess.call( args, stdout=logFile, stderr=logFile )
-            
-            if retCode != 0:
-                with open( summaryLog, 'a') as sumLog:
-                    sumLog.write('{} input file generation error.'.format( granule.orbit ))
-                logger.error("Orbit {} failed to process input file list.".format( granule.orbit) )
-                continue
-          
-            # Try to remove the output file if it exists. This is to prevent the BF code from breaking
-            # if the file already exists.
-            try:
-                os.remove( granule.outputFilePath )
-            except OSError as e:
-                if e.errno != errno.ENOENT:
-                    raise
-
-            logger.debug("Generating BF granule orbit {}".format(granule.orbit))
-            with open( granule.logFile, 'w' ) as logFile:
-                args =  [ granule.BF_exe, granule.outputFilePath, granule.inputFileList, granule.orbit_times_bin ] 
-                retCode = subprocess.call( args, stdout=logFile, stderr=logFile ) 
-            if retCode != 0:
-                with open( summaryLog, 'a' ) as f:
-                    print("{} granule generation error.".format( granule.orbit))
-                logger.error("Orbit {} failed to generate granule.".format(granule.orbit))
-                continue
-
-            # Delete the untarred input data. We don't need it anymore.
-            shutil.rmtree( granule.untarDir )
-
-
-        # ---------------
-        # - MPI_DO_COPY -
-        # ---------------
-
-        elif stat.Get_tag() == MPI_DO_COPY:
-            logger.info("Copying data.")
-            for i in data:
-                shutil.copy( i[0], i[1] )
-
-            logger.info('Copying missing MODIS files.')
-
-        elif stat.Get_tag() == MPI_SLAVE_TERMINATE:
-            logger.debug("Terminating.")
-            return
 
 #==========================================================================
 def slaveCopyFile( copyList, orbit=0 ):
@@ -222,7 +277,7 @@ def slaveCopyFile( copyList, orbit=0 ):
     logger.debug("Sending slave {} copy job: {}.".format( stat.source, orbit ) )
 
     mpi_comm.recv( source=stat.source, tag = MPI_SLAVE_IDLE )
-    mpi_comm.send( copyList, dest = stat.source, tag = MPI_DO_COPY )
+    mpi_comm.send( (mpi_rank_copy, copyList), dest = stat.source )
 
 
 
@@ -303,7 +358,8 @@ def globusDownload( granuleList, remoteID, hostID, numTransfer, retry=False ):
     # Open the log file so that subprocesses can write to it
     with open( globPullLog, 'a' ) as log:
         for splitFile in splitList:
-            args = ['globus', 'transfer', CHECK_SUM, remoteID +':/', hostID + ':/', '--batch' ]
+            args = ['globus', 'transfer', CHECK_SUM, remoteID +':/', hostID + ':/', '--batch', \
+                    '--label', os.path.basename(splitFile).replace('.txt', '') ]
 
             logger.info("Submitting Globus transfer batch {}.".format(splitFile))            
             with open( splitFile, 'r' ) as stdinFile:
@@ -335,7 +391,8 @@ def globusDownload( granuleList, remoteID, hostID, numTransfer, retry=False ):
 
             if retCode != 0:
                 summaryLog.write("ERROR: Globus transfer failed! See {} for more details.\n".format(globPullLog))
-    
+                raise RuntimeError("Globus transfer failed.")
+ 
         # The transfers have been submitted. Need to wait for them to complete...
         for id in submitIDs:
             logger.info("Waiting for Globus task {}".format(id))
@@ -391,8 +448,13 @@ def hashCheck( granuleList ):
 
             logger.debug("Sending slave {} hash job: {}.".format( stat.source, granule.orbit ) )
 
+            # There have been issues with this script causing network congestion. NCSA suspects it is
+            # the hashing that does it. If global variable is set to true
+            if STAGGER_HASH_JOBS:
+                time.sleep(0.01)
+
             mpi_comm.recv( source=stat.source, tag = MPI_SLAVE_IDLE )
-            mpi_comm.send( granule, dest = stat.source, tag = MPI_DO_HASH )
+            mpi_comm.send( ( mpi_rank_hash, granule ), dest = stat.source )
             # Save this line in the hashing dict to keep track of what is currently being hashed
             hashing.append( granule )
 
@@ -400,7 +462,6 @@ def hashCheck( granuleList ):
         # Slave has finished hashing a file. Check its status.            
         elif stat.Get_tag() == MPI_SLAVE_HASH_COMPLETE:
             
-            # TODO
             # worker will send back the granule it was given
             recvGranule = mpi_comm.recv( source=stat.source, tag = stat.Get_tag() )
 
@@ -476,11 +537,6 @@ def submitTransfer( granuleList, remoteID, hostID, hashDir, numTransfer ):
     global globPullLog
 
     # Get a logger
-    #ch = logging.StreamHandler()    # This handler sends output to the console. 
-    #ch.setLevel(logging.DEBUG)
-    #logFormatter = logging.Formatter(FORMAT, dateformat)
-    #ch.setFormatter(logFormatter)
-    #logger.addHandler(ch)
 
     logger.info("Calling globusDownload")
     globusDownload( granuleList, remoteID, hostID, numTransfer ) 
@@ -515,22 +571,6 @@ def submitTransfer( granuleList, remoteID, hostID, hashDir, numTransfer ):
         logger.error(errMsg)
         summaryLog.write(errMsg)
 
-#==========================================================================        
-def MPI_wait():
-    '''
-    DESCRIPTION:
-        This function blocks until all slave ranks are sending the MPI_SLAVE_IDLE
-        tag.
-    ARGUMENTS:
-        None.
-    EFFECTS:
-        None.
-    RETURN:
-        None.
-    '''
-
-    for i in xrange(1, mpi_size):
-        mpi_comm.probe( source = i, tag = MPI_SLAVE_IDLE )
 
 #==========================================================================        
 def untarData( untarList ):
@@ -566,7 +606,7 @@ def untarData( untarList ):
         elif stat.Get_tag() == MPI_SLAVE_IDLE: 
             logger.info("Sending untar job {} to rank {}".format( os.path.split( i.destTarPath )[1], stat.Get_source()))        
             mpi_comm.recv( source=stat.Get_source(), tag = MPI_SLAVE_IDLE )
-            mpi_comm.send( i, dest = stat.Get_source(), tag = MPI_DO_UNTAR )
+            mpi_comm.send( (mpi_rank_untar, i), dest = stat.Get_source() )
         else: 
             errMsg='Received unexpected tag from slave {}: {}'.format( stat.Get_source(), stat.Get_tag() )
             logger.error( errMsg )
@@ -594,7 +634,7 @@ def untarData( untarList ):
     return failUntar
 
 #=========================================================================
-def slaveWait():
+def MPI_wait():
     
     # Wait for all MPI children to complete
     for i in xrange(1, mpi_size):
@@ -682,11 +722,11 @@ def slaveProcessBF( data ):
     logger.debug("Sending slave {} generate job: {}.".format( stat.source, data.orbit ) )
 
     mpi_comm.recv( source=stat.source, tag = MPI_SLAVE_IDLE )
-    mpi_comm.send( data, dest = stat.source, tag = MPI_DO_GENERATE)
+    mpi_comm.send( (mpi_rank_generate, data ), dest = stat.source )
 
 #===========================================================================
  
-def generateBF( granuleList, genFusionInput, orbit_info_bin, orbit_info_txt, BF_exe ):
+def generateBF( granuleList ):
     '''
     DESCRIPTION:
         This function generates the Basic Fusion files.
@@ -744,6 +784,10 @@ def main():
     parser.add_argument('--include-missing', help='Path to the missing MODIS files, where passed directory contains subdirectories named \
         after each orbit. Each of those subdirectories contains the MODIS files to include in the final BF granule.', type=str, \
         dest='modis_missing' )
+    group_ex = parser.add_mutually_exclusive_group()
+    group_ex.add_argument('--only-hash', help='Only perform the hash check.', dest='ONLY_HASH', action='store_true')
+    group_ex.add_argument('--only-download', help='Only download the files from the source Globus endpoint.', dest='ONLY_DOWNLOAD', \
+        action='store_true')
 
     args = parser.parse_args()
   
@@ -808,6 +852,17 @@ def main():
 
     rootLogger.setLevel(ll)
 
+    global progName 
+    progName=args.JOB_NAME
+
+    global summaryLog
+    global hashDir
+    hashDir = args.HASH_DIR
+    
+    if mpi_rank != 0:
+        worker( )
+        return
+    
     # Check that our useful variables exist in the file system
     if not os.path.isdir( projPath ):
         errMsg="The project path: {} does not exist!".format(projPath)
@@ -835,14 +890,7 @@ def main():
     if args.num_transfer < 1:
         raise ValueError("--num-transfer argument can't be less than 1!")
 
-    global progName 
-    progName=args.JOB_NAME
 
-    global summaryLog
-    
-
-    if mpi_rank != 0:
-        worker( args.HASH_DIR )
     
     # Open the summary log as a simple file
     with open( args.SUMMARY_LOG, 'a' ) as sumLog:
@@ -863,14 +911,15 @@ def main():
                 # the start time of the orbit
                 orbit_start_time = findOrbitStart( orbit, orbit_info_txt )
 
-                # directory where the untarred data will go for this granule
-                untarDir = os.path.join( args.SCRATCH_SPACE, "untarData", str(year), str(orbit) )
 
                 # BFdirStructure is the year/month/day path inside the output directory for this particular granule
                 BFdirStructure= os.path.join( str( orbit_start_time[0:4]), \
                                 str( orbit_start_time[4:6]), \
                                 str( orbit_start_time[6:8] ) )
 
+                # directory where the untarred data will go for this granule
+                untarDir = os.path.join( args.SCRATCH_SPACE, "untarData", BFdirStructure, str(orbit) )
+                
                 # outFileDir is the complete, absolute directory to store the basic fusion file in
                 outFileDir = os.path.join( BFoutputDir, BFdirStructure)
 
@@ -936,7 +985,23 @@ def main():
                 
 
                 granuleList.append( curGranule )
-       
+        
+
+        if args.ONLY_DOWNLOAD:
+            logger.info('--only-download enabled.')
+            logger.info("Calling globusDownload")
+            globusDownload( granuleList, args.REMOTE_ID, args.HOST_ID, args.num_transfer ) 
+            logger.info("globusDownload complete")
+            return
+      
+        if args.ONLY_HASH:
+            logger.info('--only-hash enabled.')
+            logger.info('Calling hashCheck()')
+            hashCheck(granuleList)
+            logger.info('hashCheck() complete.')
+            return
+
+ 
         # ===========================
         # = SUBMIT GLOBUS TRANSFERS =
         # ===========================
@@ -981,37 +1046,34 @@ def main():
                         raise ValueError(errMsg)
 
                     pathCopyList.append( (pathAbs, i.untarDir) )
-                # Send this job to the worker ranks
-                slaveCopyFile( pathCopyList, i.orbit )
 
-            pathCopyList = []
             if args.modis_missing:
-                logging.info('Copying missing MODIS files for all orbits.')
+                logger.info('Copying missing MODIS files for all orbits.')
                 orbit_dir = os.path.join( args.modis_missing, str( i.orbit ) )
                 
                 for subdir, dirs, files in os.walk( orbit_dir ):
                     for file in files:
                         pathCopyList.append( ( os.path.join( subdir, file ),  i.untarDir ) )
-                slaveCopyFile( pathCopyList, i.orbit )
                 
+            # Send this job to the worker ranks
+            slaveCopyFile( pathCopyList, i.orbit )
                     
-        # ============================
-        # = COPY MISSING MODIS FILES =
-        # ============================
-        # If the modis_missing parameter is given, we need to copy over these files
-        
 
         # Wait for all slaves to complete
-        slaveWait()
+        MPI_wait()
 
-        generateBF( granuleList, genFusInput, orbit_info_bin, orbit_info_txt, BF_exe )
+        for granule in granuleList:
+            slaveProcessBF( granule )
+
+        
+        # Wait for all slaves to finish computation
+        MPI_wait()
 
         # Pickle the granuleList. This is done because I may make generateBF() a separate script, and would
         # need to pass around a pickle instead of the actual list.
         logger.info("Saving the input data list pickle at {}".format(args.OUT_GRAN_LIST))
         with open( args.OUT_GRAN_LIST, 'wb' ) as f:
             pickle.dump( granuleList, f )
-
 
  
 if __name__ == '__main__': 
@@ -1022,16 +1084,13 @@ if __name__ == '__main__':
         logger.exception( "Encountered exception." )
         mpi_comm.Abort()
     finally:     
-        # I'm having issues with the processes not gracefully terminating. So, let's just call abort
-        # to clear out all processes whether or not an exception happens.
         logger.info("Successful completion")
-        mpi_comm.Abort()
    
-        #if mpi_rank == 0:
+        if mpi_rank == 0:
             # We need to terminate all slaves, or else the entire process might hang!
             # mpi_comm.Abort()
-            #for i in xrange(1, mpi_size ):
-                #logger.debug("Terminating slave {}".format(i))
-                #mpi_comm.recv( source = i, tag = MPI_SLAVE_IDLE )
-                #mpi_comm.send( 0, dest = i, tag = MPI_SLAVE_TERMINATE )
+            for i in xrange(1, mpi_size ):
+                logger.debug("Terminating slave {}".format(i))
+                mpi_comm.recv( source = i, tag = MPI_SLAVE_IDLE )
+                mpi_comm.send( 0, dest = i, tag = MPI_SLAVE_TERMINATE )
 

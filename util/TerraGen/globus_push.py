@@ -23,8 +23,6 @@ def main():
         will be transferred to. This directory will be populated with the canonical BasicFusion directory structure.", \
         type=str )
     parser.add_argument("HOST_ID", help="The Globus endpoint identifier of the machine running this script.", type=str )
-        qsubCall = 'cd {} && qsub -W depend={}:{} {}'.format( os.path.dirname(i.PBSfile['push']),  qsub_dep_specifier, \
-                                                              i.jobID['pull'], i.PBSfile['push']) 
     parser.add_argument("JOB_NAME", help="A name for this  job. Used to make unique log files, intermediary files, and any \
         other unique identifiers needed.", type=str)
     parser.add_argument("LOG_TREE", help="A Python pickle of the job log dictionary.", type=str)
@@ -144,7 +142,8 @@ def main():
 
     for i in splitList:
     
-        subprocCall = ['globus', 'transfer', CHECK_SUM, args.HOST_ID +':/', args.REMOTE_ID + ':/', '--batch', '--label', args.JOB_NAME ]
+        subprocCall = ['globus', 'transfer', CHECK_SUM, args.HOST_ID +':/', args.REMOTE_ID + ':/', '--batch', \
+                       '--label', os.path.basename(i).replace('.txt', '') ]
         with open( i, 'r' ) as stdinFile:
             subProc = subprocess.Popen( subprocCall, stdin=stdinFile, stdout=subprocess.PIPE, stderr=subprocess.PIPE ) 
             subProc.wait()
