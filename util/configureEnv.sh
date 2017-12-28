@@ -118,6 +118,16 @@ downloadPY()
     echo "Done."
     echo
 
+    echo "Downloading pdoc..."
+    pip install pdoc
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the pdoc module." >&2
+        return $retVal_l
+    fi
+    echo "Done."
+    echo
+
     echo "Copying basicFusion Python package to site-packages..."
     cp -r "$BF_PATH_l"/util/basicFusion "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages
     cp "$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.txt "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages/basicFusion/

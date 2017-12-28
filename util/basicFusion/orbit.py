@@ -2,6 +2,9 @@ import sys, os
 import re
 import basicFusion.constants as constants
 
+__author__ = 'Landon T. Clipp'
+__email__  = 'clipp2@illinois.edu'
+
 MOP_re='^MOP01-[0-9]+-L[0-9]+V[0-9]+.[0-9]+.[0-9]+.he5$'
 CER_re='^CER_SSF_Terra-FM[0-9]-MODIS_Edition[0-9]+A_[0-9]+.[0-9]+$'
 MOD_re='^MOD0((21KM)|(2HKM)|(2QKM)|(3)).A[0-9]+.[0-9]+.[0-9]+.[0-9]+.hdf$'
@@ -37,17 +40,21 @@ _orbitYear = { 2000 : { 'start' : 1000, 'end' : 5528 }, \
 
 def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_TXT ):
     '''
-    DESCRIPTION:
-        This function finds the starting time of the orbit according to the Orbit_Info.txt file. Please
-        see the GitHub documentation on how to generate this file.
-    ARGUMENTS:
-        orbit (int) -- Orbit to find starting time of
-        orbit_info (str)    -- Path to the orbit_info.txt file
-    EFFECTS:
-        None
-    RETURN:
-        String containing the starting time.
-    '''
+**DESCRIPTION:**  
+    This function finds the starting time of the orbit according to the Orbit_Info.txt file. Please
+    see the GitHub documentation on how to generate this file.
+    
+**ARGUMENTS:**  
+    *orbit (int)* -- Orbit to find starting time of  
+    *orbit_info (str)*    -- Path to the orbit_info.txt file
+    
+**EFFECTS:**  
+    None
+    
+**RETURN:**   
+    String containing the starting time in the format yyyymmddHHMMSS.
+    
+'''
 
     with open( orbit_info, 'r') as file:
         for line in file:
@@ -68,15 +75,18 @@ def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_TXT ):
 
 def orbitYear( orbit ):
     '''
-    DESCRIPTION:
-        Returns the year that orbit belongs to.
-    ARGUMENTS:
-        orbit (int) -- Terra orbit
-    EFFECTS:
-        None
-    RETURN:
-        Year that orbit belongs to.
-        -1 on failure.
+**DESCRIPTION:**  
+    Returns the year that orbit belongs to.
+    
+**ARGUMENTS:**  
+    *orbit (int)* -- Terra orbit
+    
+**EFFECTS:**  
+    None
+    
+**RETURN:**  
+    Year that orbit belongs to.      
+    -1 on failure.
     '''
 
     for i in xrange( _orbitYear['yearLimits']['start'], _orbitYear['yearLimits']['end']):
@@ -87,15 +97,18 @@ def orbitYear( orbit ):
 
 def makeRunDir( dir ):
     '''
-    DESCRIPTION:
-        This function makes a directory called run# where # is the first integer greater than any other run# in
-        the directory given by the argument dir.
-    ARGUMENTS:
-        dir (str)   -- Directory to create the run#.
-    EFFECTS:
-        Creates a directory.
-    RETURN:
-        Returns the full path of the newly created directory.
+**DESCRIPTION:**  
+    This function makes a directory called run# where # is the first integer greater than any other run# in
+    the directory given by the argument dir.
+    
+**ARGUMENTS:**  
+    *dir (str)*   -- Directory to create the run#.
+    
+**EFFECTS:**  
+    Creates a directory.
+
+**RETURN:**  
+    Returns the full path of the newly created directory.
     '''
 
     if not isinstance(dir, basestring):
@@ -121,24 +134,25 @@ def makeRunDir( dir ):
     return newDir
          
 def findProcPartition( numProcess, numTasks):
-    """DESCRIPTION:
-        This function implements a bin-packing algorithm. It attempts
-        to fill numProcess number of bins with numTasks number of elements
-        as evenly as possible. This can be used for non-dynamic load balancing
-        MPI programs.
+    '''
+**DESCRIPTION:**  
+    This function implements a bin-packing algorithm. It attempts
+    to fill numProcess number of bins with numTasks number of elements
+    as evenly as possible. This can be used for non-dynamic load balancing
+    MPI programs.
     
-    ARGUMENTS:
-        numProcess (int) -- The number of MPI processes (i.e. the number of 
-                            bins to fill)
-        numTasks   (int) -- Number of individual tasks to perform
+**ARGUMENTS:**   
+    *numProcess (int)* -- The number of MPI processes (i.e. the number of 
+                        bins to fill)  
+    *numTasks   (int)* -- Number of individual tasks to perform
 
-    EFFECTS:
-        None
+**EFFECTS:**    
+    None
 
-    RETURN:
-        Returns a list of size numProcess. Each element in the list tells how 
-        many orbits each MPI process will handle.
-    """
+**RETURN:**    
+    Returns a list of size numProcess. Each element in the list tells how 
+    many orbits each MPI process will handle.
+    '''
 
     processBin = [ 0 ] * numProcess     # Each element tells which process how many orbits it should handle
     
@@ -155,29 +169,32 @@ def findProcPartition( numProcess, numTasks):
     return processBin
 
 def isBFfile( file_list ):
-    '''DESCRIPTION:
-        This function takes as input a list of strings containing a file path 
-        and determines, based on a regex pattern, if the file is or is not a 
-        'proper' Basic Fusion file. What constitutes a proper BF file is 
-        documented on this project's GitHub.
-    ARGUMENTS:
-        file_list (list)  -- A list of filenames or file paths.
-    
-    EFFECTS:
-        None
-    RETURN:
-        A list of integers of size len( file_list ), where each element 
-        directly corresponds to the elements in file_list.
-        For each element:
-        -1 indicates that the file is not proper.
-        0 indicates a proper MOPITT file match.
-        1 indicates a proper CERES file match.
-        2 indicates a proper MODIS file match.
-        3 indicates a proper ASTER file match.
-        4 indicates a proper MISR GRP file match.
-        5 indicates a proper MISR AGP file match.
-        6 indicates a proper MISR GMP file match.
-        7 indicates a proper MISR HRLL file match.
+    '''
+**DESCRIPTION:**  
+    This function takes as input a list of strings containing a file path 
+    and determines, based on a regex pattern, if the file is or is not a 
+    'proper' Basic Fusion file. What constitutes a proper BF file is 
+    documented on this project's GitHub.
+
+**ARGUMENTS:**  
+    *file_list (list)*  -- A list of filenames or file paths.
+
+**EFFECTS:**  
+    None
+
+**RETURN:**  
+    A list of integers of size len( file_list ), where each element 
+    directly corresponds to the elements in file_list.  
+    For each element:  
+    -1 indicates that the file is not proper.  
+    0 indicates a proper MOPITT file match.  
+    1 indicates a proper CERES file matchh.  
+    2 indicates a proper MODIS file match.  
+    3 indicates a proper ASTER file match.  
+    4 indicates a proper MISR GRP file match.  
+    5 indicates a proper MISR AGP file match.  
+    6 indicates a proper MISR GMP file match.  
+    7 indicates a proper MISR HRLL file match.  
     '''
 
     if type( file_list ) is not list:
