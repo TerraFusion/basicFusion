@@ -6,7 +6,7 @@ import subprocess
 from subprocess import PIPE
 from mpi4py import MPI
 import hashlib
-from basicFusion import orbitYear
+from basicFusion.orbit import orbitYear
 import tarfile
 import shutil
 import workflowClass

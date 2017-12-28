@@ -122,19 +122,22 @@ def makeRunDir( dir ):
          
 def findProcPartition( numProcess, numTasks):
     """DESCRIPTION:
-        This function determines which MPI processes will be responsible for how many orbits. It loops through the
-        list "orbits" and increments each element in the "processBin" list, up to len(orbits) number of orbits.
+        This function implements a bin-packing algorithm. It attempts
+        to fill numProcess number of bins with numTasks number of elements
+        as evenly as possible. This can be used for non-dynamic load balancing
+        MPI programs.
     
     ARGUMENTS:
-        numProcess (int)        -- The number of MPI processes (i.e. the number of bins to fill with orbits)
-        numTasks                -- Number of individual tasks to perform
+        numProcess (int) -- The number of MPI processes (i.e. the number of 
+                            bins to fill)
+        numTasks   (int) -- Number of individual tasks to perform
 
     EFFECTS:
         None
 
     RETURN:
-        Returns a list of size numProcess. Each element in the list tells how many orbits each MPI process will
-        handle.
+        Returns a list of size numProcess. Each element in the list tells how 
+        many orbits each MPI process will handle.
     """
 
     processBin = [ 0 ] * numProcess     # Each element tells which process how many orbits it should handle
@@ -147,20 +150,24 @@ def findProcPartition( numProcess, numTasks):
             pIndex = 0
 
         processBin[pIndex] = processBin[pIndex] + 1
-        pIndex = pIndex + 1
+        pIndex += 1
 
     return processBin
 
 def isBFfile( file_list ):
-    """DESCRIPTION:
-        This function takes as input a list of strings containing a file path and determines, based on a regex pattern, if the file is or is not a \"proper\" Basic Fusion file. What constitutes a proper BF file is documented on this project's GitHub.
+    '''DESCRIPTION:
+        This function takes as input a list of strings containing a file path 
+        and determines, based on a regex pattern, if the file is or is not a 
+        'proper' Basic Fusion file. What constitutes a proper BF file is 
+        documented on this project's GitHub.
     ARGUMENTS:
-        file_list (list)  -- A list of filenames or filepaths.
+        file_list (list)  -- A list of filenames or file paths.
     
     EFFECTS:
         None
     RETURN:
-        A list of integers of size len( file_list ), where each element directly corresponds to the elements in file_list.
+        A list of integers of size len( file_list ), where each element 
+        directly corresponds to the elements in file_list.
         For each element:
         -1 indicates that the file is not proper.
         0 indicates a proper MOPITT file match.
@@ -171,16 +178,15 @@ def isBFfile( file_list ):
         5 indicates a proper MISR AGP file match.
         6 indicates a proper MISR GMP file match.
         7 indicates a proper MISR HRLL file match.
-    """
+    '''
+
+    if type( file_list ) is not list:
+        raise TypeError("Argument 'file_list' is not a list.")
 
     isProper = []
 
-
-    # It's more efficient to match one large regular expression than many smaller ones. 
-    # Combine all of the above regex into one.
-    #hugeRE='(' + ')|('.join([ MOP_re, CER_re, MOD_re, AST_re, MIS_re1, MIS_re2, MIS_re3, MIS_re4]) + ')'
-
     for f in file_list:
+        
         # Strip the path
         fname = os.path.basename( f ).strip()
         

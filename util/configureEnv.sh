@@ -118,7 +118,7 @@ downloadPY()
     echo "Done."
     echo
 
-    echo "Copying BFfile.py to site-packages..."
+    echo "Copying basicFusion Python package to site-packages..."
     cp -r "$BF_PATH_l"/util/basicFusion "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages
     cp "$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.txt "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages/basicFusion/
     echo "Done."
