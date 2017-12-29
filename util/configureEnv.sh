@@ -47,90 +47,108 @@ downloadPY()
     echo "Downloading dependencies"
     echo
 
-    echo "Downloading docopt..."
-    pip install docopt
-    retVal_l=$?
-    if [ $retVal_l -ne 0 ]; then
-        echo "Failed to download the docopt module." >&2
-        return $retVal_l
-    fi
-    echo "Done."
-    echo
-
-    echo "Downloading pytz..."
-    pip install pytz 
-    retVal_l=$?
-    if [ $retVal_l -ne 0 ]; then
-        echo "Failed to download the pytz module." >&2
-        return $retVal_l
-    fi
-    echo "Done."
-    echo
-
-    echo "Downloading globus-sdk..."
-    pip install globus-sdk
+    cur_mod="docopt"
+    echo "Downloading $cur_mod..."
+    pip install $cur_mod
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
-        echo "Failed to download the Globus SDK module." >&2
+        echo "Failed to download the $cur_mod module." >&2
         return $retVal_l
     fi
     echo "Done."
     echo
 
-    echo "Downloading globus-cli..."
-    pip install globus-cli
+    cur_mod="pytz"
+    echo "Downloading $cur_mod..."
+    pip install $cur_mod
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
-        echo "Failed to download the Globus CLI module." >&2
+        echo "Failed to download the $cur_mod module." >&2
         return $retVal_l
     fi
     echo "Done."
     echo
 
-
-    echo "Downloading mpi4py..."
-    pip install mpi4py
+    cur_mod="globus-sdk"
+    echo "Downloading $cur_mod..."
+    pip install $cur_mod
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
-        echo "Failed to download the mpi4py module." >&2
+        echo "Failed to download the $cur_mod module." >&2
         return $retVal_l
     fi
     echo "Done."
     echo
 
-    echo "Downloading numpy..."
-    pip install numpy
+    cur_mod="globus-cli"
+    echo "Downloading $cur_mod..."
+    pip install $cur_mod
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
-        echo "Failed to download the numpy module." >&2
+        echo "Failed to download the $cur_mod module." >&2
         return $retVal_l
     fi
     echo "Done."
     echo
 
-    echo "Downloading matplotlib..."
-    pip install matplotlib
+    cur_mod="mpi4py"
+    echo "Downloading $cur_mod..."
+    pip install $cur_mod
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
-        echo "Failed to download the matplotlib module." >&2
+        echo "Failed to download the $cur_mod module." >&2
         return $retVal_l
     fi
     echo "Done."
     echo
 
-    echo "Downloading pdoc..."
-    pip install pdoc
+    cur_mod="numpy"
+    echo "Downloading $cur_mod..."
+    pip install $cur_mod
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
-        echo "Failed to download the pdoc module." >&2
+        echo "Failed to download the $cur_mod module." >&2
         return $retVal_l
     fi
     echo "Done."
     echo
 
-    echo "Copying basicFusion Python package to site-packages..."
-    cp -r "$BF_PATH_l"/util/basicFusion "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages
-    cp "$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.txt "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages/basicFusion/
+    cur_mod="matplotlib"
+    echo "Downloading $cur_mod..."
+    pip install $cur_mod
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the $cur_mod module." >&2
+        return $retVal_l
+    fi
+    echo "Done."
+    echo
+
+    cur_mod="pdoc"
+    echo "Downloading $cur_mod..."
+    pip install $cur_mod
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the $cur_mod module." >&2
+        return $retVal_l
+    fi
+    echo "Done."
+    echo
+
+    cur_mod="pytest"
+    echo "Downloading $cur_mod..."
+    pip install $cur_mod
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the $cur_mod module." >&2
+        return $retVal_l
+    fi
+    echo "Done."
+    echo
+
+    echo "Copying bfutil Python package to site-packages..."
+    cp -r "$BF_PATH_l"/util/basicfusion_py/src/bfutils "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages
+    cp "$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.txt "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages/bfutils/
     echo "Done."
     echo
 

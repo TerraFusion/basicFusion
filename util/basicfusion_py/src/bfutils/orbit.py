@@ -1,6 +1,6 @@
 import sys, os
 import re
-import basicFusion.constants as constants
+import bfutils.constants as constants
 
 __author__ = 'Landon T. Clipp'
 __email__  = 'clipp2@illinois.edu'
@@ -18,7 +18,7 @@ MIS_re_HRLL='^MISR_HRLL_P[0-9]{3}.hdf$'
 # = Define what orbits belong to what year =
 # ==========================================
 
-_orbitYear = { 2000 : { 'start' : 1000, 'end' : 5528 }, \
+_orbit_limits = { 2000 : { 'start' : 1000, 'end' : 5528 }, \
               2001 : { 'start' : 5529, 'end' : 10844 }, \
               2002 : { 'start' : 10845, 'end' : 16159 }, \
               2003 : { 'start' : 16160, 'end' : 21474 }, \
@@ -41,7 +41,7 @@ _orbitYear = { 2000 : { 'start' : 1000, 'end' : 5528 }, \
 def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_TXT ):
     '''
 **DESCRIPTION:**  
-    This function finds the starting time of the orbit according to the Orbit_Info.txt file. Please
+    This function finds the starting time of the orbit according to the Orbit_Path_Info.txt file. Please
     see the GitHub documentation on how to generate this file.
     
 **ARGUMENTS:**  
@@ -56,6 +56,10 @@ def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_TXT ):
     
 '''
 
+    if orbit < _orbit_limits['orbitLimits']['start'] or \
+       orbit > _orbit_limits['orbitLimits']['end']:
+        raise ValueError("Argument 'orbit' is outside the supported bounds.")
+ 
     with open( orbit_info, 'r') as file:
         for line in file:
             if re.search( "^{}".format(orbit), line ):
@@ -89,8 +93,8 @@ def orbitYear( orbit ):
     -1 on failure.
     '''
 
-    for i in xrange( _orbitYear['yearLimits']['start'], _orbitYear['yearLimits']['end']):
-        if orbit >= _orbitYear[i]['start'] and orbit <= _orbitYear[i]['end']:
+    for i in xrange( _orbit_limits['yearLimits']['start'], _orbit_limits['yearLimits']['end']):
+        if orbit >= _orbit_limits[i]['start'] and orbit <= _orbit_limits[i]['end']:
             return i
 
     raise ValueError("Orbit {} outside the range of accepted values!".format(orbit))
@@ -112,7 +116,7 @@ def makeRunDir( dir ):
     '''
 
     if not isinstance(dir, basestring):
-        raise ValueError("Passed argument \'dir\' is not a string!")
+        raise TypeError("Passed argument \'dir\' is not a string!")
 
     greatestSeen=-1
     runRE='^run[0-9]+$'
