@@ -55,22 +55,26 @@
       <ParameterName>Granule QA</ParameterName>
       <QAFlags>
         <AutomaticQualityFlag>Suspect</AutomaticQualityFlag>
+        <!-- What does it mean? Where it came from? -->
         <AutomaticQualityFlagExplanation>All MODIS data is classified suspect at this point Set QA flag to pass if geolocation can be performed on one footprint   Exhau SS4.5-6:</AutomaticQualityFlagExplanation>
       </QAFlags>
     </MeasuredParameter>
     <MeasuredParameter>
       <ParameterName>Radiance</ParameterName>
       <QAStats>
+        <!-- We need to understand this. -->
         <QAPercentMissingData>1</QAPercentMissingData>
         <QAPercentOutOfBoundsData>0</QAPercentOutOfBoundsData>
         <QAPercentInterpolatedData>0</QAPercentInterpolatedData>
         <QAPercentCloudCover>42</QAPercentCloudCover>
       </QAStats>
       <QAFlags>
+        <!-- Get the definition of thses from guide. -->
         <AutomaticQualityFlag>Suspect</AutomaticQualityFlag>
         <AutomaticQualityFlagExplanation>Process Terminated Normally - Check Science Quality Flag for Science Team quality assessment</AutomaticQualityFlagExplanation>
         <OperationalQualityFlag>Passed</OperationalQualityFlag>
         <OperationalQualityFlagExplanation>Process Terminated Normally - Check Science Quality Flag for Science Team quality assessment</OperationalQualityFlagExplanation>
+        <!-- Ask Guang Yu. How should we handle this correctly? -->
         <ScienceQualityFlag>Passed</ScienceQualityFlag>
         <ScienceQualityFlagExplanation>Data has not been validated.  Consult the product quality statement.</ScienceQualityFlagExplanation>
       </QAFlags>
