@@ -105,6 +105,7 @@
                     </OperationModes>
                 </Instrument>
                 <Instrument>
+                    <!-- Shouldn't it be CERES? -->
                     <ShortName>CERES-FM1</ShortName>
                     <LongName>Clouds and the Earth's Radiant Energy System FM1</LongName>
                     <Characteristics/>
@@ -114,6 +115,7 @@
                             <LongName>CERES sensor</LongName>
                             <Characteristics/>
                         </Sensor>
+                        <!-- How about CERES-FM2? -->
                     </Sensors>
                     <OperationModes/>
                 </Instrument>
