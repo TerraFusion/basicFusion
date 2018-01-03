@@ -15,22 +15,27 @@
     <!-- Check date and see if it needs to be corrected. -->
     <RevisionDate>2011-06-21T07:08:05.192Z</RevisionDate>
     <ProcessingCenter>NCSA</ProcessingCenter>
+    <!-- Review 2P -->
     <ProcessingLevelId>2P</ProcessingLevelId>
-    <ArchiveCenter>PO.DAAC</ArchiveCenter>
-    <DataFormat>NETCDF</DataFormat>
+    <ArchiveCenter>ASDC</ArchiveCenter>
+    <DataFormat>HDF5</DataFormat>
+    <!-- Check orbit or global -->
     <SpatialKeywords>
         <Keyword>Global</Keyword>
     </SpatialKeywords>
+    <!-- There might be some key words we can provide. -->
     <TemporalKeywords/>
     <Temporal>
         <RangeDateTime>
+            <!-- Correct Beginning date. -->
             <BeginningDateTime>2006-06-30T00:00:07.000Z</BeginningDateTime>
         </RangeDateTime>
     </Temporal>
   <Contacts> 
         <Contact> 
+            <!-- Check the vocabulary. -->
             <Role>Archiver</Role> 
-            <OrganizationName> Department of Atmospheric Sciences and National Center of Supercomputing Applications, University of Illinois at Urbana-Champaign/ The HDF Group 
+            <OrganizationName> Department of Atmospheric Sciences and National Center of Supercomputing Applications, University of Illinois at Urbana-Champaign / The HDF Group 
             </OrganizationName> 
             <OrganizationAddresses> 
                 <Address>
@@ -64,12 +69,14 @@
     </Contacts> 
     <ScienceKeywords>
         <ScienceKeyword>
+            <!-- Cross check with Guang Yu -->
             <CategoryKeyword>ATMOSPHERIC SCIENCE</CategoryKeyword>
             <TopicKeyword>ATMOSPHERE</TopicKeyword>
             <TermKeyword>CLOUD DETECTION</TermKeyword>
             <VariableLevel1Keyword>
                 <Value>RADIANCE</Value>
             </VariableLevel1Keyword>
+            <!-- This doesn't make sense.  -->
             <DetailedVariableKeyword>CHLOROPHYLL</DetailedVariableKeyword>
         </ScienceKeyword>
     </ScienceKeywords>
