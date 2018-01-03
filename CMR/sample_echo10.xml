@@ -83,6 +83,7 @@
     <Platforms>
         <Platform>
             <ShortName>TERRA</ShortName>
+            <!-- LongName should be more descriptive. -->
             <LongName>TERRA</LongName>
             <Type>SPACECRAFT</Type>
             <Characteristics/>
