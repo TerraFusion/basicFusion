@@ -217,6 +217,7 @@
             <Type>Organization Home Page</Type>
         </OnlineResource>
     </OnlineResources>
+    <!-- Ask Guang Yu to see if numbers are right. -->
     <Spatial>
         <SpatialCoverageType>Horizontal</SpatialCoverageType>
         <OrbitParameters>
