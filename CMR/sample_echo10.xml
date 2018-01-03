@@ -15,8 +15,8 @@
     <!-- Check date and see if it needs to be corrected. -->
     <RevisionDate>2011-06-21T07:08:05.192Z</RevisionDate>
     <ProcessingCenter>NCSA</ProcessingCenter>
-    <!-- Review 2P -->
-    <ProcessingLevelId>2P</ProcessingLevelId>
+    <!-- Review 1B -->
+    <ProcessingLevelId>1B</ProcessingLevelId>
     <ArchiveCenter>ASDC</ArchiveCenter>
     <DataFormat>HDF5</DataFormat>
     <!-- Check orbit or global -->
@@ -76,6 +76,7 @@
             <VariableLevel1Keyword>
                 <Value>RADIANCE</Value>
             </VariableLevel1Keyword>
+            <!-- Check with Guang Yu end --->
             <!-- This doesn't make sense.  -->
             <DetailedVariableKeyword>CHLOROPHYLL</DetailedVariableKeyword>
         </ScienceKeyword>
@@ -107,11 +108,13 @@
                 <Instrument>
                     <!-- Shouldn't it be CERES? -->
                     <ShortName>CERES-FM1</ShortName>
+                    <!-- Should FM1 be described? -->
                     <LongName>Clouds and the Earth's Radiant Energy System FM1</LongName>
                     <Characteristics/>
                     <Sensors>
                         <Sensor>
                             <ShortName>CERES-FM1</ShortName>
+                            <!-- Is this right? -->
                             <LongName>CERES sensor</LongName>
                             <Characteristics/>
                         </Sensor>
@@ -134,6 +137,7 @@
                         <OperationMode>Normal</OperationMode>
                     </OperationModes>
                 </Instrument>
+                <!-- All instrument should be checked with Guang Yu. -->
                 <Instrument>
                     <ShortName>ASTER</ShortName>
                     <LongName> Advanced Spaceborne Thermal Emission and Reflection Radiometer</LongName>
