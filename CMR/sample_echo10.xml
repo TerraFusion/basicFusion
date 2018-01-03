@@ -9,7 +9,7 @@
     
     <LongName>The Terra Basic Fusion L1B Radiance</LongName>
     <DataSetId>TERRA_BF_L1B</DataSetId>
-    <Description>A Basic Terra Fusion granule contains one Terra orbit of radiometrically and georectified calibrated radiance measurements from all the five Terra instruments, namely, MOPITT, CERES, MISR, ASTER and MISR. The geolocation information for each radiance pixel at its native resolution is also provided.</Description>
+    <Description>A Basic Terra Fusion granule contains one Terra orbit of radiometrically and georectified calibrated radiance measurements from all the five Terra instruments, namely, MOPITT, CERES, MISR, ASTER and MODIS. The geolocation information for each radiance pixel at its native resolution is also provided.</Description>
     <Orderable>false</Orderable>
     <Visible>true</Visible>
     <RevisionDate>2011-06-21T07:08:05.192Z</RevisionDate>
