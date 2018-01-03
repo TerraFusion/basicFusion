@@ -94,7 +94,7 @@
                     <Characteristics/>
                     <Sensors>
                         <Sensor>
-                            <!-- This doesn't make sense. -->
+                            <!-- Correct it to MOPITT. -->
                             <ShortName>MOPIT</ShortName>
                             <LongName>Measurements Of Pollution In The Troposphere</LongName>
                             <Characteristics/>
