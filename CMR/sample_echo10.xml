@@ -180,6 +180,7 @@
         </Coordinate2>
     </TwoDCoordinateSystem>
     </TwoDCoordinateSystems>
+    <!-- Can it be skipped? Not Available OK? -->
     <OnlineAccessURLs>
         <OnlineAccessURL>
             <URL>https://www2.acom.ucar.edu/mopitt</URL>
@@ -202,7 +203,9 @@
             <URLDescription>MODIS Mission</URLDescription>
         </OnlineAccessURL>
     </OnlineAccessURLs>
-    <OnlineResources>
+    
+    <!-- Know the exact meaning. -->
+        <OnlineResources>
         <OnlineResource>
             <URL>http://www.ncsa.illinois.edu/</URL>
             <Description>NCSA homepage</Description>
