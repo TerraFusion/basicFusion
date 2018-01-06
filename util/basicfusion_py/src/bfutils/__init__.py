@@ -1,7 +1,8 @@
 import os
 
 from bfutils.orbit import *
-import bfutils.globus as globus
+from bfutils import globus
+from bfutils import workflow
 
 # Check for some necessary conditions on import
 from bfutils.constants import ORBIT_INFO_TXT as orbit_txt
