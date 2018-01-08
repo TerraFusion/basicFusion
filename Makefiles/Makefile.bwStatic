@@ -4,7 +4,9 @@
 
 # MODIFY THIS VARIABLE
 #----------------------------
-BFDIR=$(HOME)/basicFusion/  
+
+#BFDIR should be an absolute path to your basicFusion directory
+BFDIR=  
 #----------------------------
 
 CC=gcc
