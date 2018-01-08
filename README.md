@@ -27,9 +27,9 @@ In addition to the C dependencies, many of the Python scripts depend on external
     ```
     ./configureEnv.sh -a
     ```
-    This will download the Python dependencies and install [NCSA Scheduler](https://github.com/ncsa/Scheduler) to the basicFusion/externLib directory. This script requires proper visibility to a system MPI library to install mpi4py. If mpi4py installation fails, please ensure you have a proper MPI environment module loaded.
+    This will download the Python dependencies, install [NCSA Scheduler](https://github.com/ncsa/Scheduler), and download/install HDF libraries to the basicFusion/externLib directory. This script requires proper visibility to a system MPI library to install mpi4py. If mpi4py installation fails, please ensure you have a proper MPI environment module loaded.
     
-This script installs a helper script in ~/bin/ that aids in quickly activating the Python virtual environment. Activating the virtual environment is thus as simple as:
+A helper script is instaled in ~/bin/ that aids in activating the Python virtual environment. The virtual environment can then be activated by:
 
 ```
 source activateBF
@@ -44,12 +44,11 @@ source /path/to/basicFusion/externLib/BFpyEnv/bin/activate
 ### Compilation
 
 The following steps need to be followed to compile the BF program:
-1. Compile the required HDF4 4.2.13 and HDF5 1.8.16 from source, linking against system zlib and, optionally, szip.
-2. Copy one of the provided BW makefiles under `basicFusion/Makefiles` to the `basicFusion` directory. Modify the Makefile to point to your user-installed HDF4 and HDF5 libraries.
-3. Ensure gcc is being used to compile and link. Do *not* use the `cc` wrapper as recommended by Blue Waters.
-4. Run `make`
+1. Compile the required HDF4 4.2.13 and HDF5 1.8.16 from source, linking against system zlib and, optionally, szip. This should have been accomplished with configureEnv.sh.
+2. `cp basicFusion/Makefiles/Makefile.bwStatic basicFusion/Makefile`. Modify the variables in Makefile under `MODIFY THIS VARIABLE` as indicated by the comments.
+3. Run `make`
 
-Compilation will likely not succeed on the first try, so some tinkering may need to be done.
+Compilation will likely not succeed on the first try, so some tinkering with makefiles and libraries may need to be done.
 
 Please see KNOWN ISSUES for issues specific to compiling the BF program.
 
