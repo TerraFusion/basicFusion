@@ -38,15 +38,12 @@ class JobChain(object):
         self._num_vert = 0
  
     #====================================================================
-    def set_sched( self, sched_cmd, check_valid = True ):
+    def set_sched( self, sched_type):
         '''
 **DESCRIPTION**  
-    Set the command line job scheduler executable that this class will
-    use for submitting jobs.  
+    Set the job scheduler type.  
 **ARGUMENTS**  
-    *sched_cmd* (str)    -- Command line executable to submit jobs to  
-    *check_valid (Bool) -- Perform check to see if executable is currently
-        visible.  
+    *sched_type* (str)    -- Command line executable to submit jobs to  
 **EFFECTS**  
     Sets self's scheduler command attribute.  
 **RETURN**  
@@ -55,14 +52,12 @@ class JobChain(object):
         if type is None:
             return
 
-        if check_valid:
-            retval = subprocess.call( ['which', sched_cmd] )
-            if retval != 0:
-                raise RuntimeError('Could not find the {} executable. \
-                    Set check_valid = False to disable this check.'\
-                    .format( sched_cmd ))
+        valid_sched = ['PBS']
 
-        self._sched_cmd = sched_cmd
+        if sched_type not in valid_sched:
+            raise ValueError('Invalid scheduler type.')
+
+        self._sched_type = sched_type
 
     #====================================================================   
     

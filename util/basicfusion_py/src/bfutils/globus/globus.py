@@ -3,6 +3,7 @@ import os
 import errno
 from dateutil.parser import parse
 import subprocess
+import re
 
 __author__ = 'Landon T. Clipp'
 __email__  = 'clipp2@illinois.edu'
@@ -13,9 +14,6 @@ class GlobusTransfer:
     This class interacts with the CLI via subprocesses.
     '''
     def __init__(self, sourceID, destID ):
-        # TODO
-        # Add runtime check to see if the globus CLI is visible
-
         self.sourceID = sourceID
         self.destID = destID
         self._file_list = []
@@ -62,8 +60,8 @@ Initiate a Globus transfer request using the files in self's file list.
                               the file between source and dest match. If
                               they differ, automatically retry file until
                               this check succeeds.
-    *deadline (str)* -- The ISO formatted deadline for the transfer. Can't be larger than
-                      30 days from present.  
+    *deadline (str)* -- Transfer deadline in the format 'YYYY-MM-DD hh:mm:ss'.
+                        Can't be larger than 30 days from present.  
     *label (str)*    -- The label for the transfer. Defines the name for the batch
                       transfer files and to Globus itself. Non-unique
                       names may cause old batch files to be overwritten.  
@@ -118,8 +116,8 @@ Initiate a Globus transfer request using the files in self's file list.
         # =======================
 
         # Find how to split the granuleList
-        linesPerPartition = len( num_lines ) / parallel
-        extra   = len(granuleList) % numTransfer
+        linesPerPartition = num_lines  / parallel
+        extra   = num_lines / parallel
 
         # Contains the path of each globus batch transfer text file. Will contain numTransfer elements
         splitList = []
@@ -171,6 +169,7 @@ Initiate a Globus transfer request using the files in self's file list.
 
         # We have finished splitting up the transferList file. We can now submit these to Globus to download.
         
+        i = 0
         for splitFile in splitList:
             
             args = []
@@ -180,24 +179,41 @@ Initiate a Globus transfer request using the files in self's file list.
                 args.append('--no-verify-checksum')
             else:
                 args.append('--verify-checksum')
-            args.append( '--label' )
-            args.append( splitFile )
+            
+            
+            if label:
+                # strip non-alphaneumeric characters from label
+                args.append( '--label' )
+                args.append( '{}_{}'.format( label, i) )
+
             if sync_level:
                 args.append('--sync-level')
                 args.append( sync_level )
+
             args.append( self.sourceID + ':/' )
             args.append( self.destID + ':/' )
             args.append( '--batch' )
 
             with open( splitFile, 'r' ) as stdinFile:
-                output = subprocess.check_output( args, stdin=stdinFile, stderr=subprocess.STDOUT ) 
-            
+                subproc = subprocess.Popen( args, stdin=stdinFile, \
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE ) 
+
+            subproc.wait()
+            output = subproc.stdout.read() + subproc.stderr.read()
+
+            if subproc.returncode != 0:
+                print( output )
+                raise RuntimeError('Globus subprocess failed with retcode {}'.\
+                    format( subproc.returncode ) )
+                
             # Extract the submission IDs from stdout
             startLine = 'Task ID: '
             startIdx = output.find( startLine )
             submitID = output[ startIdx + len(startLine):].strip()
 
             self._submitIDs.append(submitID)
+
+            i += 1
  
     def wait( self ):
         '''
