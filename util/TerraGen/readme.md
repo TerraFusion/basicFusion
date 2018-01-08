@@ -12,17 +12,17 @@ This script is the official workflow for the Basic Fusion project. It represents
 3. The user has properly compiled the BasicFusion code:  
     - Compile `HDF4 4.2.13` and `HDF5 1.8.16` from source. Blue Waters system HDF *cannot* be used! These may be compiled with system zlib, libjpeg, and szip libraries.  
     - Once the HDF libraries have been compiled, the Basic Fusion code must be compiled using gcc (NOT cc as recommended by Blue Waters documentation), linking your user-level HDF libraries. All HDF environment modules *must* be unloaded before attempting to compile the code.  
-4. The user has gained proper authority from the NCSA to use the `#PBS -l flags=commtransparent` PBS directive. This flag directs the PBS scheduler to disperse the MPI compute nodes across the system instead of attempting to group the nodes in a tight geometry. This is done to prevent network congestion of the system due to the IO intensive nature of the workflow.
-5. The user has logged into the Globus Python CLI and activated both the Blue Waters and the Nearline Globus endpoints. This can be done by executing and completing the following terminal commands in sequence:
+4. The user has gained proper authority from the NCSA to use the `#PBS -l flags=commtransparent` PBS directive. Please [sbumit a ticket](https://bluewaters.ncsa.illinois.edu/contact-us) to the NCSA to gain access to this directive.
+5. The user has logged into the Globus Python CLI and activated both the Blue Waters and the Nearline Globus endpoints. This can be done by executing and completing the following terminal commands:
 
     ```
     source activateBF
     globus login
-    globus endpoint activate [BW ENDPOINT ID]
-    globus endpoint activate [NEARLINE ENDPOINT ID]
+    globus endpoint activate $GLOBUS_BW
+    globus endpoint activate $GLOBUS_NL
     ```
     
-    The configureEnv.sh script exports the BW and Nearline endpoint IDs into the environment variables `GLOBUS_BW` and `GLOBUS_NL`. These values can thus be accessed by: `$GLOBUS_BW` and `$GLOBUS_NL`. 
+    The configureEnv.sh script exports the BlueWater and Nearline endpoint IDs into the environment variables `GLOBUS_BW` and `GLOBUS_NL`.
     
 If these assumptions are met, the user has a fair chance at successful granule generation. To execute submitWorkflow.py:
 
