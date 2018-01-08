@@ -13,7 +13,7 @@ class JobChain(object):
     '''Class that manages a chain of Jobs'''
 
     
-    def __init__( self, sched_cmd = None, **kwargs ):
+    def __init__( self, sched_type = None, **kwargs ):
         # Set the user-defined kwargs as attributes. Nothing in kwargs
         # should be used by the class itself. Only for user convenience.
         for key, value in kwargs.items():
@@ -22,7 +22,12 @@ class JobChain(object):
         # SCHEDULER DEFINITION
         # Define the system's scheduler executable. For PBS, this is 'qsub'.
         #----------------------------
-        self._sched_cmd = sched_cmd #
+
+        # TODO TODO TODO
+        # Change sched_type behavior so that user can't specify actual executable,
+        # only the class of scheduler to use. This is to heighten security.
+        self._sched_type = None #
+        set_sched( sched_type )
         #----------------------------
        
         # ADJACENCY LIST
@@ -50,7 +55,6 @@ class JobChain(object):
         if type is None:
             return
 
-        # Check if the passed value is a proper Linux executable
         if check_valid:
             retval = subprocess.call( ['which', sched_cmd] )
             if retval != 0:
@@ -123,8 +127,7 @@ class JobChain(object):
         except ValueError:
             pass
 
-        # Add the dependency. Has the affect of overwriting identical
-        # dependencies with a new type.
+        # Add the dependency
         self._graph[ job_0 ].append( new_dep )
 
 
@@ -185,11 +188,9 @@ class JobChain(object):
         # grey  -- node currently having subtree searched
         # black -- node exited
 
-        # Initialize all visited keys to False
         for job in self._graph:
             visited[ job ] = False
         
-        # For every node, do a depth first search
         for i in self._graph:
             self._topo_sort_util( i, visited, stack )
             

@@ -30,7 +30,7 @@ class Dependency(object):
 
 class Job(object):
 
-    def __init__( self, script=None, script_type=None, dependent=None, dep_type='afterany' ):
+    def __init__( self, script=None, script_type=None ):
 
         # Generate a unique ID for this job
         self._id            = uuid.uuid4()
@@ -74,7 +74,6 @@ class Job(object):
         if type in supported_types:
             self._job_script['type'] = type
         else:
-
             if os.path.isfile( script ):
                 self._job_script['type'] = 'file'
             else:

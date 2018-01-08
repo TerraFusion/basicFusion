@@ -36,6 +36,7 @@ import pickle
 import errno
 import subprocess
 from workflowClass import granule, processQuanta
+import json
 
 #=================================
 logName='BF_jobFiles'
@@ -44,7 +45,7 @@ logger = 0
 
 
 def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, \
-    summaryLog, oLimits, logPickle, scratchSpace, MISR_path_files, hashDir, \
+    summaryLog, oLimits, json_log, scratchSpace, MISR_path_files, hashDir, \
     projPath, globus_parallelism, nodes, ppn, output_granule_list, modis_missing ):
     '''
 **DESCRIPTION:**
@@ -67,7 +68,7 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, \
     *logDir (str)*        -- Directory where Globus CLI output will be redirected to.  
     *summaryLog (str)*    -- This log file contains summary information for everything that goes wrong in this process.  
     *oLimits (list, int)* -- A list containing the lower and upper bounds of these orbits.  
-    *logPickle (str)*     -- Path to the Python dictionary pickle that contains the paths of the log directories.  
+    *json_log (str)*      -- Path to the JSON dump that contains the paths of the log directories.  
     *scratchSpace (str)*  -- Directory mounted on a high-performance, high-capacity filesystem for scratch work.  
     *MISR_path_files (str)*   -- Where the MISR HRLL and AGP files are stored.  
     *hashDir (str)*       -- Directory of the hashes of the input tar files.  
@@ -159,7 +160,7 @@ summaryLog={}
 oLower={}
 oMax={}
 pull_process_script={}
-logPickle={}
+json_log={}
 hashDir={}
 nodes={}
 ppn={}
@@ -183,7 +184,7 @@ else
     modis_miss_param=""
 fi
 
-{{ {} -n {} -N $ppn -d 1 python ${{pull_process_script}} ${{modis_miss_param}} -l DEBUG $logPickle $batchFile $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $logFile $MISR_path_files --num-transfer $globus_parallelism $output_granule_list ; }} &> $logFile
+{{ {} -n {} -N $ppn -d 1 python ${{pull_process_script}} ${{modis_miss_param}} -l DEBUG $json_log $batchFile $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $MISR_path_files --num-transfer $globus_parallelism $output_granule_list ; }} &> $logFile
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
@@ -194,7 +195,7 @@ fi
 
 '''.format( NUM_NODES, PPN, WALLTIME, jobName, os.path.join( VIRT_ENV, "bin", "activate"), \
     GLOBUS_LOG, remoteID, hostID, jobName, batchFile, summaryLog, oLimits[0], oLimits[1], \
-    pull_process_script, logPickle, hashDir, NUM_NODES, PPN, scratchSpace, MISR_path_files, \
+    pull_process_script, json_log, hashDir, NUM_NODES, PPN, scratchSpace, MISR_path_files, \
     globus_parallelism, output_granule_list, modis_missing, mpi_exec, PPN * NUM_NODES )
 
     with open ( GLOBUS_PBS, 'w' ) as f:
@@ -400,11 +401,11 @@ def main():
     #
     # SAVE THE LOG DIRECTORY PICKLE
     #
-    picklePath = os.path.join( logDirs['misc'], 'logPickle.p' )
-    logger.info("Saving the log directory as pickle at: {}".format(picklePath))
+    json_log = os.path.join( logDirs['misc'], 'log_dirs.json' )
+    logger.info("Saving the log directory as JSON dump at: {}".format(json_log))
 
-    with open( picklePath, 'wb' ) as f:
-        pickle.dump( logDirs, f )
+    with open( json_log, 'wb' ) as f:
+        json.dump( logDirs, f, sort_keys=True, indent=4, separators=(',', ': ') )
 
     # Check that all directory arguments actually exist in the filesystem
     if not os.path.isdir( args.HASH_DIR ):
@@ -492,7 +493,7 @@ def main():
         output_granule_list = os.path.join( logDirs['misc'], "{}_output_granule_list.p".format(globPullName) )
         logger.info("Making Globus pull PBS script for job {}.".format(globPullName))
         i.PBSfile['pull'] = makePBS_globus( transferList,  PBSdirs['pull_process'], args.REMOTE_ID, args.HOST_ID, \
-                            globPullName, logDirs['pull_process'], summaryLog, [ i.orbitStart, i.orbitEnd], picklePath, \
+                            globPullName, logDirs['pull_process'], summaryLog, [ i.orbitStart, i.orbitEnd], json_log, \
                             args.SCRATCH_SPACE, args.MISR_PATH, args.HASH_DIR, projPath, args.GLOBUS_PRL, args.NODES, args.PPN, \
                             output_granule_list, args.modis_missing )
 
@@ -501,7 +502,7 @@ def main():
         # ------------------------------------
 
         i.PBSfile['push'] = makePBS_push( output_granule_list, PBSdirs['globus_push'], args.REMOTE_ID, args.HOST_ID, \
-            args.REMOTE_BF_DIR, globPushName, picklePath, summary_log_push, projPath, os.path.join( logDirs['globus_push'], \
+            args.REMOTE_BF_DIR, globPushName, json_log, summary_log_push, projPath, os.path.join( logDirs['globus_push'], \
             globPushName + "_log.log"), args.GLOBUS_PRL ) 
 
     

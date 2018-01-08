@@ -6,6 +6,7 @@ import pickle
 import os
 import sys
 import errno
+import json
 
 summaryLog=''
 jobName=''
@@ -25,7 +26,7 @@ def main():
     parser.add_argument("HOST_ID", help="The Globus endpoint identifier of the machine running this script.", type=str )
     parser.add_argument("JOB_NAME", help="A name for this  job. Used to make unique log files, intermediary files, and any \
         other unique identifiers needed.", type=str)
-    parser.add_argument("LOG_TREE", help="A Python pickle of the job log dictionary.", type=str)
+    parser.add_argument("LOG_TREE", help="A JSON dump of the job log dictionary.", type=str)
     parser.add_argument("SUMMARY_LOG", help="Path to the summary log file.", type=str)
     parser.add_argument("-g", "--num-transfer", help="The maximum number of Globus transfer requests to make. Defaults \
         to 1.", dest='num_transfer', type=int, default=1)    
@@ -69,9 +70,9 @@ def main():
     with open( args.OUT_GRAN_LIST, 'rb' ) as f:
         granuleList = pickle.load( f )
 
-    # Unpickle the log tree
+    # load the log tree
     with open( args.LOG_TREE, 'rb' ) as f:
-        logTree = pickle.load( f )
+        logTree = json.load( f )
 
     if args.num_transfer < 1:
         raise ValueError("--num-transfer argument can't be less than 1!")

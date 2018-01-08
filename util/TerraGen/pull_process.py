@@ -12,18 +12,17 @@ import shutil
 import workflowClass
 import re
 import time
+import json
 
 FORMAT            = '%(asctime)s %(levelname)-8s %(name)s [%(filename)s:%(lineno)d] %(message)s'
 dateformat        = '%d-%m-%Y:%H:%M:%S'
 progName          = ''
-globPullLog       = ''
 summaryLog        = ''
 logDirs           = {}
 genFusInput       = ''
 MODIS_MISSING     = None
-logger            = None
 hashDir           = None
-STAGGER_HASH_JOBS = True    # Set to true to make master rank sleep 0.01 seconds before sending out
+STAGGER_HASH_JOBS = False    # Set to true to make master rank sleep 0.01 seconds before sending out
                             # a hash job.
 
 #MPI Variables
@@ -44,6 +43,17 @@ MPI_UNTAR_FAIL          = 7
 MPI_DO_COPY             = 8
 MPI_DO_GENERATE         = 9
 
+#
+# ENABLE LOGGING
+#
+
+logFormatter = logging.Formatter(FORMAT, dateformat)
+consoleHandler = logging.StreamHandler(sys.stdout)
+consoleHandler.setFormatter(logFormatter) 
+rootLogger = logging.getLogger()
+rootLogger.addHandler(consoleHandler)
+logger = logging.getLogger( rank_name )
+
 #============================================================================================
     
 def mpi_rank_hash( data ):
@@ -60,6 +70,11 @@ def mpi_rank_hash( data ):
         Sends data back to master rank with tag MPI_SLAVE_HASH_COMPLETE.
     '''
 
+    # I was running into issues when reading the entire tar file into memory. Instead,
+    # let us read hashReadSize bytes of the tar file at a time and update the hash
+    # incrementally.
+    hashReadSize = 100000000
+    
     # Find the appropriate hash file. First extract the orbit from the file name
     year = int(data.orbit_start_time[0:4])
 
@@ -228,18 +243,18 @@ def worker():
     '''
 
     
-    # I was running into issues when reading the entire tar file into memory. Instead,
-    # let us read hashReadSize bytes of the tar file at a time and update the hash
-    # incrementally.
-    hashReadSize = 100000000
 
     while True:
         logger.debug("Waiting to receive job")
         stat = MPI.Status()
         mpi_comm.send( 0, dest = MPI_MASTER, tag = MPI_SLAVE_IDLE )
         data = mpi_comm.recv( source = MPI_MASTER, status=stat )
+        if tag == MPI_SLAVE_TERMINATE:
+            return
         func = data[0]
         data = data[1]
+        tag = stat.Get_tag()
+        
 
         logger.info("Received job {}.".format( func ) )
 
@@ -355,56 +370,55 @@ def globusDownload( granuleList, remoteID, hostID, numTransfer, retry=False ):
     # calling it through a subprocess works well enough. I don't have time to integrate their CLI into this
     # program.
     submitIDs = []
-    # Open the log file so that subprocesses can write to it
-    with open( globPullLog, 'a' ) as log:
-        for splitFile in splitList:
-            args = ['globus', 'transfer', CHECK_SUM, remoteID +':/', hostID + ':/', '--batch', \
-                    '--label', os.path.basename(splitFile).replace('.txt', '') ]
+    
+    for splitFile in splitList:
+        args = ['globus', 'transfer', CHECK_SUM, remoteID +':/', hostID + ':/', '--batch', \
+                '--label', os.path.basename(splitFile).replace('.txt', '') ]
 
-            logger.info("Submitting Globus transfer batch {}.".format(splitFile))            
-            with open( splitFile, 'r' ) as stdinFile:
-                subProc = subprocess.Popen( args, stdin=stdinFile, stdout=PIPE, stderr=PIPE ) 
-                subProc.wait()
-            
-            # We need to retrieve the stdout/stderr of this globus call to extract the submission ID.
-            stdout = subProc.stdout
-            stderr = subProc.stderr
+        logger.info("Submitting Globus transfer batch {}.".format(splitFile))            
+        with open( splitFile, 'r' ) as stdinFile:
+            subProc = subprocess.Popen( args, stdin=stdinFile, stdout=PIPE, stderr=PIPE ) 
+            subProc.wait()
+        
+        # We need to retrieve the stdout/stderr of this globus call to extract the submission ID.
+        stdout = subProc.stdout
+        stderr = subProc.stderr
 
-            # stdout and stderr are files, so simply read the file contents into the variables themselves
-            stdout = stdout.read()
-            stderr = stderr.read()
+        # stdout and stderr are file objects, so simply read the file contents into the variables themselves
+        stdout = stdout.read()
+        stderr = stderr.read()
 
-            # Extract the submission IDs from stdout
-            startLine = 'Task ID: '
-            startIdx = stdout.find( startLine )
-            submitID = stdout[ startIdx + len(startLine):].strip()
+        # Extract the submission IDs from stdout
+        startLine = 'Task ID: '
+        startIdx = stdout.find( startLine )
+        submitID = stdout[ startIdx + len(startLine):].strip()
 
-            submitIDs.append(submitID)
+        submitIDs.append(submitID)
 
-            # stdout and stderr are now strings. Concatenate the strings together
-            stdout += stderr
+        # stdout and stderr are now strings. Concatenate the strings together
+        stdout += stderr
 
-            # Go ahead and write these to the log file
-            log.write(stdout)
+        # Go ahead and write these to the log file
+        print(stdout)
 
-            retCode = subProc.returncode
+        retCode = subProc.returncode
 
-            if retCode != 0:
-                summaryLog.write("ERROR: Globus transfer failed! See {} for more details.\n".format(globPullLog))
-                raise RuntimeError("Globus transfer failed.")
- 
-        # The transfers have been submitted. Need to wait for them to complete...
-        for id in submitIDs:
-            logger.info("Waiting for Globus task {}".format(id))
-            args = ['globus', 'task', 'wait', id ]
+        if retCode != 0:
+            summaryLog.write("{}: Globus task failed with retcode {}!\n".format(progName, retCode))
+            raise RuntimeError("Globus transfer failed.")
 
-            retCode = subprocess.call( args, stdout=log, stderr=log ) 
-            
-            # The program will not progress past this point until 'id' has finished
-            if retCode != 0:
-                summaryLog.write("Globus task failed with retcode {}! See: {}".format(retCode, globPullLog))
+    # The transfers have been submitted. Need to wait for them to complete...
+    for id in submitIDs:
+        logger.info("Waiting for Globus task {}".format(id))
+        args = ['globus', 'task', 'wait', id ]
 
-            logger.info("Globus task {} completed with retcode: {}.".format(id, retCode))
+        retCode = subprocess.call( args, stderr=subprocess.STDOUT ) 
+        
+        # The program will not progress past this point until 'id' has finished
+        if retCode != 0:
+            summaryLog.write("{}: Globus task failed with retcode {}!\n".format(progName, retCode))
+
+        logger.info("Globus task {} completed with retcode: {}.".format(id, retCode))
 
 #=======================================================================================================
 
@@ -534,7 +548,6 @@ def submitTransfer( granuleList, remoteID, hostID, hashDir, numTransfer ):
     #====================
     # DEFAULT VARIABLES =
     #====================
-    global globPullLog
 
     # Get a logger
 
@@ -750,13 +763,12 @@ def generateBF( granuleList ):
 
 def main():
     
-    parser = argparse.ArgumentParser(description="This script handles pulling data from a remote Globus endpoint onto this \
-    host machine. It uses the official Globus Python CLI with a key addition: Data is downloaded with Globus checksumming \
-    turned off. This script performs its own checksumming and then compares it with the passed checksum. If they differ, it \
-    attempts to download the file again, repeating the checksum a second time. If it fails again, the file is marked as corrupt \
-    in the BasicFusion workflow logs.")
-    parser.add_argument("LOG_TREE", help="Path to a Python Pickle containing the workflow log tree. This Pickle is a \
-        Python dict that contains the following keys: 'summary', 'pull_process', 'misc', 'process', 'globus_push'. \
+    parser = argparse.ArgumentParser( description="This script handles \
+        downloading the Basic Fusion tar files, unpacking the tar files, \
+        generating the BF granules in parallel, and then pushing the granules \
+        back to Nearline." )
+    parser.add_argument("LOG_TREE", help="Path to a JSON dump containing paths to log directories. This dump \
+        contains the following keys: 'summary', 'pull_process', 'misc', 'process', 'globus_push'. \
         The value for each key is the absolute path to the respective log directory.", type=str)
     parser.add_argument("TRANSFER_LIST", help="This is a text file where each line contains FIRST an absolute path of the \
         file on the remote machine to transfer, and then SECOND the absolute path on the host machine where the file will be \
@@ -772,7 +784,6 @@ def main():
         type=str )
     parser.add_argument("JOB_NAME", help="A name for this  job. Used to make unique log files, intermediary files, and any \
         other unique identifiers needed.", type=str)
-    parser.add_argument("LOG_FILE", help="The text file to send all log output to.", type=str )
     parser.add_argument("MISR_PATH_FILES", help="Directory where all the MISR HRLL and AGP files are stored. Directory \
         structure does not matter, script will perform recursive search for the files.", type=str )
     parser.add_argument("OUT_GRAN_LIST", help="The output granule list. This file will be a Python pickle of a list of \
@@ -788,13 +799,17 @@ def main():
     group_ex.add_argument('--only-hash', help='Only perform the hash check.', dest='ONLY_HASH', action='store_true')
     group_ex.add_argument('--only-download', help='Only download the files from the source Globus endpoint.', dest='ONLY_DOWNLOAD', \
         action='store_true')
+    parser.add_argument('-s', '--stagger-hash', help='Make the master rank \
+        sleep for a few milliseconds before sending slave a hash job. \
+        This can be done to prevent network congestion.', \
+        dest='stagger_hash', action='store_true')
 
     args = parser.parse_args()
   
     global logDirs 
-    # Extract the pickle
-    with open( args.LOG_TREE, 'rb' ) as f :
-        logDirs = pickle.load(f)
+    # Extract the log tree
+    with open( args.LOG_TREE, 'r' ) as f :
+        logDirs = json.load(f)
 
     # Define log level
     if args.log == 'DEBUG':
@@ -803,9 +818,10 @@ def main():
         ll = logging.INFO
     else:
         ll = logging.WARNING
+    global rootLogger
+    rootLogger.setLevel(ll)
     
     # Argument sanitizing
-    args.LOG_FILE      = os.path.abspath( args.LOG_FILE )
     args.HASH_DIR      = os.path.abspath( args.HASH_DIR )
     args.LOG_TREE      = os.path.abspath( args.LOG_TREE )
     args.OUT_GRAN_LIST = os.path.abspath( args.OUT_GRAN_LIST )
@@ -828,29 +844,18 @@ def main():
         if e.errno != errno.EEXIST:
             raise
 
+    global STAGGER_HASH_JOBS 
+    STAGGER_HASH_JOBS = args.stagger_hash
+
     global MODIS_MISSING
     MODIS_MISSING = args.modis_missing
-
+    
     # Make the directory to store input file listings
     try:
         os.makedirs( input_list_dir )
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
-    #
-    # ENABLE LOGGING
-    #
-
-    logFormatter = logging.Formatter(FORMAT, dateformat)
-    rootLogger = logging.getLogger()
-
-    global globPullLog
-    globPullLog = args.LOG_FILE
-    fileHandler = logging.FileHandler( args.LOG_FILE, mode='a' )
-    fileHandler.setFormatter(logFormatter)
-    rootLogger.addHandler(fileHandler)
-
-    rootLogger.setLevel(ll)
 
     global progName 
     progName=args.JOB_NAME
@@ -1077,20 +1082,20 @@ def main():
 
  
 if __name__ == '__main__': 
-    logger = logging.getLogger( rank_name )
-    try:
+    
+    try:      
         main()
     except Exception as e:
         logger.exception( "Encountered exception." )
         mpi_comm.Abort()
-    finally:     
-        logger.info("Successful completion")
-   
-        if mpi_rank == 0:
-            # We need to terminate all slaves, or else the entire process might hang!
-            # mpi_comm.Abort()
-            for i in xrange(1, mpi_size ):
-                logger.debug("Terminating slave {}".format(i))
-                mpi_comm.recv( source = i, tag = MPI_SLAVE_IDLE )
-                mpi_comm.send( 0, dest = i, tag = MPI_SLAVE_TERMINATE )
+    
+    logger.info("Successful completion")
+
+    if mpi_rank == 0:
+        # We need to terminate all slaves, or else the entire process might hang!
+        # mpi_comm.Abort()
+        for i in xrange(1, mpi_size ):
+            logger.debug("Terminating slave {}".format(i))
+            mpi_comm.recv( source = i, tag = MPI_SLAVE_IDLE )
+            mpi_comm.send( 0, dest = i, tag = MPI_SLAVE_TERMINATE )
 
