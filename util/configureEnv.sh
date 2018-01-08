@@ -220,13 +220,16 @@ downloadHDF(){
 
     cd "$downloadPath"
 
-    mkdir hdflib
-    cd hdflib
+    local hdfdir="$downloadPath"/hdf/
+    mkdir -p $hdfdir
+    cd $hdfdir
 
     echo
     echo "=========================================="
     echo "= DOWNLOADING AND INSTALLING HDF4 4.2.13 ="
     echo "=========================================="
+    echo
+    echo "DOWNLOAD DIRECTORY: $hdfdir"
     echo
 
     module load wget/1.19.2
@@ -236,17 +239,17 @@ downloadHDF(){
     wget --no-check-certificate "$hdf4url"
     if [ $? -ne 0 ]; then
         return 1
-    fi 
+    fi
     gunzip "hdf-4.2.13.tar.gz" 
     if [ $? -ne 0 ]; then
         return 1
     fi
-    tar -xf "hdf-4.2.13.tar"
+    tar -xzf "hdf-4.2.13.tar"
     if [ $? -ne 0 ]; then
         return 1
     fi
     cd "hdf-4.2.13"
-    ./configure --enable-shared --disable-fortran
+    ./configure --disable-shared --disable-fortran --prefix="$downloadPath"/hdf/
     if [ $? -ne 0 ]; then
         return 1
     fi
@@ -254,6 +257,44 @@ downloadHDF(){
     if [ $? -ne 0 ]; then
         return 1
     fi
+
+    
+    echo
+    echo "=========================================="
+    echo "= DOWNLOADING AND INSTALLING HDF5 1.8.16 ="
+    echo "=========================================="
+    echo
+    echo "DOWNLOAD DIRECTORY: $hdfdir"
+    echo
+
+
+    cd $hdfdir
+
+    wget --no-check-certificate "$hdf5url"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    gunzip "hdf5-1.8.16.tar.gz" 
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    tar -xzf "hdf5-1.8.16.tar"
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    cd "hdf5-1.8.16"
+    ./configure --disable-shared --disable-fortran --prefix="$downloadPath"/hdf/
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    make && make install
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+
+
+    cd "$oldWorkdir"
+
 }
 
 if [ $# -ne 1 ]; then
@@ -266,9 +307,9 @@ DESCRIPTION:
 \tThis script generates the environment necessary to run all of the BasicFusion scripts. Namely, the two main dependencies are certain Python modules (for the database generation) and NCSA's Scheduler program. This handles downloading and configuring all of the dependencies. This script was designed to run on either Blue Waters or ROGER. It attempts to detect which system it is on and then loads the appropriate Fortran and MPI modules. If this step fails, please review this script's code and modify it to use the appropriate compiler and/or module.
 
 ARGUMENTS:
-\t[-s | -p | -a]                -- -s to download just Scheduler
+\t[-s | -p | -d | -a]           -- -s to download just Scheduler
 \t                                 -p to download just the Python packages
-\t                                 -h to download both HDF4 and HDF5 to ${HOME}
+\t                                 -d to download and install both HDF4 and HDF5
 \t                                 -a to enable all of the above flags
 
 REQUIREMENTS:
@@ -329,7 +370,7 @@ if [ "$DOWNLOAD_OPTS" == "-s" ]; then
     DOWNLOAD_SCHED=1
 elif [ "$DOWNLOAD_OPTS" == "-p" ]; then
     DOWNLOAD_PY=1
-elif [ "$DOWNLOAD_OPTS" == "-h" ]; then
+elif [ "$DOWNLOAD_OPTS" == "-d" ]; then
     DOWNLOAD_HDF=1
 elif [ "$DOWNLOAD_OPTS" == "-a" ]; then
     DOWNLOAD_SCHED=1
@@ -345,6 +386,10 @@ hn=$(hostname)
 ON_ROGER=0
 ON_BW=0
 
+FAIL_SCHED=0
+FAIL_PY=0
+FAIL_HDF=0
+
 # ON BLUE WATERS (we are assuming)
 echo "Checking which system we're on..."
 if [[ $hn == "h2ologin"* ]]; then
@@ -354,10 +399,6 @@ if [[ $hn == "h2ologin"* ]]; then
     fi
     module load cray-mpich
     # Blue waters, we need to use cc and CC compilers for C and C++ respectively...
-    OLD_CC=$CC
-    OLD_CXX=$CXX
-    export CC="cc"
-    export CXX="CC"
     ON_BW=1
     echo "DETECTED BLUE WATERS."
     echo
@@ -381,9 +422,7 @@ if [ $DOWNLOAD_PY -eq 1 ]; then
 
     if [ $retVal -ne 0 ]; then
         echo "Failed to setup Python." >&2
-        export CC=$OLD_CC
-        export CXX=$OLD_CXX
-        exit $retVal
+        FAIL_PY=1
     fi
 fi
 
@@ -393,21 +432,17 @@ if [ $DOWNLOAD_SCHED -eq 1 ]; then
 
     if [ $retVal -ne 0 ]; then
         echo "Failed to setup NCSA Scheduler." >&2
-        export CC=$OLD_CC
-        export CXX=$OLD_CXX
-        exit $retVal
+        FAIL_SCHED=1
     fi
 
 fi
 
 if [ $DOWNLOAD_HDF -eq 1 ]; then
-    downloadHDF $BF_PATH/externLibs
+    downloadHDF $BF_PATH/externLib
     retVal=$?
     if [ $retVal -ne 0 ]; then
         echo "Failed to download and install HDF libraries." >&2
-        export CC=$OLD_CC
-        export CXX=$OLD_CXX
-        exit $retVal
+        FAIL_HDF=1
     fi
 fi
 
@@ -436,6 +471,24 @@ if [ ${#globus_vars} -le 2 ]; then
     echo "export GLOBUS_BW=$GLOBUS_BW" >> ~/.bashrc
 fi
 
+if [ $FAIL_SCHED -ne 0 -o $FAIL_PY -ne 0 -o $FAIL_HDF -ne 0 ]; then
+    echo
+    echo "===================================="
+    echo "= The following failed to install: ="
+    echo "===================================="
+    echo
+    if [ $FAIL_SCHED -ne 0 ]; then
+        echo "NCSA Scheduler"
+    fi
+    if [ $FAIL_PY -ne 0 ]; then
+        echo "Python"
+    fi
+    if [ $FAIL_HDF -ne 0 ]; then
+        echo "HDF"
+    fi
+
+    exit 1
+fi
 
 export CC=$OLD_CC
 export CXX=$OLD_CXX

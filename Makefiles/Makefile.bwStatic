@@ -1,15 +1,18 @@
-# All variables suffixed with 1 denote HDF4, 2 HDF5
 # This makefile is currently set up to be run on the 
 # Blue Waters computer.
 
-# THIS MAKEFILE IS CURRENTLY NON-FUNCTIONAL. DO NOT USE
 
-CC=h4cc
+# MODIFY THIS VARIABLE
+#----------------------------
+BFDIR=$(HOME)/basicFusion/  
+#----------------------------
+
+CC=gcc
 CFLAGS=-c -g -O0 -Wall -std=c99
 LINKFLAGS= -g -std=c99 -static
-INCLUDE1=.#/opt/cray/hdf5/1.10.0/INTEL/15.0/include
+INCLUDE1=$(BFDIR)/externLib/hdf/include/
 INCLUDE2=.
-LIB1=.#/opt/cray/hdf5/1.10.0/INTEL/15.0/lib
+LIB1=$(BFDIR)/externLib/hdf/lib/
 LIB2=.
 TARGET=./bin/basicFusion
 SRCDIR=./src
@@ -22,7 +25,7 @@ DEPS=$(OBJDIR)/main.o $(OBJDIR)/libTERRA.o $(OBJDIR)/MOPITT.o $(OBJDIR)/CERES.o 
 all: $(TARGET)
 
 $(TARGET): $(DEPS)
-	$(CC) $(LINKFLAGS) $(DEPS) -L$(LIB1) -I$(INCLUDE1) -lhdf5_hl -lhdf5 -lmfhdf -ldf -lz -ljpeg -o $(TARGET)
+	$(CC) $(LINKFLAGS) $(DEPS) -L$(LIB1) -lhdf5_hl -lhdf5 -lmfhdf -ldf -lz -ljpeg -lm -ldl -lrt -o $(TARGET)
 	
 $(OBJDIR)/main.o: $(SRCDIR)/main.c
 	$(CC) $(CFLAGS) -I$(INCLUDE1) $(SRCDIR)/main.c -o $(OBJDIR)/main.o
