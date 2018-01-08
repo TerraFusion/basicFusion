@@ -1,5 +1,4 @@
 # Terra Granule Generation
-___
 
 ## submitWorkflow.py
 This script is the official workflow for the Basic Fusion project. It represents the highest level of abstraction. submitWorkflow.py handles generating all necessary PBS files, log directories, and administrative metadata necessary to submit for massive parallel generation of Basic Fusion granules. It also handles automatically submitting the processing jobs to the Blue Waters scheduler, as well as defining the resources requested to the TORQUE resource manager. It is the burden of the user to ensure the following assumptions of the script are met:
