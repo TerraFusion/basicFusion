@@ -12,9 +12,9 @@ The Basic Fusion program requires the following Hierarchical Data Format (HDF) C
 1. [HDF4 4.2.13](https://support.hdfgroup.org/release4/obtain.html)
 1. [HDF5 1.8.16](https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.16/)
 
-No other version of HDF libraries may be used. It is required that users install both of these libraries from source. Do not attempt to use Blue Waters HDF.
+No other version of HDF libraries may be used. It is required that users install both of these libraries from source. Do not attempt to use Blue Waters HDF. The HDF libraries also depend on jpeg, zlib, and szip (optional). Users may use system installs of these libraries when compiling the HDF source.
 
-The HDF libraries also depend on jpeg, zlib, and szip (optional). Users may use system installs of these libraries when compiling the HDF source.
+In addition to the C dependencies, many of the Python scripts depend on external packages. These are automatically resolved through the configureEnv.sh script described below.
 
 ### GitHub Download & Python Install
 
@@ -49,22 +49,28 @@ The following steps need to be followed to compile the BF program:
 3. Ensure gcc is being used to compile and link. Do *not* use the `cc` wrapper as recommended by Blue Waters.
 4. Run `make`
 
-It is likely that users will need to exercise some effort into compiling the BF program.
+Compilation will likely not succeed on the first try, so some tinkering may need to be done.
 
 Please see KNOWN ISSUES for issues specific to compiling the BF program.
 
-### basicFusion.py
-The basicFusion.py module is a small script we wrote that configureEnv.sh installs to the virutal environment's site-packages. This module provides a set of useful functions to use in your Python scripts. After sourcing the environment, you can import the module in any script using:
+### bfutils
+bfutils is a Python package written specifically to support many of the high-level operations in Basic Fusion. This package is automatically installed into your BasicFusion virtenv's site-packages directory by configureEnv.sh. Some useful functions this package can perform:
 
-`import basicFusion`
+- Finding Terra orbit start times
+- Submitting Globus transfers
+- Determining if an input Terra file is appropriate for inclusion in the BasicFusion product
+
+After sourcing the virtenv, you can import the package in any script using:
+
+`import bfutils`
 
 This function acts as the authority on which files are proper and which are not. You can view the function interface by following these lines:
 
 ```
 (BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ source activateBF
 (BFpyEnv)[clipp@cg-gpu01:~/basicFusion/util]$ python  
->>> import basicFusion
->>> help(basicFusion)  
+>>> import bfutils
+>>> help(bfutils)  
 ```
 
 
