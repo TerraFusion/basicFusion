@@ -13,7 +13,7 @@ class JobChain(object):
     '''Class that manages a chain of Jobs'''
 
     
-    def __init__( self, sched_type = None, **kwargs ):
+    def __init__( self, sched_type, **kwargs ):
         # Set the user-defined kwargs as attributes. Nothing in kwargs
         # should be used by the class itself. Only for user convenience.
         for key, value in kwargs.items():
@@ -22,12 +22,8 @@ class JobChain(object):
         # SCHEDULER DEFINITION
         # Define the system's scheduler executable. For PBS, this is 'qsub'.
         #----------------------------
-
-        # TODO TODO TODO
-        # Change sched_type behavior so that user can't specify actual executable,
-        # only the class of scheduler to use. This is to heighten security.
         self._sched_type = None #
-        set_sched( sched_type )
+        self.set_sched( sched_type )
         #----------------------------
        
         # ADJACENCY LIST
@@ -52,10 +48,6 @@ class JobChain(object):
         if type is None:
             return
 
-        valid_sched = ['PBS']
-
-        if sched_type not in valid_sched:
-            raise ValueError('Invalid scheduler type.')
 
         self._sched_type = sched_type
 
@@ -83,13 +75,13 @@ class JobChain(object):
         self._num_vert += 1
 
     #====================================================================
-    def set_dep( self, job_0, job_1, type ):
+    def set_dep( self, base, target, type ):
         '''
 **DESCRIPTION**:  
     Set a dependency between two jobs.  
 **ARGUMENTS**:  
-    *job_0* (Job)   -- A base Job object
-    *job_1* (Job)   -- The job that job_0 is dependent on
+    *base* (Job)   -- A base Job object
+    *target* (Job)   -- The job that *base* is dependent on
     *type* (str)    -- The type of dependency. See Dependency documentation
                        for list of appropriatae types.  
 **EFFECTS**:  
@@ -98,9 +90,9 @@ class JobChain(object):
     None
         '''
     
-        # job_0 before job_1
+        # base before target
         # is the equivalent to
-        # job_1 after job_0
+        # target after after
         # I force the 'before' prefix because it makes topological sorting 
         # of the graph easier and more efficient by making edges in the list
         # imply a forward traversal in time.
@@ -111,19 +103,19 @@ class JobChain(object):
         # must be BEFORE 1 and 2, etc.
         if 'before' in type:
             type = type.replace('before', 'after')
-            tmp = job_0
-            job_0 = job_1
-            job_1 = tmp
+            tmp = base
+            base = target
+            target = tmp
         
         # Discard Dependency if it already exists.
-        new_dep = Dependency( job_0, job_1, type )
+        new_dep = Dependency( base, target, type )
         try:    
-            self._graph[ job_0 ].remove( new_dep )
+            self._graph[ base ].remove( new_dep )
         except ValueError:
             pass
 
         # Add the dependency
-        self._graph[ job_0 ].append( new_dep )
+        self._graph[ base ].append( new_dep )
 
 
     #====================================================================   
@@ -144,7 +136,6 @@ class JobChain(object):
     None
         '''
         if visited[vert] == 'grey':
-            print( vert.num )
             raise RuntimeError("Cycle detected in the job dependency graph!")
             
         elif visited[vert] == 'black':
@@ -152,12 +143,9 @@ class JobChain(object):
             
         visited[vert] = 'grey'
         
-        print( 'VERT: {}'.format(vert.num) )
         # For all of its neighbors, do a recursive search
         for i in self._graph[vert]:
-            if not visited[i.job_1]:
-                print('DEP {}'.format( i.job_1.num) )
-            self._topo_sort_util( i.job_1, visited, stack )
+            self._topo_sort_util( i.get_target(), visited, stack )
                  
         # Only after all dependencies have been searched, we will insert the stack
         stack.insert(0, vert)
@@ -184,7 +172,7 @@ class JobChain(object):
         # black -- node exited
 
         for job in self._graph:
-            visited[ job ] = False
+            visited[ job ] = 'white'
         
         for i in self._graph:
             self._topo_sort_util( i, visited, stack )
@@ -197,6 +185,9 @@ class JobChain(object):
     def submit( self ):
         
         sort_jobs = self.topo_sort()
+        for job in sort_jobs:
+            job.set_sched( self._sched_type )
+            job.submit( self._graph[job] )
 
         
 #        for i in self._graph:
