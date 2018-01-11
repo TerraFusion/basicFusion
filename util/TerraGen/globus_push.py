@@ -6,6 +6,10 @@ import pickle
 import os
 import sys
 import errno
+import json
+
+summaryLog=''
+jobName=''
 
 FORMAT='%(asctime)s %(levelname)-8s %(name)s [%(filename)s:%(lineno)d] %(message)s'
 dateformat='%d-%m-%Y:%H:%M:%S'
@@ -22,7 +26,7 @@ def main():
     parser.add_argument("HOST_ID", help="The Globus endpoint identifier of the machine running this script.", type=str )
     parser.add_argument("JOB_NAME", help="A name for this  job. Used to make unique log files, intermediary files, and any \
         other unique identifiers needed.", type=str)
-    parser.add_argument("LOG_TREE", help="A Python pickle of the job log dictionary.", type=str)
+    parser.add_argument("LOG_TREE", help="A JSON dump of the job log dictionary.", type=str)
     parser.add_argument("SUMMARY_LOG", help="Path to the summary log file.", type=str)
     parser.add_argument("-g", "--num-transfer", help="The maximum number of Globus transfer requests to make. Defaults \
         to 1.", dest='num_transfer', type=int, default=1)    
@@ -56,13 +60,19 @@ def main():
     # -------------
     CHECK_SUM='--no-verify-checksum'
 
+    global summaryLog
+    summaryLog = args.SUMMARY_LOG
+
+    global jobName
+    jobName = args.JOB_NAME
+
     # Unpickle the out_gran_list
     with open( args.OUT_GRAN_LIST, 'rb' ) as f:
         granuleList = pickle.load( f )
 
-    # Unpickle the log tree
+    # load the log tree
     with open( args.LOG_TREE, 'rb' ) as f:
-        logTree = pickle.load( f )
+        logTree = json.load( f )
 
     if args.num_transfer < 1:
         raise ValueError("--num-transfer argument can't be less than 1!")
@@ -133,7 +143,8 @@ def main():
 
     for i in splitList:
     
-        subprocCall = ['globus', 'transfer', CHECK_SUM, args.HOST_ID +':/', args.REMOTE_ID + ':/', '--batch' ]
+        subprocCall = ['globus', 'transfer', CHECK_SUM, args.HOST_ID +':/', args.REMOTE_ID + ':/', '--batch', \
+                       '--label', os.path.basename(i).replace('.txt', '') ]
         with open( i, 'r' ) as stdinFile:
             subProc = subprocess.Popen( subprocCall, stdin=stdinFile, stdout=subprocess.PIPE, stderr=subprocess.PIPE ) 
             subProc.wait()
@@ -162,7 +173,8 @@ def main():
         retCode = subProc.returncode
 
         if retCode != 0:
-            summaryLog.write("ERROR: Globus transfer failed! See {} for more details.\n".format(globPullLog))
+            with open( args.SUMMARY_LOG, 'a') as summaryLog:
+                summaryLog.write("ERROR: Globus transfer failed! See {} for more details.\n".format(globPullLog))
 
     
     # The transfers have been submitted. Need to wait for them to complete...
@@ -174,7 +186,8 @@ def main():
         
         # The program will not progress past this point until 'id' has finished
         if retCode != 0:
-            summaryLog.write("Globus task failed with retcode {}! See: {}".format(retCode, globPullLog))
+            with open( args.SUMMARY_LOG, 'a') as summaryLog:
+                summaryLog.write("Globus task failed with retcode {}! See: {}".format(retCode, globPullLog))
 
         logger.info("Globus task {} completed with retcode: {}.".format(id, retCode))
 
@@ -187,4 +200,9 @@ def main():
                 raise
     
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        with open( summaryLog, 'a') as f:
+            f.write('{}: Failed to pull data. See log files for more info.'.format(jobName))
+        raise

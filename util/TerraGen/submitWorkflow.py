@@ -31,11 +31,12 @@ __email__  = "clipp2@illinois.edu"
 import argparse
 import logging
 import sys, os, errno
-from basicFusion import makeRunDir, orbitYear
+from bfutils import makeRunDir, orbitYear
 import pickle
 import errno
 import subprocess
 from workflowClass import granule, processQuanta
+import json
 
 #=================================
 logName='BF_jobFiles'
@@ -43,37 +44,43 @@ logger = 0
 #=================================
 
 
-def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, summaryLog, oLimits, logPickle, scratchSpace, MISR_path_files, hashDir, projPath, globus_parallelism, \
-                    nodes, ppn, output_granule_list ):
+def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, \
+    summaryLog, oLimits, json_log, scratchSpace, MISR_path_files, hashDir, \
+    projPath, globus_parallelism, nodes, ppn, output_granule_list, modis_missing ):
     '''
-    DESCRIPTION:
-        This function makes the PBS scripts and other files necessary to pull the proper orbits from Nearline
-        to the host machine. Calling function must pass in a list of files to transfer.
-        Essentially, this is just some simple meta-programming. This makes use of the Globus Python Command 
-        Line Interface.
-    ARGUMENTS:
-        transferList (list) -- A list containing a list of files to transfer from remote to the host machine.
-                               Each element contains absolute path of single file on remote machine, then absolute
-                               path of the file on the host machine, the paths delimited by a space. Note that BOTH
-                               paths must include a filename!
-        PBSpath (str)       -- An absolute path of a directory to where the PBS script and the transferList
-                               text file will be created.
-        remoteID (str)      -- The Globus identifier of the remote site to download the data from.
-        hostID (str)        -- The Globus identifier of the host machine.
-        jobName (str)       -- Serves two purposes: will define the prefix of the PBS script file, as well as
-                               defining the name of the job to the PBS scheduler.
-        logDir (str)        -- Directory where Globus CLI output will be redirected to.
-        summaryLog (str)    -- This log file contains summary information for everything that goes wrong in this process.
-        oLimits (list, int) -- A list containing the lower and upper bounds of these orbits.
-        logPickle (str)     -- Path to the Python dictionary pickle that contains the paths of the log directories.
-        scratchSpace (str)  -- Directory mounted on a high-performance, high-capacity filesystem for scratch work.
-        MISR_path_files (str)   -- Where the MISR HRLL and AGP files are stored.
-        hashDir (str)       -- Directory of the hashes of the input tar files.
-    EFFECTS:
-        Creates a PBS file at PBSpath. Creates a text file at the directory of PBSpath that contains all
-        the entries in transferList.
-    RETURN:
-        Undefined
+**DESCRIPTION:**
+    This function makes the PBS scripts and other files necessary to pull the proper orbits from Nearline
+    to the host machine. Calling function must pass in a list of files to transfer.
+    Essentially, this is just some simple meta-programming. This makes use of the Globus Python Command 
+    Line Interface.
+
+**ARGUMENTS:**
+    *transferList (list)* -- A list containing a list of files to transfer from remote to the host machine.
+                           Each element contains absolute path of single file on remote machine, then absolute
+                           path of the file on the host machine, the paths delimited by a space. Note that BOTH
+                           paths must include a filename!  
+    *PBSpath (str)*       -- An absolute path of a directory to where the PBS script and the transferList
+                           text file will be created.  
+    *remoteID (str)*      -- The Globus identifier of the remote site to download the data from.
+    *hostID (str)*        -- The Globus identifier of the host machine.  
+    *jobName (str)*       -- Serves two purposes: will define the prefix of the PBS script file, as well as
+                           defining the name of the job to the PBS scheduler.  
+    *logDir (str)*        -- Directory where Globus CLI output will be redirected to.  
+    *summaryLog (str)*    -- This log file contains summary information for everything that goes wrong in this process.  
+    *oLimits (list, int)* -- A list containing the lower and upper bounds of these orbits.  
+    *json_log (str)*      -- Path to the JSON dump that contains the paths of the log directories.  
+    *scratchSpace (str)*  -- Directory mounted on a high-performance, high-capacity filesystem for scratch work.  
+    *MISR_path_files (str)*   -- Where the MISR HRLL and AGP files are stored.  
+    *hashDir (str)*       -- Directory of the hashes of the input tar files.  
+    *modis_missing (str)* -- If not none, this is the directory where the missing MODIS file reside for each orbit.
+                           This directory contains subdirectories named after the orbit number, where all files within
+                           each orbit subdirectory will be included in that BF granule.
+
+**EFFECTS:**
+    Creates a PBS file at PBSpath. Creates a text file at the directory of PBSpath that contains all
+    the entries in transferList.
+RETURN:
+    Undefined
     '''
 
     logger = logging.getLogger('BFprocess')
@@ -112,11 +119,23 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, sum
             f.write(i + '\n')
 
    
+    if not modis_missing is None:
+        modis_missing='modis_missing={}'.format(modis_missing)
+    else:
+        modis_missing='modis_missing='
+
+    print modis_missing
+
     PBSfile = '''#!/bin/bash 
 #PBS -l nodes={}:ppn={}
 #PBS -l walltime={}
 #PBS -N {}
-#PBS -l flags=commtransparent
+#PBS -l geometry=1x4x2/2x2x2/2x4x1/4x1x2/4x2x1
+
+# Even with commtransparent, NCSA told me the jobs are still causing network conjestion.
+# So they told me to add this export command. Don't know what it does.
+export APRUN_BALANCED_INJECTION=64
+
 
 # Need to source this file before calling module command
 source /opt/modules/default/init/bash
@@ -141,7 +160,7 @@ summaryLog={}
 oLower={}
 oMax={}
 pull_process_script={}
-logPickle={}
+json_log={}
 hashDir={}
 nodes={}
 ppn={}
@@ -150,7 +169,22 @@ MISR_path_files={}
 globus_parallelism={}
 output_granule_list={}
 
-{{ {} -n {} -N $ppn -d 1 python ${{pull_process_script}} -l DEBUG $logPickle $batchFile $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $logFile $MISR_path_files --num-transfer $globus_parallelism $output_granule_list ; }} &> $logFile
+# This variable is the modis_missing. Need to allow Python meta-programmer to completely write the variable
+# declaration.
+
+{}
+
+# Write a variable that will contain the actual python '--modis_missing [dir]' parameter.
+# We let the bash script do this logic because it's easier to let it determine how
+# to pass in the --include_missing parameter instead of the meta-programmer.
+
+if [ ${{#modis_missing}} -ge 1 ]; then
+    modis_miss_param="--include-missing ${{modis_missing}}"
+else
+    modis_miss_param=""
+fi
+
+{{ {} -n {} -N $ppn -d 1 python ${{pull_process_script}} ${{modis_miss_param}} -l DEBUG $json_log $batchFile $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $MISR_path_files --num-transfer $globus_parallelism $output_granule_list ; }} &> $logFile
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
@@ -159,10 +193,10 @@ if [ $retVal -ne 0 ]; then
 fi
 
 
-'''.format( NUM_NODES, PPN, WALLTIME, jobName, os.path.join( VIRT_ENV, "bin", "activate"), GLOBUS_LOG, remoteID, hostID, \
-    jobName, batchFile, summaryLog, oLimits[0], oLimits[1], \
-    pull_process_script, logPickle, hashDir, NUM_NODES, PPN, scratchSpace, MISR_path_files, globus_parallelism, output_granule_list, \
-    mpi_exec, PPN * NUM_NODES )
+'''.format( NUM_NODES, PPN, WALLTIME, jobName, os.path.join( VIRT_ENV, "bin", "activate"), \
+    GLOBUS_LOG, remoteID, hostID, jobName, batchFile, summaryLog, oLimits[0], oLimits[1], \
+    pull_process_script, json_log, hashDir, NUM_NODES, PPN, scratchSpace, MISR_path_files, \
+    globus_parallelism, output_granule_list, modis_missing, mpi_exec, PPN * NUM_NODES )
 
     with open ( GLOBUS_PBS, 'w' ) as f:
         f.write( PBSfile )
@@ -171,7 +205,9 @@ fi
 
 #===========================================================================
 
-def makePBS_push( output_granule_list, PBSpath, remote_id, host_id, remote_dir, job_name, log_pickle_path, summary_log, projPath, logFile, num_transfer ):
+def makePBS_push( output_granule_list, PBSpath, remote_id, host_id, remote_dir, \
+    job_name, log_pickle_path, summary_log, projPath, logFile, num_transfer ):
+    
     # ======================
     # = default parameters =
     # ======================
@@ -189,6 +225,10 @@ def makePBS_push( output_granule_list, PBSpath, remote_id, host_id, remote_dir, 
 #PBS -l walltime={}
 #PBS -N {}
 #PBS -l flags=commtransparent
+
+# Even with commtransparent, NCSA told me the jobs are still causing network conjestion.
+# So they told me to add this export command. Don't know what it does.
+export APRUN_BALANCED_INJECTION=64
 
 ppn={}
 nodes={}
@@ -214,9 +254,9 @@ if [ $retVal -ne 0 ]; then
     echo \"${{job_name}}: Failed to push data to nearline. See: $log_file\" > $summary_log
     exit 1
 fi
-    '''.format( NUM_NODES, PPN, WALLTIME, job_name, PPN, NUM_NODES, globus_push_script, num_transfer, output_granule_list, \
-                remote_id, remote_dir, host_id, job_name, log_pickle_path, summary_log, GLOBUS_LOG, \
-                VIRT_ENV, MPI_EXEC )
+    '''.format( NUM_NODES, PPN, WALLTIME, job_name, PPN, NUM_NODES, globus_push_script, \
+        num_transfer, output_granule_list, remote_id, remote_dir, host_id, job_name, \
+        log_pickle_path, summary_log, GLOBUS_LOG, VIRT_ENV, MPI_EXEC )
 
     with open ( GLOBUS_PBS, 'w' ) as f:
         f.write( PBSfile )
@@ -261,7 +301,10 @@ def main():
         dest="granule", type=int, default=5000)
     parser.add_argument("-p", "--globus-parallel", help="Globus parallelism. Defines how many Globus transfer requests are submitted \
         for any given transfer job. Defaults to 1.", dest='GLOBUS_PRL', type=int, default=1)
-
+    parser.add_argument('--include-missing', help='Path to the missing MODIS files, where passed directory contains subdirectories named \
+        after each orbit. Each of those subdirectories contains the MODIS files to include in the final BF granule.', type=str, \
+        dest='modis_missing' )
+    
     ll = parser.add_mutually_exclusive_group(required=False)
     ll.add_argument("-l", "--log", help="Set the log level. Allowable values are INFO, DEBUG. Absence of this parameter \
         sets debug level to WARNING.", type=str, choices=['INFO', 'DEBUG' ] , default="WARNING")
@@ -358,11 +401,11 @@ def main():
     #
     # SAVE THE LOG DIRECTORY PICKLE
     #
-    picklePath = os.path.join( logDirs['misc'], 'logPickle.p' )
-    logger.info("Saving the log directory as pickle at: {}".format(picklePath))
+    json_log = os.path.join( logDirs['misc'], 'log_dirs.json' )
+    logger.info("Saving the log directory as JSON dump at: {}".format(json_log))
 
-    with open( picklePath, 'wb' ) as f:
-        pickle.dump( logDirs, f )
+    with open( json_log, 'wb' ) as f:
+        json.dump( logDirs, f, sort_keys=True, indent=4, separators=(',', ': ') )
 
     # Check that all directory arguments actually exist in the filesystem
     if not os.path.isdir( args.HASH_DIR ):
@@ -450,22 +493,24 @@ def main():
         output_granule_list = os.path.join( logDirs['misc'], "{}_output_granule_list.p".format(globPullName) )
         logger.info("Making Globus pull PBS script for job {}.".format(globPullName))
         i.PBSfile['pull'] = makePBS_globus( transferList,  PBSdirs['pull_process'], args.REMOTE_ID, args.HOST_ID, \
-                            globPullName, logDirs['pull_process'], summaryLog, [ i.orbitStart, i.orbitEnd], picklePath, \
+                            globPullName, logDirs['pull_process'], summaryLog, [ i.orbitStart, i.orbitEnd], json_log, \
                             args.SCRATCH_SPACE, args.MISR_PATH, args.HASH_DIR, projPath, args.GLOBUS_PRL, args.NODES, args.PPN, \
-                            output_granule_list )
+                            output_granule_list, args.modis_missing )
 
         # ------------------------------------
         # - MAKE THE GLOBUS PUSH PBS SCRIPTS -
         # ------------------------------------
 
         i.PBSfile['push'] = makePBS_push( output_granule_list, PBSdirs['globus_push'], args.REMOTE_ID, args.HOST_ID, \
-            args.REMOTE_BF_DIR, globPushName, picklePath, summary_log_push, projPath, os.path.join( logDirs['globus_push'], \
+            args.REMOTE_BF_DIR, globPushName, json_log, summary_log_push, projPath, os.path.join( logDirs['globus_push'], \
             globPushName + "_log.log"), args.GLOBUS_PRL ) 
 
     
     # Now that all quantas have been prepared, we can submit their jobs to the queue
 
+    # Keep track of the last 2 quanta
     prevQuant=None
+    prev_2_Quant=None
     for i in quantas:    
        
         # Submit this to the scheduler, taking care to save stdout (which will contain the job ID)
@@ -505,11 +550,18 @@ def main():
         # --------------------
         # - GLOBUS PUSH QSUB -
         # --------------------
-        logger.info("Calling qsub on {} with {} dependency {}".format( i.PBSfile['push'], qsub_dep_specifier, i.jobID['pull'] ) )
+        if prevQuant is not None:
+            logger.info("Calling qsub on {} with {} dependency {}:{}".format( \
+                i.PBSfile['push'], qsub_dep_specifier, i.jobID['pull'], \
+                prevQuant.jobID['push'] ) )
+            qsubCall = 'cd {} && qsub -W depend={}:{}:{} {}'.format( \
+                os.path.dirname(i.PBSfile['push']),  qsub_dep_specifier, \
+                i.jobID['pull'], prevQuant.jobID['push'], i.PBSfile['push']) 
         
-
-        qsubCall = 'cd {} && qsub -W depend={}:{} {}'.format( os.path.dirname(i.PBSfile['push']),  qsub_dep_specifier, \
-                                                              i.jobID['pull'], i.PBSfile['push']) 
+        else:
+            logger.info("Calling qsub on {} with {} dependency {}".format( i.PBSfile['push'], qsub_dep_specifier, i.jobID['pull'] ) ) 
+            qsubCall = 'cd {} && qsub -W depend={}:{} {}'.format( os.path.dirname(i.PBSfile['push']),  qsub_dep_specifier, \
+                                                                  i.jobID['pull'], i.PBSfile['push']) 
 
         logger.debug( qsubCall )
         child = subprocess.Popen( qsubCall, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
@@ -530,6 +582,7 @@ def main():
 
         i.jobID['push'] = stdout.strip()
 
+        prev_2_Quant = prevQuant
         prevQuant=i
 
 if __name__ == '__main__':
