@@ -3,6 +3,7 @@ import re
 import bfutils.constants as constants
 import cPickle as pickle
 import json
+import logging
 
 __author__ = 'Landon T. Clipp'
 __email__  = 'clipp2@illinois.edu'

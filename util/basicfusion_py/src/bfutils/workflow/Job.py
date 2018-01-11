@@ -5,6 +5,7 @@ from collections import defaultdict
 import uuid
 from bfutils.workflow import constants
 import errno
+import time
 
 '''Class that defines a single job in a job-chain workflow'''
 
@@ -20,9 +21,9 @@ class Dependency(object):
                 PBS dependency.")
         
         if not isinstance( base, Job ):
-            raise TypeError("Argument 'job_0' is not of type Job")
+            raise TypeError("Argument 'base' is not of type Job")
         if not isinstance( target, Job ):
-            raise TypeError("Argument 'job_1' is not of type Job")
+            raise TypeError("Argument 'target' is not of type Job")
  
         self._base      = base
         self._target    = target
@@ -39,12 +40,43 @@ class Dependency(object):
         return hash((self._base, self._target, self._type))
     
     def get_base(self):
+        '''
+**DESCRIPTION**  
+    Get the base of the dependency.  
+**ARGUMENTS**  
+    None  
+**EFFECTS**  
+    None  
+**RETURN**  
+    Job object
+        '''
         return self._base
 
     def get_target(self):
+        '''
+**DESCRIPTION**  
+    Get the target of the dependency.  
+**ARGUMENTS**  
+    None  
+**EFFECTS**  
+    None  
+**RETURN**  
+    Job object
+        '''
         return self._target
 
     def get_type(self):
+        '''
+**DESCRIPTION**  
+    Get the type of the dependency. Valid values are defined by the system
+    job scheduler.  
+**ARGUMENTS**  
+    None  
+**EFFECTS**  
+    None  
+**RETURN**  
+    str
+        '''
         return self._type
 
 class Job(object):
@@ -87,7 +119,7 @@ class Job(object):
     *script* (str)  -- Script literal or path to a script  
     *type* (str)   -- Set to 'file' or 'literal' to force interpretation of
         script.  
-**EFFECTS**
+**EFFECTS**  
     Stores *script* in self's attributes.  
 **RETURN**  
     None
@@ -109,16 +141,48 @@ class Job(object):
 
     #====================================================================
     def get_id( self ):
+        '''
+**DESCRIPTION**  
+    Get the internal uuid identifier of self.  
+**ARGUMENTS**  
+    None  
+**EFFECTS**  
+    None  
+**RETURN**  
+    uuid object
+        '''
         return self._id
         
     #====================================================================
     def set_sched_id( self, id ):
+        '''
+**DESCRIPTION**  
+    Set self's identifier given by the system's scheduler.  
+**ARGUMENTS**  
+    *id* (str)  -- Identifier understood by the system scheduler.  
+**EFFECTS** 
+    Sets self's scheduler ID attribute.  
+**RETURN**  
+    None
+        '''
         if not isinstance( id, str ):
             raise TypeError("Argument 'id' is not a str.")
         self._sched_id = id
 
     #====================================================================
     def get_sched_id( self ):
+        '''
+**DESCRIPTION**  
+    Return self's ID as given by the system scheduler. Attribute will not
+    contain a valid value until self is submitted to the scheduler and
+    assigned a proper ID.  
+**ARGUMENTS**  
+    None  
+**EFFECTS**  
+    None  
+**RETURN**  
+    Scheduler ID (str)
+        '''
         return self._sched_id
 
     #====================================================================
@@ -129,10 +193,10 @@ class Job(object):
 **ARGUMENTS**  
     *type* (str)    -- Type of scheduler to use. Supported values: pbs  
     *override* (bool)   -- If true, will use string passed in type as a
-        command line literal. i.e. type must be an actual terminal command
+        command line literal. i.e. *type* must be an actual terminal command
         used for submitting jobs. If false, type will be internally mapped to
         valid scheduler command-line semantics.  
-**EFFECTS*
+**EFFECTS**  
     Modifies private attribute.  
 **RETURN**  
     None
@@ -166,12 +230,15 @@ class Job(object):
 **ARGUMENTS**  
     *dependency* (list of Dependency) -- Specifies all job dependencies.  
     *params* (str) -- Extra command line arguments to add to the scheduler
-        call.
+        call.  
 **EFFECTS**  
     Submits job to the queue.  
 **RETURN**  
     None
         '''
+
+        # Perform automatic garbage collection of old PBS files
+        # TODO implement this garbage collection
 
         dep = defaultdict(list)
         # Gather all the dependencies into a nice dict, perform sanity checks

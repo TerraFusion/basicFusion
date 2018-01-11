@@ -1,1 +1,1 @@
-from bfutils.globus.globus import GlobusTransfer 
+from globus import GlobusTransfer 

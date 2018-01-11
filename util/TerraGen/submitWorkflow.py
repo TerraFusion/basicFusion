@@ -130,7 +130,7 @@ RETURN:
 #PBS -l nodes={}:ppn={}
 #PBS -l walltime={}
 #PBS -N {}
-#PBS -l flags=commtransparent
+#PBS -l geometry=1x4x2/2x2x2/2x4x1/4x1x2/4x2x1
 
 # Even with commtransparent, NCSA told me the jobs are still causing network conjestion.
 # So they told me to add this export command. Don't know what it does.

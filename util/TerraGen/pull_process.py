@@ -13,16 +13,18 @@ import workflowClass
 import re
 import time
 import json
+from bfutils import globus
 
 FORMAT            = '%(asctime)s %(levelname)-8s %(name)s [%(filename)s:%(lineno)d] %(message)s'
 dateformat        = '%d-%m-%Y:%H:%M:%S'
+FILENAME          = 'TERRA_BF_L1B_O{0}_{1}_F000_V001.h5'
 progName          = ''
 summaryLog        = ''
 logDirs           = {}
 genFusInput       = ''
 MODIS_MISSING     = None
 hashDir           = None
-STAGGER_HASH_JOBS = False    # Set to true to make master rank sleep 0.01 seconds before sending out
+STAGGER_HASH_JOBS = False   # Set to true to make master rank sleep 0.01 seconds before sending out
                             # a hash job.
 
 #MPI Variables
@@ -249,11 +251,11 @@ def worker():
         stat = MPI.Status()
         mpi_comm.send( 0, dest = MPI_MASTER, tag = MPI_SLAVE_IDLE )
         data = mpi_comm.recv( source = MPI_MASTER, status=stat )
+        tag = stat.Get_tag()
         if tag == MPI_SLAVE_TERMINATE:
             return
         func = data[0]
         data = data[1]
-        tag = stat.Get_tag()
         
 
         logger.info("Received job {}.".format( func ) )
@@ -300,125 +302,26 @@ def slaveCopyFile( copyList, orbit=0 ):
 def globusDownload( granuleList, remoteID, hostID, numTransfer, retry=False ):
 
     CHECK_SUM='--no-verify-checksum'
-   
+    transferPath = os.path.join( logDirs['misc'], 'globus_batch' )
+    os.makedirs( transferPath )
+
     num_lines=len(granuleList) 
     logger.debug("Number of orbits to transfer: {}".format( len(granuleList) ))
-    
-    # ==========================
-    # = SPLIT THE GRANULE LIST =
-    # ==========================
+   
+    transfer = globus.GlobusTransfer( remoteID, hostID )
+    min_orbit = sys.maxsize
+    max_orbit = -sys.maxsize - 1
+    for g in granuleList: 
+        if g.orbit < min_orbit:
+            min_orbit = g.orbit
+        if g.orbit > max_orbit:
+            max_orbit = g.orbit
 
-    # Find how to split the granuleList
-    linesPerPartition = len(granuleList) / numTransfer
-    extra   = len(granuleList) % numTransfer
+        transfer.add_file( g.sourceTarPath, g.destTarPath )
+ 
+    transfer.transfer( parallel=3, batch_dir = transferPath, label='tar_pull_{}_{}'.format(min_orbit, max_orbit))
+    transfer.wait()
 
-    logger.debug("linesPerPartition: {}".format(linesPerPartition))
-    logger.debug("extra: {}".format(extra))
-
-    # Contains the path of each globus batch transfer text file. Will contain numTransfer elements
-    splitList = []
-
-    # Set the directory where our globus batch transfer files will go
-    transferPath = os.path.join( logDirs['misc'], 'globus_batch' )
-    try:
-        os.makedirs(transferPath)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-
-    for i in xrange(numTransfer):
-        # Add the filename of our new split-file to the list
-        if retry == True:
-            splitList.append( os.path.join( transferPath, progName + "_globus_list_retry_{}.txt".format(i)) )
-        else:
-            splitList.append( os.path.join( transferPath, progName + "_globus_list_{}.txt".format(i)) )
-            
-        logger.debug("Making new split file: {}".format(splitList[i]))
-
-        with open( splitList[i], 'w' ) as partition:
-            logger.debug("Writing {}".format( os.path.basename(splitList[i])))
-            
-            # Slice the granule list appropriately
-            for j in granuleList[i * linesPerPartition : i*linesPerPartition + linesPerPartition]:
-                line = '{} {}'.format( j.sourceTarPath, j.destTarPath )
-                # Write the line to the globus batch transfer file
-                partition.write( line + os.linesep )
-
-    # Write the extra files to the last partition
-    with open( splitList[numTransfer-1], 'a') as partition:
-        for j in granuleList[ numTransfer*linesPerPartition: ]:
-            line = '{} {}'.format( j.sourceTarPath, j.destTarPath )
-            logger.debug("Writing extra line to {}".format( os.path.basename(splitList[numTransfer-1])))
-            partition.write( line + os.linesep ) 
-
-    # Do a sanity check to make sure we didn't lose any files in the process.
-    # Sum the number of lines in all of our batch transfer files. If that does
-    # not equal to the length of granuleList, we missed something.
-    num_lines = 0
-    for batch in splitList:
-        num_lines += sum(1 for line in open( batch ) )
-
-    if num_lines != len(granuleList):
-        raise ValueError("num_lines ({}) != length of granuleList ({})".format(num_lines, len(granuleList)))
-
-    # ================================
-    # = SUBMIT SPLIT LISTS TO GLOBUS =
-    # ================================
-
-    # We have finished splitting up the transferList file. We can now submit these to Globus to download.
-    # I admit that the way I'm calling the Globus CLI (i.e., not from within Python itself) is clunky, but
-    # calling it through a subprocess works well enough. I don't have time to integrate their CLI into this
-    # program.
-    submitIDs = []
-    
-    for splitFile in splitList:
-        args = ['globus', 'transfer', CHECK_SUM, remoteID +':/', hostID + ':/', '--batch', \
-                '--label', os.path.basename(splitFile).replace('.txt', '') ]
-
-        logger.info("Submitting Globus transfer batch {}.".format(splitFile))            
-        with open( splitFile, 'r' ) as stdinFile:
-            subProc = subprocess.Popen( args, stdin=stdinFile, stdout=PIPE, stderr=PIPE ) 
-            subProc.wait()
-        
-        # We need to retrieve the stdout/stderr of this globus call to extract the submission ID.
-        stdout = subProc.stdout
-        stderr = subProc.stderr
-
-        # stdout and stderr are file objects, so simply read the file contents into the variables themselves
-        stdout = stdout.read()
-        stderr = stderr.read()
-
-        # Extract the submission IDs from stdout
-        startLine = 'Task ID: '
-        startIdx = stdout.find( startLine )
-        submitID = stdout[ startIdx + len(startLine):].strip()
-
-        submitIDs.append(submitID)
-
-        # stdout and stderr are now strings. Concatenate the strings together
-        stdout += stderr
-
-        # Go ahead and write these to the log file
-        print(stdout)
-
-        retCode = subProc.returncode
-
-        if retCode != 0:
-            summaryLog.write("{}: Globus task failed with retcode {}!\n".format(progName, retCode))
-            raise RuntimeError("Globus transfer failed.")
-
-    # The transfers have been submitted. Need to wait for them to complete...
-    for id in submitIDs:
-        logger.info("Waiting for Globus task {}".format(id))
-        args = ['globus', 'task', 'wait', id ]
-
-        retCode = subprocess.call( args, stderr=subprocess.STDOUT ) 
-        
-        # The program will not progress past this point until 'id' has finished
-        if retCode != 0:
-            summaryLog.write("{}: Globus task failed with retcode {}!\n".format(progName, retCode))
-
-        logger.info("Globus task {} completed with retcode: {}.".format(id, retCode))
 
 #=======================================================================================================
 
@@ -829,7 +732,6 @@ def main():
     # - USEFUL VARIABLES -
     # --------------------    
     input_list_dir      = os.path.join( logDirs['misc'], 'BFinputListing' )
-    FILENAME            = 'TERRA_BF_L1B_O{0}_{1}_F000_V000.h5'
     scriptPath          = os.path.realpath(__file__)
     projPath            = ''.join( scriptPath.rpartition('basicFusion/')[0:2] )
     global genFusInput
@@ -1098,4 +1000,3 @@ if __name__ == '__main__':
             logger.debug("Terminating slave {}".format(i))
             mpi_comm.recv( source = i, tag = MPI_SLAVE_IDLE )
             mpi_comm.send( 0, dest = i, tag = MPI_SLAVE_TERMINATE )
-
