@@ -12,7 +12,7 @@ This script is the official workflow for the Basic Fusion project. It represents
 3. The user has properly compiled the BasicFusion code:  
     - Compile `HDF4 4.2.13` and `HDF5 1.8.16` from source. Blue Waters system HDF *cannot* be used! These may be compiled with system zlib, libjpeg, and szip libraries.  
     - Once the HDF libraries have been compiled, the Basic Fusion code must be compiled using gcc (NOT cc as recommended by Blue Waters documentation), linking your user-level HDF libraries. All HDF environment modules *must* be unloaded before attempting to compile the code.  
-4. The user has gained proper authority from the NCSA to use the `#PBS -l flags=commtransparent` PBS directive. Please [sbumit a ticket](https://bluewaters.ncsa.illinois.edu/contact-us) to the NCSA to gain access to this directive.
+4. The user has gained proper authority from the NCSA to use the `#PBS -l flags=commtransparent` PBS directive. Please [submit a ticket](https://bluewaters.ncsa.illinois.edu/contact-us) to the NCSA to gain access to this directive.
 5. The user has logged into the Globus Python CLI and activated both the Blue Waters and the Nearline Globus endpoints. This can be done by executing and completing the following terminal commands:
 
     ```
@@ -32,6 +32,3 @@ python submitWorkflow.py --help
 ```
 
 Due to the verbosity of the script's arguments, it is recommended that users create a simple shell wrapper around the script so that arguments may be easily saved and changed if needed.
-
-#### Improvements to be made
-- submitWorkflow.py combines both pulling data from Nearline and generating BF granules in the same job. This means that many node hours will be wasted waiting for the data to be downloaded. This was originally done to expedite the entire workflow due to sometimes long queue wait times. In the future, these two steps should be separated into two different jobs.
