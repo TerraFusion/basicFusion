@@ -5,6 +5,7 @@ import uuid
 from collections import defaultdict
 from Job import Job
 from Job import Dependency
+import os
 
 __author__ = 'Landon T. Clipp'
 __email__  = 'clipp2@illinois.edu'
@@ -92,15 +93,15 @@ class JobChain(object):
     
         # base before target
         # is the equivalent to
-        # target after after
-        # I force the 'before' prefix because it makes topological sorting 
+        # target after base
+        # I force the 'after' prefix because it makes topological sorting 
         # of the graph easier and more efficient by making edges in the list
         # imply a forward traversal in time.
         # e.g.
         # 0 -> 1, 2
         # 2 -> 3
         # Means that 1 and 2 come after 0, and 3 comes after 2. Thus, 0
-        # must be BEFORE 1 and 2, etc.
+        # must be BEFORE 1 and 2, and 2 is BEFORE 3, etc.
         if 'before' in type:
             type = type.replace('before', 'after')
             tmp = base
@@ -147,7 +148,7 @@ class JobChain(object):
         for i in self._graph[vert]:
             self._topo_sort_util( i.get_target(), visited, stack )
                  
-        # Only after all dependencies have been searched, we will insert the stack
+        # Only after all neighbors have been searched, we will insert the stack
         stack.insert(0, vert)
         visited[ vert ] = 'black'
 
@@ -182,14 +183,39 @@ class JobChain(object):
         return stack
 
     #====================================================================   
-    def submit( self ):
-        
+    def submit( self, print_map=False ):
+        '''
+**DESCRIPTION**  
+    Submits all Jobs added by add_job() to the system scheduler.  
+**ARGUMENTS**  
+    *print_map* (bool)  -- Return a string representation of the job
+        dependency map.
+**EFFECTS**  
+    Submits jobs to the scheduler.  
+**RETURN**  
+    If print_map == True: string  
+    If print_map == False: None
+        '''    
         sort_jobs = self.topo_sort()
         for job in sort_jobs:
             job.set_sched( self._sched_type )
             job.submit( self._graph[job] )
+       
+        map_str = '' 
+        for job in sort_jobs:    
+            if print_map:
+                map_str += '-------------------------------\n'
+                map_str += "PBS: {}\nID: {}\n".format(\
+                os.path.basename( job.get_script() ), job.get_sched_id() )
+                for dep in self._graph[job]:
+                    target = dep.get_target()
+                    map_str += '{} {}\n'.format( dep.get_type(), target.get_sched_id())
 
+                map_str += '-------------------------------\n'
         
+        if print_map:
+            return map_str
+
 #        for i in self._graph:
 #            print( '{} '.format(i.num), end='' )
 #            for j in self._graph[ i ]:

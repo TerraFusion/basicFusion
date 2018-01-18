@@ -7,6 +7,7 @@ import os
 import sys
 import errno
 import json
+import datetime as dt
 
 summaryLog=''
 jobName=''
@@ -32,6 +33,10 @@ def main():
         to 1.", dest='num_transfer', type=int, default=1)    
     parser.add_argument("-l", "--log-level", help="Set the log level. Defaults to WARNING.", type=str, \
         choices=['INFO', 'DEBUG' ] , default="WARNING", dest='log_level')
+    parser.add_argument('--save-interm', help='Don\'t delete any intermediary \
+        files on the scratch directory. WARNING! This option prevents script \
+        from clearing out files no longer needed, thus increasing disk usage.',
+        dest='save_interm', action='store_true')
     args = parser.parse_args()
     print( type(args) )
     #
@@ -141,10 +146,15 @@ def main():
 
     submitIDs = []
 
+    # Set deadline for 2 days
+    delta = dt.timedelta(days=2)
+    now = dt.datetime.utcnow()
+    deadline = delta + now
+    
     for i in splitList:
     
         subprocCall = ['globus', 'transfer', CHECK_SUM, args.HOST_ID +':/', args.REMOTE_ID + ':/', '--batch', \
-                       '--label', os.path.basename(i).replace('.txt', '') ]
+                       '--label', os.path.basename(i).replace('.txt', ''), '--deadline' , deadline.strftime("%Y-%m-%d %H:%M:%S") ]
         with open( i, 'r' ) as stdinFile:
             subProc = subprocess.Popen( subprocCall, stdin=stdinFile, stdout=subprocess.PIPE, stderr=subprocess.PIPE ) 
             subProc.wait()
@@ -187,22 +197,23 @@ def main():
         # The program will not progress past this point until 'id' has finished
         if retCode != 0:
             with open( args.SUMMARY_LOG, 'a') as summaryLog:
-                summaryLog.write("Globus task failed with retcode {}! See: {}".format(retCode, globPullLog))
+                summaryLog.write("Globus task failed with retcode {}! See: {}\n".format(retCode, globPullLog))
 
         logger.info("Globus task {} completed with retcode: {}.".format(id, retCode))
 
-    logger.info("Deleting all Basic Fusion granules on the host machine.")
-    for i in granuleList:
-        try:
-            os.remove( i.outputFilePath )
-        except OSError as e:
-            if e.errno != errno.ENOENT:
-                raise
+    if not args.save_interm:
+        logger.info("Deleting all Basic Fusion granules on the host machine.")
+        for i in granuleList:
+            try:
+                os.remove( i.outputFilePath )
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
     
 if __name__ == '__main__':
     try:
         main()
     except Exception as e:
         with open( summaryLog, 'a') as f:
-            f.write('{}: Failed to pull data. See log files for more info.'.format(jobName))
+            f.write('{}: Failed to push data. See log files for more info.\n'.format(jobName))
         raise

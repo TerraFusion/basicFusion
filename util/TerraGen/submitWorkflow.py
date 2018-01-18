@@ -31,22 +31,27 @@ __email__  = "clipp2@illinois.edu"
 import argparse
 import logging
 import sys, os, errno
-from bfutils import makeRunDir, orbitYear
+from bfutils import workflow
+import bfutils
 import pickle
 import errno
 import subprocess
 from workflowClass import granule, processQuanta
 import json
+import workflowClass
+from multiprocessing import Pool
 
 #=================================
 logName='BF_jobFiles'
 logger = 0
+VIRT_ENV = None
 #=================================
 
 
-def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, \
+def makePBS_process(granule_list, PBSpath, remoteID, hostID, jobName, logDir, \
     summaryLog, oLimits, json_log, scratchSpace, MISR_path_files, hashDir, \
-    projPath, globus_parallelism, nodes, ppn, output_granule_list, modis_missing ):
+    projPath, globus_parallelism, nodes, ppn, modis_missing, save_interm, \
+    queue ):
     '''
 **DESCRIPTION:**
     This function makes the PBS scripts and other files necessary to pull the proper orbits from Nearline
@@ -55,12 +60,10 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, \
     Line Interface.
 
 **ARGUMENTS:**
-    *transferList (list)* -- A list containing a list of files to transfer from remote to the host machine.
-                           Each element contains absolute path of single file on remote machine, then absolute
-                           path of the file on the host machine, the paths delimited by a space. Note that BOTH
-                           paths must include a filename!  
-    *PBSpath (str)*       -- An absolute path of a directory to where the PBS script and the transferList
-                           text file will be created.  
+    *granule_list (str)* -- Path to a Python pickle that contains a list of
+        granule objects that define BasicFusion granules (both input and output).  
+    *PBSpath (str)*       -- An absolute path of a directory to where the PBS
+        script will be created.  
     *remoteID (str)*      -- The Globus identifier of the remote site to download the data from.
     *hostID (str)*        -- The Globus identifier of the host machine.  
     *jobName (str)*       -- Serves two purposes: will define the prefix of the PBS script file, as well as
@@ -74,12 +77,14 @@ def makePBS_globus(transferList, PBSpath, remoteID, hostID, jobName, logDir, \
     *hashDir (str)*       -- Directory of the hashes of the input tar files.  
     *modis_missing (str)* -- If not none, this is the directory where the missing MODIS file reside for each orbit.
                            This directory contains subdirectories named after the orbit number, where all files within
-                           each orbit subdirectory will be included in that BF granule.
+                           each orbit subdirectory will be included in that BF granule.  
+    *save_interm* (bool)    -- Save the intermediary files on scratch.
+    *queue* (str)      -- Sets the queue requested to PBS. Allowable 
+        values are defined by the system's PBS scheduler.  
 
-**EFFECTS:**
-    Creates a PBS file at PBSpath. Creates a text file at the directory of PBSpath that contains all
-    the entries in transferList.
-RETURN:
+**EFFECTS**  
+    Creates a PBS file at PBSpath.
+**RETURN**  
     Undefined
     '''
 
@@ -91,7 +96,6 @@ RETURN:
     WALLTIME      = "48:00:00"
     NUM_NODES     = nodes
     PPN           = ppn            # processors (cores) per node
-    VIRT_ENV      = os.environ['VIRTUAL_ENV']
     POLL_INTERVAL = 60
     GLOBUS_LOG    = os.path.join( logDir, jobName + ".log" )
     GLOBUS_PBS    = os.path.join( PBSpath, jobName + "_pbs.pbs" )
@@ -99,9 +103,13 @@ RETURN:
     pull_process_script  = os.path.join( projPath, 'util', 'TerraGen', 'pull_process.py' )
 
     logger.debug("Globus log saved at {}.".format(GLOBUS_LOG))
-    logger.debug("Globus PBS script saved at {}.".format(GLOBUS_PBS))
+    logger.debug("Globus PBS script saved at {}".format(GLOBUS_PBS))
     logger.debug("jobName: {}".format(jobName))
     logger.debug("Using virtual environment: {}".format(VIRT_ENV))
+    
+    save_interm_str = ''
+    if save_interm:
+        save_interm_str = '--save-interm'
     
     if not os.path.isfile( pull_process_script ):
         raise RuntimeError("pull_process.py not found at: {}".format( pull_process_script) )
@@ -110,31 +118,23 @@ RETURN:
     if not isinstance( oLimits, list ) or len( oLimits) != 2:
         raise ValueError("oLimits must a list of length 2!")
     
-    # Convert the transferList into a file that is needed by the Globus python API for batch transfers.
-    # Refer to their online documentation for batch transfers.
-
-    batchFile = os.path.join( PBSpath, jobName + "_batch.txt")
-    with open( batchFile, 'w' ) as f:
-        for i in transferList:
-            f.write(i + '\n')
-
-   
     if not modis_missing is None:
         modis_missing='modis_missing={}'.format(modis_missing)
     else:
         modis_missing='modis_missing='
 
-    print modis_missing
-
     PBSfile = '''#!/bin/bash 
 #PBS -l nodes={}:ppn={}
 #PBS -l walltime={}
 #PBS -N {}
-#PBS -l geometry=1x4x2/2x2x2/2x4x1/4x1x2/4x2x1
+#PBS -q {}
+##PBS -l geometry=1x4x2/2x2x2/2x4x1/4x1x2/4x2x1
+
+##PBS -l flags=commtransparent
 
 # Even with commtransparent, NCSA told me the jobs are still causing network conjestion.
 # So they told me to add this export command. Don't know what it does.
-export APRUN_BALANCED_INJECTION=64
+# export APRUN_BALANCED_INJECTION=64
 
 
 # Need to source this file before calling module command
@@ -143,6 +143,12 @@ source /opt/modules/default/init/bash
 # Load proper python modules
 module load bwpy
 module load bwpy-mpi
+
+module unload hdf5
+module unload hdf4
+module unload netcdf
+
+module load cray-netcdf
 
 # Set the environment variables for Basic Fusion code
 export USE_GZIP=1
@@ -155,7 +161,7 @@ logFile={}
 remoteID={}
 hostID={}
 jobName={}
-batchFile={}
+granule_list={}
 summaryLog={}
 oLower={}
 oMax={}
@@ -167,7 +173,7 @@ ppn={}
 scratchSpace={}
 MISR_path_files={}
 globus_parallelism={}
-output_granule_list={}
+save_interm={}
 
 # This variable is the modis_missing. Need to allow Python meta-programmer to completely write the variable
 # declaration.
@@ -184,19 +190,19 @@ else
     modis_miss_param=""
 fi
 
-{{ {} -n {} -N $ppn -d 1 python ${{pull_process_script}} ${{modis_miss_param}} -l DEBUG $json_log $batchFile $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $MISR_path_files --num-transfer $globus_parallelism $output_granule_list ; }} &> $logFile
+{{ {} -n $(( $ppn * $nodes )) -N $ppn python ${{pull_process_script}} ${{save_interm}} ${{modis_miss_param}} -l DEBUG $json_log ${{granule_list}} $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $MISR_path_files --num-transfer $globus_parallelism ; }} 1>> $logFile 2>> $logFile
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
-    echo \"FAIL: ${{oLower}}_${{oMax}}: Failed to pull data from nearline. See: $logFile\" > $summaryLog
+    echo \"FAIL: ${{oLower}}_${{oMax}}: Failed to pull data from nearline. See: $logFile\" >> $summaryLog
     exit 1
 fi
 
 
-'''.format( NUM_NODES, PPN, WALLTIME, jobName, os.path.join( VIRT_ENV, "bin", "activate"), \
-    GLOBUS_LOG, remoteID, hostID, jobName, batchFile, summaryLog, oLimits[0], oLimits[1], \
+'''.format( NUM_NODES, PPN, WALLTIME, jobName, queue, os.path.join( VIRT_ENV, "bin", "activate"), \
+    GLOBUS_LOG, remoteID, hostID, jobName, granule_list, summaryLog, oLimits[0], oLimits[1], \
     pull_process_script, json_log, hashDir, NUM_NODES, PPN, scratchSpace, MISR_path_files, \
-    globus_parallelism, output_granule_list, modis_missing, mpi_exec, PPN * NUM_NODES )
+    globus_parallelism, save_interm_str, modis_missing, mpi_exec )
 
     with open ( GLOBUS_PBS, 'w' ) as f:
         f.write( PBSfile )
@@ -204,9 +210,61 @@ fi
     return GLOBUS_PBS
 
 #===========================================================================
+def makePBS_pull( job_name, pull_script, log_file, sum_log, granule_list, \
+    src_id, dest_id, log_dirs, save_interm, queue ):
+    
+    # ----------------------
+    # - default parameters -
+    # ----------------------
+
+    walltime    = '48:00:00'
+    nodes       = 1
+    ppn         = 1
+    num_ranks   = 1
+
+    save_interm_str = ''
+    if save_interm:
+        save_interm_str = '--save-interm'
+
+    PBSfile = '''#!/bin/bash
+#PBS -l nodes={}:ppn={}
+#PBS -l walltime={}
+#PBS -N {}
+#PBS -q {}
+
+# Source the BasicFusion python environment
+source {}
+
+job_name={}
+pull_script={}
+ppn={}
+num_ranks={}
+log_file={}
+sum_log={}
+granule_list={}
+src_id={}
+dest_id={}
+log_dirs={}
+save_interm={}
+
+{{ aprun -n ${{num_ranks}} -N $ppn -d 1 python ${{pull_script}} ${{save_interm}} ${{granule_list}} ${{src_id}} ${{dest_id}} ${{log_dirs}} ${{job_name}} ; }} 1>> $log_file 2>> $log_file
+
+retVal=$?
+if [ $retVal -ne 0 ]; then
+    echo "FAIL: ${{job_name}}: Failed to pull data from nearline. See: $log_file" >> $sum_log
+    exit 1
+fi
+'''.format( nodes, ppn, walltime, job_name, queue, VIRT_ENV, job_name, pull_script, \
+    ppn, num_ranks, log_file, sum_log, granule_list, src_id, dest_id, log_dirs, \
+    save_interm_str, job_name )
+
+    return PBSfile
+
+#===========================================================================
 
 def makePBS_push( output_granule_list, PBSpath, remote_id, host_id, remote_dir, \
-    job_name, log_pickle_path, summary_log, projPath, logFile, num_transfer ):
+    job_name, log_pickle_path, summary_log, projPath, logFile, num_transfer, \
+    save_interm, queue ):
     
     # ======================
     # = default parameters =
@@ -214,25 +272,27 @@ def makePBS_push( output_granule_list, PBSpath, remote_id, host_id, remote_dir, 
     WALLTIME      = "48:00:00"
     NUM_NODES     = 1
     PPN           = 1            # processors (cores) per node
-    VIRT_ENV      = os.path.join( projPath, 'externLib', 'BFpyEnv', 'bin', 'activate' )
-    GLOBUS_LOG    = logFile
     GLOBUS_PBS    = os.path.join( PBSpath, job_name + "_pbs.pbs" )
     MPI_EXEC      = 'aprun'
-    globus_push_script  = os.path.join( projPath, 'util', 'TerraGen', 'globus_push.py' )
+    push_script  = os.path.join( projPath, 'util', 'TerraGen', 'globus_push.py' )
 
+    save_interm_str = ''
+    if save_interm:
+        save_interm_str = '--save-interm'
+    
     PBSfile = '''#!/bin/bash 
 #PBS -l nodes={}:ppn={}
 #PBS -l walltime={}
 #PBS -N {}
 #PBS -l flags=commtransparent
-
+#PBS -q {}
 # Even with commtransparent, NCSA told me the jobs are still causing network conjestion.
 # So they told me to add this export command. Don't know what it does.
 export APRUN_BALANCED_INJECTION=64
 
 ppn={}
 nodes={}
-globus_push_script={}
+push_script={}
 num_transfer={}
 output_granule_list={}
 remote_id={}
@@ -242,26 +302,119 @@ job_name={}
 log_pickle_path={}
 summary_log={}
 log_file={}
+save_interm={}
 
 # Source the Basic Fusion python virtual environment
 source {}
 
 
-{{ {} -n $(( $ppn * $nodes )) -N $ppn -d 1 python "${{globus_push_script}}" -l DEBUG -g $num_transfer "$output_granule_list" $remote_id "$remote_dir" $host_id "$job_name" "$log_pickle_path" "$summary_dir" ; }} &> $log_file
+{{ {} -n $(( $ppn * $nodes )) -N $ppn python "${{push_script}}" -l DEBUG -g $num_transfer ${{save_interm}} "$output_granule_list" $remote_id "$remote_dir" $host_id "$job_name" "$log_pickle_path" "$summary_log" ; }} 1>> $log_file 2>> $log_file
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
-    echo \"${{job_name}}: Failed to push data to nearline. See: $log_file\" > $summary_log
+    echo \"${{job_name}}: Failed to push data to nearline. See: $log_file\" >> $summary_log
     exit 1
 fi
-    '''.format( NUM_NODES, PPN, WALLTIME, job_name, PPN, NUM_NODES, globus_push_script, \
+    '''.format( NUM_NODES, PPN, WALLTIME, job_name, queue, PPN, NUM_NODES, push_script, \
         num_transfer, output_granule_list, remote_id, remote_dir, host_id, job_name, \
-        log_pickle_path, summary_log, GLOBUS_LOG, VIRT_ENV, MPI_EXEC )
+        log_pickle_path, summary_log, logFile, save_interm_str, \
+        VIRT_ENV, MPI_EXEC )
 
     with open ( GLOBUS_PBS, 'w' ) as f:
         f.write( PBSfile )
 
     return GLOBUS_PBS
+
+#==========================================================================
+def make_granule( arg_tuple ):
+   
+    orbit = arg_tuple[0]
+    bf_metadata = arg_tuple[1]
+    FILENAME = arg_tuple[2]
+    BFoutputDir = arg_tuple[3]
+    BF_exe = arg_tuple[4]
+    orbit_info_bin = arg_tuple[5]
+    args = arg_tuple[6]
+    logDirs = arg_tuple[7]
+
+    # Find what year this orbit belongs to
+    year = bfutils.orbitYear( orbit )
+
+    # We should now have the year for this orbit
+    sourceTarPath = os.path.join( args.REMOTE_TAR_DIR, str( year ), "{}archive.tar".format(orbit) )
+    destTarPath   = os.path.join( args.SCRATCH_SPACE, "tar", str( year ), "{}archive.tar".format(orbit) )
+    # the start time of the orbit
+    orbit_start_time = bfutils.orbit_start( orbit )
+    
+    # BFdirStructure is the year/month/day path inside the output directory for this particular granule
+    BFdirStructure= os.path.join( str( orbit_start_time[0:4]), \
+                    str( orbit_start_time[4:6]), \
+                    str( orbit_start_time[6:8] ) )
+
+    # directory where the untarred data will go for this granule
+    untarDir = os.path.join( args.SCRATCH_SPACE, "untarData", BFdirStructure, str(orbit) )
+    # outFileDir is the complete, absolute directory to store the basic fusion file in
+    outFileDir = os.path.join( BFoutputDir, BFdirStructure)
+    # directory where the log file will reside
+    proc_log_dir = os.path.join( logDirs['process'], BFdirStructure )
+
+    # Name of the output basic fusion file
+    BFfileName = FILENAME.format( orbit, orbit_start_time )
+    
+    # Finally, save the absolute path of the output file
+    outFilePath = os.path.join( outFileDir, BFfileName )
+
+    # Create our location for untarring
+    try:
+        os.makedirs( untarDir )
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    
+    # Make the log file directory
+    try:
+        os.makedirs( proc_log_dir )
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+   
+    # Make the file output directory
+    try:
+        os.makedirs( outFileDir )
+        #logger.debug("Making the output directory: {}".format( outFileDir) )
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    
+    #
+    # PREPARE THE GRANULE ATTRIBUTES
+    #
+    curGranule = workflowClass.granule( destTarPath, untarDir, orbit, year=year )
+    curGranule.sourceTarPath    = sourceTarPath
+    curGranule.destTarPath      = destTarPath
+    curGranule.orbit_start_time = orbit_start_time
+    curGranule.pathFileList     = os.path.join( untarDir, "MISR_PATH_FILES_{}.txt".format(orbit) )
+    curGranule.year             = year
+    curGranule.BFoutputDir      = BFoutputDir
+    curGranule.BFfileName       = BFfileName 
+    curGranule.logFile          = os.path.join( proc_log_dir, '{}process_log.txt'.format(orbit))
+    curGranule.metadata_dir     = os.path.join( bf_metadata, BFdirStructure )
+    curGranule.inputFileList    = os.path.join( proc_log_dir, '{}input.txt'.format(orbit ) )
+    curGranule.BF_exe           = BF_exe
+    curGranule.orbit_times_bin  = orbit_info_bin                
+    curGranule.outputFilePath   = outFilePath 
+    curGranule.proc_log_dir     = proc_log_dir
+    curGranule.ddl_path         = os.path.join( proc_log_dir, curGranule.BFfileName + '.ddl')
+    curGranule.cdl_path         = os.path.join( proc_log_dir, curGranule.BFfileName + '.cdl')
+
+    return curGranule
+
+#==========================================================================
+def pickle_granules( arg ):
+    granule_list_pickle = arg[0]
+    granuleList = arg[1]
+    with open( granule_list_pickle, 'wb' ) as f:
+        pickle.dump( granuleList, f )
 
 #==========================================================================
     
@@ -305,6 +458,12 @@ def main():
         after each orbit. Each of those subdirectories contains the MODIS files to include in the final BF granule.', type=str, \
         dest='modis_missing' )
     
+    parser.add_argument('--save-interm', help='Don\'t delete any intermediary \
+        files on the scratch directory. WARNING! This option prevents script \
+        from clearing out files no longer needed, thus increasing disk usage.',
+        dest='save_interm', action='store_true')
+    parser.add_argument('--queue', help='Set the queue to submit the jobs to.', \
+        type=str, choices=['low', 'normal', 'high'], default='normal', dest='queue' )
     ll = parser.add_mutually_exclusive_group(required=False)
     ll.add_argument("-l", "--log", help="Set the log level. Allowable values are INFO, DEBUG. Absence of this parameter \
         sets debug level to WARNING.", type=str, choices=['INFO', 'DEBUG' ] , default="WARNING")
@@ -340,12 +499,13 @@ def main():
             raise
     
     # Make the run directory
-    runDir     = makeRunDir( logDir )
+    runDir     = bfutils.makeRunDir( logDir )
     # Make the rest of the log directory
     PBSdir          = os.path.join( runDir, 'PBSscripts' )
-    PBSdirs         = { 'globus_push' : os.path.join( PBSdir, 'globus_push' ), \
+    PBSdirs         = { 'push' : os.path.join( PBSdir, 'push' ), \
                         'pull_process' : os.path.join( PBSdir, 'pull_process' ), \
-                        'process'     : os.path.join( PBSdir, 'process' ) \
+                        'process'     : os.path.join( PBSdir, 'process' ), \
+                        'pull'  : os.path.join( PBSdir, 'pull' ) \
                       }
     logDir          = os.path.join( runDir, 'logs' )
     logDirs         = { 'submit_workflow'   : os.path.join( logDir, 'submit_workflow' ), \
@@ -353,8 +513,10 @@ def main():
                         'pull_process'       : os.path.join( logDir, 'pull_process' ), \
                         'misc'              : os.path.join( logDir, 'misc' ), \
                         'process'           : os.path.join( logDir, 'process'), \
-                        'globus_push'       : os.path.join( logDir, 'globus_push') \
+                        'push'       : os.path.join( logDir, 'push'), \
+                        'pull'              : os.path.join( logDir, 'pull' ) \
                       }
+
 
     os.makedirs( PBSdir )
     os.makedirs( logDir )
@@ -366,25 +528,27 @@ def main():
     # ======================
     # = VARIABLES / MACROS =
     # ======================
-    VIRT_ENV      = os.environ['VIRTUAL_ENV']
-    scriptPath    = os.path.realpath(__file__)
-    projPath      = ''.join( scriptPath.rpartition('basicFusion/')[0:2] )
-    orbit_times_txt = os.path.join( projPath, 'metadata-input', 'data', 'Orbit_Path_Time.txt' )
-    SUBMIT_LOG      = os.path.join( logDirs['submit_workflow'], 'submit_workflow.log')
-    qsub_dep_specifier='afterany'
+    scriptPath          = os.path.realpath(__file__)
+    projPath            = ''.join( scriptPath.rpartition('basicFusion/')[0:2] )
+    orbit_times_txt     = os.path.join( projPath, 'metadata-input', 'data', 'Orbit_Path_Time.txt' )
+    SUBMIT_LOG          = os.path.join( logDirs['submit_workflow'], 'submit_workflow.log')
+    global VIRT_ENV
+    VIRT_ENV            = os.path.join( projPath, 'externLib', 'BFpyEnv', 'bin', 'activate' )
+    BFoutputDir         = os.path.join( args.SCRATCH_SPACE, "BFoutput" )
+    bf_metadata         = os.path.join( logDirs['misc'], 'BF_metadata' )
+    FILENAME            = 'TERRA_BF_L1B_O{0}_{1}_F000_V001.h5'
+    BF_exe              = os.path.join( projPath, "bin", "basicFusion" )
+    orbit_info_txt      = os.path.join( projPath, "metadata-input", "data", "Orbit_Path_Time.txt" )
+    orbit_info_bin      = os.path.join( projPath, "metadata-input", "data", "Orbit_Path_Time.bin" ) 
+    FORMAT='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
+    dateformat='%d-%m-%Y:%H:%M:%S'
     
     #
     # ENABLE LOGGING
     #
 
-    FORMAT='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
-    dateformat='%d-%m-%Y:%H:%M:%S'
     logFormatter = logging.Formatter(FORMAT, dateformat)
     rootLogger = logging.getLogger()
-
-    fileHandler = logging.FileHandler( os.path.join( logDirs['misc'], 'BFprocess.log') )
-    fileHandler.setFormatter(logFormatter)
-    rootLogger.addHandler(fileHandler)
 
     consoleHandler = logging.StreamHandler(sys.stdout)
     consoleHandler.setFormatter(logFormatter)
@@ -397,10 +561,44 @@ def main():
  
     logger = logging.getLogger('submit_workflow')
 
+    logger.info('Arguments: \n{}'.format(sys.argv))
     logger.debug("Using virtual environment detected here: {}".format(VIRT_ENV))
-    #
-    # SAVE THE LOG DIRECTORY PICKLE
-    #
+    
+    #          ---------------
+    # CHECK VARIOUS ENVIRONMENT ATTRIBUTES
+    #          ---------------
+
+    try:
+        os.makedirs( BFoutputDir )
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    # Make the directory to store input file listings
+    try:
+        os.makedirs( bf_metadata )
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    
+    if not os.path.isfile( BF_exe ):
+        errMsg="The basic fusion executable was not found at: {}".format( BF_exe)
+        logger.critical(errMsg)
+        raise RuntimeError( errMsg )
+    if not os.path.isfile( orbit_info_txt ):
+        errMsg="The orbit time file was not found at: {}".format( orbit_info_txt )
+        logger.critical(errMsg)
+        raise RuntimeError( errMsg )
+
+    if not os.path.isfile( orbit_info_bin ):
+        errMsg="The orbit time binary file was not found at: {}".format( orbit_info_bin )
+        logger.critical(errMsg)
+        raise RuntimeError( errMsg )
+
+
+    # ----------------------------
+    # SAVE THE LOG DIRECTORY JSON
+    # ----------------------------
+    
     json_log = os.path.join( logDirs['misc'], 'log_dirs.json' )
     logger.info("Saving the log directory as JSON dump at: {}".format(json_log))
 
@@ -420,9 +618,9 @@ def main():
     args.LOG_OUTPUT = os.path.abspath( args.LOG_OUTPUT )
     args.SCRATCH_SPACE = os.path.abspath( args.SCRATCH_SPACE )
     
-    #
+    # ----------------------------
     # FIND JOB PARTITION
-    #
+    # ----------------------------
 
     # Time to determine how to split up the jobs. Each job quanta will be responsible for
     # at most args.granule number of orbits.
@@ -431,7 +629,7 @@ def main():
 
     numFullJobs = numOrbits / args.granule
     lastJobOrbits = numOrbits % args.granule
-    logger.debug("{} jobs with {} number of orbits. Last job has {} orbits".format(numFullJobs, args.granule, lastJobOrbits))
+    logger.debug("{} jobs with {} orbits. Last job has {} orbits".format(numFullJobs, args.granule, lastJobOrbits))
 
     # A "quanta" is described in the docstring of this file. It's just a fancy word I'm using to describe the action of:
     # 1. Pulling data from Nearline
@@ -460,6 +658,58 @@ def main():
         quantas.append( processQuanta( orbitStart=sOrbit, orbitEnd=sOrbit + lastJobOrbits - 1 ) )
         logger.info("{}: starting orbit: {} ending orbit: {}".format(i+1, sOrbit, sOrbit + lastJobOrbits - 1))
 
+    # =============================
+    # =     MAKE GRANULE LIST     =
+    # =============================
+
+    logger.info('Preparing the granule list.')
+    # Prepare the granule list
+    count = 0
+    p = Pool(10)
+    pickle_list = []
+    for i in quantas:
+        logger.info('Making granule list for quanta {}'.format(count))
+        arg_list = []
+
+        # ADDITIONS #############################################
+#        orbits = []
+#        orbits += range( 21200, 21250 )
+#        orbits += range( 37380, 38330 )
+#        orbits += range( 2560, 2610 )
+#        orbits += range( 3675, 3725 )
+#        orbits += range( 3875, 3925 )
+#        orbits += range( 4910, 4960 )
+#        orbits += range( 6130, 6180 )
+#        for orbit in orbits:
+#            if orbit % 10 == 0:
+#                print( orbit )
+#            arg_list.append( (orbit, bf_metadata, FILENAME, BFoutputDir, BF_exe, \
+#                orbit_info_bin, args, logDirs ) )
+        #########################################################
+        for orbit in range( i.orbitStart, i.orbitEnd + 1 ):
+            arg_list.append( (orbit, bf_metadata, FILENAME, BFoutputDir, BF_exe, \
+                orbit_info_bin, args, logDirs ) )
+
+        granuleList = p.map( make_granule, arg_list )
+        # Remove all None elements from granuleList
+        granuleList = [x for x in granuleList if x is not None ]
+
+        granule_list_pickle = os.path.join( logDirs['misc'], \
+            'granule_list_{}_{}.P'.format(i.orbitStart, i.orbitEnd) )
+        pickle_list.append( (granule_list_pickle, granuleList) )
+
+        i.granule_list = granule_list_pickle
+        count += 1
+
+    # Pickle the granule lists
+    p.map( pickle_granules, pickle_list )
+
+    p.close()
+
+    for pick in pickle_list: 
+        with open( pick[0], 'wb' ) as f:
+            pickle.dump( pick[1], f )
+
     # ======================================
     # =          MAKE PBS SCRIPTS          =
     # ======================================
@@ -467,123 +717,95 @@ def main():
 
     # Make the PBS scripts for all the jobs
     for i in quantas:
-        transferList = []
-        globPullName = "pull_process_{}_{}".format(i.orbitStart, i.orbitEnd)
-        globPushName = "push_{}_{}.".format( i.orbitStart, i.orbitEnd )
-        summaryLog = os.path.join( logDirs['summary'], globPullName + "_summary.log" )
-        summary_log_push = os.path.join( logDirs['summary'], globPushName + "_summary.log")
-        globPushName = "push_{}_{}".format(i.orbitStart, i.orbitEnd)
+        pull_name    = 'pull_{}_{}'.format( i.orbitStart, i.orbitEnd )
+        process_name = "process_{}_{}".format(i.orbitStart, i.orbitEnd)
+        push_name = "push_{}_{}".format( i.orbitStart, i.orbitEnd )
+        
+        summaryLog = os.path.join( logDirs['summary'], process_name + "_summary.log" )
+        pull_pbs = os.path.join( PBSdirs['pull'], pull_name + '.pbs' )
+        pull_script = os.path.join( os.path.dirname(scriptPath), 'pull.py' )
+        log_file = os.path.join( logDirs['pull'], pull_name + '.log' )
 
-        # We need to make the transfer list required by makePBS_globus
-        for orbit in xrange( i.orbitStart, i.orbitEnd + 1 ):
-            
-            # Find what year this orbit belongs to
-            year = orbitYear( orbit )
-
-            # We should now have the year for this orbit
-            remoteFile = os.path.join( args.REMOTE_TAR_DIR, str( year ), "{}archive.tar".format(orbit) )
-            hostFile   = os.path.join( args.SCRATCH_SPACE, "tar", str( year ), "{}archive.tar".format(orbit) )
-
-            transferList.append( remoteFile + " " + hostFile )
      
-        # ------------------------------------
-        # - MAKE THE GLOBUS PULL PBS SCRIPTS -
-        # ------------------------------------
+        # -----------------------------------
+        # - MAKE THE GLOBUS PULL PBS SCRIPT -
+        # -----------------------------------
+        with open( pull_pbs, 'w' ) as f:
+            pull_args = { \
+                     'pull_name'    : pull_name,        \
+                     'pull_script'  : pull_script,      \
+                     'log_file'     : log_file,         \
+                     'summary_log'  : summaryLog,       \
+                     'granule_list' : i.granule_list,   \
+                     'src_id'       : args.REMOTE_ID,   \
+                     'dest_id'      : args.HOST_ID,     \
+                     'json_log'     : json_log,         \
+                     'save_interm'  : args.save_interm, \
+                     'queue'        : args.queue        \
+                   }
+            pbs_str = makePBS_pull( pull_name, pull_script, log_file, summaryLog, \
+                i.granule_list, args.REMOTE_ID, args.HOST_ID, json_log, args.save_interm, \
+                args.queue )
+            f.write( pbs_str )
+        i.PBSfile['pull'] = pull_pbs
+        
+        # --------------------------------------
+        # - MAKE THE GLOBUS PRCESS PBS SCRIPTS -
+        # --------------------------------------
 
-        output_granule_list = os.path.join( logDirs['misc'], "{}_output_granule_list.p".format(globPullName) )
-        logger.info("Making Globus pull PBS script for job {}.".format(globPullName))
-        i.PBSfile['pull'] = makePBS_globus( transferList,  PBSdirs['pull_process'], args.REMOTE_ID, args.HOST_ID, \
-                            globPullName, logDirs['pull_process'], summaryLog, [ i.orbitStart, i.orbitEnd], json_log, \
-                            args.SCRATCH_SPACE, args.MISR_PATH, args.HASH_DIR, projPath, args.GLOBUS_PRL, args.NODES, args.PPN, \
-                            output_granule_list, args.modis_missing )
+        logger.info("Making Globus pull PBS script for job {}.".format(process_name))
+        i.PBSfile['process'] = makePBS_process( i.granule_list, \
+            PBSdirs['process'], args.REMOTE_ID, args.HOST_ID, \
+            process_name, logDirs['process'], summaryLog, \
+            [ i.orbitStart, i.orbitEnd], json_log, args.SCRATCH_SPACE, \
+            args.MISR_PATH, args.HASH_DIR, projPath, args.GLOBUS_PRL, \
+            args.NODES, args.PPN, args.modis_missing, args.save_interm, \
+            args.queue )
 
         # ------------------------------------
         # - MAKE THE GLOBUS PUSH PBS SCRIPTS -
         # ------------------------------------
 
-        i.PBSfile['push'] = makePBS_push( output_granule_list, PBSdirs['globus_push'], args.REMOTE_ID, args.HOST_ID, \
-            args.REMOTE_BF_DIR, globPushName, json_log, summary_log_push, projPath, os.path.join( logDirs['globus_push'], \
-            globPushName + "_log.log"), args.GLOBUS_PRL ) 
+        i.PBSfile['push'] = makePBS_push( i.granule_list, PBSdirs['push'], args.REMOTE_ID, args.HOST_ID, \
+            args.REMOTE_BF_DIR, push_name, json_log, summaryLog, projPath, os.path.join( logDirs['push'], \
+            push_name + "_log.log"), args.GLOBUS_PRL, args.save_interm, args.queue ) 
 
-    
+
+    # ==================================
+    # = DEFINE AND SUBMIT THE WORKFLOW =
+    # ==================================
+
+    chain = workflow.JobChain('pbs')
+
+    prevQuant = None  
+    prevQuant_2 = None  
     # Now that all quantas have been prepared, we can submit their jobs to the queue
+    for i in quantas:
+        i.pull_job = workflow.Job( i.PBSfile['pull'] )
+        i.proc_job = workflow.Job( i.PBSfile['process'] )
+        i.push_job = workflow.Job( i.PBSfile['push'] )
 
-    # Keep track of the last 2 quanta
-    prevQuant=None
-    prev_2_Quant=None
-    for i in quantas:    
-       
-        # Submit this to the scheduler, taking care to save stdout (which will contain the job ID)
-        # I'm using the shell command cd {} && qsub because qsub is going to make stderr and stdout
-        # files. I just want those files to be in the same directory as the PBS files. Of course, these
-        # two log files should not have any substantial information in them since this workflow should
-        # have all output redirected to the proper log file.
-         
-        if prevQuant is not None: 
-            logger.info('Calling qsub on {} with {} dependency {}'.format( i.PBSfile['pull'], \
-                        qsub_dep_specifier, prevQuant.jobID['pull'] ) )
-            qsubCall = 'cd {} && qsub -W depend={}:{} {}'.format( os.path.dirname(i.PBSfile['pull']), \
-                qsub_dep_specifier, prevQuant.jobID['pull'], i.PBSfile['pull']) 
-        else:
-            logger.info('Calling qsub on {}'.format( i.PBSfile['pull'] ) )
-            qsubCall = 'cd {} && qsub {}'.format( os.path.dirname(i.PBSfile['pull']),  i.PBSfile['pull']) 
+        chain.add_job( i.pull_job )
+        chain.add_job( i.proc_job )
+        chain.add_job( i.push_job )
 
-        logger.debug( qsubCall )
-        child = subprocess.Popen( qsubCall, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
-        retCode = child.wait()
+        chain.set_dep( i.proc_job, i.pull_job, 'afterany' )
+        chain.set_dep( i.push_job, i.proc_job, 'afterany' )
 
-        # Get the stderr and stdout
-        stderrFile = child.stderr
-        stderr = stderrFile.read()
-        stdoutFile = child.stdout
-        stdout = stdoutFile.read()
+        if prevQuant:
+            chain.set_dep( i.pull_job, prevQuant.pull_job, 'afterany' )
+            chain.set_dep( i.proc_job, prevQuant.proc_job, 'afterany' )
 
-        logger.info( 'QSUB OUTPUT: ' + '\n' + stdout + '\n' + stderr )
-        
-        if retCode != 0:
-            errMsg="qsub command exited with retcode {}".format(retCode)
-            logger.error(errMsg)
-            raise RuntimeError(errMsg)
+        if prevQuant_2:
+            chain.set_dep( i.pull_job, prevQuant_2.push_job, 'afterany' )
 
-        i.jobID['pull'] = stdout.strip()
+        prevQuant_2 = prevQuant
+        prevQuant = i
 
-        # --------------------
-        # - GLOBUS PUSH QSUB -
-        # --------------------
-        if prevQuant is not None:
-            logger.info("Calling qsub on {} with {} dependency {}:{}".format( \
-                i.PBSfile['push'], qsub_dep_specifier, i.jobID['pull'], \
-                prevQuant.jobID['push'] ) )
-            qsubCall = 'cd {} && qsub -W depend={}:{}:{} {}'.format( \
-                os.path.dirname(i.PBSfile['push']),  qsub_dep_specifier, \
-                i.jobID['pull'], prevQuant.jobID['push'], i.PBSfile['push']) 
-        
-        else:
-            logger.info("Calling qsub on {} with {} dependency {}".format( i.PBSfile['push'], qsub_dep_specifier, i.jobID['pull'] ) ) 
-            qsubCall = 'cd {} && qsub -W depend={}:{} {}'.format( os.path.dirname(i.PBSfile['push']),  qsub_dep_specifier, \
-                                                                  i.jobID['pull'], i.PBSfile['push']) 
-
-        logger.debug( qsubCall )
-        child = subprocess.Popen( qsubCall, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
-        retCode = child.wait()
-
-        # Get the stderr and stdout
-        stderrFile = child.stderr
-        stderr = stderrFile.read()
-        stdoutFile = child.stdout
-        stdout = stdoutFile.read()
-
-        logger.info( 'QSUB OUTPUT: ' + '\n' + stdout + '\n' + stderr )
-        
-        if retCode != 0:
-            eMsg="qsub command exited with retcode {}".format(retCode)
-            logger.error( eMsg )
-            raise RuntimeError(eMsg)
-
-        i.jobID['push'] = stdout.strip()
-
-        prev_2_Quant = prevQuant
-        prevQuant=i
+    logger.info('Submitting jobs to the queue')
+    # Submit the job chain, then print the map representation
+    map_str = chain.submit( print_map = True )
+    logger.info('\n' + map_str)
 
 if __name__ == '__main__':
     main()

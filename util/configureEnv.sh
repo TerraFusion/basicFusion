@@ -147,8 +147,27 @@ downloadPY()
     echo
 
     echo "Copying bfutil Python package to site-packages..."
-    cp -r "$BF_PATH_l"/util/basicfusion_py/src/bfutils "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages
-    cp "$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.txt "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages/bfutils/
+    site_pack="$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages/bfutils
+    cp -r "$BF_PATH_l"/util/basicfusion_py/src/bfutils ${site_pack}
+    
+    orbit_txt="$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.txt
+    gunzip < ${orbit_txt}.gz > ${orbit_txt}
+    retval_l=$?
+    if [ $retval_l -ne 0 ]; then
+        echo "Failed to unzip Orbit_Path_Time.txt" >&2
+        return $retval_l
+    fi
+    cp ${orbit_txt} ${site_pack}
+    
+    orbit_json="$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.json
+    gunzip < ${orbit_json}.gz > ${orbit_json}
+    retval_l=$?
+    if [ $retval_l -ne 0 ]; then
+        echo "Failed to unzip Orbit_Path_Time.json" >&2
+        return $retval_l
+    fi
+    cp ${orbit_json} ${site_pack}
+    
     echo "Done."
     echo
 

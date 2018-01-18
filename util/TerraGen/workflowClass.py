@@ -21,10 +21,14 @@ class granule:
 
         self.logFile     = logFile 
         self.inputFileList = inputFileList
-        self.BF_exe     = ''
-        self.orbit_times_bin = ''
-        self.sourceTarPath = ''
+        self.BF_exe     = None
+        self.orbit_times_bin = None
+        self.sourceTarPath = None
         self.destTarPath   = tarFile
+        self.proc_log_dir = None
+        self.metadata_dir = None
+        self.ddl_path   = None
+        self.cdl_path   = None
 
         # outputFilePath
         # Determines the absolute path of the output file on the host machine. This will include
