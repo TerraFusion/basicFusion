@@ -2539,6 +2539,39 @@ int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGr
         ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_8";
         ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_8";
     }
+    else if(modis_special_dims == 8) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_a";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_a";
+    }
+    else if(modis_special_dims == 9) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_b";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_b";
+    }
+    else if(modis_special_dims == 10) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_c";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_c";
+    }
+    else if(modis_special_dims == 11) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_d";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_d";
+    }
+    else if(modis_special_dims == 12) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_e";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_e";
+    }
+    else if(modis_special_dims == 13) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_f";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_f";
+    }
+    else if(modis_special_dims == 14) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_g";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_g";
+    }
+    else if(modis_special_dims == 15) {
+        ll_500m_dimnames[0] = "_20_nscans_MODIS_SWATH_Type_L1B_h";
+        ll_250m_dimnames[0] ="_40_nscans_MODIS_SWATH_Type_L1B_h";
+    }
+
 
     status = H4readData( MOD03FileID, latname,
                          (void**)&latBuffer, &latRank, latDimSizes, h4_type,NULL,NULL,NULL );
@@ -2945,8 +2978,24 @@ int check_MODIS_special_dimension(int32 MOD1KMID) {
         return 6;
     else if(dimsizes[1] ==2100)
         return 7;
+    else if(dimsizes[1] ==2020)// Now the size smaller than 2030
+        return 8;
+    else if(dimsizes[1] ==2010)
+        return 9;
+    else if(dimsizes[1] ==2000)
+        return 10;
+    else if(dimsizes[1] ==1990)
+        return 11;
+    else if(dimsizes[1] ==1980)
+        return 12;
+    else if(dimsizes[1] ==1970)
+        return 13;
+    else if(dimsizes[1] ==1960)
+        return 14;
+    else if(dimsizes[1] ==1950)
+        return 15;
     else {
-        FATAL_MSG("The second dimension of SDS %s should be either 2030 or 2040. \n","EV_1KM_Emissive");
+        FATAL_MSG("The second dimension of SDS %s should be between 1950 and 2100. \n","EV_1KM_Emissive");
         FATAL_MSG("The dimension size  is %d  \n",dimsizes[1]);
         return -1;
     }
