@@ -44,7 +44,7 @@ _orbit_limits = { 2000 : { 'start' : 1000, 'end' : 5528 }, \
 
 _orbit_info_dict = None
 
-def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_TXT ):
+def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_JSON ):
     '''
 **DESCRIPTION:**  
     This function finds the starting time of the orbit according to the Orbit_Path_Info.txt file. Please
@@ -52,7 +52,7 @@ def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_TXT ):
     
 **ARGUMENTS:**  
     *orbit (int)* -- Orbit to find starting time of  
-    *orbit_info (str)*    -- Path to the orbit_info.txt file
+    *orbit_info (str)*    -- Path to the orbit_info.json file
     
 **EFFECTS:**  
     None
@@ -72,27 +72,6 @@ def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_TXT ):
         raise ValueError("Argument 'orbit' is outside the supported bounds.")
 
     return stime
-
-#    if orbit < _orbit_limits['orbitLimits']['start'] or \
-#       orbit > _orbit_limits['orbitLimits']['end']:
-#        raise ValueError("Argument 'orbit' is outside the supported bounds.")
-#
-#    with open( orbit_info, 'r') as file:
-#        for line in file:
-#            if re.search( "^{}".format(orbit), line ):
-#                match=line
-#                break
-#
-#    if match == None:
-#        return None
-#    
-#    match = match.split(' ')[2].strip()
-#    match = match.replace('-','')
-#    match = match.replace('T','')
-#    match = match.replace(':','')
-#    match = match.replace('Z','')
-#
-#    return match
 
 def orbitYear( orbit ):
     '''

@@ -199,7 +199,7 @@ if [ $retVal -ne 0 ]; then
 fi
 
 
-'''.format( NUM_NODES, PPN, WALLTIME, jobName, queue, os.path.join( VIRT_ENV, "bin", "activate"), \
+'''.format( NUM_NODES, PPN, WALLTIME, jobName, queue, VIRT_ENV, \
     GLOBUS_LOG, remoteID, hostID, jobName, granule_list, summaryLog, oLimits[0], oLimits[1], \
     pull_process_script, json_log, hashDir, NUM_NODES, PPN, scratchSpace, MISR_path_files, \
     globus_parallelism, save_interm_str, modis_missing, mpi_exec )
