@@ -1,12 +1,16 @@
 <Granule>
+  <!-- Use orbit number here. Aggregation is too big for CMR. -->
   <GranuleUR>SC:MI1B2E.003:18638669aa79c2bd-a01d-4b90-ba4c-737c63492b88LAADS:901521333LAADS:901528365SC:MOP01.007:49249056</GranuleUR>
+  <!-- Check if thse can be skipped or what should be provided. -->
   <InsertTime>2017-06-08T09:59:36.631000Z</InsertTime>
   <LastUpdate>2017-06-08T09:59:36.631000Z</LastUpdate>
+  <!-- It should match. -->
   <Collection>
-    <ShortName>TERRAFUSION</ShortName>
-    <VersionId>1</VersionId>
+    <ShortName>BASICTERRAFUSION</ShortName>
+    <VersionId>1.0</VersionId>
   </Collection>
   <DataGranule>
+    <!-- Can it be a different unit? -->
     <SizeMBDataGranule>0.0060453414917</SizeMBDataGranule>
     <ProducerGranuleId>InputGranules.h5</ProducerGranuleId>
     <DayNightFlag>UNSPECIFIED</DayNightFlag>
@@ -14,6 +18,7 @@
   </DataGranule>
   <Temporal>
     <RangeDateTime>
+     <!-- Check how it's generated - (I think it's MISR record. ) -->
       <BeginningDateTime>2007-07-03T16:26:13.1449200Z</BeginningDateTime>
       <EndingDateTime>2007-07-03T17:15:40.1449200Z</EndingDateTime>
     </RangeDateTime>
@@ -29,6 +34,7 @@
       </Orbit>
     </HorizontalSpatialDomain>
   </Spatial>
+  <!-- Ask Guang Yu for the case MISR is not in the input. Do this soon. -->
   <OrbitCalculatedSpatialDomains>
     <OrbitCalculatedSpatialDomain>
       <OrbitNumber>40110</OrbitNumber>
@@ -40,6 +46,8 @@
     <MeasuredParameter>
       <ParameterName>Granule</ParameterName>
       <QAStats>
+        <!-- Is copying OK from MISR? -->
+        <!-- https://wiki.earthdata.nasa.gov/display/CMR/CMR+Data+Partner+User+Guide Search "Measured Parameters" -->
         <QAPercentMissingData>0</QAPercentMissingData>
       </QAStats>
     </MeasuredParameter>
@@ -47,22 +55,26 @@
       <ParameterName>Granule QA</ParameterName>
       <QAFlags>
         <AutomaticQualityFlag>Suspect</AutomaticQualityFlag>
+        <!-- What does it mean? Where it came from? -->
         <AutomaticQualityFlagExplanation>All MODIS data is classified suspect at this point Set QA flag to pass if geolocation can be performed on one footprint   Exhau SS4.5-6:</AutomaticQualityFlagExplanation>
       </QAFlags>
     </MeasuredParameter>
     <MeasuredParameter>
       <ParameterName>Radiance</ParameterName>
       <QAStats>
+        <!-- We need to understand this. -->
         <QAPercentMissingData>1</QAPercentMissingData>
         <QAPercentOutOfBoundsData>0</QAPercentOutOfBoundsData>
         <QAPercentInterpolatedData>0</QAPercentInterpolatedData>
         <QAPercentCloudCover>42</QAPercentCloudCover>
       </QAStats>
       <QAFlags>
+        <!-- Get the definition of thses from guide. -->
         <AutomaticQualityFlag>Suspect</AutomaticQualityFlag>
         <AutomaticQualityFlagExplanation>Process Terminated Normally - Check Science Quality Flag for Science Team quality assessment</AutomaticQualityFlagExplanation>
         <OperationalQualityFlag>Passed</OperationalQualityFlag>
         <OperationalQualityFlagExplanation>Process Terminated Normally - Check Science Quality Flag for Science Team quality assessment</OperationalQualityFlagExplanation>
+        <!-- Ask Guang Yu. How should we handle this correctly? -->
         <ScienceQualityFlag>Passed</ScienceQualityFlag>
         <ScienceQualityFlagExplanation>Data has not been validated.  Consult the product quality statement.</ScienceQualityFlagExplanation>
       </QAFlags>

@@ -4,7 +4,7 @@
 # @email: clipp2@illinois.edu
 usage(){
 
-    description="Usage: $0 [SQLite database] [Out dir] [SrcID] [DestID] [DestDir] [Ostart] [Oend] [--nodes NODES]
+    description="Usage: $0 [SQLite database] [Out dir] [SrcID] [DestID] [DestDir] [Ostart] [Oend] [--nodes NODES] [--cpn CORES]
 
 DESCRIPTION:
 \tThis script handles tarring all of the input Basic Fusion files and then transferring them to NCSA Nearline.
@@ -30,14 +30,15 @@ ARGUMENTS:
 
 \tOPTIONAL
 
-\t--nodes NODES         -- Specify the number of nodes to use for the tarring jobs. Defaults to 5.
+\t--npj NODES           -- Specify the number of nodes to use for the tarring jobs. Defaults to 5.
+\t--cpn CORES           -- Specify the number of cores per job to use for the tarring jobs. Defaults to 20.
 "
     while read -r line; do
         printf "$line\n"
     done <<< "$description"
 }
 
-if [ $# -ne 7 -a $# -ne 9 ]; then
+if [ $# -ne 7 -a $# -ne 9 -a $# -ne 11 ]; then
     usage
     exit 1
 fi
@@ -57,6 +58,7 @@ if [ ! -e "$SQL_DB" ]; then
     exit 1
 fi
 shift
+SQL_DB="$(cd $(dirname "$SQL_DB") && pwd)"/$(basename "$SQL_DB")
 
 tempDir="$1"
 if [ ! -d "$tempDir" ]; then
@@ -64,6 +66,8 @@ if [ ! -d "$tempDir" ]; then
     exit 1
 fi
 shift
+# Make tempDir absolute
+tempDir="$(cd "$tempDir" && pwd)"
 
 srcID="$1"
 shift
@@ -85,28 +89,46 @@ PY_ENV="$BF_PATH/externLib/BFpyEnv"
 
 TAR_JOB_NPJ=5                   # Tar job nodes per job. This specifies the default value.
                                 # Will be overwritten if --nodes is provided.
-TAR_JOB_PPN=20                  # Tar job processors per node
-TAR_JOB_WALLTIME="12:00:00"     # Walltime of tar jobs
+TAR_JOB_CPN=20                  # Tar job processors per node
+TAR_JOB_WALLTIME="48:00:00"     # Walltime of tar jobs
 TAR_JOB_NAME="TerraTar"         # Name of the PBS job
-GLOBUS_WALLTIME="24:00:00"      # The Globus transfer walltime
+GLOBUS_WALLTIME="48:00:00"      # The Globus transfer walltime
 GLOBUS_NAME="TerraGlobus"       # The Globus transfer job name
+MIN_ORBIT=$(head -n1 "$ORBIT_TIMES" | cut -d' ' -f1)
 
-    
-if [ "$1" == "--nodes" ]; then
-    shift
-    numNodes="$1"
+if [ "$oStart" -lt $MIN_ORBIT ]; then
+    echo "Error: Starting orbit can't be less than $MIN_ORBIT!" >&2
+    exit 1
+fi
 
-    if ! [[ "$numNodes" =~ $intReg ]]; then
-        echo "Error: A positive integer should follow the --nodes parameter!" >&2
+while [ $# -ne 0 ]; do
+    if [ "$1" == "--npj" ]; then
+        shift
+        numNodes="$1"
+
+        if ! [[ "$numNodes" =~ $intReg ]]; then
+            echo "Error: A positive integer should follow the --npj parameter!" >&2
+            exit 1
+        fi
+
+        TAR_JOB_NPJ="$numNodes"
+        shift
+    elif [ "$1" == "--cpn" ]; then
+        shift
+        cpn="$1"
+        if ! [[ "$cpn" =~ $intReg ]]; then
+            echo "Error: A positive integer should follow the --cpn parameter!" >&2
+            exit 1
+        fi
+
+        TAR_JOB_CPN="$cpn"
+        shift
+    else
+        echo "Error: Illegal parameter: $1" >&2
         exit 1
     fi
 
-    TAR_JOB_NPJ="$numNodes"
-
-elif [ "$1" != "" ]; then
-    echo "Error: Illegal parameter: $1" >&2
-    exit 1
-fi
+done
 
 # Check that the queries.bash and Orbit_Path_Time.txt files exists
 if [ ! -e "$QUERIES" ]; then
@@ -137,7 +159,7 @@ echo "Activating destination globus endpoint..."
 globus endpoint activate $destID
 
 #
-#       Tar file job creation       
+#       Tar file job creation
 #
 # We are ready to create the jobs for tarring the files. Batches will be processed by the
 # year.
@@ -194,37 +216,49 @@ jobNumOrbits[0]=0
 curOrbit=$oStart
 prevYear=0
 
-# WARNING: This loop takes a long time!!! Possibile TODO is to make this loop faster somehow.
-# Step through each line in the $ORBIT_TIMES file
 
 while true; do
-
-    linenum=$(( curOrbit - 999 ))               # The line number we want to read is simply curOrbit - 999. There is a
-                                                # one-to-one mapping of orbit to line number.
-
-    line="$(sed "${linenum}q;d" "$ORBIT_TIMES")"
-
-    #line="$(grep -w "^$curOrbit" "$ORBIT_TIMES")"
-    # Keep stepping through the file until we've found the first line that matches $curOrbit
-    lineOrbitNum=$(echo "$line" | cut -d' ' -f1)
-    #if [ $curOrbit -gt $lineOrbitNum ]; then
-    #    continue
-    #elif [ $curOrbit -lt $lineOrbitNum ]; then
-    #    echo "ERROR: The variable lineOrbitNum outpaced the variable curOrbit! curOrbit should always" >&2
-    #    echo "be greater than or equal to lineOrbitNum!" >&2
-    #    exit 1
-    #fi
-
-    # The previous if/elif lines assert that curOrbit equals lineOrbitNum.
-    # lineOrbitNum is simply the orbit found at the beginning of $line. lineOrbitNum and
-    # curOrbit should always equal each other.
-
+    
     # As long as we haven't reached the end orbit...
     if [ $curOrbit -le $oEnd ]; then
 
-        # Get the current year from the start time of the orbit
-        curYear=$(echo "$line" | cut -d' ' -f3 | cut -d'-' -f1)
-        
+        if [ $curOrbit -ge 1000 -a $curOrbit -le 5528 ]; then
+            curYear=2000
+        elif [ $curOrbit -ge 5529 -a $curOrbit -le 10844 ]; then
+            curYear=2001
+        elif [ $curOrbit -ge 10845 -a $curOrbit -le 16159 ]; then
+            curYear=2002
+        elif [ $curOrbit -ge 16160 -a $curOrbit -le 21474 ]; then
+            curYear=2003
+        elif [ $curOrbit -ge 21475 -a $curOrbit -le 26804 ]; then
+            curYear=2004
+        elif [ $curOrbit -ge 26805 -a $curOrbit -le 32119 ]; then
+            curYear=2005
+        elif [ $curOrbit -ge 32120 -a $curOrbit -le 37435 ]; then
+            curYear=2006
+        elif [ $curOrbit -ge 37436 -a $curOrbit -le 42750 ]; then
+            curYear=2007
+        elif [ $curOrbit -ge 42751 -a $curOrbit -le 48080 ]; then
+            curYear=2008
+        elif [ $curOrbit -ge 48081 -a $curOrbit -le 53395 ]; then
+            curYear=2009
+        elif [ $curOrbit -ge 53396 -a $curOrbit -le 58711 ]; then
+            curYear=2010
+        elif [ $curOrbit -ge 58712 -a $curOrbit -le 64026 ]; then
+            curYear=2011        
+        elif [ $curOrbit -ge 64027 -a $curOrbit -le 69365 ]; then
+            curYear=2012
+        elif [ $curOrbit -ge 69357 -a $curOrbit -le 74671 ]; then
+            curYear=2013
+        elif [ $curOrbit -ge 74672 -a $curOrbit -le 79986 ]; then
+            curYear=2014
+        elif [ $curOrbit -ge 79987 -a $curOrbit -le 85302 ]; then
+            curYear=2015
+        else
+            echo "Error: This program doesn't support orbits past 85302!" >&2
+            exit 1
+        fi
+
         # We are still on the same year
         if [ $curYear == $prevYear ]; then
             jobNumOrbits[$job]=$((jobNumOrbits[$job] + 1))
@@ -236,12 +270,12 @@ while true; do
         else
             echo "Determining the orbits for year $curYear."
             let "job++"
-            jobNumOrbits[$job]=1 
+            jobNumOrbits[$job]=1
             jobYear[$job]=$curYear
             let "curOrbit++"
             prevYear=$curYear
-        fi
-        
+    fi
+
     # Else break from this entire loop
     else
         break
@@ -288,7 +322,7 @@ date > date.txt
 
 # Print the job information, append to the cmdLineArgs.txt file
 for i in $(seq 0 $job); do
-    echo "jobYear: ${jobYear[$i]} jobNumOrbits: ${jobNumOrbits[$i]} jobStart: ${jobStart[$i]} jobEnd: ${jobEnd[$i]} NPJ: ${TAR_JOB_NPJ}" | tee -a cmdLineArgs.txt
+    echo "jobYear: ${jobYear[$i]} jobNumOrbits: ${jobNumOrbits[$i]} orbitStart: ${jobStart[$i]} orbitEnd: ${jobEnd[$i]} NPJ: ${TAR_JOB_NPJ}" | tee -a cmdLineArgs.txt
 done
 
 # We now have all the parameters we need for each job!
@@ -318,16 +352,19 @@ for i in $(seq 0 $job ); do
     globus mkdir $destID:"$destYearDir"
 
     # Find the number of MPI processes
-    MPI_numProc=$(( ${TAR_JOB_NPJ} * ${TAR_JOB_PPN} ))
+    MPI_numProc=$(( ${TAR_JOB_NPJ} * ${TAR_JOB_CPN} ))
 
     # Each job gets its own directory within tempDir that is just the year of the job
     curStageArea="$tempDir/${jobYear[$i]}"
+
+    # Find the number of MPI processes
+    MPI_numProc=$(( ${TAR_JOB_NPJ} * ${TAR_JOB_CPN} ))
 
     # Make the tar job PBS script
     pbsFile="\
 #!/bin/bash
 #PBS -j oe
-#PBS -l nodes=${TAR_JOB_NPJ}:ppn=${TAR_JOB_PPN}
+#PBS -l nodes=${TAR_JOB_NPJ}:ppn=${TAR_JOB_CPN}
 #PBS -l walltime=$TAR_JOB_WALLTIME
 #PBS -N ${TAR_JOB_NAME}_${jobYear[$i]}
 cd $runDir
@@ -336,13 +373,14 @@ source \"$PY_ENV/bin/activate\"
 # The following line removes any files that are no longer needed
 rm -rf \"$curStageArea\"
 mkdir \"$curStageArea\"
-
+mkdir -p \"$tempDir\"/hash
+mkdir -p \"$tempDir\"/hash/\"${jobYear[$i]}\"
 module load mpich
 # Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
-{ time mpirun -np $MPI_numProc python \"$BF_PATH/util/archiving/tarInput.py\" --O_START ${jobStart[$i]} --O_END ${jobEnd[$i]} $SQL_DB \"$curStageArea\" ; } &> \"$runDir/logs/tar/stdout_err$i.txt\"
-
+{ time mpirun -np $MPI_numProc python \"$BF_PATH/util/archiving/tarInput.py\" --O_START ${jobStart[$i]} --O_END ${jobEnd[$i]} $SQL_DB \"$curStageArea\" \"$tempDir\"/hash/\"${jobYear[$i]}\" ; } &> \"$runDir/logs/tar/stdout_err${jobYear[$i]}.txt\"
+exit \$?
 "
-    echo "$pbsFile" > tarJobs/job$i.pbs
+    echo "$pbsFile" > tarJobs/job${jobYear[$i]}.pbs
 
     # Make the transfer job PBS script
 pbsFile="\
@@ -356,12 +394,16 @@ source \"$PY_ENV/bin/activate\"
 globus endpoint activate $srcID
 globus endpoint activate $destID
 # Both stdout/stderr of time and python call will be redirected to stdout_err$i.txt
-{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"${curStageArea}\" \"${destYearDir}\"} ; } &> \"$runDir/logs/transfer/stdout_err$i.txt\" 
-
-rm -rf \"$curStageArea\"
+{ time python \"$BF_PATH\"/util/globus/globusTransfer.py --wait $srcID $destID \"${curStageArea}\" \"${destYearDir}\" ; } &> \"$runDir/logs/transfer/stdout_err${jobYear[$i]}.txt\"
+retVal=\$?
+if [ \$retVal -eq 0 ]; then
+    rm -rf \"$curStageArea\"
+else
+    exit 1
+fi
 "
 
-    echo "$pbsFile" > transferJobs/job$i.pbs
+    echo "$pbsFile" > transferJobs/job${jobYear[$i]}.pbs
 
     # Submit the jobs to the queue!!!
     # Notice that the "depend" line makes the jobs serially dependent.
@@ -370,11 +412,11 @@ rm -rf \"$curStageArea\"
     # looks like this:
     #
     #           TAR0              0
-    #          /   
+    #          /
     #       GLOB0    TAR1         1
     #             /
     #            /
-    #           /    
+    #           /
     #       GLOB1    TAR2         2
     #             /
     #            /
@@ -398,21 +440,21 @@ rm -rf \"$curStageArea\"
 
     # This is the first Tar job to submit ( $prevTarID is not available )
     if [ ${#prevTarID} -eq 0 ]; then
-        tarJobID[$i]=`qsub tarJobs/job$i.pbs`
+        tarJobID[$i]=`qsub tarJobs/job${jobYear[$i]}.pbs`
         retVal=$?
 
     # This is not the first tar job to submit
     else
         # The tar job needs to depend on the Globus job two iterations before
         if [ $i -le 1 ]; then
-            tarJobID[$i]=`qsub -W depend=afterany:$prevTarID tarJobs/job$i.pbs`
+            tarJobID[$i]=`qsub -W depend=afterany:$prevTarID tarJobs/job${jobYear[$i]}.pbs`
             retVal=$?
         else
             twoPrevGlobID=${globusJobID[ $(( i - 2 )) ]}
-            tarJobID[$i]=`qsub -W depend=afterany:$prevTarID:$twoPrevGlobID tarJobs/job$i.pbs`
+            tarJobID[$i]=`qsub -W depend=afterany:$prevTarID:$twoPrevGlobID tarJobs/job${jobYear[$i]}.pbs`
             retVal=$?
         fi
-        
+
     fi
 
     if [ $retVal -ne 0 ]; then
@@ -427,14 +469,13 @@ rm -rf \"$curStageArea\"
 
     # The Globus job should depend on its respective tar job (the one that was just submitted in the previous code
     # and also the Globus job submitted during the previous loop iteration.
-    
     if [ ${#prevGlobID} -eq 0 ]; then
         # There is no previous globus job to be dependent on
-        globusJobID[$i]=`qsub -W depend=afterany:${tarJobID[$i]} transferJobs/job$i.pbs`
+        globusJobID[$i]=`qsub -W depend=afterany:${tarJobID[$i]} transferJobs/job${jobYear[$i]}.pbs`
         retVal=$?
     else
         # Depend on the previous globus job ID
-        globusJobID[$i]=`qsub -W depend=afterany:${tarJobID[$i]}:$prevGlobID transferJobs/job$i.pbs`
+        globusJobID[$i]=`qsub -W depend=afterany:${tarJobID[$i]}:$prevGlobID transferJobs/job${jobYear[$i]}.pbs`
         retVal=$?
     fi
 
@@ -442,6 +483,4 @@ rm -rf \"$curStageArea\"
         echo "Error: Failed to submit Globus job to the queue."
         exit 1
     fi
-
 done
-

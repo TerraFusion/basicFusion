@@ -1,0 +1,110 @@
+#!/bin/bash
+#
+#============================================================================================
+#       findJobPartition
+#
+# DESCRIPTION:
+#       This function takes as input a range of orbits and various maximum job parameters
+#       and determines how the orbits will be partitioned among the jobs. The parameters it
+#       determines include the number of cores per node, number of nodes per job, and the
+#       number of jobs.
+#
+# ARGUMENTS:
+#       Command Line:
+#           [Orbit start] [Orbit end] [Max Nodes Per Job] [Max Cores Per Node] [Max num Jobs]
+#       Implicit (global variables):
+#               jobOSTART       -- Array that will contain starting orbits for each job, where
+#                                  each element is a specific job.
+#               jobOEND         -- Array that will contain the ending orbits for each job.
+#               CPN             -- Array that will contain the cores per node of each job.
+#               NPJ             -- Array that will contain the nodes per job of each job.
+#               numJobs         -- Integer variable that will contain the amount of jobs
+#                                  allocated in the partition.
+# EFFECTS:
+#       Modifies the Implicit arguments to contain the proper parameters.
+#
+# RETURN:
+#       Implicit arguments.
+#
+#==============================================================================================
+
+findJobPartition(){
+
+    local OSTART_l=$1; shift
+    local OEND_l=$1; shift
+    local MAX_NPJ_l=$1; shift
+    local MAX_CPN_l=$1; shift
+    local MAX_NUMJOB_l=$1; shift
+
+    declare -a numProcess_l 
+    local numProcessPerJob_l
+    local numOrbits_l
+    local numExtraProcess_l
+    local numNodes_l
+    local accumulator_l
+    local jobBrim_l
+    local numJobs_l
+    numOrbits_l=$(($OEND_l - $OSTART_l + 1))                      # Total number of orbits to generate
+    jobBrim_l=$(( MAX_NPJ_l * MAX_CPN_l ))
+    numJobs=0
+
+    # First attempt to fill up all jobs to the brim
+    for i in $(seq 0 $((MAX_NUMJOB_l-1))); do
+        numProcess_l[$i]=0              # Initialize to zero
+        CPN[$i]=0
+        NPJ[$i]=0
+        let "numJobs++"
+
+        # Loop over every node in the job       
+        for j in $(seq 0 $((MAX_NPJ_l-1))); do
+
+            # Loop over every core in the job
+            for k in $(seq 0 $((MAX_CPN_l-1))); do
+                numProcess_l[$i]=$(( ${numProcess_l[$i]} + 1 ))           # Increment this job's number of orbits to process
+                let "numOrbits_l--"                                     # Decrement the remaining orbits left
+
+                # Clip the CPN to the maximum value
+                if [ ${CPN[$i]} -lt $MAX_CPN_l ]; then
+                    CPN[$i]=$(( ${CPN[$i]} + 1 ))
+                fi
+
+                if [ $numOrbits_l -le 0 ]; then
+                    break 3
+                fi
+            done
+ 
+        done
+
+        NPJ[$i]=$((j+1))
+
+    done
+
+    NPJ[$i]=$((j+1))
+    # Currently, all jobs are set to hold MAX_NPJ * MAX_CPN number of processes.
+    # Check if there are more orbits to process. If so, distribute the remaining
+    # processes evenly
+    if [ $numOrbits_l -gt 0 ]; then
+        while true; do
+            for i in $(seq 0 $(( numJobs - 1)) ); do
+                if [ $numOrbits_l -le 0 ]; then
+                    break 2
+                fi
+
+                numProcess_l[$i]=$(( ${numProcess_l[$i]} + 1 ))
+                let "numOrbits_l--"
+            done
+        done
+    fi 
+
+    # For each job, figure out the range of orbits it will be responsible for
+    accumulator_l=$OSTART_l
+
+
+    # Set the starting and ending orbits for each job
+    for i in $(seq 0 $((numJobs-1)) ); do
+        jobOSTART[$i]=$accumulator_l
+        # Orbit end = orbit start + numOrbitsForJob - 1
+        jobOEND[$i]=$((${jobOSTART[$i]} + ${numProcess_l[$i]} - 1))
+        accumulator_l=$((${jobOEND[$i]} + 1))
+    done
+}

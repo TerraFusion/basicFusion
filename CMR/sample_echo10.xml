@@ -2,31 +2,40 @@
 <Collection>
     <ShortName>BASICTERRAFUSION</ShortName>
     <VersionId>1.0</VersionId>
+    <!-- understand these -->
     <InsertTime>2006-06-30T00:00:00.000Z</InsertTime>
     <LastUpdate>2011-01-21T17:10:13.000Z</LastUpdate>
+    <!-- above times -->
+    
     <LongName>The Terra Basic Fusion L1B Radiance</LongName>
     <DataSetId>TERRA_BF_L1B</DataSetId>
-    <Description>A Basic Terra Fusion granule contains one Terra orbit of radiometrically and georectified calibrated radiance measurements from all the five Terra instruments, namely, MOPITT, CERES, MISR, ASTER and MISR. The geolocation information for each radiance pixel at its native resolution is also provided.</Description>
+    <Description>A Basic Terra Fusion granule contains one Terra orbit of radiometrically and georectified calibrated radiance measurements from all the five Terra instruments, namely, MOPITT, CERES, MISR, ASTER and MODIS. The geolocation information for each radiance pixel at its native resolution is also provided.</Description>
     <Orderable>false</Orderable>
     <Visible>true</Visible>
+    <!-- Check date and see if it needs to be corrected. -->
     <RevisionDate>2011-06-21T07:08:05.192Z</RevisionDate>
     <ProcessingCenter>NCSA</ProcessingCenter>
-    <ProcessingLevelId>2P</ProcessingLevelId>
-    <ArchiveCenter>PO.DAAC</ArchiveCenter>
-    <DataFormat>NETCDF</DataFormat>
+    <!-- Review 1B -->
+    <ProcessingLevelId>1B</ProcessingLevelId>
+    <ArchiveCenter>ASDC</ArchiveCenter>
+    <DataFormat>HDF5</DataFormat>
+    <!-- Check orbit or global -->
     <SpatialKeywords>
         <Keyword>Global</Keyword>
     </SpatialKeywords>
+    <!-- There might be some key words we can provide. -->
     <TemporalKeywords/>
     <Temporal>
         <RangeDateTime>
+            <!-- Correct Beginning date. -->
             <BeginningDateTime>2006-06-30T00:00:07.000Z</BeginningDateTime>
         </RangeDateTime>
     </Temporal>
   <Contacts> 
         <Contact> 
+            <!-- Check the vocabulary. -->
             <Role>Archiver</Role> 
-            <OrganizationName> Department of Atmospheric Sciences and National Center of Supercomputing Applications, University of Illinois at Urbana-Champaign/ The HDF Group 
+            <OrganizationName> Department of Atmospheric Sciences and National Center of Supercomputing Applications, University of Illinois at Urbana-Champaign / The HDF Group 
             </OrganizationName> 
             <OrganizationAddresses> 
                 <Address>
@@ -60,18 +69,22 @@
     </Contacts> 
     <ScienceKeywords>
         <ScienceKeyword>
+            <!-- Cross check with Guang Yu -->
             <CategoryKeyword>ATMOSPHERIC SCIENCE</CategoryKeyword>
             <TopicKeyword>ATMOSPHERE</TopicKeyword>
             <TermKeyword>CLOUD DETECTION</TermKeyword>
             <VariableLevel1Keyword>
                 <Value>RADIANCE</Value>
             </VariableLevel1Keyword>
+            <!-- Check with Guang Yu end --->
+            <!-- This doesn't make sense.  -->
             <DetailedVariableKeyword>CHLOROPHYLL</DetailedVariableKeyword>
         </ScienceKeyword>
     </ScienceKeywords>
     <Platforms>
         <Platform>
             <ShortName>TERRA</ShortName>
+            <!-- LongName should be more descriptive. -->
             <LongName>TERRA</LongName>
             <Type>SPACECRAFT</Type>
             <Characteristics/>
@@ -82,6 +95,7 @@
                     <Characteristics/>
                     <Sensors>
                         <Sensor>
+                            <!-- Correct it to MOPITT. -->
                             <ShortName>MOPIT</ShortName>
                             <LongName>Measurements Of Pollution In The Troposphere</LongName>
                             <Characteristics/>
@@ -92,15 +106,19 @@
                     </OperationModes>
                 </Instrument>
                 <Instrument>
+                    <!-- Shouldn't it be CERES? -->
                     <ShortName>CERES-FM1</ShortName>
+                    <!-- Should FM1 be described? -->
                     <LongName>Clouds and the Earth's Radiant Energy System FM1</LongName>
                     <Characteristics/>
                     <Sensors>
                         <Sensor>
                             <ShortName>CERES-FM1</ShortName>
+                            <!-- Is this right? -->
                             <LongName>CERES sensor</LongName>
                             <Characteristics/>
                         </Sensor>
+                        <!-- How about CERES-FM2? -->
                     </Sensors>
                     <OperationModes/>
                 </Instrument>
@@ -110,13 +128,16 @@
                     <Characteristics/>
                     <Sensors>
                         <Sensor>
+                          <!-- Definitely, nine senosrs -->
                           <ShortName>AA</ShortName>
                         </Sensor>
                     </Sensors>
                     <OperationModes>
+                        <!-- Are we sure? -->
                         <OperationMode>Normal</OperationMode>
                     </OperationModes>
                 </Instrument>
+                <!-- All instrument should be checked with Guang Yu. -->
                 <Instrument>
                     <ShortName>ASTER</ShortName>
                     <LongName> Advanced Spaceborne Thermal Emission and Reflection Radiometer</LongName>
@@ -136,6 +157,7 @@
                     <Characteristics/>
                     <Sensors>
                         <Sensor>
+                            <!-- Ask Guang Yu if this is right. -->
                             <ShortName>MODIS</ShortName>
                             <LongName>Moderate-Resolution Imaging Spectroradiometer</LongName>
                             <Characteristics/>
@@ -148,8 +170,10 @@
             </Instruments>
         </Platform>
     </Platforms>
+    <!-- Figure out Coordinate1 and Coordinate 2.  -->
     <TwoDCoordinateSystems>
     <TwoDCoordinateSystem>
+        <!-- What values should be provided? -->
         <TwoDCoordinateSystemName>MISR</TwoDCoordinateSystemName>
         <Coordinate1>
             <MinimumValue>0</MinimumValue>
@@ -160,6 +184,7 @@
         </Coordinate2>
     </TwoDCoordinateSystem>
     </TwoDCoordinateSystems>
+    <!-- Can it be skipped? Not Available OK? -->
     <OnlineAccessURLs>
         <OnlineAccessURL>
             <URL>https://www2.acom.ucar.edu/mopitt</URL>
@@ -182,7 +207,9 @@
             <URLDescription>MODIS Mission</URLDescription>
         </OnlineAccessURL>
     </OnlineAccessURLs>
-    <OnlineResources>
+    
+    <!-- Know the exact meaning. -->
+        <OnlineResources>
         <OnlineResource>
             <URL>http://www.ncsa.illinois.edu/</URL>
             <Description>NCSA homepage</Description>
@@ -194,6 +221,7 @@
             <Type>Organization Home Page</Type>
         </OnlineResource>
     </OnlineResources>
+    <!-- Ask Guang Yu to see if numbers are right. -->
     <Spatial>
         <SpatialCoverageType>Horizontal</SpatialCoverageType>
         <OrbitParameters>

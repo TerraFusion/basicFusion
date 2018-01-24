@@ -1,7 +1,7 @@
 #!/bin/bash
+usage(){
 
-if [ $# -ne 4 ]; then
-    printf "\nUSAGE: $0 [SQLite database filepath] [orbit start] [orbit end] [output path]\n" >&2
+    printf "\nUSAGE: $0 [SQLite database filepath] [orbit start] [orbit end] [output path] [OPTS]\n" >&2
     description="NAME: genInputRange_\"SchedulerX\".sh
 DESCRIPTION:
  
@@ -18,26 +18,95 @@ DESCRIPTION:
 \tThis script uses the Scheduler.x program to submit the task to the Blue Waters job scheduler.
 \tNCSA Scheduler can be found at: https://github.com/ncsa/Scheduler
 
-\tLog files for the job are stored in the basicFusion/jobFiles/BFinputGen directory."   
+\tLog files for the job are stored in the basicFusion/jobFiles/BFinputGen directory.
+
+ARGUMENTS:
+\t[SQLite database filepath]    -- The path to the SQLite database generated using metadata-input/build scripts.
+\t[orbit start]                 -- The starting orbit to process
+\t[orbit end]                   -- The path where the resulting input files will reside
+\t[out path]                    -- Path where the files will be saved
+\t[OPTS]        The available options are:
+\t                              --npj [NODES_PER_JOB]        Default of 4
+\t                              --cpn [CORES_PER_NODE]       Default of 16
+\t                              --numJob [NUM_JOBS]          Default of 1
+\t                              --walltime \"[WALLTIME]\"      Default of \"02:00:00\"
+
+\t              NOTE that these options (except for walltime) only provide maximum values to bound what this script requests of the resource manager!
+\t              These values are not necessarily what is requested.                
+"   
     while read -r line; do
         printf "$line\n"
     done <<< "$description"
+}
+
+if [ $# -lt 4 -o $# -gt 12 ]; then
+    usage
     exit 1
 fi
 
-DB_PATH=$1
-OSTART=$2
-OEND=$3
-OUT_PATH=$4                                             # Where the resultant output HDF files will go
-OUT_PATH=$(cd "$OUT_PATH" && pwd)
+int_re='^[0-9]+$'
 
-#____________JOB PARAMETERS____________#
+#____________DEFAULT JOB PARAMETERS____________#
 MAX_NPJ=4                                               # Maximum number of nodes per job
-MAX_PPN=20                                              # Maximum number of cores per node.
+MAX_CPN=16                                              # Maximum number of cores per node.
 MAX_NUMJOB=1                                            # Maximum number of jobs that can be submitted simultaneously
-WALLTIME="00:30:00"                                     # Requested wall clock time for the jobs
+WALLTIME="02:00:00"                                     # Requested wall clock time for the jobs
 QUEUE=""                                                # Which queue to put the jobs in. By default, no queue is specified.
 #--------------------------------------#
+
+DB_PATH="$1"; shift
+OSTART=$1; shift
+OEND=$1; shift
+OUT_PATH="$1"; shift                                             # Where the resultant output HDF files will go
+OUT_PATH="$(cd "$OUT_PATH" && pwd)"
+# Parse the OPTS
+# TODO Finish this opt parsing
+while [ $# -ne 0 ]; do
+    if [ "$1" == "--npj" ]; then
+        shift
+        if ! [[ $1 =~ $re ]] ; then
+            echo "Error: An integer must follow --npj!" >&2
+            exit 1
+        fi
+        MAX_NPJ=$1
+        if [ "$MAX_NPJ" -le 0 ]; then
+            echo "Error: --npj can't be less than 0!" >&2
+            exit 1
+        fi
+        shift
+    elif [ "$1" == "--cpn" ]; then
+        shift
+        if ! [[ $1 =~ $re ]] ; then
+            echo "Error: An integer must follow --cpn!" >&2
+            exit 1
+        fi
+        MAX_CPN="$1"
+        shift
+    elif [ "$1" == "--numJob" ]; then
+        shift
+        MAX_NUMJOB="$1"
+         if ! [[ $1 =~ $re ]] ; then
+            echo "Error: An integer must follow --numJob!" >&2
+            exit 1
+         fi
+        shift
+    elif [ "$1" == "--walltime" ]; then
+        shift
+        WALLTIME="$1"
+        shift
+    else
+        echo "Error: Unrecognized argument: $1" >&2
+        exit 1
+    fi
+done
+
+echo "Making jobs with the following maximum parameters:"
+printf "\tMax Nodes Per Job: ${MAX_NPJ}\n"
+printf "\tMax Cores Per Node: ${MAX_CPN}\n"
+printf "\tMax Number of Jobs: ${MAX_NUMJOB}\n"
+printf "\tWalltime: ${WALLTIME}\n"
+echo
+
 
 # Make the DB path absolute
 DB_PATH="$(cd $(dirname $DB_PATH) && pwd)/$(basename $DB_PATH)"
@@ -63,99 +132,36 @@ BF_PATH="$(cd "$BIN_DIR/../" && pwd)"
 # Get the path of the Scheduler repository
 SCHED_PATH="$BF_PATH/externLib/Scheduler"
 
+source "$ABS_PATH"/../../util/findJobPartition
+
 # Check that Scheduler has already been downloaded
 if [ ! -d "$SCHED_PATH" ]; then
     echo "Fatal error: Scheduler has not been downloaded. Please run the configureEnv.sh script in the basicFusion/util directory." >&2
     exit 1
 fi
 
-numOrbits=$(($OEND - $OSTART + 1))                      # Total number of orbits to generate
-numProcessPerJob=$((numOrbits / $MAX_NUMJOB)) 
+echo "Finding the job partitioning. Please be patient..."
+declare -a jobOSTART    # Outputs of findJobPartition
+declare -a jobOEND
+declare -a CPN
+declare -a NPJ
+declare -a numProcess
+declare numJobs
+findJobPartition $OSTART $OEND $MAX_NPJ $MAX_CPN $MAX_NUMJOB
+echo "Done."
+echo
 
-
-# Find the remainder of this division
-let "numExtraProcess= $numOrbits % $MAX_NUMJOB"
-
-# Find how many jobs need to be submitted assuming each job is completely filled (MAX_NPJ and MAX_PPN)
-let "numJobs= $numOrbits / $(($MAX_NPJ * $MAX_PPN))"
-
-# If the number of jobs is greater than MAX_NUMJOB, then we will need to overfill
-if [ $numJobs -ge $MAX_NUMJOB ]; then 
-    
-    for i in $(seq 0 $((MAX_NUMJOB - 1)) ); do
-        PPN[$i]=$MAX_PPN
-        NPJ[$i]=$MAX_NPJ
-
-        numProcess[$i]=$numProcessPerJob
-        let "numProcess[$i] += $numExtraProcess / $MAX_NUMJOB"
-
-        if [ $i -eq $((MAX_NUMJOB-1)) ]; then
-            let "numProcess[$i] += $numExtraProcess % $MAX_NUMJOB"
-        fi
-    done
-
-    numJobs=$((MAX_NUMJOB))
-
-# Else if we do not need to overfill
-else
-    for i in $(seq 0 $((numJobs - 1)) ); do         # Assign the first few jobs to have maximum number of PPN and NPJ
-        PPN[$i]=$MAX_PPN
-        NPJ[$i]=$MAX_NPJ
-        numProcess[$i]=$((MAX_PPN * MAX_NPJ))       # Each job will handle exactly MAX_PPN * MAX_NPJ processes
-    done
-
-    let "numExtraProcess = $numOrbits - (MAX_NPJ * MAX_PPN * numJobs)"  # Find the remaining number of jobs to process
-    numProcess[$numJobs]=$numExtraProcess
-    
-    if [ $numExtraProcess -gt 0 ]; then             # If the remaning number of processes is greater than 0.
-        numNodes=$((numExtraProcess / MAX_PPN))     # Find the number of nodes the last job needs to have.
-
-        if [ $numNodes -eq 0 ]; then                # If it needs less than one node (assuming MAX_PPN), only request
-            PPN[$numJobs]=$((numExtraProcess+1))    # exact number of cores that we need + 1, and only one node.
-            NPJ[$numJobs]=1                         # We add +1 to it because NCSA Scheduler requires 1 core for itself.
-                                                    # We don't add +1 in the case where there are many processes to be run
-                                                    # because the time difference would be negligible. This is just an
-                                                    # edge case consideration (what if only 1 granule is being processed?)
-        else
-            PPN[$numJobs]=$MAX_PPN                  # Else, assign the MAX_PPN and find number of nodes needed to process remaining orbits
-            
-            if [ $((numExtraProcess % MAX_PPN)) -eq 0 ]; then
-                NPJ[$numJobs]=$numNodes             # An edge case where the numExtraProcesses is a multiple of MAX_PPN
-            else
-                NPJ[$numJobs]=$((numNodes + 1))
-            fi
-        fi
-    fi
-fi
-
-# For each job, figure out the range of orbits it will be responsible for
-accumulator=$OSTART
-
-# If MAX_NPJ * MAX_PPN doesn't evenly divide the number of orbits to process,
-# then we'll need one extra job to handle the "stragglers". i.e., we'll have one extra
-# job that will handle any remaining orbits after all the other jobs have been completely filled.
-if [ $((numOrbits % $((MAX_NPJ * MAX_PPN)) )) -ne 0 ]; then
-    let "numJobs++"
-fi
-
-# Set the starting and ending orbits for each job
-for i in $(seq 0 $((numJobs-1)) ); do
-    jobOSTART[$i]=$accumulator
-    # Orbit end = orbit start + numOrbitsForJob - 1
-    jobOEND[$i]=$((${jobOSTART[$i]} + ${numProcess[$i]} - 1))
-    accumulator=$((${jobOEND[$i]} + 1))
-done
 
 # =================================== #
 # Print the node and job information  #
 # =================================== #
 for i in $(seq 0 $((numJobs-1)) ); do
-    printf '%d PPN: %-5s NPJ: %-5s numProcess: %-5s start: %-5s end: %-5s\n' $i ${PPN[$i]} ${NPJ[$i]} ${numProcess[$i]} ${jobOSTART[$i]} ${jobOEND[$i]}
+    printf '%d CPN: %-5s NPJ: %-5s start: %-5s end: %-5s\n' $i ${CPN[$i]} ${NPJ[$i]} ${jobOSTART[$i]} ${jobOEND[$i]}
 done
 
 
 # Time to create the files necessary to submit the jobs to the queue
-BF_PROCESS="$BF_PATH/jobFiles/BFinputGen"
+BF_PROCESS="$BF_PATH/jobFiles/genFusionInput"
 mkdir -p "$BF_PROCESS"
 
 # Find what the highest numbered "run" directory is and grab the number from it.
@@ -180,7 +186,7 @@ fi
 
 
 # Save the current date into the run directory
-date > "$runDir/date.txt"
+date > "${runDir}/date.txt"
 
 # Make the job directories inside each run directory
 mkdir -p "${runDir}/programCalls"
@@ -220,10 +226,10 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "#PBS -j oe"                                           >> job$i.pbs
     # Special case for ROGER. ROGER has no notion of node type (xe)
     if [ "$hn" == "cg-gpu01" ]; then
-        echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}"           >> job$i.pbs
+        echo "#PBS -l nodes=${NPJ[$i]}:ppn=${CPN[$i]}"           >> job$i.pbs
     # Else assume that we are on Blue Waters
     else
-        echo "#PBS -l nodes=${NPJ[$i]}:ppn=${PPN[$i]}:xe"           >> job$i.pbs
+        echo "#PBS -l nodes=${NPJ[$i]}:ppn=${CPN[$i]}:xe"           >> job$i.pbs
     fi
     echo "#PBS -l walltime=$WALLTIME"                           >> job$i.pbs
     if [ ${#QUEUE} -ne 0 ]; then
@@ -241,15 +247,15 @@ for i in $(seq 0 $((numJobs-1)) ); do
     echo "source /opt/modules/default/init/bash &> /dev/null"   >> job$i.pbs
     echo "module load hdf4 hdf5"                                >> job$i.pbs
     echo "$loadMPICH"                                           >> job$i.pbs
-    littleN=$(( ${NPJ[$i]} * ${PPN[$i]} ))
+    littleN=$(( ${NPJ[$i]} * ${CPN[$i]} ))
     bigR=0
 
     mpiCall=""
     if [ "$mpiProg" == "mpirun" ]; then
-        numRanks=$(( ${NPJ[$i]} * ${PPN[$i]} - 1 ))
+        numRanks=$(( ${NPJ[$i]} * ${CPN[$i]} - 1 ))
         mpiCall="$mpiProg -np $littleN"
     elif [ "$mpiProg" == "aprun" ]; then
-        mpiCall="$mpiProg -n $littleN -N ${PPN[$i]} -R $bigR"
+        mpiCall="$mpiProg -n $littleN -N ${CPN[$i]} -R $bigR"
     else
         echo "The MPI program should either be mpirun or aprun!" >&2
         exit 1
@@ -289,7 +295,16 @@ for job in $(seq 0 $((numJobs-1)) ); do
     echo "Writing program calls in: ${jobDir[$job]}"
 
     for orbit in $(seq ${jobOSTART[$job]} ${jobOEND[$job]} ); do
-        echo "$ABS_PATH/genFusionInput.sh $DB_PATH $orbit $OUT_PATH/input$orbit.txt 2> $runDir/logs/genFusionInput/errors/$orbit.err 1> $runDir/logs/genFusionInput/logs/$orbit.log" > "${jobDir[$job]}/orbit$orbit.sh"
+        echo "$ABS_PATH/genFusionInput.sh $DB_PATH $orbit $OUT_PATH/input$orbit.txt 2> $runDir/logs/genFusionInput/errors/$orbit.err 1> $runDir/logs/genFusionInput/logs/$orbit.log
+
+# Remove log/error files if they're empty
+if ! [ -s \"$runDir/logs/genFusionInput/errors/${orbit}.err\" ]; then
+    rm -f \"$runDir/logs/genFusionInput/errors/${orbit}.err\"
+fi
+
+if ! [ -s \"$runDir/logs/genFusionInput/logs/${orbit}.log\" ]; then
+    rm -f \"$runDir/logs/genFusionInput/logs/${orbit}.log\"
+fi" > "${jobDir[$job]}/orbit$orbit.sh"
 
     chmod +x "${jobDir[$job]}/orbit$orbit.sh"
     done

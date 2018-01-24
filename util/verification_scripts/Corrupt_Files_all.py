@@ -2,386 +2,240 @@
 @author : Shashank Bansal
 @email : sbansal6@illinois.edu
 
-Date : July 10, 2017
+Date : June 22, 2017
 
+Modified: Oct 16, 2017
+    Landon Clipp
+    Added MPI, restructured code for more resiliance.
 """
 
-import subprocess 
+import subprocess
 import os
-import thread
-import multiprocessing
 import sys
+import argparse
+import numpy as np
+from mpi4py import MPI
+import basicFusion as BF
+
+# MPI VARIABLES
+mpi_comm = MPI.COMM_WORLD
+mpi_rank = MPI.COMM_WORLD.Get_rank()
+mpi_size = MPI.COMM_WORLD.Get_size()
+        
+#=========================================================================
+
+def isCorrupt( filePath, subProc_call, corrupt_if_less = -1):
+    """
+    DESCRIPTION:
+        This function determines whether or not the file in filePath is corrupt according to whatever command-line
+        utility is passed into subProc_call. It will also mark the file as corrupt if filePath has a size less than
+        corrupt_if_less.
+    ARGUMENTS:
+        filePath (str)          -- Path to the HDF file
+        subProc_call (list)     -- List containing the command-line utility to perform the corruption check with.
+                                   Each element is a single command-line argument. For instance:
+                                   [ 'util_name', 'arg1', 'arg2' ]
+        corrupt_if_less         -- If the file has a size less than this number in bytes, it will be marked as corrupt
+    EFFECTS:
+        None
+    Return:
+        0 if not corrupt.
+        Non-zero if corrupt.
+    """
+
+    if not isinstance(subProc_call, list):
+        raise ValueError("Rank {}: subProc_call argument must be a list!".format(mpi_rank))
+ 
+    # Perform ncdump on the file
+    dump = subprocess.Popen(
+        subProc_call,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
+
+    # Get the output and return codes
+    streamdata = dump.communicate()
+    ret_code = dump.returncode
+
+    if corrupt_if_less > 0.0: 
+        hdfinfo = os.stat(filePath)
+
+        # If the file size is below the given threshold, mark it as corrupt
+        if (hdfinfo.st_size < corrupt_if_less ):
+            return 1
+
+    # Do a string search for 'HDP ERROR' if the return code is 0.
+    # We do this when 0 just for a redundancy check. If non-zero,
+    # we already know that file is corrupt.
+    if ret_code != 0:
+        return 1
+    # Only do HDP ERROR check if we are running the hdp utility!
+    elif 'hdp' in subProc_call[0]:
+        check = np.array(streamdata)
+        for i in range(len(check)):
+            if 'HDP ERROR' in check[i]:
+                return 1
+
+    return 0
+
+#===========================================================================
 
 
-#python Corrupt_Files_all.py -r /projects/TDataFus/gyzhao/TF/data/MODIS/MOD021KM /home/sbansal6/File_Verification_Scripts/MODIS_Corrupt/MODIS_Corrupt_Check_MOD021KM_2009_1.txt 2009 1
+def worker():
+    """
+    DESCRIPTION:
+        This is the worker function for all of the MPI processes that performs the corruption checks.
+        Will send a Python list of corrupted files back to the master process.
+    ARGUMENTS:
+        None
+    EFFECTS:
+        MPI send command back to master.
+    RETURN:
+        None
+    """
+
+    # Wait for the master to send our job list
+    print("Rank {}: Receiving job...".format(mpi_rank))
+    fileList = mpi_comm.recv( source=0 )
+    print("Rank {}: Job received.".format(mpi_rank))
+
+    corruptList = []
+    hdpCall = ["hdp", "dumpsds", "-h", "[file path]" ]
+    ncCall  = ["ncdump", "-h", "[file path]"]
+
+    # Perform the corruption checks on the file list
+    for i in xrange( len(fileList) ):
+        # Report every 100 files
+        if (i % 100) == 0:
+            print("Rank {}: on i = {} of {}".format(mpi_rank, i, len(fileList) ))
+
+        if fileList[i][1] > 0:
+            hdpCall[3] = fileList[i][0]
+            corrupt = isCorrupt( fileList[i][0], hdpCall, 1000000 )
+        elif fileList[i][1] == 0:
+            ncCall[2] = fileList[i][0]
+            corrupt = isCorrupt( fileList[i][0], ncCall, 1000000 )
+        else:
+            raise ValueError("Rank {}: fileList has a bad element! File marked as < 0!".format(mpi_rank))
+
+        if corrupt:
+            corruptList.append( [ fileList[i][0], fileList[i][1] ] )
+
+    print("Rank {}: Sending back data...".format(mpi_rank))
+    # Done checking all of the files. Time to send corrupt list back to master.
+    mpi_comm.send( corruptList, dest=0 )
+
+#==============================================================================
+
+
+def master( terraDir, outDir ):
+    """
+    DESCRIPTION:
+        This is the function for the master MPI rank. It recursively searches the terraDir directory
+        for "proper" Basic Fusion input files (according to the isBFfile module) and distributes the
+        files amongst the MPI processes. The MPI processes will then send the list of corrupted files
+        back to the master process. Once master has collected all of these lists from the worker processes,
+        it writes out the lists to log files in outDir.
+    ARGUMENTS:
+        terraDir        -- Directory to recursively search for HDF files.
+        outDir          -- Directory where the output log files will be saved.
+    EFFECTS:
+        Creates log files.
+    RETURN:
+        None.
+    """
+
+    fileList = []
+    corruptList = []
+    numRunning = mpi_size - 1           # Keep track of how many mpi processes are still running
+    logs = [ "MOPITTcorrupt.txt", "CEREScorrupt.txt", "MODIScorrupt.txt", "ASTERcorrupt.txt", "MISRcorrupt.txt" ]
+    logFileObj = []
+
+    # Recurse through all the files in terraDir
+    for root, directories, filenames in os.walk( terraDir ):
+        for filename in filenames:
+            # Determine if the file is proper
+            isProper = BF.isBFfile( [ filename ] )
+            
+            # For your own reference, this is from the isBFfile docstring:
+            # 
+            #    -1 indicates that the file is not proper.
+            #    0 indicates a proper MOPITT file match.
+            #    1 indicates a proper CERES file match.
+            #    2 indicates a proper MODIS file match.
+            #    3 indicates a proper ASTER file match.
+            #    4 indicates a proper MISR GRP file match.
+            #    5 indicates a proper MISR AGP file match.
+            #    6 indicates a proper MISR GMP file match.
+            #    7 indicates a proper MISR HRLL file match.
+
+            if isProper[0] != -1:
+               # If it is, add the file to the list. First element is name, second is which file it belongs to.
+               fileList.append( [ os.path.join(root, filename), isProper[0] ] )
+
+    # We have all the files to process for this directory. Find how to split the jobs
+    print("Rank {}: Finding job partition...".format(mpi_rank))
+    processBin = BF.findProcPartition( mpi_size - 1, len(fileList) )
+    print("Rank {}: Done finding job partition.".format(mpi_rank))
+    sIdx = 0
+    eIdx = 0
+    # Send the jobs to the worker processes
+    print("Rank {}: Sending jobs...".format(mpi_rank))
+    for i in xrange( 1, mpi_size ):
+        # Get the process end index
+        eIdx = processBin[i-1]
+        mpi_comm.send( fileList[sIdx:sIdx + eIdx], dest=i )
+        sIdx=eIdx
+    print("Rank {}: Done sending jobs.".format(mpi_rank))
+
+
+    # Wait for the returning data from each process
+    print("Rank {}: Waiting for data...".format(mpi_rank, i))
+    for i in xrange( 0, mpi_size-1 ):
+        corruptSubList = mpi_comm.recv()
+        corruptList = corruptList + corruptSubList
+        print("Rank {}: Received {} lists.".format(mpi_rank, i+1))
+
+    # Open the log files for writing
+    for i in xrange(len(logs)):
+        logFileObj.append( open( outDir + "/" + logs[i], 'a') )
+
+    # Distribute all of these into output log files
+    for line in corruptList:
+        if line[1] == 0:
+            logFileObj[0].write( line[0] + "\n" )
+        elif line[1] == 1:
+            logFileObj[1].write( line[0] + "\n" )
+        elif line[1] == 2: 
+            logFileObj[2].write( line[0] + "\n" )
+        elif line[1] == 3:
+            logFileObj[3].write( line[0] + "\n" )
+        elif line[1] >= 4 or line[1] <= 7:
+            logFileObj[4].write( line[0] + "\n" )
+        else:
+            raise ValueError("Passed line has a bad identifier!")
+
+    # Close the log files
+    for i in xrange(len(logs)):
+        logFileObj[i].close()
+
+#====================================================================================
+
 def main():
 
-	if not len(sys.argv) > 1:
-		usage()
-
-	elif sys.argv[1] == '-h' or sys.argv[1] == '-help':
-		help()
-
-	elif sys.argv[1] == '-a':
-		arguments()
-
-	elif sys.argv[1] == '-r':
-		if len(sys.argv) <= 6:
-			arguments()
-		else:
-			instr = sys.argv[2]
-			dirpath = sys.argv[3]
-			logfile = sys.argv[4]
-			year = sys.argv[5]
-			
-			if instr == 'MOPITT' or instr == 'mopitt':
-				MOPITT_Corrupt(dirpath, logfile, year)
-	
-			
-			elif instr == 'MISR' or instr == 'misr':
-				month = sys.argv[6]
-				MISR_Corrupt(dirpath, logfile, year, month)
-	
-			
-			elif instr == 'CERES' or instr == 'ceres':
-				CERES_Corrupt(dirpath, logfile, year)
-
-			
-			elif instr == 'ASTER' or instr == 'aster':
-				month = sys.argv[6]
-				ASTER_Corrupt(dirpath, logfile, year, month)
-
-			
-			elif instr == 'MODIS' or instr == 'modis':
-				month = sys.argv[6]
-				MODIS_Corrupt(dirpath, logfile, year, month)
-			
-			else:
-				arguments()
-
-
-
-def usage():
-	print("\n\nUSAGE:  python Corrupt_Files_all.py [-h | -a | -r]\n")
-	print("Options:\n")
-	print("-h     										More information about the different functions and how they work\n")
-	print("-a           									More information about the arguments and the format to run the program\n")
-	print("-r [instr] [dirpath] [logfile] [YEAR] [monthR/month](optional)  		Run the program\n")
-	#print("-m           						Run the program on multiple years at once.")
-
-
-def help():
-	print("\nDESCRIPTION:\n\nThere are 5 different functions in this program- \n")
-	print("1. MODIS_Corrupt(dirPath, logfile, YEAR, monthR)")
-	print("2. MOPITT_Corrupt(dirPath, logfile, YEAR)")
-	print("3. MISR_Corrupt(dirPath, logfile, YEAR, month)")
-	print("4. CERES_Corrupt(dirPath, logfile, YEAR)")
-	print("5. ASTER_Corrupt(dirPath, logfile, YEAR, month)\n")
-
-	print("To check if a file is corrupt or not, we run 'hdp dumpsds -h [filename]' and check for the value")
-	print("that is returned. A return value of other than 0 means it is a corrupt file.\n")
-	print("NOTE: In case of MOPITT files, we use 'ncdump -h' instead because of the different format of the files.\n")
-
-
-def arguments():
-	print("\nARGUMENTS TO RUN PROGRAM:\n\n python MISR_all_years.py -r [instr] [absolute/path/to/dir] [absolute/filepath/to/logfile] [YEAR] [month or monthR](optional)\n")
-	print("For more information on each argument, type i.")
-	info = str(raw_input())
-	
-	if info == 'i' or info == 'I':
-		print("MORE INFORMATION: \n\nThe arguments depend on the instrument you choose. Each instrument has their own number and type")
-		print("of arguments.")
-		print("1. The first argument is [instr] which takes the type of instrument. Following are the choices you have for [instr].\n")
-		print("MODIS")
-		print("MOPITT")
-		print("MISR")
-		print("CERES")
-		print("ASTER\n")
-
-		print("For all the instruments, you need to give [dirPath] [logfile] [YEAR] .\n")
-		print("[dirPath] is the path to the directory where the data is stored. For example,")
-		print("\npath/to/dir or /projects/TDataFus/gyzhao/TF/data/MISR/MI1B2E.003\n")
-		print("In order for the program to run smoothly, you need to provide the absolute path and make sure that you")
-		print("provide the dirpath only uptil just before the dates.\n")
-		
-		print("2. The next argument is the file path to the logfile where you wish to write the names of the missing files.")
-		print("For example, it should look something like,")
-		print("\n/path/to/logfile/logfile.txt or /home/user/scratch/BasicFusion/MISR_logfiles/logfile.txt\n")
-		print("[logfile] also need to have the name of the .txt file where you wish to log/write all the missing files.")
-		print("You don't need to actually make a textFile, just give the name in the second argument and the program will make a txtfle")
-		print("with that name in the specified directory.\n")
-		
-		print("3. The next argument is [YEAR] which is the year you wish to run the program on.\n")
-		
-		print("4. The last argument is either [monthR] (for MODIS) or [month] (MISR and ASTER). [monthR] for MODIS ranges in [1 15]")
-		print("and [month] for MISR or ASTER ranges in [1 12].")
-
-		print("\nNOTE: monthR ranges in [1 15] because MODIS has a lot of files and this range helps to further parallelize and")
-		print("thus improve the speed of the program. Each number for [monthR] corresponds to a day range between [1 366]\n")
-
-
-	else:
-		return
-
-
-#this returns the range of days for the value of monthR in MODIS
-def get_range(month):
-
-	if month == 1: 
-		return [1, 23]
-	elif month == 2:
-		return [23,46]
-	elif month == 3:
-		return [46,69]
-	elif month == 4:
-		return [69,92]
-	elif month == 5:
-		return [92,115]
-	elif month == 6:
-		return [115,138]
-	elif month == 7:
-		return [138,161]
-	elif month == 8:
-		return [161,184]
-	elif month == 9:
-		return [184,207]	
-	elif month == 10:
-		return [207,230]
-	elif month == 11:
-		return [230,267]
-	elif month == 12:
-		return [267,304]
-	elif month == 13:
-		return [304, 327]
-	elif month == 14:
-		return [327, 350]
-	elif month == 15:
-		return [350, 367]
-
-
-def MODIS_Corrupt(dirpath, logfile, YEAR, monthR):
-
-	fileCheck = open(logfile, "w").close()
-	fileCheck = open(logfile, "w")
-	
-	emptydir = []
-	zero_size = {}
-	Range = []
-	Range = get_range(int(monthR))
-	daylist = []
-
-
-	for i in range(Range[0], Range[1]):
-		daylist.append(i)
-		
-	dirPath = os.path.join(dirpath, YEAR)
-	#entering the year to be checked (day number)
-	for fname in os.listdir(dirPath):
-		if(os.listdir(os.path.join(dirPath, fname)) == []):
-			emptydir.append(fname)
-
-
-		else:
-			#this makes sure that we do not enter an empty directory
-			if fname not in emptydir and int(fname) in daylist:
-				#print(fname)
-				inPath = os.path.join(dirPath, fname)
-
-				for filename in os.listdir(inPath):
-					#print(filename)
-					hdfinfo = os.stat(os.path.join(inPath, filename))
-
-					if(hdfinfo.st_size == 0):
-						zero_size[filename] = True
-
-					else:
-						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, filename)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
-						retval = strin.communicate()
-						retval1 = strin.returncode
-						if int(retval1) != 0:
-							fileCheck.write(os.path.join(inPath, filename) + '\n')
-
-	if zero_size:
-		fileCheck.write("These files are empty: \n")
-		for i in zero_size:
-			fileCheck.write(i + '\n')
-
-def MOPITT_Corrupt(dirpath, logfile, YEAR):
-
-	zero_size = {}
-
-	year = str(YEAR)
-
-	dateStr = []
-
-	fileCheck = open(logfile, "w").close()
-	fileCheck = open(logfile, "w")
-	
-	for m in range(1, 13):
-		for d in range(1, 31):
-
-			if(m < 10 and d < 10):
-				dateStr.append(year + '.0' + str(m) + '.0' + str(d))
-
-			elif(m<10 and d >= 10):
-				dateStr.append(year + '.0' + str(m) + '.' + str(d))
-
-			elif(m>=10 and d < 10):
-				dateStr.append(year + '.' + str(m) + '.0' + str(d))
-			else:
-				dateStr.append(year + '.' + str(m) + '.' + str(d))
-
-
-	for date in os.listdir(dirpath):
-
-		if date in dateStr:
-			dateStr.remove(date)
-			inPath = os.path.join(dirpath, date)
-
-			#print(date)
-			for fname in os.listdir(inPath):
-				if fname.endswith('.he5'):
-
-					#print(fname)
-
-
-					hdfinfo = os.stat(os.path.join(inPath, fname))
-
-					if(hdfinfo.st_size == 0):
-						zero_size[fname] = True
-
-					else:
-						strin = subprocess.Popen(["ncdump", "-h", os.path.join(inPath, fname)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
-						retval = strin.communicate()
-						retval1 = strin.returncode
-						#print(retval1)
-						if int(retval1) != 0:
-							fileCheck.write(os.path.join(inPath, fname) + '\n')
-
-def MISR_Corrupt(dirpath, logfile, YEAR, month):
-
-	year = str(YEAR)
-
-	dateStr = []
-
-	fileCheck = open(logfile, "w").close()
-	fileCheck = open(logfile, "w")
-	
-	for m in range(1, 13):
-		for d in range(1, 31):
-
-			if(m < 10 and d < 10):
-				dateStr.append(year + '.0' + str(m) + '.0' + str(d))
-
-			elif(m<10 and d >= 10):
-				dateStr.append(year + '.0' + str(m) + '.' + str(d))
-
-			elif(m>=10 and d < 10):
-				dateStr.append(year + '.' + str(m) + '.0' + str(d))
-			else:
-				dateStr.append(year + '.' + str(m) + '.' + str(d))
-
-
-	for date in os.listdir(dirpath):
-
-		mon = date.split('.')[1]
-
-		if date in dateStr and int(mon) == int(month):
-			dateStr.remove(date)
-			inPath = os.path.join(dirpath, date)
-
-			print(date)
-			for fname in os.listdir(inPath):
-				if fname.endswith('.hdf'):
-
-					#print(fname)
-
-
-					hdfinfo = os.stat(os.path.join(inPath, fname))
-
-					if(hdfinfo.st_size == 0):
-						zero_size[fname] = True
-
-					else:
-						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, fname)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
-						retval = strin.communicate()
-						retval1 = strin.returncode
-						#print(retval1)
-						if int(retval1) != 0:
-							fileCheck.write(os.path.join(inPath, fname) + '\n')
-
-
-def CERES_Corrupt(dirpath, logfile, YEAR):
-	year = str(YEAR)
-
-
-	fileCheck = open(logfile, "w").close()
-	fileCheck = open(logfile, "w")
-
-	yearpath = os.path.join(dirpath, year)
-
-	for cerfile in os.listdir(yearpath):
-		if not cerfile.endswith('.met'):
-			#print(cerfile)
-			strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(yearpath, cerfile)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
-			retval = strin.communicate()
-			retval1 = strin.returncode
-			#print retval1
-			if int(retval1) != 0:
-				fileCheck.write(os.path.join(yearpath, cerfile) + '\n')
-
-
-def ASTER_Corrupt(dirpath, logfile, YEAR, month):
-	year = str(YEAR)
-
-	dateStr = []
-
-	fileCheck = open(logfile, "w").close()
-	fileCheck = open(logfile, "w")
-	
-	for m in range(1, 13):
-		for d in range(1, 31):
-
-			if(m < 10 and d < 10):
-				dateStr.append(year + '.0' + str(m) + '.0' + str(d))
-
-			elif(m<10 and d >= 10):
-				dateStr.append(year + '.0' + str(m) + '.' + str(d))
-
-			elif(m>=10 and d < 10):
-				dateStr.append(year + '.' + str(m) + '.0' + str(d))
-			else:
-				dateStr.append(year + '.' + str(m) + '.' + str(d))
-
-
-	for date in os.listdir(dirpath):
-
-		mon = date.split('.')[1]
-
-		if date in dateStr and int(mon) == int(month):
-			dateStr.remove(date)
-			inPath = os.path.join(dirpath, date)
-
-			#print(date)
-			for fname in os.listdir(inPath):
-				if fname.endswith('.hdf'):
-
-					#print(fname)
-
-
-					hdfinfo = os.stat(os.path.join(inPath, fname))
-
-					if(hdfinfo.st_size == 0):
-						zero_size[fname] = True
-
-					else:
-						strin = subprocess.Popen(["hdp", "dumpsds", "-h", os.path.join(inPath, fname)], stdout=subprocess.PIPE, stderr = subprocess.PIPE)
-						retval = strin.communicate()
-						retval1 = strin.returncode
-						#print(retval1)
-						if int(retval1) != 0:
-							fileCheck.write(os.path.join(inPath, fname) + '\n')
-
-
-
-main()
+    parser = argparse.ArgumentParser(description="This script checks the Basic Fusion HDF files in TERRA_DIR for corruption. This is done by running \"hdp dumpsds\" on all HDF4 files, and \"ncdump\" on all HDF5 files. Only the files determined to be \"proper\" by the isBFfile module are checked for corruption.")
+
+    parser.add_argument("TERRA_DIR", help="The directory to investigate for Basic Fusion files.", type=str)
+    parser.add_argument("OUT_DIR", help="The output directory where all files determined to be corrupt will be saved. The log files produced will be MOPITTcorrupt.txt, CEREScorrupt.txt, ASTERcorrupt.txt, MISRcorrupt.txt, and MODIScorrupt.txt.", type=str)
+    args = parser.parse_args()
+
+
+    assert (mpi_size > 1),"This script needs more than 1 MPI process to run!"
+
+    # Master process needs to determine how to split the processes 
+    if mpi_rank == 0:
+        master( args.TERRA_DIR, args.OUT_DIR )    
+    else:
+        worker()
+    
+if __name__ == '__main__':    
+    main()
