@@ -9,7 +9,7 @@
 #define DIM_MAX 10
 #endif
 
-/* MY 2016-12-20, handling the MODIS files with and without MOD02HKM and MOD02QKM. */
+/* MY(myang6@hdfgroup.org) 2016-12-20, handling the MODIS files with and without MOD02HKM and MOD02QKM. */
 
 int readThenWrite_MODIS_HR_LatLon(hid_t MODIS500mgeoGroupID,hid_t MODIS250mgeoGroupID,char* latname,char* lonname,int32 h4_type,hid_t h5_type,int32 MOD03FileID,hid_t outputFile,int modis_special_dims);
 

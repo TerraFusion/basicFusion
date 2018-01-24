@@ -10,8 +10,6 @@
 #define LOGIN_NODE "login"
 #define MOM_NODE
 
-
-
 int getNextLine ( char* string, FILE* const inputFile );
 int Add_CF_Provenance_Attrs();
 hid_t outputFile;
@@ -97,7 +95,7 @@ int main( int argc, char* argv[] )
     if ( argc != 4 )
     {
         fprintf( stderr, "Usage: %s [outputFile] [inputFiles.txt] [orbit_info.bin]\n", argv[0] );
-        fprintf( stderr, "Set environment variable TERRA_DATA_PACK to non-zero to retain packed data.\n");
+        fprintf( stderr, "Set environment variable TERRA_DATA_UNPACK to zero to retain packed data.\n");
         fprintf( stderr, "Set environment variable USE_GZIP from 1 to 9 to set HDF compression level.\n");
         fprintf( stderr, "Set environment variable USE_CHUNK to enable HDF dataset chunking.\n");
         goto cleanupFail;
@@ -117,11 +115,22 @@ int main( int argc, char* argv[] )
 
     // open the orbit_info.bin file
     new_orbit_info_b = fopen(argv[3],"r");
-    long fSize;
+    if (new_orbit_info_b == NULL) {
+        FATAL_MSG("file \"%s\" does not exist. Exiting program.\n", argv[3]);
+        goto cleanupFail;
+    }
+    long fSize = 0;
 
     // get the size of the file
-    fseek(new_orbit_info_b,0,SEEK_END);
+    if(fseek(new_orbit_info_b,0,SEEK_END)!=0) {
+        FATAL_MSG("file \"%s\" fseek function fails. Exiting program.\n", argv[3]);
+        goto cleanupFail;
+    }
     fSize = ftell(new_orbit_info_b);
+    if(fSize <0) {
+        FATAL_MSG("file \"%s\" ftell function fails. Exiting program.\n", argv[3]);
+        goto cleanupFail;
+    }
     // rewind file pointer to beginning of file
     rewind(new_orbit_info_b);
 
@@ -159,7 +168,10 @@ int main( int argc, char* argv[] )
         }
     }
 
-    fclose(new_orbit_info_b);
+    if(fclose(new_orbit_info_b)!=0) {
+        FATAL_MSG("Failed to close file %s\n",argv[3]);
+        goto cleanupFail;
+    }
     new_orbit_info_b = NULL;
     free(test_orbit_ptr);
     test_orbit_ptr = NULL;
@@ -172,7 +184,7 @@ int main( int argc, char* argv[] )
 
     {
         const char *s;
-        s = getenv("TERRA_DATA_PACK");
+        s = getenv("TERRA_DATA_UNPACK");
 
         int envVal;
 
@@ -279,22 +291,22 @@ int main( int argc, char* argv[] )
                 goto cleanupFail;
             }
 
+            if(status != RET_SUCCESS_NO_PROCESS) {
 
-           if(status != RET_SUCCESS_NO_PROCESS) {
-            /* strrchr finds last occurance of character in a string */
-            granTempPtr = strrchr( inputLine, '/' );
-            if ( granTempPtr == NULL )
-            {
-                FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
-                goto cleanupFail;
+                /* strrchr finds last occurance of character in a string */
+                granTempPtr = strrchr( inputLine, '/' );
+                if ( granTempPtr == NULL )
+                {
+                    FATAL_MSG("Failed to find the last occurance of slash character in the input line.\n");
+                    goto cleanupFail;
+                }
+                errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
+                if ( errStatus == FATAL_ERR )
+                {
+                    FATAL_MSG("Failed to update the granule list.\n");
+                    goto cleanupFail;
+                }
             }
-            errStatus = updateGranList( &granuleList, granTempPtr + 1, &granListSize );
-            if ( errStatus == FATAL_ERR )
-            {
-                FATAL_MSG("Failed to update the granule list.\n");
-                goto cleanupFail;
-            }
-          }
 
 #if 0
             if ( MOPITT( inputLine, current_orbit_info ) == FATAL_ERR )
@@ -304,9 +316,7 @@ int main( int argc, char* argv[] )
             }
 #endif
 
-
             status = getNextLine( inputLine, inputFile);
-
             if ( status == FATAL_ERR )
             {
                 FATAL_MSG("Failed to get MOPITT line. Exiting program.\n");
@@ -314,7 +324,6 @@ int main( int argc, char* argv[] )
             }
 
         } while ( strstr( inputLine, MOPITTcheck ) != NULL );
-
 
         printf("MOPITT done.\nTransferring CERES...");
         fflush(stdout);
@@ -329,8 +338,6 @@ int main( int argc, char* argv[] )
             FATAL_MSG("Failed to get next line. Exiting program.\n");
             goto cleanupFail;
         }
-    
-        
     }
 
     /*********
@@ -340,7 +347,6 @@ int main( int argc, char* argv[] )
 
     CERESargs[0] = argv[0];
     CERESargs[1] = argv[1];
-
 
     if ( strstr(inputLine, "CER N/A" ) == NULL )
     {
@@ -463,8 +469,6 @@ int main( int argc, char* argv[] )
                 FATAL_MSG("Failed to get next line. Exiting program.\n");
                 goto cleanupFail;
             }
-
-            
 
             if(CERESargs[2]) free(CERESargs[2]);
             CERESargs[2] = NULL;
@@ -612,7 +616,6 @@ int main( int argc, char* argv[] )
                     FATAL_MSG("Failed to get MODIS line. Exiting program.\n");
                     goto cleanupFail;
                 }
-
 
                 granTempPtr = strrchr( inputLine, '/' );
                 if ( granTempPtr == NULL )

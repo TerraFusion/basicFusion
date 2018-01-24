@@ -264,9 +264,9 @@ int ASTER( char* argv[],int aster_count,int unpack)
 
         char *time_comment_name="comment_for_GranuleTime";
         char *time_comment_value = "Under each ASTER granule group, the GranuleTime attribute represents "
-                                    "the time of data acquisition in UTC with the DDMMYYYYhhmmss format. "
+                                    "the time of data acquisition in UTC with the MMDDYYYYhhmmss format. "
                                     "D: day. M: month. Y: year. h: hour. m: minute s:second. "
-                                    "For example, 01112010002054 represents November 1st, 2010, "
+                                    "For example, 01112010002054 represents January 11th, 2010, "
                                     "at the 0 hour, the 20th minute, the 54th second UTC.";
 
         if(H5LTset_attribute_string(outputFile,"ASTER",comment_name,comment_value) <0){

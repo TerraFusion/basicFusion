@@ -5,7 +5,7 @@
 #include <hdf5.h>
 #include "libTERRA.h"
 
-/* MT 2016-12-20, mostly re-write the handling of MISR */
+/* MY(Kent Yang myang6@hdfgroup.org) 2016-12-20, mostly re-write the handling of MISR */
 float Obtain_scale_factor(int32 h4_file_id, char* band_name);
 herr_t blockCentrTme( int32 inHFileID, hid_t BCTgroupID, hid_t dimGroupID );
 
