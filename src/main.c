@@ -97,7 +97,7 @@ int main( int argc, char* argv[] )
     if ( argc != 4 )
     {
         fprintf( stderr, "Usage: %s [outputFile] [inputFiles.txt] [orbit_info.bin]\n", argv[0] );
-        fprintf( stderr, "Set environment variable TERRA_DATA_PACK to non-zero to retain packed data.\n");
+        fprintf( stderr, "Set environment variable TERRA_DATA_UNPACK to zero to retain packed data.\n");
         fprintf( stderr, "Set environment variable USE_GZIP from 1 to 9 to set HDF compression level.\n");
         fprintf( stderr, "Set environment variable USE_CHUNK to enable HDF dataset chunking.\n");
         goto cleanupFail;
@@ -172,7 +172,7 @@ int main( int argc, char* argv[] )
 
     {
         const char *s;
-        s = getenv("TERRA_DATA_PACK");
+        s = getenv("TERRA_DATA_UNPACK");
 
         int envVal;
 
