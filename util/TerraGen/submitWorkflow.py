@@ -155,7 +155,7 @@ export USE_GZIP=1
 export USE_CHUNK=1
  
 # Source the Basic Fusion python virtual environment
-source {}
+# source {}
 
 logFile={}
 remoteID={}
@@ -190,7 +190,7 @@ else
     modis_miss_param=""
 fi
 
-{{ {} -n $(( $ppn * $nodes )) -N $ppn python ${{pull_process_script}} ${{save_interm}} ${{modis_miss_param}} -l DEBUG $json_log ${{granule_list}} $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $MISR_path_files --num-transfer $globus_parallelism ; }} 1>> $logFile 2>> $logFile
+{{ {} -n $(( $ppn * $nodes )) -N $ppn bwpy-environ -- python ${{pull_process_script}} ${{save_interm}} ${{modis_miss_param}} -l DEBUG $json_log ${{granule_list}} $scratchSpace $remoteID $hostID $hashDir $summaryLog $jobName $MISR_path_files --num-transfer $globus_parallelism ; }} 1>> $logFile 2>> $logFile
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
@@ -233,7 +233,7 @@ def makePBS_pull( job_name, pull_script, log_file, sum_log, granule_list, \
 #PBS -q {}
 
 # Source the BasicFusion python environment
-source {}
+# source {}
 
 job_name={}
 pull_script={}
@@ -247,7 +247,7 @@ dest_id={}
 log_dirs={}
 save_interm={}
 
-{{ aprun -n ${{num_ranks}} -N $ppn -d 1 python ${{pull_script}} ${{save_interm}} ${{granule_list}} ${{src_id}} ${{dest_id}} ${{log_dirs}} ${{job_name}} ; }} 1>> $log_file 2>> $log_file
+{{ aprun -n ${{num_ranks}} -N $ppn -d 1 bwpy-environ -- python ${{pull_script}} ${{save_interm}} ${{granule_list}} ${{src_id}} ${{dest_id}} ${{log_dirs}} ${{job_name}} ; }} 1>> $log_file 2>> $log_file
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
@@ -305,10 +305,10 @@ log_file={}
 save_interm={}
 
 # Source the Basic Fusion python virtual environment
-source {}
+# source {}
 
 
-{{ {} -n $(( $ppn * $nodes )) -N $ppn python "${{push_script}}" -l DEBUG -g $num_transfer ${{save_interm}} "$output_granule_list" $remote_id "$remote_dir" $host_id "$job_name" "$log_pickle_path" "$summary_log" ; }} 1>> $log_file 2>> $log_file
+{{ {} -n $(( $ppn * $nodes )) -N $ppn bwpy-environ -- python "${{push_script}}" -l DEBUG -g $num_transfer ${{save_interm}} "$output_granule_list" $remote_id "$remote_dir" $host_id "$job_name" "$log_pickle_path" "$summary_log" ; }} 1>> $log_file 2>> $log_file
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
