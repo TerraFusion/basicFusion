@@ -60,8 +60,10 @@ Initiate a Globus transfer request using the files in self's file list.
                               the file between source and dest match. If
                               they differ, automatically retry file until
                               this check succeeds.
-    *deadline (str)* -- Transfer deadline in the format 'YYYY-MM-DD hh:mm:ss'.
-                        Can't be larger than 30 days from present.  
+    *deadline (str)* -- Transfer UTC deadline in the format
+                        'YYYY-MM-DD hh:mm:ss' or 'YYYY-MM-DD'. Can't be
+                        larger than 30 days from present. If the latter 
+                        format, time is assumed to be 00:00:00.  
     *label (str)*    -- The label for the transfer. Defines the name for the batch
                       transfer files and to Globus itself. Non-unique
                       names may cause old batch files to be overwritten.  
@@ -190,6 +192,10 @@ Initiate a Globus transfer request using the files in self's file list.
                 args.append('--sync-level')
                 args.append( sync_level )
 
+            if deadline:
+                args.append('--deadline')
+                args.append( deadline )
+
             args.append( self.sourceID + ':/' )
             args.append( self.destID + ':/' )
             args.append( '--batch' )
@@ -201,11 +207,11 @@ Initiate a Globus transfer request using the files in self's file list.
             subproc.wait()
             output = subproc.stdout.read() + subproc.stderr.read()
 
+            print( output )
             if subproc.returncode != 0:
                 print( output )
                 raise RuntimeError('Globus subprocess failed with retcode {}'.\
                     format( subproc.returncode ) )
-                
             # Extract the submission IDs from stdout
             startLine = 'Task ID: '
             startIdx = output.find( startLine )

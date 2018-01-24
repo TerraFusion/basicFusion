@@ -42,42 +42,9 @@ _orbit_limits = { 2000 : { 'start' : 1000, 'end' : 5528 }, \
             }
 
 
-def _check_o_info_pickle( orbit_txt = constants.ORBIT_INFO_TXT, \
-        orbit_p = constants.ORBIT_INFO_DICT ):
-    # TODO
-    # LTC: Not sure if I want to implement this function. Originally thought that dumping
-    # the Orbit_Path_Time.txt into json, then loading the json into a python dictionary
-    # would decrease lookup times for orbit_start, but the very act of loading the json
-    # file every time orbit_start is called may take longer than parsing the Orbit.txt file
-    # directly.
+_orbit_info_dict = None
 
-    o_info = {}
-
-    # Check if the python pickle containing the orbit info dictionary exists
-    if not os.path.isfile( orbit_p ): 
-        # If it doesn't exist, we need to generate it.
-        with open( orbit_info, 'r') as file:
-            for line in file:
-                line = line.strip()
-                
-                # Split the line into each field
-                fields = line.split(' ')
-                orbit = fields[0].strip()
-                path = fields[1].strip()
-                stime = fields[2].strip()
-                etime = fields[3].strip()
-
-                # Get each field into an appropriate format
-                orbit = int(orbit)
-                path = int(path)
-    
-                # Remove all non-integer characters
-                stime = re.sub(r"\D", '', stime)
-                etime = re.sub(r"\D", '', stime)
-
-                # Create new 
-
-def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_TXT ):
+def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_JSON ):
     '''
 **DESCRIPTION:**  
     This function finds the starting time of the orbit according to the Orbit_Path_Info.txt file. Please
@@ -85,36 +52,26 @@ def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_TXT ):
     
 **ARGUMENTS:**  
     *orbit (int)* -- Orbit to find starting time of  
-    *orbit_info (str)*    -- Path to the orbit_info.txt file
+    *orbit_info (str)*    -- Path to the orbit_info.json file
     
 **EFFECTS:**  
     None
     
 **RETURN:**   
-    String containing the starting time in the format yyyymmddHHMMSS.
-    
-'''
+    String containing the starting time in the format yyyymmddHHMMSS. 
+    '''
+    global _orbit_info_dict
 
-    if orbit < _orbit_limits['orbitLimits']['start'] or \
-       orbit > _orbit_limits['orbitLimits']['end']:
+    if _orbit_info_dict is None:
+        with open( constants.ORBIT_INFO_JSON, 'rb' ) as f:
+            _orbit_info_dict = json.load( f )
+
+    try:
+        stime = _orbit_info_dict[str(orbit)]['stime']
+    except KeyError: 
         raise ValueError("Argument 'orbit' is outside the supported bounds.")
 
-    with open( orbit_info, 'r') as file:
-        for line in file:
-            if re.search( "^{}".format(orbit), line ):
-                match=line
-                break
-
-    if match == None:
-        return None
-    
-    match = match.split(' ')[2].strip()
-    match = match.replace('-','')
-    match = match.replace('T','')
-    match = match.replace(':','')
-    match = match.replace('Z','')
-
-    return match
+    return stime
 
 def orbitYear( orbit ):
     '''

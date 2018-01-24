@@ -10,31 +10,39 @@ downloadPY()
     mkdir -p "$BF_PATH_l"/externLib
     cd "$BF_PATH_l"/externLib
     
-    pyVers=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')
-    if [ $(cut -d'.' -f1,2 <<< $pyVers) != "2.7" ]; then 
+    pyVers="$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
+    echo "$pyVers"
+    if [ $(cut -d'.' -f1,2 <<< "$pyVers" ) != "2.7" ]; then 
         echo "ERROR: Need Python 2.7. Current version is: $pyVers" >&2
         echo "Configure your environment such that the \"python\" command calls Python 2.7." >&2
         echo "$pyVers"
         return 1
     fi
 
-    # Create the virtual environment
-    rm -rf "$virtEnvName"
-    echo "Generating the virtual environment..."
-    virtualenv --system-site-packages ./"$virtEnvName"
-    retVal_l=$?
-    if [ $retVal_l -ne 0 ]; then
-        echo "Failed to establish the virtual environment." >&2
-        return $retVal_l
-    fi
-    echo "Virtual environment created."
-    echo
+    py_local="$(python -c "import site; print(site.USER_BASE)")"/lib/python2.7/site-packages/
+
+#    # Create the virtual environment
+#    rm -rf "$virtEnvName"
+#    echo "Generating the virtual environment..."
+#    #bwpy-environ -- virtualenv --system-site-packages ./"$virtEnvName"
+#    export CPATH="${BWPY_INCLUDE_PATH}"
+#    export LIBRARY_PATH="${BWPY_LIBRARY_PATH}"
+#    export LDFLAGS="${LDFLAGS} -Wl,--rpath=${BWPY_LIBRARY_PATH}"
+#    virtualenv ./"$virtEnvName"
+#    retVal_l=$?
+#    if [ $retVal_l -ne 0 ]; then
+#        echo "Failed to establish the virtual environment." >&2
+#        return $retVal_l
+#    fi
+#    echo "Virtual environment created."
+#    echo
+#    
+#    # Source the virtualEnv
+#    cd BFpyEnv
+#    source ./bin/activate
+#    echo "Upgrading pip..."
     
-    # Source the virtualEnv
-    cd BFpyEnv
-    source ./bin/activate
-    echo "Upgrading pip..."
-    pip install --upgrade pip
+    pip install --upgrade pip --user
     retVal_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to update pip." >&2
@@ -49,7 +57,7 @@ downloadPY()
 
     cur_mod="docopt"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -60,7 +68,7 @@ downloadPY()
 
     cur_mod="pytz"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -71,7 +79,7 @@ downloadPY()
 
     cur_mod="globus-sdk"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -82,7 +90,7 @@ downloadPY()
 
     cur_mod="globus-cli"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -93,7 +101,7 @@ downloadPY()
 
     cur_mod="mpi4py"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -104,7 +112,7 @@ downloadPY()
 
     cur_mod="numpy"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -115,7 +123,7 @@ downloadPY()
 
     cur_mod="matplotlib"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -126,7 +134,7 @@ downloadPY()
 
     cur_mod="pdoc"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -137,7 +145,7 @@ downloadPY()
 
     cur_mod="pytest"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -147,8 +155,28 @@ downloadPY()
     echo
 
     echo "Copying bfutil Python package to site-packages..."
-    cp -r "$BF_PATH_l"/util/basicfusion_py/src/bfutils "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages
-    cp "$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.txt "$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages/bfutils/
+    site_pack="$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages/bfutils
+    #cp -r "$BF_PATH_l"/util/basicfusion_py/src/bfutils ${site_pack}
+    cp -r "$BF_PATH_l"/util/basicfusion_py/src/bfutils ${py_local}
+    
+    orbit_txt="$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.txt
+    gunzip < ${orbit_txt}.gz > ${orbit_txt}
+    retval_l=$?
+    if [ $retval_l -ne 0 ]; then
+        echo "Failed to unzip Orbit_Path_Time.txt" >&2
+        return $retval_l
+    fi
+    cp ${orbit_txt} ${py_pack}
+    
+    orbit_json="$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.json
+    gunzip < ${orbit_json}.gz > ${orbit_json}
+    retval_l=$?
+    if [ $retval_l -ne 0 ]; then
+        echo "Failed to unzip Orbit_Path_Time.json" >&2
+        return $retval_l
+    fi
+    cp ${orbit_json} ${py_pack}
+    
     echo "Done."
     echo
 
@@ -421,7 +449,7 @@ FAIL_HDF=0
 
 # ON BLUE WATERS (we are assuming)
 echo "Checking which system we're on..."
-if [[ $hn == "h2ologin"* ]]; then
+if [[ $hn == "h2ologin"* || $hn == "nid"* ]]; then
     PrgEnv=$(module list | grep PrgEnv)
     if [ ${#PrgEnv} -eq 0 ]; then
         module load PrgEnv-cray
