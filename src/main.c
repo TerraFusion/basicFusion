@@ -115,10 +115,10 @@ int main( int argc, char* argv[] )
 
     // open the orbit_info.bin file
     new_orbit_info_b = fopen(argv[3],"r");
-    if(new_orbit_info_b == NULL) ｛
+    if (new_orbit_info_b == NULL) {
         FATAL_MSG("file \"%s\" does not exist. Exiting program.\n", argv[3]);
         goto cleanupFail;
-    ｝
+    }
     long fSize = 0;
 
     // get the size of the file
