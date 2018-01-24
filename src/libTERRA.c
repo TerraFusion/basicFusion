@@ -1,13 +1,12 @@
-
 /*
-
 
     AUTHOR:
         Landon Clipp
+        MuQun Yang(MODIS/ASTER/MISR unpack and the associated routines, also MODIS dimension handling and CERES greg to UTC conversions)
 
     EMAIL:
         clipp2@illinois.edu
-
+        myang6@hdfgroup.org
 
 */
 
