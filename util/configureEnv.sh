@@ -44,8 +44,8 @@ downloadPY()
 #    source ./bin/activate
 #    echo "Upgrading pip..."
    
-    export PYTHONUSERBASE="${HOME}" 
-    prefix="${HOME}"
+    export PYTHONUSERBASE="${py_usr_base}" 
+    prefix="${py_usr_base}"
     mkdir -p "${prefix}/lib"
     mkdir -p "${prefix}/bin"
    
@@ -187,6 +187,13 @@ downloadPY()
     
     echo "Done."
     echo
+
+    # TODO
+    # I'm performing a dirty hack. Need to install Python packages to
+    # the user base, but we also need binarys to be in $PATH. Blue waters
+    # doesn't include .local in the path automatically. So, install
+    # to the python user base, then copy .local/bin to $HOME/bin
+    cp -r "${prefix}/bin/" "${HOME}/bin/"
 
 #    echo "Adding export line to ~/.bashrc"
 #    exprt='export PATH="${HOME}/.local/bin/:$PATH"'
