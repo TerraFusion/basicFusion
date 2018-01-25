@@ -52,13 +52,13 @@ Compilation will likely not succeed on the first try, so some tinkering with mak
 Please see KNOWN ISSUES for issues specific to compiling the BF program.
 
 ### bfutils
-bfutils is a Python package written specifically to support many of the high-level operations in Basic Fusion. This package is automatically installed into your BasicFusion virtenv's site-packages directory by configureEnv.sh. Some useful functions this package can perform:
+bfutils is a Python package written specifically to support many of the high-level operations in Basic Fusion. This package is automatically installed into your ~/.local/lib/ directory by configureEnv.sh. Some useful functions this package can perform:
 
 - Finding Terra orbit start times
 - Submitting Globus transfers
 - Determining if an input Terra file is appropriate for inclusion in the BasicFusion product
 
-After sourcing the virtenv, you can import the package in any script using:
+After activating the Blue Waters Python environment (bwpy-environ), you can import the package in any script using:
 
 `import bfutils`
 
