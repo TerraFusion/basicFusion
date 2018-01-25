@@ -19,27 +19,38 @@ downloadPY()
         return 1
     fi
 
-    # Create the virtual environment
-    rm -rf "$virtEnvName"
-    echo "Generating the virtual environment..."
-    #bwpy-environ -- virtualenv --system-site-packages ./"$virtEnvName"
-    export CPATH="${BWPY_INCLUDE_PATH}"
-    export LIBRARY_PATH="${BWPY_LIBRARY_PATH}"
-    export LDFLAGS="${LDFLAGS} -Wl,--rpath=${BWPY_LIBRARY_PATH}"
-    virtualenv ./"$virtEnvName"
-    retVal_l=$?
-    if [ $retVal_l -ne 0 ]; then
-        echo "Failed to establish the virtual environment." >&2
-        return $retVal_l
-    fi
-    echo "Virtual environment created."
-    echo
-    
-    # Source the virtualEnv
-    cd BFpyEnv
-    source ./bin/activate
-    echo "Upgrading pip..."
-    pip install --upgrade pip
+    py_usr_base="$(python -c "import site; print(site.USER_BASE)")"
+    py_site_pack=${py_usr_base}/lib/python2.7/site-packages/
+    mkdir -p "$py_site_pack"
+
+#    # Create the virtual environment
+#    rm -rf "$virtEnvName"
+#    echo "Generating the virtual environment..."
+#    #bwpy-environ -- virtualenv --system-site-packages ./"$virtEnvName"
+#    export CPATH="${BWPY_INCLUDE_PATH}"
+#    export LIBRARY_PATH="${BWPY_LIBRARY_PATH}"
+#    export LDFLAGS="${LDFLAGS} -Wl,--rpath=${BWPY_LIBRARY_PATH}"
+#    virtualenv ./"$virtEnvName"
+#    retVal_l=$?
+#    if [ $retVal_l -ne 0 ]; then
+#        echo "Failed to establish the virtual environment." >&2
+#        return $retVal_l
+#    fi
+#    echo "Virtual environment created."
+#    echo
+#    
+#    # Source the virtualEnv
+#    cd BFpyEnv
+#    source ./bin/activate
+#    echo "Upgrading pip..."
+   
+    export PYTHONUSERBASE="${HOME}" 
+    prefix="${HOME}"
+    mkdir -p "${prefix}/lib"
+    mkdir -p "${prefix}/bin"
+   
+    echo "Upgrading pip" 
+    pip install --upgrade pip --user
     retVal_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to update pip." >&2
@@ -54,7 +65,7 @@ downloadPY()
 
     cur_mod="docopt"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -65,7 +76,7 @@ downloadPY()
 
     cur_mod="pytz"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install  $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -76,7 +87,7 @@ downloadPY()
 
     cur_mod="globus-sdk"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install  $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -87,7 +98,7 @@ downloadPY()
 
     cur_mod="globus-cli"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install  $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -98,7 +109,7 @@ downloadPY()
 
     cur_mod="mpi4py"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install  $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -109,7 +120,7 @@ downloadPY()
 
     cur_mod="numpy"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install  $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -120,7 +131,7 @@ downloadPY()
 
     cur_mod="matplotlib"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install  $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -131,7 +142,7 @@ downloadPY()
 
     cur_mod="pdoc"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install  $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -142,7 +153,7 @@ downloadPY()
 
     cur_mod="pytest"
     echo "Downloading $cur_mod..."
-    pip install $cur_mod
+    pip install  $cur_mod --user
     retval_l=$?
     if [ $retVal_l -ne 0 ]; then
         echo "Failed to download the $cur_mod module." >&2
@@ -152,7 +163,8 @@ downloadPY()
     echo
 
     echo "Copying bfutil Python package to site-packages..."
-    site_pack="$BF_PATH_l"/externLib/BFpyEnv/lib/python2.7/site-packages/bfutils
+    site_pack="${prefix}/lib/python2.7/site-packages/"
+    #cp -r "$BF_PATH_l"/util/basicfusion_py/src/bfutils ${site_pack}
     cp -r "$BF_PATH_l"/util/basicfusion_py/src/bfutils ${site_pack}
     
     orbit_txt="$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.txt
@@ -162,7 +174,7 @@ downloadPY()
         echo "Failed to unzip Orbit_Path_Time.txt" >&2
         return $retval_l
     fi
-    cp ${orbit_txt} ${site_pack}
+    cp ${orbit_txt} ${site_pack}/bfutils
     
     orbit_json="$BF_PATH_l"/metadata-input/data/Orbit_Path_Time.json
     gunzip < ${orbit_json}.gz > ${orbit_json}
@@ -171,25 +183,33 @@ downloadPY()
         echo "Failed to unzip Orbit_Path_Time.json" >&2
         return $retval_l
     fi
-    cp ${orbit_json} ${site_pack}
+    cp ${orbit_json} ${site_pack}/bfutils
     
     echo "Done."
     echo
 
-    echo "Writing virtual environment activation helper script to ${HOME}/bin..."
-    local script="#!/bin/bash
-source \"$BF_PATH_l\"/externLib/BFpyEnv/bin/activate
-"
-    echo "$script" > ${HOME}/bin/activateBF
-    chmod +x ${HOME}/bin/activateBF
-    echo "Done."
-    echo
-    echo "==================================================================================="
-    echo "= NOTE: Activate the virtual environment at any time by typing: source activateBF ="
-    echo "==================================================================================="
-    echo
-
-    deactivate
+#    echo "Adding export line to ~/.bashrc"
+#    exprt='export PATH="${HOME}/.local/bin/:$PATH"'
+#    exprt_grp="$(grep "$exprt" ~/.bashrc)"
+#    if [ ${#exprt_grp} -le 2 ]; then
+#        echo "$exprt" >> ~/.bashrc
+#        eval $exprt_grp
+#    fi
+    
+#    echo "Writing virtual environment activation helper script to ${HOME}/bin..."
+#    local script="#!/bin/bash
+#source \"$BF_PATH_l\"/externLib/BFpyEnv/bin/activate
+#"
+#    echo "$script" > ${HOME}/bin/activateBF
+#    chmod +x ${HOME}/bin/activateBF
+#    echo "Done."
+#    echo
+#    echo "==================================================================================="
+#    echo "= NOTE: Activate the virtual environment at any time by typing: source activateBF ="
+#    echo "==================================================================================="
+#    echo
+#
+#    deactivate
 
     
     echo "Python setup complete."
