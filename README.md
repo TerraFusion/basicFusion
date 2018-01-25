@@ -23,6 +23,11 @@ In addition to the C dependencies, many of the Python scripts depend on external
     git clone https://YOUR_GITHUB_USERNAME@github.com/TerraFusion/basicFusion
     ```
 1. cd into the `basicFusion/util` directory
+1. Load the Blue Waters Python module and activate their virtual environment:
+    ```
+    module load bwpy
+    bwpy-environ
+    ```
 1. Configure the external Python dependencies by running the configureEnv.sh script.  
     ```
     ./configureEnv.sh -a
