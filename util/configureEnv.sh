@@ -193,7 +193,7 @@ downloadPY()
     # the user base, but we also need binarys to be in $PATH. Blue waters
     # doesn't include .local in the path automatically. So, install
     # to the python user base, then copy .local/bin to $HOME/bin
-    cp -r "${prefix}/bin/" "${HOME}/bin/"
+    cp -r "${prefix}/bin/" "${HOME}/"
 
 #    echo "Adding export line to ~/.bashrc"
 #    exprt='export PATH="${HOME}/.local/bin/:$PATH"'
