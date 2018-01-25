@@ -441,12 +441,6 @@ def main():
         Should be directory to a high-performance, high-capacity file system.", type=str )
     parser.add_argument("MISR_PATH", help="Where the MISR HRLL and AGP files reside. No specific subdirectory structure \
         is necessary.", type=str)
-    parser.add_argument("HASH_DIR", help="Where the hashes for all of the tar files reside. Subdirectory structure \
-        should be: one directory for each year from 2000 onward, named after the year. Each directory has hash files \
-        for each orbit of that year, named #hash.md5 where # is the orbit number.", type=str ) 
-    parser.add_argument("LOG_OUTPUT", help="Directory where the log directory tree will be created. This includes \
-        PBS scripts, log files, and various other administrative files needed for the workflow. Creates directory \
-        called {}. Defaults to {}".format(logName, os.getcwd()), nargs='?', type=str, default=os.getcwd())
     parser.add_argument("NODES", help="Number of XE nodes to request from scheduler.", type=int )
     parser.add_argument("PPN", help="Processors per node.", type=int)
     parser.add_argument("-g", "--job-granularity", help="Determines the maximum number of orbits each job will be responsible for. \
@@ -457,7 +451,13 @@ def main():
     parser.add_argument('--include-missing', help='Path to the missing MODIS files, where passed directory contains subdirectories named \
         after each orbit. Each of those subdirectories contains the MODIS files to include in the final BF granule.', type=str, \
         dest='modis_missing' )
-    
+    parser.add_argument("--log_dir", help="Directory where the log directory tree will be created. This includes \
+        PBS scripts, log files, and various other administrative files needed for the workflow. Creates directory \
+        called {}. Defaults to {}".format(logName, os.getcwd()), type=str, default=os.getcwd(),\
+        dest="LOG_OUTPUT" )
+    parser.add_argument("--hash_dir", dest="HASH_DIR", help="Where the hashes for all of the tar files reside. Subdirectory structure \
+        should be: one directory for each year from 2000 onward, named after the year. Each directory has hash files \
+        for each orbit of that year, named #hash.md5 where # is the orbit number.", type=str ) 
     parser.add_argument('--save-interm', help='Don\'t delete any intermediary \
         files on the scratch directory. WARNING! This option prevents script \
         from clearing out files no longer needed, thus increasing disk usage.',
@@ -606,7 +606,7 @@ def main():
         json.dump( logDirs, f, sort_keys=True, indent=4, separators=(',', ': ') )
 
     # Check that all directory arguments actually exist in the filesystem
-    if not os.path.isdir( args.HASH_DIR ):
+    if args.HASH_DIR and not os.path.isdir( args.HASH_DIR ):
         raise RuntimeError( "{} is not a valid directory!".format( args.HASH_DIR ) )
     if not os.path.isdir( args.LOG_OUTPUT ):
         raise RuntimeError( "{} is not a valid directory!".format( args.LOG_OUTPUT ) )
@@ -614,7 +614,8 @@ def main():
         raise RuntimeError( "{} is not a valid directory!".format( args.SCRATCH_SPACE ) )
         
     # Argument sanitizing
-    args.HASH_DIR = os.path.abspath( args.HASH_DIR )
+    if args.HASH_DIR:
+        args.HASH_DIR = os.path.abspath( args.HASH_DIR )
     args.LOG_OUTPUT = os.path.abspath( args.LOG_OUTPUT )
     args.SCRATCH_SPACE = os.path.abspath( args.SCRATCH_SPACE )
     
