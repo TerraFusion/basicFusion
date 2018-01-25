@@ -16,7 +16,6 @@ This script is the official workflow for the Basic Fusion project. It represents
 5. The user has logged into the Globus Python CLI and activated both the Blue Waters and the Nearline Globus endpoints. This can be done by executing and completing the following terminal commands:
 
     ```
-    source activateBF
     globus login
     globus endpoint activate $GLOBUS_BW
     globus endpoint activate $GLOBUS_NL
@@ -27,7 +26,6 @@ This script is the official workflow for the Basic Fusion project. It represents
 If these assumptions are met, the user has a fair chance at successful granule generation. To execute submitWorkflow.py:
 
 ```
-source activateBF
 python submitWorkflow.py --help
 ```
 
