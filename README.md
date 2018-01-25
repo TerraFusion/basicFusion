@@ -23,22 +23,21 @@ In addition to the C dependencies, many of the Python scripts depend on external
     git clone https://YOUR_GITHUB_USERNAME@github.com/TerraFusion/basicFusion
     ```
 1. cd into the `basicFusion/util` directory
+1. Load the Blue Waters Python module and activate their virtual environment:
+    ```
+    module load bwpy
+    bwpy-environ
+    ```
 1. Configure the external Python dependencies by running the configureEnv.sh script.  
     ```
     ./configureEnv.sh -a
     ```
     This will download the Python dependencies, install [NCSA Scheduler](https://github.com/ncsa/Scheduler), and download/install HDF libraries to the basicFusion/externLib directory. This script requires proper visibility to a system MPI library to install mpi4py. If mpi4py installation fails, please ensure you have a proper MPI environment module loaded.
     
-A helper script is instaled in ~/bin/ that aids in activating the Python virtual environment. The virtual environment can then be activated by:
+The following command will give no output if the Python installation was successful:
 
 ```
-source activateBF
-```
-
-If users have more than one basicFusion repository on the file system and have called ./configureEnv.sh from multiple places, it is then strongly recommended to explicitly activate the virtual environment as such:
-
-```
-source /path/to/basicFusion/externLib/BFpyEnv/bin/activate
+python -c "import bfutils"
 ```
 
 ### Compilation
@@ -53,13 +52,13 @@ Compilation will likely not succeed on the first try, so some tinkering with mak
 Please see KNOWN ISSUES for issues specific to compiling the BF program.
 
 ### bfutils
-bfutils is a Python package written specifically to support many of the high-level operations in Basic Fusion. This package is automatically installed into your BasicFusion virtenv's site-packages directory by configureEnv.sh. Some useful functions this package can perform:
+bfutils is a Python package written specifically to support many of the high-level operations in Basic Fusion. This package is automatically installed into your ~/.local/lib/ directory by configureEnv.sh. Some useful functions this package can perform:
 
 - Finding Terra orbit start times
 - Submitting Globus transfers
 - Determining if an input Terra file is appropriate for inclusion in the BasicFusion product
 
-After sourcing the virtenv, you can import the package in any script using:
+After activating the Blue Waters Python environment (bwpy-environ), you can import the package in any script using:
 
 `import bfutils`
 
