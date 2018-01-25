@@ -34,16 +34,10 @@ In addition to the C dependencies, many of the Python scripts depend on external
     ```
     This will download the Python dependencies, install [NCSA Scheduler](https://github.com/ncsa/Scheduler), and download/install HDF libraries to the basicFusion/externLib directory. This script requires proper visibility to a system MPI library to install mpi4py. If mpi4py installation fails, please ensure you have a proper MPI environment module loaded.
     
-A helper script is instaled in ~/bin/ that aids in activating the Python virtual environment. The virtual environment can then be activated by:
+The following command will give no output if the Python installation was successful:
 
 ```
-source activateBF
-```
-
-If users have more than one basicFusion repository on the file system and have called ./configureEnv.sh from multiple places, it is then strongly recommended to explicitly activate the virtual environment as such:
-
-```
-source /path/to/basicFusion/externLib/BFpyEnv/bin/activate
+python -c "import bfutils"
 ```
 
 ### Compilation
