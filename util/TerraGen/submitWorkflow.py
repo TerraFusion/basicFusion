@@ -465,8 +465,8 @@ def main():
     parser.add_argument('--queue', help='Set the queue to submit the jobs to.', \
         type=str, choices=['low', 'normal', 'high'], default='normal', dest='queue' )
     ll = parser.add_mutually_exclusive_group(required=False)
-    ll.add_argument("-l", "--log", help="Set the log level. Allowable values are INFO, DEBUG. Absence of this parameter \
-        sets debug level to WARNING.", type=str, choices=['INFO', 'DEBUG' ] , default="WARNING")
+    ll.add_argument("-l", "--log", help="Set the log level. Defaults to \
+        WARNING.", type=str, choices=['INFO', 'WARNING', 'DEBUG' ] , default="WARNING")
 
     args = parser.parse_args()
 
