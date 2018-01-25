@@ -421,11 +421,6 @@ def pickle_granules( arg ):
 def main():
     # Define the argument parser
     parser = argparse.ArgumentParser(description='''This script is the final-ish workflow for the BasicFusion project. It retrieves the tar files from Nearline and processes all orbits from ORBIT_START to ORBIT_END. It is recommended that users wrap this script with a shell script since the arguments to this program are lengthy. \
-         \
-        REQUIREMENTS: \
-            1. This program assumes it can submit 4 active Globus transfer requests. The default from Globus is 3. \
-               If you have not asked Globus to increase this limit, either change the default values in this script \
-               or ask for an increase from Globus.\
         ''')
     parser.add_argument("ORBIT_START", help="The starting orbit to process.", type=int)
     parser.add_argument("ORBIT_END", help="The ending orbit to process.", type=int)
