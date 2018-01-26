@@ -157,6 +157,13 @@ export USE_CHUNK=1
 # Source the Basic Fusion python virtual environment
 # source {}
 
+# Need to source this file before calling module command
+source /opt/modules/default/init/bash
+
+# Load proper python modules
+module load bwpy
+module load bwpy-mpi
+
 logFile={}
 remoteID={}
 hostID={}
@@ -232,7 +239,14 @@ def makePBS_pull( job_name, pull_script, log_file, sum_log, granule_list, \
 #PBS -N {}
 #PBS -q {}
 
-# Source the BasicFusion python environment
+
+# Need to source this file before calling module command
+source /opt/modules/default/init/bash
+
+# Load proper python modules
+module load bwpy
+module load bwpy-mpi
+
 # source {}
 
 job_name={}
