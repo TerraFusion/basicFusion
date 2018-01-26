@@ -151,6 +151,7 @@ module unload netcdf
 module load cray-netcdf
 
 # Set the environment variables for Basic Fusion code
+export TERRA_DATA_UNPACK=1
 export USE_GZIP=1
 export USE_CHUNK=1
  
