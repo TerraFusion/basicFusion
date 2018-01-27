@@ -51,7 +51,7 @@ VIRT_ENV = None
 def makePBS_process(granule_list, PBSpath, remoteID, hostID, jobName, logDir, \
     summaryLog, oLimits, json_log, scratchSpace, MISR_path_files, hashDir, \
     projPath, globus_parallelism, nodes, ppn, modis_missing, save_interm, \
-    queue ):
+    queue, walltime="48:00:00" ):
     '''
 **DESCRIPTION:**
     This function makes the PBS scripts and other files necessary to pull the proper orbits from Nearline
@@ -81,7 +81,8 @@ def makePBS_process(granule_list, PBSpath, remoteID, hostID, jobName, logDir, \
     *save_interm* (bool)    -- Save the intermediary files on scratch.
     *queue* (str)      -- Sets the queue requested to PBS. Allowable 
         values are defined by the system's PBS scheduler.  
-
+    *walltime* (str)      -- Specify the walltime of the job.
+    
 **EFFECTS**  
     Creates a PBS file at PBSpath.
 **RETURN**  
@@ -93,9 +94,6 @@ def makePBS_process(granule_list, PBSpath, remoteID, hostID, jobName, logDir, \
     # ======================
     # = default parameters =
     # ======================
-    WALLTIME      = "48:00:00"
-    NUM_NODES     = nodes
-    PPN           = ppn            # processors (cores) per node
     POLL_INTERVAL = 60
     GLOBUS_LOG    = os.path.join( logDir, jobName + ".log" )
     GLOBUS_PBS    = os.path.join( PBSpath, jobName + "_pbs.pbs" )
@@ -207,9 +205,9 @@ if [ $retVal -ne 0 ]; then
 fi
 
 
-'''.format( NUM_NODES, PPN, WALLTIME, jobName, queue, VIRT_ENV, \
+'''.format( nodes, ppn, walltime, jobName, queue, VIRT_ENV, \
     GLOBUS_LOG, remoteID, hostID, jobName, granule_list, summaryLog, oLimits[0], oLimits[1], \
-    pull_process_script, json_log, hashDir, NUM_NODES, PPN, scratchSpace, MISR_path_files, \
+    pull_process_script, json_log, hashDir, nodes, ppn, scratchSpace, MISR_path_files, \
     globus_parallelism, save_interm_str, modis_missing, mpi_exec )
 
     with open ( GLOBUS_PBS, 'w' ) as f:
@@ -219,13 +217,13 @@ fi
 
 #===========================================================================
 def makePBS_pull( job_name, pull_script, log_file, sum_log, granule_list, \
-    src_id, dest_id, log_dirs, save_interm, queue ):
+    src_id, dest_id, log_dirs, save_interm, queue, globus_split=1, \
+    walltime="48:00:00" ):
     
     # ----------------------
     # - default parameters -
     # ----------------------
 
-    walltime    = '48:00:00'
     nodes       = 1
     ppn         = 1
     num_ranks   = 1
@@ -261,8 +259,9 @@ src_id={}
 dest_id={}
 log_dirs={}
 save_interm={}
+globus_split={}
 
-{{ aprun -n ${{num_ranks}} -N $ppn -d 1 bwpy-environ -- python ${{pull_script}} ${{save_interm}} ${{granule_list}} ${{src_id}} ${{dest_id}} ${{log_dirs}} ${{job_name}} ; }} 1>> $log_file 2>> $log_file
+{{ aprun -n ${{num_ranks}} -N $ppn -d 1 bwpy-environ -- python ${{pull_script}} -g ${{globus_split}} ${{save_interm}} ${{granule_list}} ${{src_id}} ${{dest_id}} ${{log_dirs}} ${{job_name}} ; }} 1>> $log_file 2>> $log_file
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
@@ -271,7 +270,7 @@ if [ $retVal -ne 0 ]; then
 fi
 '''.format( nodes, ppn, walltime, job_name, queue, VIRT_ENV, job_name, pull_script, \
     ppn, num_ranks, log_file, sum_log, granule_list, src_id, dest_id, log_dirs, \
-    save_interm_str, job_name )
+    save_interm_str, globus_split, job_name )
 
     return PBSfile
 
@@ -279,12 +278,11 @@ fi
 
 def makePBS_push( output_granule_list, PBSpath, remote_id, host_id, remote_dir, \
     job_name, log_pickle_path, summary_log, projPath, logFile, num_transfer, \
-    save_interm, queue ):
+    save_interm, queue, walltime="48:00:00" ):
     
     # ======================
     # = default parameters =
     # ======================
-    WALLTIME      = "48:00:00"
     NUM_NODES     = 1
     PPN           = 1            # processors (cores) per node
     GLOBUS_PBS    = os.path.join( PBSpath, job_name + "_pbs.pbs" )
@@ -330,7 +328,7 @@ if [ $retVal -ne 0 ]; then
     echo \"${{job_name}}: Failed to push data to nearline. See: $log_file\" >> $summary_log
     exit 1
 fi
-    '''.format( NUM_NODES, PPN, WALLTIME, job_name, queue, PPN, NUM_NODES, push_script, \
+    '''.format( NUM_NODES, PPN, walltime, job_name, queue, PPN, NUM_NODES, push_script, \
         num_transfer, output_granule_list, remote_id, remote_dir, host_id, job_name, \
         log_pickle_path, summary_log, logFile, save_interm_str, \
         VIRT_ENV, MPI_EXEC )
@@ -477,7 +475,15 @@ def main():
     ll = parser.add_mutually_exclusive_group(required=False)
     ll.add_argument("-l", "--log", help="Set the log level. Defaults to \
         WARNING.", type=str, choices=['INFO', 'WARNING', 'DEBUG' ] , default="WARNING")
-
+    parser.add_argument('--pull-wall', help="Specify walltime for pull \
+        job. String must be in format 'HH:MM:SS'. Defaults to 48:00:00.", \
+        type=str, default="48:00:00", dest="pull_wall" )
+    parser.add_argument('--proc-wall', help="Specify walltime for process \
+        job. String must be in format 'HH:MM:SS'. Defaults to 48:00:00.", \
+        type=str, default="48:00:00", dest="proc_wall" )
+    parser.add_argument('--push-wall', help="Specify walltime for push \
+        job. String must be in format 'HH:MM:SS'. Defaults to 48:00:00.", \
+        type=str, default="48:00:00", dest="push_wall" )
     args = parser.parse_args()
 
     # Argument sanity check
@@ -682,7 +688,7 @@ def main():
         logger.info('Making granule list for quanta {}'.format(count))
         arg_list = []
 
-        # ADDITIONS #############################################
+        # TROUBLE ORBITS #############################################
 #        orbits = []
 #        orbits += range( 21200, 21250 )
 #        orbits += range( 37380, 38330 )
@@ -691,15 +697,27 @@ def main():
 #        orbits += range( 3875, 3925 )
 #        orbits += range( 4910, 4960 )
 #        orbits += range( 6130, 6180 )
-#        for orbit in orbits:
-#            if orbit % 10 == 0:
-#                print( orbit )
-#            arg_list.append( (orbit, bf_metadata, FILENAME, BFoutputDir, BF_exe, \
-#                orbit_info_bin, args, logDirs ) )
-        #########################################################
-        for orbit in range( i.orbitStart, i.orbitEnd + 1 ):
+        # WRONG ORBITS ################################################
+        orbits = []
+        orbits += range( 6126, 6155 )
+        orbits += [ 37805 ]
+        orbits += [ 38104 ]
+        orbits += [ 38372 ]
+        orbits += [ 40868 ]
+        orbits += [ 40422 ]
+        orbits += [ 41614 ]
+        orbits += [ 42022 ]
+        orbits += [ 42750 ]
+        for orbit in orbits:
+            if orbit % 10 == 0:
+                print( orbit )
             arg_list.append( (orbit, bf_metadata, FILENAME, BFoutputDir, BF_exe, \
                 orbit_info_bin, args, logDirs ) )
+
+        #########################################################
+#        for orbit in range( i.orbitStart, i.orbitEnd + 1 ):
+#            arg_list.append( (orbit, bf_metadata, FILENAME, BFoutputDir, BF_exe, \
+#                orbit_info_bin, args, logDirs ) )
 
         granuleList = p.map( make_granule, arg_list )
         # Remove all None elements from granuleList
@@ -756,7 +774,7 @@ def main():
                    }
             pbs_str = makePBS_pull( pull_name, pull_script, log_file, summaryLog, \
                 i.granule_list, args.REMOTE_ID, args.HOST_ID, json_log, args.save_interm, \
-                args.queue )
+                args.queue, args.GLOBUS_PRL, args.pull_wall )
             f.write( pbs_str )
         i.PBSfile['pull'] = pull_pbs
         
@@ -771,7 +789,7 @@ def main():
             [ i.orbitStart, i.orbitEnd], json_log, args.SCRATCH_SPACE, \
             args.MISR_PATH, args.HASH_DIR, projPath, args.GLOBUS_PRL, \
             args.NODES, args.PPN, args.modis_missing, args.save_interm, \
-            args.queue )
+            args.queue, args.proc_wall )
 
         # ------------------------------------
         # - MAKE THE GLOBUS PUSH PBS SCRIPTS -
@@ -779,7 +797,8 @@ def main():
 
         i.PBSfile['push'] = makePBS_push( i.granule_list, PBSdirs['push'], args.REMOTE_ID, args.HOST_ID, \
             args.REMOTE_BF_DIR, push_name, json_log, summaryLog, projPath, os.path.join( logDirs['push'], \
-            push_name + "_log.log"), args.GLOBUS_PRL, args.save_interm, args.queue ) 
+            push_name + "_log.log"), args.GLOBUS_PRL, args.save_interm, \
+            args.queue, args.push_wall ) 
 
 
     # ==================================

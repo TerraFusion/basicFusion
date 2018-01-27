@@ -1190,8 +1190,10 @@ else
     echo "ERROR: Unrecognized argument: $INPUT_OPT"
     exit 1
 fi
-    
-source "$PROJ_PATH"/externLib/BFpyEnv/bin/activate
+  
+# LTC 1/27/2018: Decided to not use virtual environment, rather just
+# put all python dependencies in python's USER_LOCAL  
+# source "$PROJ_PATH"/externLib/BFpyEnv/bin/activate
 
 if [ ${#MOPLINES} -lt 2 ]; then
     echo "MOP N/A" >> "$UNORDERED"

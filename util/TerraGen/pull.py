@@ -27,6 +27,9 @@ def main():
         files on the scratch directory. WARNING! This option prevents script \
         from clearing out files no longer needed, thus increasing disk usage.',
         dest='save_interm', action='store_true')
+    parser.add_argument("-p", "--globus-split", help="Globus parallelism. Defines how many Globus transfer requests are submitted \
+        for any given transfer job. Defaults to 1.", dest='GLOBUS_SPLIT', type=int, default=1)
+    
 
     args = parser.parse_args()
     
@@ -81,7 +84,7 @@ def main():
     deadline = delta + now
 
     logger.info('Submitting Globus Transfer and waiting for completion...')
-    transfer.transfer( parallel=3, label='tar_pull_{}_{}'.format( orbit_min, \
+    transfer.transfer( parallel=args.GLOBUS_SPLIT, label='tar_pull_{}_{}'.format( orbit_min, \
         orbit_max), batch_dir = batch_dir, \
         deadline = deadline.strftime("%Y-%m-%d %H:%M:%S") )
 
