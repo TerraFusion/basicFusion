@@ -5,7 +5,7 @@
 This script is ultimately intended to replace the atrocious genFusionInput.sh script. In the process of development, it will only replace certain functionality until all functionality has a Python implementation.
 """
 
-import basicFusion as BF
+from bfutils import orbit as BF
 import os, sys
 import argparse
 import re
