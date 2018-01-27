@@ -47,7 +47,7 @@ _orbit_info_dict = None
 def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_JSON ):
     '''
 **DESCRIPTION:**  
-    This function finds the starting time of the orbit according to the Orbit_Path_Info.txt file. Please
+    This function finds the starting time of the orbit according to the Orbit_Path_Info.json file. Please
     see the GitHub documentation on how to generate this file.
     
 **ARGUMENTS:**  
@@ -63,7 +63,7 @@ def orbit_start( orbit, orbit_info=constants.ORBIT_INFO_JSON ):
     global _orbit_info_dict
 
     if _orbit_info_dict is None:
-        with open( constants.ORBIT_INFO_JSON, 'rb' ) as f:
+        with open( orbit_info, 'rb' ) as f:
             _orbit_info_dict = json.load( f )
 
     try:
