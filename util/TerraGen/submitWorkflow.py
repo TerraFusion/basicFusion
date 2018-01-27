@@ -697,27 +697,27 @@ def main():
 #        orbits += range( 3875, 3925 )
 #        orbits += range( 4910, 4960 )
 #        orbits += range( 6130, 6180 )
-        # WRONG ORBITS ################################################
-        orbits = []
-        orbits += range( 6126, 6155 )
-        orbits += [ 37805 ]
-        orbits += [ 38104 ]
-        orbits += [ 38372 ]
-        orbits += [ 40868 ]
-        orbits += [ 40422 ]
-        orbits += [ 41614 ]
-        orbits += [ 42022 ]
-        orbits += [ 42750 ]
-        for orbit in orbits:
-            if orbit % 10 == 0:
-                print( orbit )
-            arg_list.append( (orbit, bf_metadata, FILENAME, BFoutputDir, BF_exe, \
-                orbit_info_bin, args, logDirs ) )
-
-        #########################################################
-#        for orbit in range( i.orbitStart, i.orbitEnd + 1 ):
+#        # WRONG ORBITS ################################################
+#        orbits = []
+#        orbits += range( 6126, 6155 )
+#        orbits += [ 37805 ]
+#        orbits += [ 38104 ]
+#        orbits += [ 38372 ]
+#        orbits += [ 40868 ]
+#        orbits += [ 40422 ]
+#        orbits += [ 41614 ]
+#        orbits += [ 42022 ]
+#        orbits += [ 42750 ]
+#        for orbit in orbits:
+#            if orbit % 10 == 0:
+#                print( orbit )
 #            arg_list.append( (orbit, bf_metadata, FILENAME, BFoutputDir, BF_exe, \
 #                orbit_info_bin, args, logDirs ) )
+
+        #########################################################
+        for orbit in range( i.orbitStart, i.orbitEnd + 1 ):
+            arg_list.append( (orbit, bf_metadata, FILENAME, BFoutputDir, BF_exe, \
+                orbit_info_bin, args, logDirs ) )
 
         granuleList = p.map( make_granule, arg_list )
         # Remove all None elements from granuleList
