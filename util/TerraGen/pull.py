@@ -27,7 +27,7 @@ def main():
         files on the scratch directory. WARNING! This option prevents script \
         from clearing out files no longer needed, thus increasing disk usage.',
         dest='save_interm', action='store_true')
-    parser.add_argument("-p", "--globus-split", help="Globus parallelism. Defines how many Globus transfer requests are submitted \
+    parser.add_argument("-g", "--globus-split", help="Globus parallelism. Defines how many Globus transfer requests are submitted \
         for any given transfer job. Defaults to 1.", dest='GLOBUS_SPLIT', type=int, default=1)
     
 
