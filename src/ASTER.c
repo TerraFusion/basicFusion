@@ -648,6 +648,12 @@ int ASTER( char* argv[],int aster_count,int unpack)
             goto cleanupFail;
         }
 
+        // Add the units attribute.
+        if(H5LTset_attribute_string(pointingAngleGroup,sensorName[j],"units","degree")<0) {
+            FATAL_MSG("Failed to add the units of a pointing angle dataset.\n");
+            goto cleanupFail;
+        }
+
         // Attach pure dimension
         pointingDsetID = H5Dopen2( pointingAngleGroup, sensorName[j], H5P_DEFAULT );
         if ( pointingDsetID < 0 )
@@ -781,6 +787,12 @@ int ASTER( char* argv[],int aster_count,int unpack)
         goto cleanupFail;
     }
 
+    //Add the units attribute .
+    if(H5LTset_attribute_string(solar_geometryGroup,"SolarAzimuth","units","degree")<0) {
+        FATAL_MSG("Failed to add the units of the SolarAzimuth dataset.\n");
+        goto cleanupFail;
+    }
+
     tempDsetID = H5Dopen2( solar_geometryGroup, "SolarAzimuth", H5P_DEFAULT );
     if ( tempDsetID < 0 )
     {
@@ -803,6 +815,12 @@ int ASTER( char* argv[],int aster_count,int unpack)
     {
         FATAL_MSG("Failed to add a solar geometry dataset.\n");
         tempDsetID = 0;
+        goto cleanupFail;
+    }
+
+    // May add the attribute here.
+    if(H5LTset_attribute_string(solar_geometryGroup,"SolarElevation","units","degree")<0) {
+        FATAL_MSG("Failed to add the units of the SolarElevation dataset.\n");
         goto cleanupFail;
     }
 
