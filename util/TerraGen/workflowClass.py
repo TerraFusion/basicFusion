@@ -26,7 +26,6 @@ class granule:
         self.sourceTarPath = None
         self.destTarPath   = tarFile
         self.proc_log_dir = None
-        self.metadata_dir = None
         self.ddl_path   = None
         self.cdl_path   = None
 

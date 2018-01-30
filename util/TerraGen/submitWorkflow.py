@@ -128,7 +128,7 @@ def makePBS_process(granule_list, PBSpath, remoteID, hostID, jobName, logDir, \
 #PBS -q {}
 ##PBS -l geometry=1x4x2/2x2x2/2x4x1/4x1x2/4x2x1
 
-##PBS -l flags=commtransparent
+#PBS -l flags=commtransparent
 
 # Even with commtransparent, NCSA told me the jobs are still causing network conjestion.
 # So they told me to add this export command. Don't know what it does.
@@ -270,7 +270,7 @@ if [ $retVal -ne 0 ]; then
 fi
 '''.format( nodes, ppn, walltime, job_name, queue, VIRT_ENV, job_name, pull_script, \
     ppn, num_ranks, log_file, sum_log, granule_list, src_id, dest_id, log_dirs, \
-    save_interm_str, globus_split, job_name )
+    save_interm_str, globus_split  )
 
     return PBSfile
 
@@ -302,6 +302,13 @@ def makePBS_push( output_granule_list, PBSpath, remote_id, host_id, remote_dir, 
 # Even with commtransparent, NCSA told me the jobs are still causing network conjestion.
 # So they told me to add this export command. Don't know what it does.
 export APRUN_BALANCED_INJECTION=64
+
+# Need to source this file before calling module command
+source /opt/modules/default/init/bash
+
+# Load proper python modules
+module load bwpy
+module load bwpy-mpi
 
 ppn={}
 nodes={}
@@ -342,13 +349,12 @@ fi
 def make_granule( arg_tuple ):
    
     orbit = arg_tuple[0]
-    bf_metadata = arg_tuple[1]
-    FILENAME = arg_tuple[2]
-    BFoutputDir = arg_tuple[3]
-    BF_exe = arg_tuple[4]
-    orbit_info_bin = arg_tuple[5]
-    args = arg_tuple[6]
-    logDirs = arg_tuple[7]
+    FILENAME = arg_tuple[1]
+    BFoutputDir = arg_tuple[2]
+    BF_exe = arg_tuple[3]
+    orbit_info_bin = arg_tuple[4]
+    args = arg_tuple[5]
+    logDirs = arg_tuple[6]
 
     # Find what year this orbit belongs to
     year = bfutils.orbitYear( orbit )
@@ -411,7 +417,6 @@ def make_granule( arg_tuple ):
     curGranule.BFoutputDir      = BFoutputDir
     curGranule.BFfileName       = BFfileName 
     curGranule.logFile          = os.path.join( proc_log_dir, '{}process_log.txt'.format(orbit))
-    curGranule.metadata_dir     = os.path.join( bf_metadata, BFdirStructure )
     curGranule.inputFileList    = os.path.join( proc_log_dir, '{}input.txt'.format(orbit ) )
     curGranule.BF_exe           = BF_exe
     curGranule.orbit_times_bin  = orbit_info_bin                
@@ -551,7 +556,6 @@ def main():
     global VIRT_ENV
     VIRT_ENV            = os.path.join( projPath, 'externLib', 'BFpyEnv', 'bin', 'activate' )
     BFoutputDir         = os.path.join( args.SCRATCH_SPACE, "BFoutput" )
-    bf_metadata         = os.path.join( logDirs['misc'], 'BF_metadata' )
     FILENAME            = 'TERRA_BF_L1B_O{0}_{1}_F000_V001.h5'
     BF_exe              = os.path.join( projPath, "bin", "basicFusion" )
     orbit_info_txt      = os.path.join( projPath, "metadata-input", "data", "Orbit_Path_Time.txt" )
@@ -577,7 +581,7 @@ def main():
  
     logger = logging.getLogger('submit_workflow')
 
-    logger.info('Arguments: \n{}'.format(sys.argv))
+    logger.info('Arguments: \n{}'.format( ' '.join(sys.argv) ))
     logger.debug("Using virtual environment detected here: {}".format(VIRT_ENV))
     
     #          ---------------
@@ -589,13 +593,7 @@ def main():
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
-    # Make the directory to store input file listings
-    try:
-        os.makedirs( bf_metadata )
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    
+ 
     if not os.path.isfile( BF_exe ):
         errMsg="The basic fusion executable was not found at: {}".format( BF_exe)
         logger.critical(errMsg)
@@ -700,23 +698,23 @@ def main():
 #        # WRONG ORBITS ################################################
 #        orbits = []
 #        orbits += range( 6126, 6155 )
-#        orbits += [ 37805 ]
-#        orbits += [ 38104 ]
-#        orbits += [ 38372 ]
-#        orbits += [ 40868 ]
-#        orbits += [ 40422 ]
-#        orbits += [ 41614 ]
-#        orbits += [ 42022 ]
-#        orbits += [ 42750 ]
+#        orbits.append(37805)
+#        orbits.append(38104 )
+#        orbits.append(38372 )
+#        orbits.append(40868 )
+#        orbits.append(40422 )
+#        orbits.append(41614 )
+#        orbits.append(42022 )
+#        orbits.append(42750 )
 #        for orbit in orbits:
 #            if orbit % 10 == 0:
 #                print( orbit )
-#            arg_list.append( (orbit, bf_metadata, FILENAME, BFoutputDir, BF_exe, \
+#            arg_list.append( (orbit, FILENAME, BFoutputDir, BF_exe, \
 #                orbit_info_bin, args, logDirs ) )
 
         #########################################################
         for orbit in range( i.orbitStart, i.orbitEnd + 1 ):
-            arg_list.append( (orbit, bf_metadata, FILENAME, BFoutputDir, BF_exe, \
+            arg_list.append( (orbit, FILENAME, BFoutputDir, BF_exe, \
                 orbit_info_bin, args, logDirs ) )
 
         granuleList = p.map( make_granule, arg_list )

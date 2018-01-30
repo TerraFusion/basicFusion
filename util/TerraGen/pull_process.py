@@ -166,6 +166,9 @@ def mpi_rank_generate( data ):
     # call basic fusion program
     # Make the basic fusion input file list
     
+    # ----------------------------
+    # - GENERATE INPUT FILE LIST -
+    # ----------------------------
     logger.debug("Generating BF input file: {}".format(data.inputFileList))
     args = [ genFusInput, data.untarDir, str(data.orbit), data.inputFileList, '--dir' ]
     with open( data.logFile, 'a+' ) as logFile:
@@ -184,19 +187,24 @@ def mpi_rank_generate( data ):
         if e.errno != errno.ENOENT:
             raise
 
-    logger.debug("Generating BF granule: {}".format(data.outputFilePath))
-    with open( data.logFile, 'w' ) as logFile:
-        args =  [ data.BF_exe, data.outputFilePath, data.inputFileList, data.orbit_times_bin ] 
+    # -----------------------
+    # - GENERATE BF GRANULE -
+    # -----------------------
+
+    args =  [ data.BF_exe, data.outputFilePath, data.inputFileList, data.orbit_times_bin ] 
+    logger.debug("basicFusion: {}".format( ' '.join(args) ) )
+    with open( data.logFile, 'a' ) as logFile:
         retCode = subprocess.call( args, stdout=logFile, stderr=subprocess.STDOUT ) 
     if retCode != 0:
         with open( summaryLog, 'a' ) as f:
             f.write("{} granule generation error.\n".format( data.orbit))
         logger.error("Orbit {} failed to generate granule.".format(data.orbit))
+
     # ----------------
     # - Generate CDL -
     # ----------------
     args = [ 'ncdump', '-h', data.outputFilePath ]
-    logger.debug('ncdump: {}'.format(args))
+    logger.debug('ncdump: {}'.format( ' '.join(args) ) )
     with open( data.cdl_path, 'w' ) as cdl_file:
         retCode = subprocess.call( args, stdout = cdl_file, stderr = subprocess.STDOUT )
     if retCode != 0:
@@ -210,14 +218,28 @@ def mpi_rank_generate( data ):
     # We use the h5dump of our user-built HDF library, not system h5dump
     h5dump_path = os.path.join( repo_dir, 'externLib', 'hdf', 'bin', 'h5dump' ) 
     args = [ h5dump_path, '-pH', data.outputFilePath ]
-    logger.debug('h5dump: {}'.format(args))
+    logger.debug('h5dump: {}'.format( ' '.join(args) ) )
     with open( data.ddl_path, 'w' ) as ddl_file:
         retCode = subprocess.call( args, stdout = ddl_file, stderr = subprocess.STDOUT )
     if retCode != 0:
         with open( summaryLog, 'a' ) as f:
             f.write("{} granule DDL generation error.\n".format( data.orbit))
         logger.error("Orbit {} failed to generate DDL.".format(data.orbit))
-   
+  
+    # ------------------------------------------
+    # - GENERATE FILE SIZE AND GENERATION TIME -
+    # ------------------------------------------
+    args = ['ls', '-l', data.outputFilePath]
+    logger.debug('{}'.format( ' '.join(args) ) )
+    # We append result of ls to granule's log file
+    with open( data.logFile, 'a' ) as logFile:
+        retCode = subprocess.call( args, stdout=logFile, stderr=subprocess.STDOUT )
+    if retCode != 0:
+        with open( summaryLog, 'a' ) as f:
+            err_msg = '{} granule file metadata error.\n'.format( data.orbit )
+            f.write( err_msg )
+        logger.error( err_msg )
+
     if not prog_args.save_interm: 
         # Delete the untarred input data. We don't need it anymore.
         shutil.rmtree( data.untarDir )
