@@ -229,7 +229,7 @@ def mpi_rank_generate( data ):
     # ------------------------------------------
     # - GENERATE FILE SIZE AND GENERATION TIME -
     # ------------------------------------------
-    args = ['ls', '-l', data.outputFilePath]
+    args = ['stat', data.outputFilePath]
     logger.debug('{}'.format( ' '.join(args) ) )
     # We append result of ls to granule's log file
     with open( data.logFile, 'a' ) as logFile:
