@@ -1031,24 +1031,26 @@ verifyFiles()
                     printf "\tLine: $linenum\n" >&2
                     printf "\tFile: $line\n" >&2
                 fi
-            elif [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
-                curDate=$(echo "$curfilename" | cut -f6 -d'_' | cut -f2 -d'O')
-                if [[ "$curDate" != "$curGroupDate" ]]; then
-                    printf "Warning: " >&2
-                    printf "MISR date inconsistency found.\n"
-                    printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
-                    printf "\tThese two dates should be equal.\n" >&2
-                    printf "\tLine: $linenum\n" >&2
-                    printf "\tFile: $line\n" >&2
-                fi
-            # else we need to check the dates between cur and prev
-            elif [[ "$curDate" != "$curGroupDate" && "$line" != *"AGP"* && "$line" != *"HRLL"* ]]; then
-                printf "Warning: " >&2
-                printf "MISR date inconsistency found.\n"
-                printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
-                printf "\tThese two dates should be equal.\n" >&2
-                printf "\tLine: $linenum\n" >&2
-                printf "\tFile: $line\n" >&2
+# LTC Jan 31, 2018: Comment out the following warnings for now. Throws warnings if GP_MISS was found,
+# but this causes validation of log files to raise false alarms.
+#            elif [[ "$(echo "$curfilename" | cut -f3,3 -d'_')" == "GP" ]]; then
+#                curDate=$(echo "$curfilename" | cut -f6 -d'_' | cut -f2 -d'O')
+#                if [[ "$curDate" != "$curGroupDate" ]]; then
+#                    printf "Warning: " >&2
+#                    printf "MISR date inconsistency found.\n"
+#                    printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
+#                    printf "\tThese two dates should be equal.\n" >&2
+#                    printf "\tLine: $linenum\n" >&2
+#                    printf "\tFile: $line\n" >&2
+#                fi
+#            # else we need to check the dates between cur and prev
+#            elif [[ "$curDate" != "$curGroupDate" && "$line" != *"AGP"* && "$line" != *"HRLL"* ]]; then
+#                printf "Warning: " >&2
+#                printf "MISR date inconsistency found.\n"
+#                printf "\t$curfilename has a date: $curDate != $curGroupDate\n" >&2
+#                printf "\tThese two dates should be equal.\n" >&2
+#                printf "\tLine: $linenum\n" >&2
+#                printf "\tFile: $line\n" >&2
             fi
 
             # CHECK FOR VERSION CONSISTENCY
