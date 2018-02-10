@@ -4,6 +4,7 @@ import errno
 from dateutil.parser import parse
 import subprocess
 import re
+import uuid
 
 __author__ = 'Landon T. Clipp'
 __email__  = 'clipp2@illinois.edu'
@@ -131,10 +132,13 @@ Initiate a Globus transfer request using the files in self's file list.
             if e.errno != errno.EEXIST:
                 raise
 
+        if label is None:
+            label = str(uuid.uuid4())
+
         for i in xrange( parallel ):
             # Add the filename of our new split-file to the list
             
-            splitList.append( os.path.join( batch_dir, label + "_list_{}.txt".format(i)) )
+            splitList.append( os.path.join( batch_dir, label + "_{}.txt".format(i)) )
                 
             with open( splitList[i], 'w' ) as partition:
                 
@@ -183,10 +187,8 @@ Initiate a Globus transfer request using the files in self's file list.
                 args.append('--verify-checksum')
             
             
-            if label:
-                # strip non-alphaneumeric characters from label
-                args.append( '--label' )
-                args.append( '{}_{}'.format( label, i) )
+            args.append( '--label' )
+            args.append( os.path.basename( splitFile)  )
 
             if sync_level:
                 args.append('--sync-level')
