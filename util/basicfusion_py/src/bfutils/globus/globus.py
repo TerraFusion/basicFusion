@@ -188,7 +188,7 @@ Initiate a Globus transfer request using the files in self's file list.
             
             
             args.append( '--label' )
-            args.append( os.path.basename( splitFile)  )
+            args.append( os.path.basename( splitFile ).split('.')[0]  )
 
             if sync_level:
                 args.append('--sync-level')
@@ -202,6 +202,7 @@ Initiate a Globus transfer request using the files in self's file list.
             args.append( self.destID + ':/' )
             args.append( '--batch' )
 
+            print(args)
             with open( splitFile, 'r' ) as stdinFile:
                 subproc = subprocess.Popen( args, stdin=stdinFile, \
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE ) 
@@ -209,7 +210,7 @@ Initiate a Globus transfer request using the files in self's file list.
             subproc.wait()
             output = subproc.stdout.read() + subproc.stderr.read()
 
-            print( output )
+            print( args )
             if subproc.returncode != 0:
                 print( output )
                 raise RuntimeError('Globus subprocess failed with retcode {}'.\
