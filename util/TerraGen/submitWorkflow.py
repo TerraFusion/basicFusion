@@ -501,6 +501,9 @@ def main():
     parser.add_argument('--no-push', help='Do not push BasicFusion granules \
         back to REMOTE_ID. WARNING: BF granules will not be removed from \
         SCRATCH_SPACE after generation!', dest='no_push', action='store_true' )
+    parser.add_argument('--pbs-account', help='Specify the PBS account.', \
+        dest='pbs_account', type=str)
+
     args = parser.parse_args()
 
     # Argument sanity check
@@ -840,9 +843,9 @@ def main():
     for i in quantas:
         
         if not args.no_push:
-            i.pull_job = workflow.Job( i.PBSfile['pull'] )
-            i.proc_job = workflow.Job( i.PBSfile['process'] )
-            i.push_job = workflow.Job( i.PBSfile['push'] )
+            i.pull_job = workflow.Job( i.PBSfile['pull'], account=args.pbs_account )
+            i.proc_job = workflow.Job( i.PBSfile['process'], account=args.pbs_account )
+            i.push_job = workflow.Job( i.PBSfile['push'], account=args.pbs_account )
 
             chain.add_job( i.pull_job )
             chain.add_job( i.proc_job )
@@ -863,8 +866,8 @@ def main():
 
         # Create the job dependency without the push job
         else:
-            i.pull_job = workflow.Job( i.PBSfile['pull'] )
-            i.proc_job = workflow.Job( i.PBSfile['process'] )
+            i.pull_job = workflow.Job( i.PBSfile['pull'], account=args.pbs_account )
+            i.proc_job = workflow.Job( i.PBSfile['process'], account=args.pbs_account )
 
             chain.add_job( i.pull_job )
             chain.add_job( i.proc_job )
