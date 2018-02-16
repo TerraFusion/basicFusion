@@ -56,8 +56,12 @@ def main():
     consoleHandler = logging.StreamHandler(sys.stdout)
     consoleHandler.setFormatter(logFormatter)
     logFormatter = logging.Formatter(FORMAT, dateformat)
-    logger = logging.getLogger()
+    logger = logging.getLogger( __name__ )
     logger.addHandler(consoleHandler)
+    fileHandler = logging.FileHandler( args.SUMMARY_LOG )
+    fileHandler.setLevel( logging.WARNING )
+    fileHandler.setFormatter(logFormatter)
+    loggerogger.addHandler( fileHandler )
     logger.setLevel(ll)
 
     # -------------
@@ -134,7 +138,7 @@ def main():
             month   = orbit_start[4:6]
             day     = orbit_start[6:8]
 
-            remote_dir       = os.path.join( args.REMOTE_DIR, str(year), str(month), str(day) )
+            remote_dir       = os.path.join( args.REMOTE_DIR, '{}.{}'.format(year, month) )
             remote_file_path = os.path.join( remote_dir, curGranule.BFfileName )
 
             

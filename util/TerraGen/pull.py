@@ -32,9 +32,7 @@ def main():
     
 
     args = parser.parse_args()
-    
-
-    
+        
     global logDirs
     with open( args.LOG_DIRS, 'rb' ) as f:
         logDirs = json.load( f )
@@ -57,6 +55,10 @@ def main():
     rootLogger = logging.getLogger()
     rootLogger.addHandler(fileHandler)
     rootLogger.setLevel(logging.DEBUG)
+    fileHandler = logging.FileHandler( args.SUMMARY_LOG )
+    fileHandler.setLevel( logging.WARNING )
+    fileHandler.setFormatter(logFormatter)
+    rootLogger.addHandler( fileHandler )
 
     global logger
     logger = logging.getLogger(__file__)
@@ -92,4 +94,8 @@ def main():
     logger.info('Done')
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception:
+        logger.exception('Fatal exception!')
+        raise

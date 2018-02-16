@@ -200,7 +200,7 @@ fi
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
-    echo \"FAIL: ${{oLower}}_${{oMax}}: Failed to pull data from nearline. See: $logFile\" >> $summaryLog
+    echo \"FAIL: ${{oLower}}_${{oMax}}: Failed to pull process data. See: $logFile\" >> $summaryLog
     exit 1
 fi
 
@@ -444,30 +444,39 @@ def main():
     parser.add_argument("ORBIT_END", help="The ending orbit to process.", type=int)
     parser.add_argument("REMOTE_ID", help="The Globus endpoint identifier of Nearline, or where the tar files reside \
         and where the final BasicFusion files will be stored.", type=str)
-    parser.add_argument("REMOTE_TAR_DIR", help="The directory on Nearline (or other valid Globus endpoint) where the tar files reside. \
-        This directory contains the subdirectories \'2000\', \'2001\', \'2002\' etc, in which contain the tar files for each orbit of that year. \
+    parser.add_argument("REMOTE_TAR_DIR", help="The directory on Nearline \
+        (or other valid Globus endpoint) where the tar files reside. This \
+        directory contains the subdirectories \'2000\', \'2001\', \'2002\' \
+        etc, in which contain the tar files for each orbit of that year. \
         Each tar file is named #archive.tar, where # is the orbit number.", type=str )
-    parser.add_argument("REMOTE_BF_DIR", help="Where the Basic Fusion files will be stored on Nearline. Leaf directory \
-        need not exist, script will create it.", type=str)
+    parser.add_argument("REMOTE_BF_DIR", help="Where the Basic Fusion files \
+        will be stored on Nearline. Leaf directory need not exist, script \
+        will create it.", type=str)
     parser.add_argument("HOST_ID", help="The globus endpoint identifier of this current machine.", type=str ) 
-    parser.add_argument("SCRATCH_SPACE", help="Directory where all intermediary tar and Basic Fusion files will reside. \
-        Should be directory to a high-performance, high-capacity file system.", type=str )
-    parser.add_argument("MISR_PATH", help="Where the MISR HRLL and AGP files reside. No specific subdirectory structure \
-        is necessary.", type=str)
-    parser.add_argument("NODES", help="Number of XE nodes to request from scheduler.", type=int )
+    parser.add_argument("SCRATCH_SPACE", help="Directory where all intermediary \
+        tar and Basic Fusion files will reside. Should be directory to a \
+        high-performance, high-capacity file system.", type=str )
+    parser.add_argument("MISR_PATH", help="Where the MISR HRLL and AGP files \
+        reside. No specific subdirectory structure is necessary.", type=str)
+    parser.add_argument("NODES", help="Number of XE nodes to request from \
+        scheduler.", type=int )
     parser.add_argument("PPN", help="Processors per node.", type=int)
-    parser.add_argument("-g", "--job-granularity", help="Determines the maximum number of orbits each job will be responsible for. \
-        Define this value if you need to increase/decrease the amount of disk space the intermediary files take up. Defaults to 5000.", \
+    parser.add_argument("-g", "--job-granularity", help="Determines the \
+        maximum number of orbits each pull-proc-push tuple will be \
+        responsible for. Define this value if you need to increase/decrease \
+        the amount of disk space the intermediary files take up. Defaults to 5000.", \
         dest="granule", type=int, default=5000)
-    parser.add_argument("-p", "--globus-parallel", help="Globus parallelism. Defines how many Globus transfer requests are submitted \
-        for any given transfer job. Defaults to 1.", dest='GLOBUS_PRL', type=int, default=1)
-    parser.add_argument('--include-missing', help='Path to the missing MODIS files, where passed directory contains subdirectories named \
-        after each orbit. Each of those subdirectories contains the MODIS files to include in the final BF granule.', type=str, \
-        dest='modis_missing' )
-    parser.add_argument("--log_dir", help="Directory where the log directory tree will be created. This includes \
-        PBS scripts, log files, and various other administrative files needed for the workflow. Creates directory \
-        called {}. Defaults to {}".format(logName, os.getcwd()), type=str, default=os.getcwd(),\
-        dest="LOG_OUTPUT" )
+    parser.add_argument("-p", "--globus-parallel", help="Globus parallelism. \
+        Defines how many Globus transfer requests are submitted for any given \
+        transfer job. Defaults to 1.", dest='GLOBUS_PRL', type=int, default=1)
+    parser.add_argument('--include-missing', help='Path to the missing MODIS \
+        files, where passed directory contains subdirectories named after each \
+        orbit. Each of those subdirectories contains the MODIS files to \
+        include in the final BF granule.', type=str, dest='modis_missing' )
+    parser.add_argument("--log_dir", help="Directory where the log directory \
+        tree will be created. This includes PBS scripts, log files, and \
+        various other administrative files needed for the workflow. Creates \
+        directory called {}. Defaults to {}".format(logName, os.getcwd()), type=str, default=os.getcwd(), dest="LOG_OUTPUT" )
     parser.add_argument("--hash_dir", dest="HASH_DIR", help="Where the hashes for all of the tar files reside. Subdirectory structure \
         should be: one directory for each year from 2000 onward, named after the year. Each directory has hash files \
         for each orbit of that year, named #hash.md5 where # is the orbit number.", type=str ) 
@@ -489,6 +498,9 @@ def main():
     parser.add_argument('--push-wall', help="Specify walltime for push \
         job. String must be in format 'HH:MM:SS'. Defaults to 48:00:00.", \
         type=str, default="48:00:00", dest="push_wall" )
+    parser.add_argument('--no-push', help='Do not push BasicFusion granules \
+        back to REMOTE_ID. WARNING: BF granules will not be removed from \
+        SCRATCH_SPACE after generation!', dest='no_push', action='store_true' )
     args = parser.parse_args()
 
     # Argument sanity check
@@ -524,14 +536,12 @@ def main():
     # Make the rest of the log directory
     PBSdir          = os.path.join( runDir, 'PBSscripts' )
     PBSdirs         = { 'push' : os.path.join( PBSdir, 'push' ), \
-                        'pull_process' : os.path.join( PBSdir, 'pull_process' ), \
                         'process'     : os.path.join( PBSdir, 'process' ), \
                         'pull'  : os.path.join( PBSdir, 'pull' ) \
                       }
     logDir          = os.path.join( runDir, 'logs' )
     logDirs         = { 'submit_workflow'   : os.path.join( logDir, 'submit_workflow' ), \
                         'summary'           : os.path.join( logDir, 'summary' ), \
-                        'pull_process'       : os.path.join( logDir, 'pull_process' ), \
                         'misc'              : os.path.join( logDir, 'misc' ), \
                         'process'           : os.path.join( logDir, 'process'), \
                         'push'       : os.path.join( logDir, 'push'), \
@@ -686,36 +696,51 @@ def main():
         logger.info('Making granule list for quanta {}'.format(count))
         arg_list = []
 
-        # TROUBLE ORBITS #############################################
-#        orbits = []
-#        orbits += range( 21200, 21250 )
-#        orbits += range( 37380, 38330 )
-#        orbits += range( 2560, 2610 )
-#        orbits += range( 3675, 3725 )
-#        orbits += range( 3875, 3925 )
-#        orbits += range( 4910, 4960 )
-#        orbits += range( 6130, 6180 )
+        code_block = -1
+        if code_block == 0:
+            # TROUBLE ORBITS #############################################
+            print("!!!!! RUNNING TROUBLE ORBITS !!!!!")
+            orbits = []
+            orbits += range( 21200, 21250 )
+            orbits += range( 37380, 38330 )
+            orbits += range( 2560, 2610 )
+            orbits += range( 3675, 3725 )
+            orbits += range( 3875, 3925 )
+            orbits += range( 4910, 4960 )
+            orbits += range( 6130, 6180 )
+            
+            for orbit in orbits:
+                if orbit % 10 == 0:
+                    print( orbit )
+                arg_list.append( (orbit, FILENAME, BFoutputDir, BF_exe, \
+                    orbit_info_bin, args, logDirs ) )
 #        # WRONG ORBITS ################################################
-#        orbits = []
-#        orbits += range( 6126, 6155 )
-#        orbits.append(37805)
-#        orbits.append(38104 )
-#        orbits.append(38372 )
-#        orbits.append(40868 )
-#        orbits.append(40422 )
-#        orbits.append(41614 )
-#        orbits.append(42022 )
-#        orbits.append(42750 )
-#        for orbit in orbits:
-#            if orbit % 10 == 0:
-#                print( orbit )
-#            arg_list.append( (orbit, FILENAME, BFoutputDir, BF_exe, \
-#                orbit_info_bin, args, logDirs ) )
+        elif code_block == 1:
+            print("!!!!! RUNNING WRONG ORBITS !!!!!")
+            orbits = []
+            orbits += range( 6126, 6155 )
+            orbits.append(33889)
+            orbits.append(37515)
+            orbits.append(37805)
+            orbits.append(38104 )
+            orbits.append(38372 )
+            orbits.append(40868 )
+            orbits.append(40422 )
+            orbits.append(41614 )
+            orbits.append(42022 )
+            orbits.append(42750 )
+        
+            for orbit in orbits:
+                if orbit % 10 == 0:
+                    print( orbit )
+                arg_list.append( (orbit, FILENAME, BFoutputDir, BF_exe, \
+                    orbit_info_bin, args, logDirs ) )
 
         #########################################################
-        for orbit in range( i.orbitStart, i.orbitEnd + 1 ):
-            arg_list.append( (orbit, FILENAME, BFoutputDir, BF_exe, \
-                orbit_info_bin, args, logDirs ) )
+        else:
+            for orbit in range( i.orbitStart, i.orbitEnd + 1 ):
+                arg_list.append( (orbit, FILENAME, BFoutputDir, BF_exe, \
+                    orbit_info_bin, args, logDirs ) )
 
         granuleList = p.map( make_granule, arg_list )
         # Remove all None elements from granuleList
@@ -807,29 +832,55 @@ def main():
 
     prevQuant = None  
     prevQuant_2 = None  
+
+    if args.no_push:
+        logger.info('Creating workflow without push job.')
+
     # Now that all quantas have been prepared, we can submit their jobs to the queue
     for i in quantas:
-        i.pull_job = workflow.Job( i.PBSfile['pull'] )
-        i.proc_job = workflow.Job( i.PBSfile['process'] )
-        i.push_job = workflow.Job( i.PBSfile['push'] )
+        
+        if not args.no_push:
+            i.pull_job = workflow.Job( i.PBSfile['pull'] )
+            i.proc_job = workflow.Job( i.PBSfile['process'] )
+            i.push_job = workflow.Job( i.PBSfile['push'] )
 
-        chain.add_job( i.pull_job )
-        chain.add_job( i.proc_job )
-        chain.add_job( i.push_job )
+            chain.add_job( i.pull_job )
+            chain.add_job( i.proc_job )
+            chain.add_job( i.push_job )
 
-        chain.set_dep( i.proc_job, i.pull_job, 'afterany' )
-        chain.set_dep( i.push_job, i.proc_job, 'afterany' )
+            chain.set_dep( i.proc_job, i.pull_job, 'afterany' )
+            chain.set_dep( i.push_job, i.proc_job, 'afterany' )
 
-        if prevQuant:
-            chain.set_dep( i.pull_job, prevQuant.pull_job, 'afterany' )
-            chain.set_dep( i.proc_job, prevQuant.proc_job, 'afterany' )
+            if prevQuant:
+                chain.set_dep( i.pull_job, prevQuant.pull_job, 'afterany' )
+                chain.set_dep( i.proc_job, prevQuant.proc_job, 'afterany' )
 
-        if prevQuant_2:
-            chain.set_dep( i.pull_job, prevQuant_2.push_job, 'afterany' )
+            if prevQuant_2:
+                chain.set_dep( i.pull_job, prevQuant_2.push_job, 'afterany' )
 
-        prevQuant_2 = prevQuant
-        prevQuant = i
+            prevQuant_2 = prevQuant
+            prevQuant = i
 
+        # Create the job dependency without the push job
+        else:
+            i.pull_job = workflow.Job( i.PBSfile['pull'] )
+            i.proc_job = workflow.Job( i.PBSfile['process'] )
+
+            chain.add_job( i.pull_job )
+            chain.add_job( i.proc_job )
+
+            chain.set_dep( i.proc_job, i.pull_job, 'afterany' )
+
+            if prevQuant:
+                chain.set_dep( i.pull_job, prevQuant.pull_job, 'afterany' )
+                chain.set_dep( i.proc_job, prevQuant.proc_job, 'afterany' )
+
+            if prevQuant_2:
+                chain.set_dep( i.pull_job, prevQuant_2.proc_job, 'afterany' )
+
+            prevQuant_2 = prevQuant
+            prevQuant = i
+            
     logger.info('Submitting jobs to the queue')
     # Submit the job chain, then print the map representation
     map_str = chain.submit( print_map = True )
