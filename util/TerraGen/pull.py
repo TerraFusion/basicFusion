@@ -12,6 +12,18 @@ import datetime as dt
 logDirs = None
 logger = None
 
+FORMAT='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
+dateformat='%d-%m-%Y:%H:%M:%S'
+logFormatter = logging.Formatter(FORMAT, dateformat)
+
+fileHandler = logging.FileHandler( LOG_FILE )
+fileHandler.setFormatter(logFormatter)
+
+rootLogger = logging.getLogger()
+rootLogger.addHandler(fileHandler)
+rootLogger.setLevel(logging.DEBUG)
+logger = logging.getLogger(__file__)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("GRANULE_LIST", help="Path to a Python pickle \
@@ -44,24 +56,11 @@ def main():
     #
     # ENABLE LOGGING
     #
-
-    FORMAT='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
-    dateformat='%d-%m-%Y:%H:%M:%S'
-    logFormatter = logging.Formatter(FORMAT, dateformat)
-
-    fileHandler = logging.FileHandler( LOG_FILE )
-    fileHandler.setFormatter(logFormatter)
-
-    rootLogger = logging.getLogger()
-    rootLogger.addHandler(fileHandler)
-    rootLogger.setLevel(logging.DEBUG)
     fileHandler = logging.FileHandler( args.SUMMARY_LOG )
     fileHandler.setLevel( logging.WARNING )
     fileHandler.setFormatter(logFormatter)
     rootLogger.addHandler( fileHandler )
 
-    global logger
-    logger = logging.getLogger(__file__)
     transfer = globus.GlobusTransfer( args.SRC_ID, args.DEST_ID )
 
     orbit_min = sys.maxsize
