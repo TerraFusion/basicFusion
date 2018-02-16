@@ -84,8 +84,21 @@ class Job(object):
     _valid_sched = { 'pbs' : 'qsub' }
     '''Scheduler name to executable mappings'''
 
-    def __init__( self, script, script_type=None ):
-
+    def __init__( self, script, script_type=None, account=None ):
+        '''
+**DESCRIPTION**  
+    Class responsible for submitting a single job to the PBS scheduler.  
+**ARGUMENTS**  
+    *script*  (str) -- Path to file, or string literal for the PBS script.  
+    *script_type* (str) -- Choose from { 'file', 'literal' }. Specifies 
+        whether script is a path (file) or a string literal. If it is literal,
+        script will be magically printed into a proper text file.  
+    *account* (str)   -- Specify any PBS account to submit the job under.  
+**EFFECTS**  
+    Submits job to the scheduler  
+**RETURN**
+    None
+        '''
         # Generate a unique ID for this job
         self._id            = uuid.uuid4()
 
@@ -102,6 +115,7 @@ class Job(object):
         self._sched_type        = None                                 #
         # override_sched changes behavior of sched_type interpretation #
         self._sched_override    = False                                #
+        self._account           = account                              #
         #---------------------------------------------------------------
 
     #====================================================================
@@ -288,6 +302,11 @@ class Job(object):
                 dep_string += ':{}'.format( sched_id )
 
             args.append(dep_string)
+        
+        # Specify job account
+        if self._account:
+            args.append('-A')
+            args.append( self._account )
 
         args.append( self._job_script )
 
