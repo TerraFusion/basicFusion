@@ -118,6 +118,8 @@ Initiate a Globus transfer request using the files in self's file list.
         # = SPLIT THE FILE LIST =
         # =======================
 
+        while len( self._file_list ) < parallel:
+            parallel -= 1
         # Find how to split the granuleList
         linesPerPartition = num_lines  / parallel
         extra   = num_lines / parallel
