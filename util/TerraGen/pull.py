@@ -16,11 +16,7 @@ FORMAT='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s'
 dateformat='%d-%m-%Y:%H:%M:%S'
 logFormatter = logging.Formatter(FORMAT, dateformat)
 
-fileHandler = logging.FileHandler( LOG_FILE )
-fileHandler.setFormatter(logFormatter)
-
 rootLogger = logging.getLogger()
-rootLogger.addHandler(fileHandler)
 rootLogger.setLevel(logging.DEBUG)
 logger = logging.getLogger(__file__)
 
@@ -35,6 +31,7 @@ def main():
         containing paths to the workflow log directories.", \
         type=str)
     parser.add_argument('JOB_NAME', help="Name of the job.", type=str )
+    parser.add_argument('SUMMARY_LOG', help='Workflow summary log.', type=str )
     parser.add_argument('--save-interm', help='Don\'t delete any intermediary \
         files on the scratch directory. WARNING! This option prevents script \
         from clearing out files no longer needed, thus increasing disk usage.',
@@ -59,7 +56,11 @@ def main():
     fileHandler = logging.FileHandler( args.SUMMARY_LOG )
     fileHandler.setLevel( logging.WARNING )
     fileHandler.setFormatter(logFormatter)
-    rootLogger.addHandler( fileHandler )
+    logger.addHandler( fileHandler )
+    
+    fileHandler = logging.FileHandler( LOG_FILE )
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
 
     transfer = globus.GlobusTransfer( args.SRC_ID, args.DEST_ID )
 

@@ -261,7 +261,7 @@ log_dirs={}
 save_interm={}
 globus_split={}
 
-{{ aprun -n ${{num_ranks}} -N $ppn -d 1 bwpy-environ -- python ${{pull_script}} -g ${{globus_split}} ${{save_interm}} ${{granule_list}} ${{src_id}} ${{dest_id}} ${{log_dirs}} ${{job_name}} ; }} 1>> $log_file 2>> $log_file
+{{ aprun -n ${{num_ranks}} -N $ppn -d 1 bwpy-environ -- python ${{pull_script}} -g ${{globus_split}} ${{save_interm}} ${{granule_list}} ${{src_id}} ${{dest_id}} ${{log_dirs}} ${{job_name}} ${{sum_log}} ; }} 1>> $log_file 2>> $log_file
 
 retVal=$?
 if [ $retVal -ne 0 ]; then
