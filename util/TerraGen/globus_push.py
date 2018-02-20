@@ -119,7 +119,7 @@ def main():
                 month   = orbit_start[4:6]
                 day     = orbit_start[6:8]
 
-                remote_dir       = os.path.join( args.REMOTE_DIR, str(year), str(month), str(day) )
+                remote_dir       = os.path.join( args.REMOTE_DIR, '{}.{}'.format(year, month) )
                 remote_file_path = os.path.join( remote_dir, curGranule.BFfileName )
 
                 if os.path.isfile( curGranule.outputFilePath ):
