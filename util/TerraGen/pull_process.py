@@ -205,17 +205,18 @@ def mpi_rank_generate( data ):
     if retCode != 0:
         logger.error("Orbit {} failed to generate CDL.".format(data.orbit))
 
-    # ----------------
-    # - Generate DDL -
-    # ----------------
-    # We use the h5dump of our user-built HDF library, not system h5dump
-    h5dump_path = os.path.join( repo_dir, 'externLib', 'hdf', 'bin', 'h5dump' ) 
-    args = [ h5dump_path, '-pH', data.outputFilePath ]
-    logger.debug('h5dump: {}'.format( ' '.join(args) ) )
-    with open( data.ddl_path, 'w' ) as ddl_file:
-        retCode = subprocess.call( args, stdout = ddl_file, stderr = subprocess.STDOUT )
-    if retCode != 0:
-        logger.error("Orbit {} failed to generate DDL.".format(data.orbit))
+    # LTC: Feb 20, 2018: Disable DDL generation for now
+#    # ----------------
+#    # - Generate DDL -
+#    # ----------------
+#    # We use the h5dump of our user-built HDF library, not system h5dump
+#    h5dump_path = os.path.join( repo_dir, 'externLib', 'hdf', 'bin', 'h5dump' ) 
+#    args = [ h5dump_path, '-pH', data.outputFilePath ]
+#    logger.debug('h5dump: {}'.format( ' '.join(args) ) )
+#    with open( data.ddl_path, 'w' ) as ddl_file:
+#        retCode = subprocess.call( args, stdout = ddl_file, stderr = subprocess.STDOUT )
+#    if retCode != 0:
+#        logger.error("Orbit {} failed to generate DDL.".format(data.orbit))
   
     # ------------------------------------------
     # - GENERATE FILE SIZE AND GENERATION TIME -
