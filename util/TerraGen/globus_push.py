@@ -11,6 +11,7 @@ import datetime as dt
 
 summaryLog=''
 jobName=''
+logger=None
 
 FORMAT='%(asctime)s %(levelname)-8s %(name)s [%(filename)s:%(lineno)d] %(message)s'
 dateformat='%d-%m-%Y:%H:%M:%S'
@@ -38,7 +39,7 @@ def main():
         from clearing out files no longer needed, thus increasing disk usage.',
         dest='save_interm', action='store_true')
     args = parser.parse_args()
-    print( type(args) )
+    
     #
     # ENABLE LOGGING
     #
@@ -56,12 +57,13 @@ def main():
     consoleHandler = logging.StreamHandler(sys.stdout)
     consoleHandler.setFormatter(logFormatter)
     logFormatter = logging.Formatter(FORMAT, dateformat)
+    global logger
     logger = logging.getLogger( __name__ )
     logger.addHandler(consoleHandler)
     fileHandler = logging.FileHandler( args.SUMMARY_LOG )
     fileHandler.setLevel( logging.WARNING )
     fileHandler.setFormatter(logFormatter)
-    loggerogger.addHandler( fileHandler )
+    logger.addHandler( fileHandler )
     logger.setLevel(ll)
 
     # -------------
@@ -181,15 +183,13 @@ def main():
         # stdout and stderr are now strings. Concatenate the strings together
         stdout += stderr
 
-        # Go ahead and write these to stdout
-        print( stdout )
+        # Go ahead and write these to logger
+        logger.info( stdout )
 
         retCode = subProc.returncode
 
         if retCode != 0:
-            with open( args.SUMMARY_LOG, 'a') as summaryLog:
-                summaryLog.write("ERROR: Globus transfer failed! See {} for more details.\n".format(globPullLog))
-
+            logger.error('ERROR: Globus transfer failed! See {} for more details.\n'.format(globPullLog))
     
     # The transfers have been submitted. Need to wait for them to complete...
     for id in submitIDs:
@@ -218,6 +218,5 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        with open( summaryLog, 'a') as f:
-            f.write('{}: Failed to push data. See log files for more info.\n'.format(jobName))
+        logger.exception('Encountered exception')
         raise
