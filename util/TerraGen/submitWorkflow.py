@@ -858,8 +858,12 @@ def main():
                 chain.set_dep( i.pull_job, prevQuant.pull_job, 'afterany' )
                 chain.set_dep( i.proc_job, prevQuant.proc_job, 'afterany' )
 
-            if prevQuant_2:
-                chain.set_dep( i.pull_job, prevQuant_2.push_job, 'afterany' )
+            # Landon Clipp Feb 21, 2018:
+            # NCSA increased our scratch quota to 1.3PiB. Now we remove pull_job
+            # dependency on push_job to get a constant flow of Nearline download.
+            
+            #if prevQuant_2:
+            #    chain.set_dep( i.pull_job, prevQuant_2.push_job, 'afterany' )
 
             prevQuant_2 = prevQuant
             prevQuant = i
@@ -878,8 +882,9 @@ def main():
                 chain.set_dep( i.pull_job, prevQuant.pull_job, 'afterany' )
                 chain.set_dep( i.proc_job, prevQuant.proc_job, 'afterany' )
 
-            if prevQuant_2:
-                chain.set_dep( i.pull_job, prevQuant_2.proc_job, 'afterany' )
+            
+            #if prevQuant_2:
+            #    chain.set_dep( i.pull_job, prevQuant_2.proc_job, 'afterany' )
 
             prevQuant_2 = prevQuant
             prevQuant = i
