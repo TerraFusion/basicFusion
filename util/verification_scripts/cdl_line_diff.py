@@ -154,7 +154,17 @@ def proc_log_size( arg ):
         lines = f.readlines()
 
     try:
-        ret_val = [ lines[-1].split()[4], orbit ]
+        #LTC Feb 28, 2018
+        # Decided to use stat instead of ls for finding BF file size. Unfortunately,
+        # this change was not reflected on all versions of scripts so we need to explicitly
+        # handle the two different outputs of stat and ls.
+
+        # using stat
+        if lines[-1].split()[0] == 'Size:':
+            ret_val = [ lines[-1].split()[2], orbit ]
+        # using ls
+        else:
+            ret_val = [ lines[-1].split()[4], orbit ]
     except IndexError:
         with open( duplicate_file, 'a' ) as f:
             f.write('Anomaly found in input file: {}'.format(dict) )
@@ -282,24 +292,24 @@ def main():
         one_files[i[1]]['bf_size'] = i[0]
 
     arg_list = []
-    for orbit in two_files:
-        if orbit != 'csv' and orbit in two_files:
-            try:
-                if re.search( proc_log_re1, two_files[orbit]['proc_log'] ) or \
-                   re.search( proc_log_re2, two_files[orbit]['proc_log'] ):
-                    arg_list.append( [ two_files[orbit], orbit ] )
-            except KeyError:
-                print('ERROR: orbit: {}'.format(orbit))
-                print( two_files[orbit])
-                raise
- 
-    sizes = p.map( proc_log_size, arg_list )
-    for i in sizes:
-        if i:
-            if 'bf_size' in two_files[i[1]]:
-                raise ValueError('bf_size already in two_files for orbit {}'.format(two_files[i[1]]))
-        
-            two_files[i[1]]['bf_size'] = i[0]
+#    for orbit in two_files:
+#        if orbit != 'csv' and orbit in two_files:
+#            try:
+#                if re.search( proc_log_re1, two_files[orbit]['proc_log'] ) or \
+#                   re.search( proc_log_re2, two_files[orbit]['proc_log'] ):
+#                    arg_list.append( [ two_files[orbit], orbit ] )
+#            except KeyError:
+#                print('ERROR: orbit: {}'.format(orbit))
+#                print( two_files[orbit])
+#                raise
+# 
+#    sizes = p.map( proc_log_size, arg_list )
+#    for i in sizes:
+#        if i:
+#            if 'bf_size' in two_files[i[1]]:
+#                raise ValueError('bf_size already in two_files for orbit {}'.format(two_files[i[1]]))
+#        
+#            two_files[i[1]]['bf_size'] = i[0]
     
 
 #    logging.info('Generating metadata info...')
