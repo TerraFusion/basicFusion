@@ -160,8 +160,8 @@ def proc_log_size( arg ):
         # handle the two different outputs of stat and ls.
 
         # using stat
-        if lines[-1].split()[0] == 'Size:':
-            ret_val = [ lines[-1].split()[2], orbit ]
+        if lines[-1].split()[0] == 'Birth:':
+            ret_val = [ lines[-7].split()[2], orbit ]
         # using ls
         else:
             ret_val = [ lines[-1].split()[4], orbit ]
