@@ -335,15 +335,18 @@ def main():
         if orbit == 'csv':
             continue
 
-        if orbit in two_files:
-            bf_diff = abs( int(one_files[orbit]['bf_size']) - int(two_files[orbit]['bf_size']))
-            logdiff = abs( int(one_files[orbit]['log_num_line']) - int(two_files[orbit]['log_num_line']))
-            input_diff = abs( int(one_files[orbit]['input_num_line'] ) - int(two_files[orbit]['input_num_line']))
-            cdl_diff = abs( int(one_files[orbit]['cdl_num_line']) - int(two_files[orbit]['cdl_num_line']) )
+        try:
+            if orbit in two_files:
+                bf_diff = abs( int(one_files[orbit]['bf_size']) - int(two_files[orbit]['bf_size']))
+                logdiff = abs( int(one_files[orbit]['log_num_line']) - int(two_files[orbit]['log_num_line']))
+                input_diff = abs( int(one_files[orbit]['input_num_line'] ) - int(two_files[orbit]['input_num_line']))
+                cdl_diff = abs( int(one_files[orbit]['cdl_num_line']) - int(two_files[orbit]['cdl_num_line']) )
 
-            print('{} bf_size_diff: {} log_line_diff: {} input_line_diff: {} cdl_line_diff {}'.format( \
-                orbit, bf_diff, logdiff, input_diff, cdl_diff))
-     
+                print('{} bf_size_diff: {} log_line_diff: {} input_line_diff: {} cdl_line_diff {}'.format( \
+                    orbit, bf_diff, logdiff, input_diff, cdl_diff))
+        except KeyError as e:
+            logger.exception('ORBIT {}\none_files: {}\ntwo_files: {}'.format(orbit, one_files[orbit], two_files[orbit]))
+ 
     logging.info('Done')
 
 if __name__ == '__main__':
