@@ -1,0 +1,2 @@
+/mnt/wrk/myang6/terra-fusion/change_attributes/TERRA_BF_L1B_O67531_20120828155028_F000_V001.h5
+/mnt/wrk/myang6/terra-fusion/change_attributes/TERRA_BF_L1B_O78677_20141003011302_F000_V001.h5
