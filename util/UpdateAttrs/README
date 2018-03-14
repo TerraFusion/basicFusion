@@ -1,1 +1,2 @@
-Use h5cc to compile h5_cha_attr.c and run the program with argument be a text file that includes the BF file path and name. Check the sample inputFiles.txt.
+At BW, change the Makefile to generate the executable or use h5cc to compile h5_cha_attr.c
+Run the program with argument be a text file that includes the BF file path and name. Check the sample inputFiles.txt.
