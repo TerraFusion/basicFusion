@@ -46,7 +46,7 @@ def main():
                         files.append( path )
     else:
         for dir in args.src_dir:
-            files += globus.ls( args.src_id, dir, False )
+            files += globus.ls( args.src_id, dir, True )
     
     omin=sys.maxint
     omax=0
@@ -61,10 +61,10 @@ def main():
             month = ftime[4:6]
             day = ftime[6:8]
             
+            match = re.search( '_O[0-9]+_', fname )
+            orbit = int( fname[ match.start() + 2 : match.end() - 1 ])
             # If doing only a range, check if orbit is in range
             if args.range:
-                match = re.search( '_O[0-9]+_', fname )
-                orbit = int( fname[ match.start() + 2 : match.end() - 1 ])
                 if orbit < args.range[0] or orbit > args.range[1]:
                     continue
 

@@ -15,7 +15,8 @@ AST_re='^AST_L1T_[0-9]+_[0-9]+_[0-9]+.hdf$'
 MIS_re_GRP='^MISR_AM1_GRP_ELLIPSOID_GM_P[0-9]{3}_O[0-9]+_(AA|AF|AN|BA|BF|CA|CF|DA|DF)_F[0-9]+_[0-9]+.hdf$' 
 MIS_re_AGP='^MISR_AM1_AGP_P[0-9]{3}_F[0-9]+_[0-9]+.hdf$'
 MIS_re_GP='^MISR_AM1_GP_GMP_P[0-9]{3}_O[0-9]+_F[0-9]+_[0-9]+.hdf$'
-MIS_re_HRLL='^MISR_HRLL_P[0-9]{3}.hdf$'
+MIS_re_HRLL='^MISR_HRLL_P[0-9]{3}\.hdf$'
+BF_re = '^TERRA_BF_L1B_O[0-9]+_[0-9]+_F[0-9]+_V[0-9]+\.h5$'
 
 # ==========================================
 # = Define what orbits belong to what year =
@@ -168,12 +169,49 @@ def findProcPartition( numProcess, numTasks):
 
     return processBin
 
+def bf_file_orbit( file ):
+    '''
+**DESCRIPTION**  
+    Returns the orbit number of a Basic Fusion file, according to the BF
+    file name.  
+**ARGUMENTS**  
+    *file* (str) -- File path or file name of a Basic Fusion file.  
+**EFFECTS**  
+    None  
+**RETURN**
+    int  
+    '''
+
+    bn = os.path.basename( file )
+    if not is_bf_file( file ):
+        raise ValueError('{} is not a Basic Fusion file!'.format(file))
+
+    return int( bn.split('_')[3].replace('O', '') )
+
+def is_bf_file( file ):
+    '''
+**DESCRIPTION**  
+    Returns True if *file* is a Basic Fusion file. Else, returns False.  
+**ARGUMENTS**  
+    *file* (str)    -- File path or file name.  
+**EFFECTS**  
+    None  
+**RETURN**  
+    True, False.  
+    '''
+
+    bn = os.path.basename(file)
+    if re.match( BF_re, bn ):
+        return True
+
+    return False
+
 def isBFfile( file_list ):
     '''
 **DESCRIPTION:**  
     This function takes as input a list of strings containing a file path 
     and determines, based on a regex pattern, if the file is or is not a 
-    'proper' Basic Fusion file. What constitutes a proper BF file is 
+    'proper' Basic Fusion input file. What constitutes a proper input file is 
     documented on this project's GitHub.
 
 **ARGUMENTS:**  

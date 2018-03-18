@@ -760,6 +760,7 @@ def main():
     p.map( pickle_granules, pickle_list )
 
     p.close()
+    p.join()
 
     for pick in pickle_list: 
         with open( pick[0], 'wb' ) as f:

@@ -118,6 +118,9 @@ Initiate a Globus transfer request using the files in self's file list.
         # = SPLIT THE FILE LIST =
         # =======================
 
+        if len( self._file_list ) <= 0:
+            raise ValueError('No files added to transfer!')
+
         while len( self._file_list ) < parallel:
             parallel -= 1
         # Find how to split the granuleList
@@ -204,7 +207,7 @@ Initiate a Globus transfer request using the files in self's file list.
             args.append( self.destID + ':/' )
             args.append( '--batch' )
 
-            print(args)
+            print( ' '.join(args) )
             with open( splitFile, 'r' ) as stdinFile:
                 subproc = subprocess.Popen( args, stdin=stdinFile, \
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE ) 
@@ -212,7 +215,6 @@ Initiate a Globus transfer request using the files in self's file list.
             subproc.wait()
             output = subproc.stdout.read() + subproc.stderr.read()
 
-            print( args )
             if subproc.returncode != 0:
                 print( output )
                 raise RuntimeError('Globus subprocess failed with retcode {}'.\
