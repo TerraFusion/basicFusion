@@ -132,7 +132,7 @@ def main():
 
     with open( args.fsize_txt, 'w') as f:
         for file in bf_files_sort:
-            f.write( '{}: {} {}\n'.format( file.orbit, file.old_fsize, file.new_fsize ) )
+            f.write( '{}: {} {}\n'.format( os.path.basename( file.get_path()), file.old_fsize, file.new_fsize ) )
 
 if __name__ == '__main__':
     main()
