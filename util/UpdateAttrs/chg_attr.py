@@ -42,7 +42,7 @@ def chg_attr_worker( bf_file ):
         cdl = bf_file.get_path() + '.cdl.old'
         try:
             with open( out_path, 'w' ) as f:
-                subproc.check_call( args, stdout=f, stderr=f )
+                subproc.check_call( args, stdout=f, stderr=subproc.STDOUT )
         except subproc.CalledProcessError:
             print('ERROR: {}'.format( ' '.join(args) ))
             raise
@@ -65,7 +65,6 @@ def chg_attr_worker( bf_file ):
         raise
     finally:
         os.remove( tmp_file )
-       
     # Get new file size
     bf_file.new_fsize = os.path.getsize( bf_file.get_path() )
 
