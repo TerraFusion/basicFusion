@@ -7,6 +7,7 @@ import logging
 import sys
 from multiprocessing import Pool
 import uuid
+import errno
 
 MAX_WORKERS = 32
 #NCDUMP = '/u/sciteam/clipp/basicFusion/externLib/hdf/bin/ncdump'
@@ -16,15 +17,24 @@ class BFFile(object):
 
     chg_attr_bin = None
 
-    def __init__ ( self, path = None ):
+    def __init__ ( self, path = None, cdl_dir = None, dry_run = None ):
         
         # Publics
         self.old_fsize = 0
         self.new_fsize = 0
         self.orbit = 0
+        self.dry_run = dry_run
         # Privates
         self._path = path
-        
+        self._cdl_dir = cdl_dir     
+        self._cdl_path = None
+
+    def set_cdl_dir( self, dir ):
+        self._cdl_dir = dir
+
+    def get_cdl_dir( self ):
+        return self._cdl_dir
+
     def set_path(self, path):
         self._path = path
 
@@ -39,7 +49,7 @@ def chg_attr_worker( bf_file ):
     def gen_cdl( bf_path, out_path ):
         # Generate CDL
         args = [ NCDUMP, '-h', bf_file.get_path() ]
-        cdl = bf_file.get_path() + '.cdl.old'
+        
         try:
             with open( out_path, 'w' ) as f:
                 subproc.check_call( args, stdout=f, stderr=subproc.STDOUT )
@@ -47,8 +57,19 @@ def chg_attr_worker( bf_file ):
             print('ERROR: {}'.format( ' '.join(args) ))
             raise
 
+    # Create directory for cdl
+    cdl_sub_dir = str( ( int( bf_file.orbit ) / 1000 ) * 1000 )
+    cdl_path_new =  os.path.join( bf_file.get_cdl_dir(), cdl_sub_dir )
+    try:
+        os.makedirs( cdl_path_new )
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+    bf_file.set_cdl_dir( cdl_path_new )
+
     # Generate old cdl
-    gen_cdl( bf_file.get_path(), bf_file.get_path() + '.cdl.old' )
+    gen_cdl( bf_file.get_path(), os.path.join( bf_file.get_cdl_dir(), os.path.basename( bf_file.get_path() ) + '.cdl.old' ) )
 
     # Create temporary file for input to chg_attr program
     tmp_file = str( uuid.uuid4() ) + '.txt.tmp'
@@ -59,7 +80,8 @@ def chg_attr_worker( bf_file ):
     # Run the attribute change program
     try:
         args = [ bf_file.chg_attr_bin, tmp_file ]
-        subproc.check_call( args, stderr=subproc.STDOUT )
+        if not bf_file.dry_run:
+            subproc.check_call( args, stderr=subproc.STDOUT )
     except subproc.CalledProcessError as e:
         print( 'ERROR: {}'.format(' '.join(args)) )
         raise
@@ -69,7 +91,7 @@ def chg_attr_worker( bf_file ):
     bf_file.new_fsize = os.path.getsize( bf_file.get_path() )
 
     # Generate new CDL
-    gen_cdl( bf_file.get_path(), bf_file.get_path() + '.cdl' )
+    gen_cdl( bf_file.get_path(), os.path.join( bf_file.get_cdl_dir(), os.path.basename( bf_file.get_path() ) + '.cdl' ) )
 
     return bf_file
 
@@ -82,6 +104,7 @@ def main():
     parser.add_argument('fsize_txt', help='Output file that contains before/after \
         size of BF file during attribute change.', 
         default = os.path.join('.', 'bf_sizes.txt'), nargs='?' )
+    parser.add_argument('--dry-run', help='Do not modify HDF files.', action='store_true' )
 
     args = parser.parse_args()
 
@@ -106,15 +129,22 @@ def main():
 
     BFFile.chg_attr_bin = args.attr_bin
 
+    cdl_dir = os.path.join( os.path.dirname( __file__ ), 'cdl' )
+    try:
+        os.makedirs( cdl_dir )
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
     logger.info('Parsing directories...')
+
     # Recurse through directory to find all BF files    
     for root, dirs, files in os.walk( args.in_dir ):
        for file in files:
             path = os.path.abspath( os.path.join( root, file ) )
             
-            f_type = orbit.isBFfile( [path] )
             if orbit.is_bf_file( file ):
-                bf_files.append( BFFile( path ) )
+                bf_files.append( BFFile( path, cdl_dir, args.dry_run ) )
 
     logger.info('Done.')
 
