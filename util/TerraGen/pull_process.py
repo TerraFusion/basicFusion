@@ -766,7 +766,10 @@ def main():
     MPI_wait()
  
 if __name__ == '__main__': 
-    
+   
+    if mpi_size == 1:
+        raise RuntimeError('Need more than 1 MPI process!')
+
     try:      
         main()
     except Exception as e:
