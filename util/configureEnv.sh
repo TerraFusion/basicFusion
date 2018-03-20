@@ -162,6 +162,17 @@ downloadPY()
     echo "Done."
     echo
 
+    cur_mod="pyina"
+    echo "Downloading $cur_mod..."
+    pip install  $cur_mod --user
+    retval_l=$?
+    if [ $retVal_l -ne 0 ]; then
+        echo "Failed to download the $cur_mod module." >&2
+        return $retVal_l
+    fi
+    echo "Done."
+    echo
+    
     echo "Copying bfutil Python package to site-packages..."
     site_pack="${prefix}/lib/python2.7/site-packages/"
     #cp -r "$BF_PATH_l"/util/basicfusion_py/src/bfutils ${site_pack}
