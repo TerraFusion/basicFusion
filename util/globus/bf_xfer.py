@@ -1,5 +1,6 @@
 import argparse
 from bfutils import globus
+import bfutils
 import re
 import datetime as dt
 import os 
@@ -52,7 +53,7 @@ def main():
     omax=0
 
     for file in files:
-        if re.search( bf_re, file ):
+        if bfutils.orbit.is_bf_file( file ):
             fname = file.split( os.path.sep )[-1]
             
             # Extract time
