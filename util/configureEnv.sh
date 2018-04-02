@@ -10,16 +10,16 @@ downloadPY()
     mkdir -p "$BF_PATH_l"/externLib
     cd "$BF_PATH_l"/externLib
     
-    pyVers="$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
+    pyVers="$(python2 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
     echo "$pyVers"
     if [ $(cut -d'.' -f1,2 <<< "$pyVers" ) != "2.7" ]; then 
         echo "ERROR: Need Python 2.7. Current version is: $pyVers" >&2
-        echo "Configure your environment such that the \"python\" command calls Python 2.7." >&2
+        echo "Configure your environment such that the \"python2\" command calls Python 2.7." >&2
         echo "$pyVers"
         return 1
     fi
 
-    py_usr_base="$(python -c "import site; print(site.USER_BASE)")"
+    py_usr_base="$(python2 -c "import site; print(site.USER_BASE)")"
     py_site_pack=${py_usr_base}/lib/python2.7/site-packages/
     mkdir -p "$py_site_pack"
 
@@ -391,7 +391,7 @@ downloadHDF(){
 if [ $# -ne 1 ]; then
     echo 
     printf "\nUSAGE: $0 [-s | -p | -h | -a]\n" >&2
-    pyVers=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')
+    pyVers=$(python2 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')
     description="
 DESCRIPTION:
 
