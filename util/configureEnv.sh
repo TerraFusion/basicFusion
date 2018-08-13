@@ -482,30 +482,30 @@ FAIL_PY=0
 FAIL_HDF=0
 
 # ON BLUE WATERS (we are assuming)
-echo "Checking which system we're on..."
-if [[ $hn == "h2ologin"* || $hn == "nid"* ]]; then
-    PrgEnv=$(module list | grep PrgEnv)
-    if [ ${#PrgEnv} -eq 0 ]; then
-        module load PrgEnv-cray
-    fi
-    module load cray-mpich
-    # Blue waters, we need to use cc and CC compilers for C and C++ respectively...
-    ON_BW=1
-    echo "DETECTED BLUE WATERS."
-    echo
-
-    module load bwpy
-    module load bwpy-mpi
-# ON ROGER
-elif [[ $hn == "cg-gpu01" ]]; then
-    module load mpich
-    ON_ROGER=1
-    echo "DETECTED ROGER."
-    echo
-else
-    echo "ERROR: Unable to detect which system we're on."
-    exit 1
-fi
+#echo "Checking which system we're on..."
+#if [[ $hn == "h2ologin"* || $hn == "nid"* ]]; then
+#    PrgEnv=$(module list | grep PrgEnv)
+#    if [ ${#PrgEnv} -eq 0 ]; then
+#        module load PrgEnv-cray
+#    fi
+#    module load cray-mpich
+#    # Blue waters, we need to use cc and CC compilers for C and C++ respectively...
+#    ON_BW=1
+#    echo "DETECTED BLUE WATERS."
+#    echo
+#
+#    module load bwpy
+#    module load bwpy-mpi
+## ON ROGER
+#elif [[ $hn == "cg-gpu01" ]]; then
+#    module load mpich
+#    ON_ROGER=1
+#    echo "DETECTED ROGER."
+#    echo
+#else
+#    echo "ERROR: Unable to detect which system we're on."
+#    exit 1
+#fi
 
 if [ $DOWNLOAD_PY -eq 1 ]; then
     downloadPY "$BF_PATH"
