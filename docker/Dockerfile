@@ -1,34 +1,21 @@
-FROM debian
+FROM terrafusion/basicfusion
 
-WORKDIR /bf
+#################
+## AWS WORKFLOW #
+#################
 
-ADD ./hdf-4.2.13 /bf/hdf-4.2.13
-ADD ./hdf5-1.8.16 /bf/hdf5-1.8.16
-ADD ./basicFusion /bf/basicFusion
+RUN apt-get -y install python-pip python-dev build-essential && pip install --upgrade pip
 
-RUN apt-get update \
-	&& apt-get install -y apt-utils \
-	&& apt-get -y install libpng-dev \
-	&& apt-get -y install zlib1g-dev  \
-	&& apt-get -y install make \
-	&& apt-get -y install gcc \
-	&& apt-get -y install bison flex \
-	&& apt-get -y install libjpeg-dev \
-	&& apt-get -y install g++ \
-	&& apt-get -y install libncurses-dev
+RUN pip install awscli --upgrade \
+	&& pip install bfutils
 
-RUN cd /bf/hdf-4.2.13 && ./configure --prefix=/usr/local --enable-shared --disable-fortran && \
-	make && \
-	make install
+ADD ./75000_s3 /bf/infilelist/75000
 
-RUN cd /bf/hdf5-1.8.16 && ./configure --prefix=/usr/local --disable-fortran && \
-	make && \
-	make install
+ADD ./awsrun.py /bf/awsrun.py
 
-RUN cd /bf/basicFusion && \
-	make
+#ADD ./.aws /root/.aws
+
+ADD ./Dockerfile /
 
 #ENTRYPOINT ["/usr/local/bin/basicfusion"]
-
-CMD ["/usr/local/bin/basicfusion"]
-
+#CMD ["/usr/local/bin/basicfusion"]
